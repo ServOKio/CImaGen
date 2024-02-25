@@ -20,8 +20,10 @@ jobs:
       
       - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
 
-      - name: Setup Flutter SDK Environment on GitHub Actions
-        uses: cjlapao/setup-flutter-action@v0.1.6
+      - name: Install Flutter
+        uses: subosito/flutter-action@v1
+        with:
+          flutter-version: 'latest'
             
       - name: Install dependencies
         run: dart pub get
