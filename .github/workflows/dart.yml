@@ -24,12 +24,9 @@ jobs:
       # - uses: dart-lang/setup-dart@v1
       - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
 
-      - name: Setup Flutter ${{ matrix.flutter-version }}
-        id: flutter
-        if: "!startsWith(matrix.bot, 'dart')"
-        uses: DanTup/gh-actions/setup-flutter@master
+      - uses: cjlapao/setup-flutter@v1
         with:
-          channel: ${{ matrix.flutter-version }}
+          channel: 'stable'
 
       - name: Install dependencies
         run: dart pub get
