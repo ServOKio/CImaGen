@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cimagen/pages/Comparison.dart';
+import 'package:cimagen/utils/ImageManager.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
@@ -13,8 +13,8 @@ import '../Utils.dart';
 class SQLite{
   late Database database;
 
-  List<ImageMeta> toBatchOne = [];
-  List<ImageMeta> toBatchTwo = [];
+  List<Job> toBatchOne = [];
+  List<Job> toBatchTwo = [];
   bool use = false;
   bool inProgress = false;
 
@@ -38,9 +38,11 @@ class SQLite{
                 inProgress = true;
                 Batch batch = db.batch();
                 print('Sending ${send.length}...');
-                send.forEach((element) {
-                  batch.insert('images', element.toMap(forSQL: true));
-                });
+                for (var e in send) {
+                  if(e.type == JobType.insert){
+                    batch.insert(e.to, e.obj);
+                  }
+                }
                 await batch.commit(continueOnError: true, noResult: true);
                 print('Done');
                 !use ? toBatchTwo.clear() : toBatchOne.clear();
@@ -52,12 +54,13 @@ class SQLite{
           });
         },
         onCreate: (db, version) {
-          return db.execute(
+          db.execute(
             'CREATE TABLE IF NOT EXISTS images('
                 'keyup VARCHAR(256) PRIMARY KEY,'
                 'type TINYINT,'
                 'parent VARCHAR(128),'
                 'name TEXT,'
+                'pathHash VARCHAR(256),'
                 'seed INTEGER,'
                 'dateModified DATETIME,'
 
@@ -71,6 +74,34 @@ class SQLite{
                 'filter TINYINT,'
                 'colorMode TINYINT,'
                 'imageParams TEXT'
+            ')',
+          );
+
+          db.execute(
+            'CREATE TABLE IF NOT EXISTS generation_params('
+              'keyup VARCHAR(256) PRIMARY KEY,'
+              'type TINYINT,'
+              'parent VARCHAR(128),'
+              'name TEXT,'
+              'pathHash VARCHAR(256),'
+
+              'positive TEXT,'
+              'negative TEXT,'
+              'steps INTEGER,'
+              'sampler VARCHAR(128),'
+              'cfgScale DOUBLE,'
+              'seed INTEGER,'
+              'sizeW INTEGER,'
+              'sizeH INTEGER,'
+              'modelHash VARCHAR(128),'
+              'model VARCHAR(256),'
+              'denoisingStrength DOUBLE,'
+              'rng VARCHAR(16),'
+              'hiresSampler VARCHAR(128),'
+              'hiresUpscale DOUBLE,'
+              'tiHashes TEXT,'
+              'version VARCHAR(16),'
+              'full TEXT'
             ')',
           );
         },
@@ -91,7 +122,41 @@ class SQLite{
       //print(maps.length);
     } else {
       //Insert
-      use ? toBatchTwo.add(imageMeta) : toBatchOne.add(imageMeta);
+      if(use){
+        toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: imageMeta.toMap(forSQL: true)));
+        if(imageMeta.imageParams.generationParams != null) {
+          toBatchTwo.add(
+            Job(
+                to: 'generation_params',
+                type: JobType.insert,
+                obj: imageMeta.imageParams.generationParams!.toMap(
+                    forDB: true,
+                    key: imageMeta.getKey(),
+                    amply: {
+                      'pathHash': genPathHash(imageMeta.imageParams.path)
+                    }
+                )
+            )
+          );
+        }
+      } else {
+        toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta.toMap(forSQL: true)));
+        if(imageMeta.imageParams.generationParams != null) {
+          toBatchOne.add(
+              Job(
+                  to: 'generation_params',
+                  type: JobType.insert,
+                  obj: imageMeta.imageParams.generationParams!.toMap(
+                      forDB: true,
+                      key: imageMeta.getKey(),
+                      amply: {
+                        'pathHash': genPathHash(imageMeta.imageParams.path)
+                      }
+                  )
+              )
+          );
+        }
+      }
       // batch.insert(
       //   'images',
       //   imageMeta.toMap(forSQL: true),
@@ -146,37 +211,82 @@ class SQLite{
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
-  imageParamsFromJson(String data) {
-    final decoded = json.decode(data);
-    GenerationParams? gp;
-    var d = decoded['generationParams'];
-    if(d != null){
-      List<int> s = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
-      gp = GenerationParams(
-          positive: d['positive'] as String,
-          negative: d['negative'] as String,
-          steps: d['steps'] as int,
-          sampler: d['sampler'] as String,
-          cfgScale: d['cfgScale'] as double,
-          seed: d['seed'] as int,
-          size: Size(width: s[0], height: s[1]),
-          modelHash: d['modelHash'] as String,
-          model: d['model'] as String,
-          denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
-          rng: d['rng'] != null ? d['rng'] as String : null,
-          hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
-          hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
-          version: d['version'] as String,
-      );
-    }
+  Future<List<GenerationParams>> getGPByPath({required String path}) async {
+    print(genPathHash(path));
+    final List<Map<String, dynamic>> maps = await database.query(
+        'generation_params',
+        where: 'pathHash = ?',
+        whereArgs: [genPathHash(path)]
+    );
 
-    return ImageParams(
-        path: decoded['path'] as String,
-        fileName: decoded['fileName'] as String,
-        hasExif: decoded['hasExif'] != null ? decoded['hasExif'] as bool : false,
-        generationParams: gp
+    print(maps.length);
+    return List.generate(maps.length, (i) {
+      var d = maps[i];
+      return GenerationParams(
+        positive: d['positive'] as String,
+        negative: d['negative'] as String,
+        steps: d['steps'] as int,
+        sampler: d['sampler'] as String,
+        cfgScale: d['cfgScale'] as double,
+        seed: d['seed'] as int,
+        size: Size(width: d['sizeW'] as int, height: d['sizeH'] as int),
+        modelHash: d['modelHash'] as String,
+        model: d['model'] as String,
+        denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+        rng: d['rng'] != null ? d['rng'] as String : null,
+        hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+        hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+        version: d['version'] as String,
+        full: d['full']
+      );
+    });
+    // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
+    // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
+  }
+
+  Future<void> addLikeOrRemove(ImageMeta imageMeta, bool add) async {
+    final String parentFolder = path.basename(File(imageMeta.imageParams.path).parent.path);
+    final List<Map<String, dynamic>> maps = await database.query(
+      'images',
+      where: 'keyup = ?',
+      whereArgs: [genHash(imageMeta.re, parentFolder, imageMeta.imageParams.fileName)],
+    );
+    if (maps.isNotEmpty) {
+
+    }
+  }
+}
+
+ImageParams imageParamsFromJson(String data) {
+  final decoded = json.decode(data);
+  GenerationParams? gp;
+  var d = decoded['generationParams'];
+  if(d != null){
+    List<int> s = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
+    gp = GenerationParams(
+      positive: d['positive'] as String,
+      negative: d['negative'] as String,
+      steps: d['steps'] as int,
+      sampler: d['sampler'] as String,
+      cfgScale: d['cfgScale'] as double,
+      seed: d['seed'] as int,
+      size: Size(width: s[0], height: s[1]),
+      modelHash: d['modelHash'] as String,
+      model: d['model'] as String,
+      denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+      rng: d['rng'] != null ? d['rng'] as String : null,
+      hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+      hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+      version: d['version'] as String,
     );
   }
+
+  return ImageParams(
+      path: decoded['path'] as String,
+      fileName: decoded['fileName'] as String,
+      hasExif: decoded['hasExif'] != null ? decoded['hasExif'] as bool : false,
+      generationParams: gp
+  );
 }
 
 String genHash(RenderEngine re, String parent, String name){
@@ -197,65 +307,20 @@ class TimelineProject {
   });
 }
 
-class ImageMeta {
-  final RenderEngine re;
-  final String? mine;
-  final String fileTypeExtension;
-  final DateTime dateModified;
-  final int fileSize;
-  final Size size;
-  final int bitDepth;
-  final int colorType;
-  final int compression;
-  final int filter;
-  final int colorMode;
-  final ImageParams imageParams;
+class Job{
+  final String to;
+  final JobType type;
+  final dynamic obj;
 
-  const ImageMeta({
-    required this.re,
-    required this.mine,
-    required this.fileTypeExtension,
-    required this.fileSize,
-    required this.dateModified,
-    required this.size,
-    required this.bitDepth,
-    required this.colorType,
-    required this.compression,
-    required this.filter,
-    required this.colorMode,
-    required this.imageParams
+  Job({
+    required this.to,
+    required this.type,
+    required this.obj
   });
-
-  Map<String, dynamic> toMap({required bool forSQL}) {
-    final String parentFolder = path.basename(File(imageParams.path).parent.path);
-    return {
-      'keyup': genHash(re, parentFolder, imageParams.fileName),
-      'type': re.index,
-      'parent': parentFolder,
-      'name': imageParams.fileName,
-      'seed': imageParams.generationParams?.seed,
-      'dateModified': dateModified.toIso8601String(),
-
-      'mine': mine,
-      'fileTypeExtension': fileTypeExtension,
-      'fileSize': fileSize,
-      'size': size.toString(),
-      'bitDepth': bitDepth,
-      'colorType': colorType,
-      'compression': compression,
-      'filter': filter,
-      'colorMode': colorMode,
-      'imageParams': forSQL ? jsonEncode(imageParams.toMap()) : imageParams.toMap()
-    };
-  }
 }
 
-enum RenderEngine{
-  unknown,
-  txt2img,
-  img2img,
-  txt2imgGrid,
-  img2imgGrid,
-  extra,
-  comfUI,
+enum JobType{
+  insert,
+  update,
+  delete
 }

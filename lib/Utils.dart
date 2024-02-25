@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cimagen/utils/ImageManager.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -50,9 +52,6 @@ Future<Uint8List> readAsBytesSync(String path) async {
 GenerationParams? parseSDParameters(String text){
   Map<String, Object> gp = <String, Object>{};
 
-  int? seed = 0;
-  String sampler = 'none';
-
   // Positive
   RegExp posReg = RegExp(r'\b ([\s\S]*?)(?=\nNegative prompt\b)');
   String? posMatch = posReg.firstMatch(text)?.group(1)?.trim();
@@ -64,7 +63,7 @@ GenerationParams? parseSDParameters(String text){
   String? genMatch = regExp.firstMatch(text)?.group(1)?.trim();
 
   if(posMatch != null && negMatch != null && genMatch != null){
-    Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-\/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(genMatch);
+    Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(genMatch);
     for (final m in matches) {
       try{
         gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
@@ -90,6 +89,7 @@ GenerationParams? parseSDParameters(String text){
       hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
       version: gp['version'] as String,
+      full: text
     );
   } else {
     return null;
@@ -144,6 +144,7 @@ class GenerationParams {
   final double? hiresUpscale;
   final Map<String, String>? tiHashes;
   final String version;
+  final String? full;
 
   const GenerationParams({
     required this.positive,
@@ -160,10 +161,11 @@ class GenerationParams {
     this.hiresSampler,
     this.hiresUpscale,
     this.tiHashes,
-    required this.version
+    required this.version,
+    this.full
   });
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
     Map<String, dynamic> f = {
       'positive': positive,
       'negative': negative,
@@ -172,17 +174,39 @@ class GenerationParams {
       'cfgScale': cfgScale,
 
       'seed': seed,
-      'size': size.toString(),
       'modelHash': modelHash,
       'model': model,
       'version': version,
     };
+
+    if (!forDB){
+      f['size'] = size.toString();
+    } else {
+      //forDB
+      f['sizeW'] = size.width;
+      f['sizeH'] = size.height;
+      if(full != null) f['full'] = full;
+      if(key != null){
+        f['keyup'] = key.keyup;
+        f['type'] = key.type.index;
+        f['parent'] = key.parent;
+        f['name'] = key.name;
+      } else {
+        throw Exception('Пошёл нахуй');
+      }
+    }
 
     if (denoisingStrength != null) f['denoisingStrength'] = denoisingStrength;
     if (rng != null) f['rng'] = rng;
     if (hiresSampler != null) f['hiresSampler'] = hiresSampler;
     if (hiresUpscale != null) f['hiresUpscale'] = hiresUpscale;
     if (tiHashes != null) f['tiHashes'] = tiHashes;
+
+    if(amply != null){
+      for(String key in amply.keys) {
+        f[key] = amply[key];
+      }
+    }
 
     return f;
   }
@@ -217,4 +241,10 @@ class Size {
   double aspectRatio(){
     return width / height;
   }
+}
+
+String genPathHash(String path){
+  List<int> bytes = utf8.encode(path);
+  String hash = sha256.convert(bytes).toString();
+  return hash;
 }

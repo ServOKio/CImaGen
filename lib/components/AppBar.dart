@@ -1,4 +1,3 @@
-import 'package:feedback/feedback.dart';
 import 'package:flutter/material.dart';
 
 class CAppBar extends StatefulWidget implements PreferredSizeWidget {
@@ -16,21 +15,17 @@ class _CustomAppBarState extends State<CAppBar>{
 
   @override
   Widget build(BuildContext context) {
-    return debug ? AppBar(
-        title: const Text("Sample App Bar"),
-      actions: [
-        IconButton(
-            icon: const Icon(
-                Icons.bug_report,
-                size: 34.0
-            ),
-            onPressed: (){
-              BetterFeedback.of(context).show((UserFeedback feedback) {
-                // Do something with the feedback
-              });
-            }
+    return debug ? Padding(
+        padding: const EdgeInsets.all(6),
+        child: AppBar(
+            surfaceTintColor: Colors.transparent,
+            title: const Text('Hello'),
+            centerTitle: true,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(9)),
+          ),
         ),
-      ],
     ) : Container(
       height: 56,
       padding: const EdgeInsets.all(12),

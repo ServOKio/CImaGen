@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cimagen/components/SetupRequired.dart';
+import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_masonry_view/flutter_masonry_view.dart';
@@ -20,15 +21,45 @@ class Gallery extends StatefulWidget{
 
 Future<List<Folder>> _loadMenu(String path) async {
   List<Folder> f = [];
+  int ind = 0;
   for(FileSystemEntity ent in Directory(path).listSync()){
-    f.add(Folder(path: ent.path, name: p.basename(ent.path), files: Directory(ent.path).listSync().map((ent) => ent.path).toList()));
+    f.add(Folder(index: ind, path: ent.path, name: p.basename(ent.path), files: Directory(ent.path).listSync().map((ent) => ent.path).toList()));
+    ind++;
   }
   return f;
 }
 
-class _GalleryState extends State<Gallery> {
-  int _selectedIndex = 2;
+class _GalleryState extends State<Gallery>{
+  int _selectedIndex = 156;
   bool sr = false;
+  int selectedCo = 0;
+
+  bool selectMode = false;
+  List<int> selected = [];
+
+  void addSelected(int index){
+    if(selected.contains(index)) return;
+    selected.add(index);
+    setState(() {
+      selectedCo = selected.length;
+    });
+  }
+
+  void removeSelected(int index){
+    if(!selected.contains(index)) return;
+    selected.remove(index);
+    setState(() {
+      selectedCo = selected.length;
+    });
+  }
+
+  void dropSelected(){
+    selected = [];
+    setState(() {
+      selectedCo = 0;
+      selectMode = false;
+    });
+  }
 
   late Future<List<Folder>> listData;
 
@@ -42,7 +73,18 @@ class _GalleryState extends State<Gallery> {
       String path = context.read<ConfigManager>().config['outdir_txt2img_samples'];
       listData = _loadMenu(path);
     }
-    //load();
+  }
+
+  void changeTab(int index){
+    setState(() {
+      _selectedIndex = index;
+    });
+    listData.then((value) {
+      Folder f = value[index];
+      for(String p in f.files){
+        context.read<ImageManager>().updateIfNado(RenderEngine.img2img, p);
+      }
+    });
   }
 
   bool _isExpanded = true;
@@ -61,32 +103,27 @@ class _GalleryState extends State<Gallery> {
                                 extended: _isExpanded,
                                 labelType: NavigationRailLabelType.none,
                                 selectedIndex: _selectedIndex,
-                                onDestinationSelected: (int index) {
-                                  setState(() {
-                                    _selectedIndex = index;
-                                  });
-                                },
+                                onDestinationSelected: (int index) => changeTab(index),
                                 // leading: FloatingActionButton(
                                 //   elevation: 0,
                                 //   onPressed: () {
                                 //     // Add your onPressed code here!
                                 //   },
                                 //   child: const Icon(Icons.add),
-                                // ),
+                                // ),`
                                 destinations: snapshot.data.map<NavigationRailDestination>((ent) {
                                       return NavigationRailDestination(
                                         icon: Badge(
                                           backgroundColor: const Color(0xff18171f),
                                           label: Text(ent.files.length.toString()),
-                                          child: Icon(Icons.photo),
+                                          child: const Icon(Icons.photo),
                                         ),
                                         selectedIcon: Badge(
-                                          backgroundColor: const Color(
-                                              0xff474565),
+                                          backgroundColor: const Color(0xff474565),
                                           label: Text(ent.files.length.toString()),
-                                          child: Icon(Icons.photo),
+                                          child: const Icon(Icons.photo),
                                         ),
-                                        label: Text(ent.name),
+                                        label: Text(ent.name+' '+ent.index.toString()),
                                       );
                                 }).toList()
                             )
@@ -147,11 +184,54 @@ class _GalleryState extends State<Gallery> {
                     itemRadius: 0,
                     itemPadding: 4,
                     listOfItem: snapshot.data[_selectedIndex].files,
-                    numberOfColumn: 10,
+                    numberOfColumn: (MediaQuery.of(context).size.width / 200).round(),
                     itemBuilder: (item) {
+                      int index = snapshot.data[_selectedIndex].files.indexOf(item);
                       return GestureDetector(
-                        onTap: () => Navigator.push(context, _createGalleryDetailRoute(snapshot.data[_selectedIndex].files, snapshot.data[_selectedIndex].files.indexOf(item))), // Image tapped
-                        child: Image.file(File(item))
+                        onLongPress: (){
+                          if(selected.isEmpty && !selectMode){
+                            selected.add(index);
+                            setState(() {
+                              selectMode = true;
+                            });
+                          } else {
+                            dropSelected();
+                          }
+                        },
+                        onTap: (){
+                          if(selectMode){
+                            if(selected.contains(index)){
+                              removeSelected(index);
+                            } else {
+                              addSelected(index);
+                            }
+                          } else {
+                            Navigator.push(context, _createGalleryDetailRoute(snapshot.data[_selectedIndex].files, index));
+                          }
+                        }, // Image tapped
+                        child: Stack(
+                          alignment: Alignment.topRight,
+                          children: [
+                            AnimatedScale(
+                                scale: selected.contains(index) ? 0.9 : 1,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.ease,
+                                child: Image.file(File(item))
+                            ),
+                            AnimatedScale(
+                                scale: selected.contains(index) ? 1 : 0,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.ease,
+                                child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.secondary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
+                                ),
+                            )
+                          ],
+                        )
                       );
                     },
                   ),
@@ -176,11 +256,13 @@ class _GalleryState extends State<Gallery> {
 }
 
 class Folder {
+  final int index;
   final String path;
   final String name;
   final List<String> files;
 
   Folder({
+    required this.index,
     required this.path,
     required this.name,
     required this.files

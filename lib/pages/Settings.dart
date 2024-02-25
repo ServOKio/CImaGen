@@ -1,4 +1,6 @@
+import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:settings_ui/settings_ui.dart';
 import 'package:file_picker/file_picker.dart';
@@ -15,23 +17,20 @@ class _SettingsState extends State<Settings>{
   String _sd_webui_folter = '';
   bool _debug = false;
 
+  late SharedPreferences prefs;
+
   @override
   void initState() {
     super.initState();
     _loadSettings();
   }
 
-  void setBo(key, bool val) {
-    //prefs.setBool(key.toString(), val);
-    print(val);
-    setState(() {
-      key = val;
-    });
-    print(_debug);
-  }
+  // void setBo(key, bool val) {
+  //   prefs.setBool(key.toString(), val);
+  // }
 
   _loadSettings() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs = await SharedPreferences.getInstance();
     setState(() {
       _sd_webui_folter = (prefs.getString('sd_webui_folter') ?? 'none');
       _debug = (prefs.getBool('debug') ?? false);
@@ -42,15 +41,16 @@ class _SettingsState extends State<Settings>{
   Widget build(BuildContext context) {
     return Center(
         child: SettingsList(
+          brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
           shrinkWrap: true,
           platform: DevicePlatform.fuchsia,
           sections: [
             SettingsSection(
-              title: Text('Common'),
+              title: const Text('Common'),
               tiles: <SettingsTile>[
                 SettingsTile.navigation(
-                  leading: Icon(Icons.web),
-                  title: Text('Stable Diffusion web UI location'),
+                  leading: Icon(Icons.web, color: Theme.of(context).primaryColor),
+                  title: const Text('Stable Diffusion web UI location'),
                   value: Text(_sd_webui_folter),
                   onPressed: (context) async {
                     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -65,12 +65,14 @@ class _SettingsState extends State<Settings>{
                   },
                 ),
                 SettingsTile.switchTile(
-                  onToggle: (value) async {
-                    setBo(_debug, value);
+                  onToggle: (v) {
+                    setState(() {
+                      _debug = v;
+                    });
+                    prefs.setBool('debug', v);
                   },
-                  initialValue: _debug,
-                  leading: Icon(Icons.bug_report),
-                  title: Text('Enable debug'),
+                  leading: Icon(Icons.bug_report, color: Theme.of(context).primaryColor),
+                  title: Text('Enable debug'), initialValue: _debug,
                 ),
               ],
             ),

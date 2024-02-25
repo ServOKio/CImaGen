@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
 
 import '../Utils.dart';
+import '../utils/ImageManager.dart';
 
 SliderDirection direction = SliderDirection.leftToRight;
 Color dividerColor = Colors.white;
@@ -262,36 +263,6 @@ class _ImageListStateStateful extends State<ImageList>{
           future: dataFuture,
         )
     );
-  }
-}
-
-class ImageParams {
-  final String path;
-  final String fileName;
-  bool hasExif = false;
-  Map<String, Object>? exif;
-  GenerationParams? generationParams;
-
-  ImageParams({
-    required this.path,
-    required this.fileName,
-    required this.hasExif,
-    this.exif,
-    this.generationParams
-  });
-
-  Map<String, dynamic> toMap() {
-    Map<String, dynamic> f = {
-      'path': path,
-      'fileName': fileName
-    };
-
-    if(generationParams != null) f['generationParams'] = generationParams?.toMap();
-    return f;
-  }
-
-  String toJsonString(){
-    return jsonEncode(toMap());
   }
 }
 

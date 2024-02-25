@@ -19,7 +19,10 @@ class PortfolioGalleryImageWidget extends StatelessWidget {
               File(imagePath)
           ),
           fit: BoxFit.scaleDown,
-          child: InkWell(onTap: onImageTap),
+          child: InkWell(
+              onTap: onImageTap,
+              onFocusChange: (f) { if(f) onImageTap();},
+          ),
         ),
       ),
     );

@@ -6,6 +6,7 @@ import 'package:cimagen/components/TimeLineLine.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
 class Timeline extends StatefulWidget{

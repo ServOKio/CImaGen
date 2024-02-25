@@ -22,8 +22,8 @@ class _P404State extends State<P404> {
 
   void load() async {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      for (var i = 0; i < 100; i++) {
-        double size = next(30, 60).toDouble();
+      for (var i = 0; i < 20; i++) {
+        double size = next(300, 700).toDouble();
         ci.add(D(x: next(0, MediaQuery.of(context).size.width.round()).toDouble(), y: next(0, MediaQuery.of(context).size.height.round()).toDouble(), c: getColor(i), s: size));
       }
       setState(() {
@@ -40,7 +40,7 @@ class _P404State extends State<P404> {
           return Positioned(
               left: ent.x,
               top: ent.y,
-              child: Container(width: 50, height: 50, decoration:
+              child: Container(width: ent.s, height: ent.s, decoration:
               BoxDecoration(
                 color: ent.c,
                 shape: BoxShape.circle,
@@ -48,45 +48,15 @@ class _P404State extends State<P404> {
               ))
           );
         }).toList() : []),
-        Positioned.fill(
+        const Positioned.fill(
             child: Align(
                 alignment: Alignment.center,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // ClipRRect(
-                    //   borderRadius: BorderRadius.circular(18),
-                    //   child: Container(
-                    //     padding: EdgeInsets.all(10),
-                    //     color: Color(0xffff0000),
-                    //     child: Container(
-                    //       height: 100,
-                    //       width: 100,
-                    //       decoration: BoxDecoration(
-                    //         shape: BoxShape.circle,
-                    //         color: Colors.white,
-                    //       ),
-                    //       padding: EdgeInsets.all(10),
-                    //       child: SvgPicture.asset('assets/discord-white.svg', color: Colors.black),
-                    //     ),
-                    //   ),
-                    // ),
-                    // Container(
-                    //   height: 100,
-                    //   width: 100,
-                    //   child: SvgPicture.asset('assets/discord-white.svg', color: Colors.white),
-                    // ),
                     Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Column(children: [
                       Text('404', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                      // Row(
-                      //   mainAxisAlignment: MainAxisAlignment.center,
-                      //   children: [
-                      //     Text('Adult only ', style: TextStyle(color: theme.newsBlockTitleSub)),
-                      //     Icon(Icons.warning, size: 16),
-                      //     Text(' click on logo to join', style: TextStyle(color: theme.newsBlockTitleSub)),
-                      //   ],
-                      // )
                     ])),
                   ],
                 )

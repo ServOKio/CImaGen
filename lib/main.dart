@@ -4,6 +4,7 @@ import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
+import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
@@ -17,103 +18,121 @@ import 'package:cimagen/pages/Settings.dart';
 import 'components/AppBar.dart';
 
 void main() {
-  runApp(MultiProvider(
-    providers: [
-      ChangeNotifierProvider(create: (_) => ConfigManager()),
-      Provider<SQLite>(create: (_) => SQLite()),
-      Provider<ImageManager>(create: (_) => ImageManager()),
-    ],
-    child: BetterFeedback(
-      child: MyApp(),
-    )
-  ));
+  //runApp(Test());
+  runApp(MyApp());
 }
 
-class MyAppTheme {
-
-  bool isDark = true;
-
-  MyAppTheme({required this.isDark});
-
-  Color newsBlock = Color(0xff333333);
-  Color themeMainColor = Colors.red;
-  Color themeTimeStamp = Colors.grey;
-  Color newsBlockTitleSub = Color(0xffD5D5D5);
-  Color link = Color(0xffBBDDEE);
-  Color pagesButtons = Colors.red;
-  Color pagesButtonsPressed = const Color(0x77f44336);
-
-  void init(){
-    newsBlock = isDark ? Color(0xff333333) : Color(0xff5C72CB);
-    themeMainColor = isDark ? const Color(0xff725cff) : Color(0xff93d0ea);
-    themeTimeStamp = isDark ? Colors.grey : Colors.white70;
-    newsBlockTitleSub = Color(0xffD5D5D5);
-    link = Color(0xffBBDDEE);
-    pagesButtons = isDark ? const Color(0xff725cff) : Color(0xff445fca);
-    pagesButtonsPressed = isDark ? const Color(0x77f44336) : Color(0xff667ddb);
-  }
-
-  /// Default constructor
-
-  ThemeData get themeData {
-    /// Create a TextTheme and ColorScheme, that we can use to generate ThemeData
-    TextTheme txtTheme = (ThemeData.dark()).textTheme;
-    ColorScheme colorScheme = ColorScheme(
-      // Decide how you want to apply your own custom them, to the MaterialApp
-        brightness: Brightness.dark,
-        primary: const Color(0xff725cff),
-        onPrimary: const Color(0xffc0eeff),
-
-        secondary: const Color(0xff6a6798), //dont
-        onSecondary: const Color(0xffcec4ff),//dont
-
-        background: const Color(0xff1A1A1A),
-        onBackground: const Color(0xff725cff),
-
-        surface: isDark ? const Color(0xFF222222): const Color(0xFF31469b),
-        onSurface: const Color(0xffe2dbff),
-
-        error: Colors.red,
-        onError: Colors.white
+class Test extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text("Demo Project"),
+        ),
+        body: const Center(child: Text("Hello World!!!")),
+      ),
     );
-
-    /// Now that we have ColorScheme and TextTheme, we can create the ThemeData
-    ThemeData t = ThemeData.from(
-        textTheme: txtTheme,
-        colorScheme: colorScheme
-    ).copyWith(
-      primaryColor: isDark ? const Color(0xFF222222) : const Color(0xFF31469b),
-      scaffoldBackgroundColor: isDark ? const Color(0xFF191919) : const Color(0xFF788BD6),
-      highlightColor: const Color(0xFF3D3D3D),
-    );
-
-    return t;
   }
 }
 
+// class MyAppTheme {
+//
+//   bool isDark = true;
+//
+//   MyAppTheme({required this.isDark});
+//
+//   Color newsBlock = Color(0xff333333);
+//   Color themeMainColor = Colors.red;
+//   Color themeTimeStamp = Colors.grey;
+//   Color newsBlockTitleSub = Color(0xffD5D5D5);
+//   Color link = Color(0xffBBDDEE);
+//   Color pagesButtons = Colors.red;
+//   Color pagesButtonsPressed = const Color(0x77f44336);
+//
+//   void init(){
+//     newsBlock = isDark ? Color(0xff333333) : Color(0xff5C72CB);
+//     themeMainColor = isDark ? const Color(0xff725cff) : Color(0xff93d0ea);
+//     themeTimeStamp = isDark ? Colors.grey : Colors.white70;
+//     newsBlockTitleSub = Color(0xffD5D5D5);
+//     link = Color(0xffBBDDEE);
+//     pagesButtons = isDark ? const Color(0xff725cff) : Color(0xff445fca);
+//     pagesButtonsPressed = isDark ? const Color(0x77f44336) : Color(0xff667ddb);
+//   }
+//
+//   /// Default constructor
+//
+//   ThemeData get themeData {
+//     /// Create a TextTheme and ColorScheme, that we can use to generate ThemeData
+//     TextTheme txtTheme = (ThemeData.dark()).textTheme;
+//     ColorScheme colorScheme = ColorScheme(
+//       // Decide how you want to apply your own custom them, to the MaterialApp
+//         brightness: Brightness.dark,
+//         primary: const Color(0xff725cff),
+//         onPrimary: const Color(0xffc0eeff),
+//
+//         secondary: const Color(0xff6a6798), //dont
+//         onSecondary: const Color(0xffeeeaff),//dont
+//
+//         background: const Color(0xff1A1A1A),
+//         onBackground: const Color(0xff725cff),
+//
+//         surface: isDark ? const Color(0xFF222222): const Color(0xFF31469b),
+//         onSurface: const Color(0xffe2dbff),
+//
+//         error: Colors.red,
+//         onError: Colors.white
+//     );
+//
+//     /// Now that we have ColorScheme and TextTheme, we can create the ThemeData
+//     ThemeData t = ThemeData.from(
+//         textTheme: txtTheme,
+//         colorScheme: colorScheme
+//     ).copyWith(
+//       primaryColor: isDark ? const Color(0xFF222222) : const Color(0xFF31469b),
+//       scaffoldBackgroundColor: isDark ?
+//       const Color(0xFF191919) :
+//       const Color(0xFF788BD6),
+//       highlightColor: const Color(0xFF3D3D3D),
+//     );
+//
+//     return t;
+//   }
+// }
+//
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
 
   @override
   Widget build(BuildContext context) {
-    MyAppTheme appTheme = MyAppTheme(isDark: true);
-    appTheme.init();
-    return MaterialApp(
-      navigatorKey: NavigationService.navigatorKey,
-      debugShowCheckedModeBanner: true,
-      theme: appTheme.themeData,
-      home: Main(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ConfigManager()),
+        Provider<SQLite>(create: (_) => SQLite()),
+        Provider<ImageManager>(create: (_) => ImageManager()),
+        ChangeNotifierProvider(create: (_) => ThemeManager(darkTheme)),
+      ],
+      child: BetterFeedback(
+        child: WTF()
+      )
     );
-    // return Provider(
-    //     create: (_) => MyModel(),
-    //     child: MaterialApp(
-    //       debugShowCheckedModeBanner: true,
-    //       title: 'U-18Chan',
-    //       theme: appTheme.themeData,
-    //       home: Main(),
-    //     )
-    // );
   }
+}
+
+class WTF extends StatelessWidget{
+  @override
+  Widget build(BuildContext context) {
+    final theme = Provider.of<ThemeManager>(context);
+    return MaterialApp(
+       navigatorKey: NavigationService.navigatorKey,
+       debugShowCheckedModeBanner: true,
+       theme: theme.getTheme,
+       darkTheme: theme.getTheme,
+       themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
+       home: Main()
+   );
+  }
+
 }
 
 class Main extends StatefulWidget {
@@ -123,7 +142,7 @@ class Main extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<Main> {
-  int _selectedIndex = 2;
+  int _selectedIndex = 1;
   bool loaded = false;
 
   @override
@@ -141,32 +160,34 @@ class _MyHomePageState extends State<Main> {
     });
   }
 
-  void _showModalBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(30),
-          )
-      ),
-      builder: (context) => DraggableScrollableSheet(
-          initialChildSize: 0.4,
-          maxChildSize: 0.9,
-          minChildSize: 0.32,
-          expand: false,
-          builder: (context, scrollController) {
-            return SingleChildScrollView(
-              controller: scrollController,
-              child: const SignInOptionsScreen(),
-            );
-          }
-      ),
-    );
-  }
+  // void _showModalBottomSheet(BuildContext context) {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     shape: const RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.vertical(
+  //           top: Radius.circular(30),
+  //         )
+  //     ),
+  //     builder: (context) => DraggableScrollableSheet(
+  //         initialChildSize: 0.4,
+  //         maxChildSize: 0.9,
+  //         minChildSize: 0.32,
+  //         expand: false,
+  //         builder: (context, scrollController) {
+  //           return SingleChildScrollView(
+  //             controller: scrollController,
+  //             child: const SignInOptionsScreen(),
+  //           );
+  //         }
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Provider.of<ThemeManager>(context);
+
     List<Widget> widgetOptions = <Widget>[
       Home(),
       Gallery(),
@@ -176,6 +197,7 @@ class _MyHomePageState extends State<Main> {
       P404(),
       Settings()
     ];
+
 
     return Scaffold(
       drawer: Drawer(
@@ -218,7 +240,7 @@ class _MyHomePageState extends State<Main> {
         ),
       ),
       endDrawer: Theme(
-          data: Theme.of(context).copyWith(canvasColor: Colors.transparent,),
+          data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
           child: Drawer(
               child: Container(
                   child: Stack(
@@ -241,11 +263,12 @@ class _MyHomePageState extends State<Main> {
           )
       ),
       appBar: CAppBar(),
-      body: loaded ? widgetOptions.asMap().containsKey(_selectedIndex) ? widgetOptions[_selectedIndex] : P404() : Center(
-        child: CircularProgressIndicator(),
-      ),
+      body: loaded ? widgetOptions.asMap().containsKey(_selectedIndex) ? widgetOptions[_selectedIndex] : P404() : const Center(child: CircularProgressIndicator(),),
       floatingActionButton: FloatingActionButton(
-        onPressed:() => _showModalBottomSheet(context),
+        onPressed:(){
+          //_showModalBottomSheet(context);
+          theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
+        },
         tooltip: 'Increment',
         child: const Icon(Icons.add),
       ),
@@ -281,7 +304,8 @@ class _MyHomePageState extends State<Main> {
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: const Color(0xffc9c0ff),
+        selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
         onTap: _onItemTapped,
       ),
     );
