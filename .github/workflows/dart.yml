@@ -24,9 +24,9 @@ jobs:
       # - uses: dart-lang/setup-dart@v1
       - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
 
-      - uses: cjlapao/setup-flutter@v1
-        with:
-          channel: 'stable'
+      - name: Setup Flutter SDK Environment on GitHub Actions
+        uses: cjlapao/setup-flutter-action@v0.1.6
+            
 
       - name: Install dependencies
         run: dart pub get
