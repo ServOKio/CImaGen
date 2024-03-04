@@ -10,6 +10,7 @@ import 'package:cimagen/components/PortfolioGalleryImageWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:gap/gap.dart';
 
+import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
 class PortfolioGalleryDetailPage extends StatefulWidget {
@@ -26,6 +27,8 @@ class PortfolioGalleryDetailPage extends StatefulWidget {
 class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage> {
   late int _currentIndex;
   late PageController _pageController;
+  bool _showAppBar = true;
+
   late CarouselController carouselController;
 
   int gpState = 0;
@@ -60,39 +63,54 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final imageManager = Provider.of<ImageManager>(context);
     return Scaffold(
       key: _scaffoldkey,
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        actions: [
-          IconButton(
-              icon: const Icon(
-                  Icons.info,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AnimatedContainer(
+          curve: Curves.ease,
+          height: _showAppBar ? 55.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          child: AppBar(
+            backgroundColor: Colors.black,
+            title: Text(widget.imagePaths[_currentIndex]),
+            actions: [
+              IconButton(
+                  icon: Icon(
+                    imageManager.favoritePaths.contains(widget.imagePaths[_currentIndex]) ? Icons.star : Icons.star_outline,
+                  ),
+                  onPressed: (){
+                    imageManager.toogleFavorite(widget.imagePaths[_currentIndex]);
+                  }
               ),
-              onPressed: (){
-                requestInfo(widget.imagePaths[_currentIndex]);
-              }
-          ),
-          IconButton(
-              icon: const Icon(
-                  Icons.favorite,
+              const Gap(6),
+              IconButton(
+                  icon: const Icon(
+                    Icons.info_outline,
+                  ),
+                  onPressed: (){
+                    requestInfo(widget.imagePaths[_currentIndex]);
+                  }
               ),
-              onPressed: (){}
-          ),
-          IconButton(
-              icon: const Icon(
-                  Icons.copy,
+              const Gap(6),
+              IconButton(
+                  icon: const Icon(
+                    Icons.open_in_new,
+                  ),
+                  onPressed: (){}
               ),
-              onPressed: (){}
-          ),
-          IconButton(
-              icon: const Icon(
-                Icons.open_in_new,
+              const Gap(6),
+              IconButton(
+                  icon: const Icon(
+                    Icons.more_vert,
+                  ),
+                  onPressed: (){}
               ),
-              onPressed: (){}
+            ],
           ),
-        ],
+        ),
       ),
       body: _buildContent(),
       endDrawer: Theme(
@@ -200,7 +218,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                                         ),
                                       ),
                                     ),
-                                    gp?.full != null ? ExpansionTile(
+                                    gp?.rawData != null ? ExpansionTile(
                                       title: const Text('All parameters'),
                                       subtitle: const Text('View raw generation parameters without parsing'),
                                       children: <Widget>[
@@ -211,7 +229,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                                               borderRadius: const BorderRadius.all(Radius.circular(4))
                                           ),
                                           child: SelectableText(
-                                              (gp?.full ?? '').replaceFirst('parameters', ''),
+                                              (gp?.rawData ?? '').replaceFirst('parameters', ''),
                                               style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
                                           )
                                         ),
@@ -239,7 +257,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     return Stack(
       children: <Widget>[
         _buildPhotoViewGallery(), //Ебало
-        _buildIndicator(), //Дно
+        _buildIndicator() //Дно
       ],
     );
   }
@@ -250,7 +268,15 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
       left: 0.0,
       right: 0.0,
       // child: _buildDottedIndicator(),
-      child: _buildImageCarouselSlider(),
+      child: PreferredSize(
+          preferredSize: const Size.fromHeight(100),
+          child: AnimatedContainer(
+              curve: Curves.ease,
+              height: _showAppBar ? 100.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child:  _buildImageCarouselSlider()
+          )
+      ),
     );
   }
 
@@ -290,6 +316,9 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
           imageProvider: FileImage(File(widget.imagePaths[index])),
           minScale: PhotoViewComputedScale.contained * 1,
           maxScale: PhotoViewComputedScale.covered * 1,
+          onTapUp: (_, __, ___) => setState(() {
+            _showAppBar = !_showAppBar;
+          })
         );
       },
       enableRotation: true,

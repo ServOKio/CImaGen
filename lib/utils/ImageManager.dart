@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:flutter/foundation.dart';
+import 'package:image/image.dart' as img;
 
 import '../Utils.dart';
 import 'package:provider/provider.dart';
@@ -13,13 +14,28 @@ import 'package:png_chunks_extract/png_chunks_extract.dart' as pngExtract;
 
 import 'NavigationService.dart';
 
-class ImageManager{
+class ImageManager extends ChangeNotifier{
+
+  List<String> _favoritePaths = [];
+
+  List<String> get favoritePaths => _favoritePaths;
+
+  String _lastJob = '';
+  String get lastJob => _lastJob;
+  int get jobCount => _jc;
+  int _jc = 0;
+  void updateJobCount(int c){
+    _jc = c;
+    notifyListeners();
+  }
 
   void init(BuildContext context){
-    var outdir_txt2img = context.read<ConfigManager>().config['outdir_txt2img_samples'];
-    var outdir_img2img = context.read<ConfigManager>().config['outdir_img2img_samples'];
-    if(outdir_txt2img != null) watchDir(RenderEngine.txt2img, outdir_txt2img as String);
-    if(outdir_img2img != null) watchDir(RenderEngine.img2img, outdir_img2img as String);
+    var outdirTxt2img = context.read<ConfigManager>().config['outdir_txt2img_samples'];
+    var outdirImg2img = context.read<ConfigManager>().config['outdir_img2img_samples'];
+    if(outdirTxt2img != null) watchDir(RenderEngine.txt2img, outdirTxt2img as String);
+    if(outdirImg2img != null) watchDir(RenderEngine.img2img, outdirImg2img as String);
+
+    context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
   }
 
   Future<void> updateIfNado(RenderEngine re, String imagePath) async {
@@ -70,24 +86,23 @@ class ImageManager{
       final fte = e.replaceFirst('.', '');
       var fileStat = await f.stat();
 
+      _lastJob = imagePath;
+      notifyListeners();
+
       NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, ImageMeta(
+        fullPath: p.normalize(imagePath),
         re: re,
         mine: mine,
         fileTypeExtension: fte,
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
-        size: Size(width: bdata.getInt32(0), height: bdata.getInt32(4)),
+        size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
         bitDepth: IHDRu8List[8],
         colorType: IHDRu8List[9],
         compression: IHDRu8List[10],
         filter: IHDRu8List[11],
         colorMode: IHDRu8List[12], // 13 bytes - ok
-        imageParams: ImageParams(
-          path: imagePath,
-          fileName: p.basename(imagePath),
-          hasExif: gp != null,
-          generationParams: gp
-        )
+        generationParams: gp
       ));
       // print(text);
     }
@@ -95,12 +110,24 @@ class ImageManager{
 
   void watchDir(RenderEngine re, String path){
     final tempFolder = File(path);
-    print('watch '+path);
+    if (kDebugMode) print('watch $path');
     tempFolder.watch(events: FileSystemEvent.all, recursive: true).listen((event) {
       if (event is FileSystemModifyEvent && !event.isDirectory) {
         updateIfNado(re, event.path);
         //print(lookupMimeType(event.path ?? "", headerBytes: [0xFF, 0xD8]));
       }
+    });
+  }
+
+  Future<void> toogleFavorite(String path) async {
+    NavigationService.navigatorKey.currentContext?.read<SQLite>().updateFavorite(path, !_favoritePaths.contains(path)).then((value) {
+      if(_favoritePaths.contains(path)){
+        _favoritePaths.remove(path);
+      } else {
+        _favoritePaths.add(path);
+      }
+      print(_favoritePaths.contains(path));
+      notifyListeners();
     });
   }
 }
@@ -109,14 +136,14 @@ class ImageKey{
   String keyup = '';
   final RenderEngine type;
   final String parent;
-  final String name;
+  final String fileName;
 
   ImageKey({
     required this.type,
     required this.parent,
-    required this.name
+    required this.fileName
   }){
-    keyup = genHash(type, parent, name);
+    keyup = genHash(type, parent, fileName);
   }
 }
 
@@ -143,38 +170,38 @@ enum FilterTypes{
   paeth
 }
 
-class ImageParams {
-  final String path;
-  String? parent;
-  final String fileName;
-  bool hasExif = false;
-  Map<String, Object>? exif;
-  GenerationParams? generationParams;
-
-  ImageParams({
-    required this.path,
-    required this.fileName,
-    required this.hasExif,
-    this.exif,
-    this.generationParams
-  }){
-    parent = p.basename(File(path).parent.path);
-  }
-
-  Map<String, dynamic> toMap() {
-    Map<String, dynamic> f = {
-      'path': path,
-      'fileName': fileName
-    };
-
-    if(generationParams != null) f['generationParams'] = generationParams?.toMap();
-    return f;
-  }
-
-  String toJsonString(){
-    return jsonEncode(toMap());
-  }
-}
+// class ImageParams {
+//   final String path;
+//   String? parent;
+//   final String fileName;
+//   bool hasExif = false;
+//   Map<String, Object>? exif;
+//   GenerationParams? generationParams;
+//
+//   ImageParams({
+//     required this.path,
+//     required this.fileName,
+//     required this.hasExif,
+//     this.exif,
+//     this.generationParams
+//   }){
+//     parent = p.basename(File(path).parent.path);
+//   }
+//
+//   Map<String, dynamic> toMap() {
+//     Map<String, dynamic> f = {
+//       'path': path,
+//       'fileName': fileName
+//     };
+//
+//     if(generationParams != null) f['generationParams'] = generationParams?.toMap();
+//     return f;
+//   }
+//
+//   String toJsonString(){
+//     return jsonEncode(toMap());
+//   }
+// }
 
 class ImageMeta {
   final RenderEngine re;
@@ -182,14 +209,17 @@ class ImageMeta {
   final String fileTypeExtension;
   final DateTime dateModified;
   final int fileSize;
-  final Size size;
+  String fileName = '';
+  final ImageSize size;
   final int bitDepth;
   final int colorType;
   final int compression;
   final int filter;
   final int colorMode;
   String pathHash = '';
-  final ImageParams imageParams;
+  final String fullPath;
+  GenerationParams? generationParams;
+  String? thumbnail;
 
   ImageMeta({
     required this.re,
@@ -203,21 +233,25 @@ class ImageMeta {
     required this.compression,
     required this.filter,
     required this.colorMode,
-    required this.imageParams
+    required this.fullPath,
+    this.generationParams,
+    this.thumbnail
   }){
-    pathHash = genPathHash(imageParams.path);
+    fileName = p.basename(fullPath);
+    pathHash = genPathHash(fullPath);
   }
 
-  Map<String, dynamic> toMap({required bool forSQL}) {
-    final String parentFolder = p.basename(File(imageParams.path).parent.path);
+  Future<Map<String, dynamic>> toMap({required bool forSQL}) async {
+    final String parentFolder = p.basename(File(fullPath).parent.path);
+    img.Image? image = await img.decodeImageFile(fullPath);
     return {
-      'keyup': genHash(re, parentFolder, imageParams.fileName),
+      'keyup': genHash(re, parentFolder, fileName),
       'type': re.index,
       'parent': parentFolder,
-      'name': imageParams.fileName,
+      'fileName': fileName,
       'pathHash': pathHash,
+      'fullPath': fullPath,
 
-      'seed': imageParams.generationParams?.seed,
       'dateModified': dateModified.toIso8601String(),
 
       'mine': mine,
@@ -229,13 +263,14 @@ class ImageMeta {
       'compression': compression,
       'filter': filter,
       'colorMode': colorMode,
-      'imageParams': forSQL ? jsonEncode(imageParams.toMap()) : imageParams.toMap()
+      // 'generationParams': generationParams != null ? forSQL ? jsonEncode(generationParams?.toMap()) : generationParams?.toMap() : null, // Нахуй не нужно оно мне в базе
+      'thumbnail': image != null ? base64Encode(img.encodeJpg(img.copyResize(image, width: 250), quality: 50)) : null
     };
   }
 
   ImageKey getKey(){
-    final String parentFolder = p.basename(File(imageParams.path).parent.path);
-    return ImageKey(type: re, parent: parentFolder, name: imageParams.fileName);
+    final String parentFolder = p.basename(File(fullPath).parent.path);
+    return ImageKey(type: re, parent: parentFolder, fileName: fileName);
   }
 }
 

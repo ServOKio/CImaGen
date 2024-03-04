@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:io';
 
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -14,15 +14,24 @@ import 'package:cimagen/pages/Gallery.dart';
 import 'package:cimagen/pages/Home.dart';
 import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Settings.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'components/AppBar.dart';
 
-void main() {
+Future<void> main() async {
   //runApp(Test());
+  WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
+  if (Platform.isWindows) {
+    WindowManager.instance.setMinimumSize(const Size(450, 450));
+    // WindowManager.instance.setMaximumSize(const Size(1200, 720));
+  }
   runApp(MyApp());
 }
 
 class Test extends StatelessWidget {
+  const Test({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -101,15 +110,14 @@ class Test extends StatelessWidget {
 // }
 //
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ConfigManager()),
-        Provider<SQLite>(create: (_) => SQLite()),
-        Provider<ImageManager>(create: (_) => ImageManager()),
+        ChangeNotifierProvider(create: (_) => SQLite()),
+        ChangeNotifierProvider(create: (_) => ImageManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager(darkTheme)),
       ],
       child: BetterFeedback(
@@ -120,6 +128,8 @@ class MyApp extends StatelessWidget {
 }
 
 class WTF extends StatelessWidget{
+  const WTF({super.key});
+
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
@@ -129,13 +139,14 @@ class WTF extends StatelessWidget{
        theme: theme.getTheme,
        darkTheme: theme.getTheme,
        themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
-       home: Main()
+       home: const Main()
    );
   }
 
 }
 
 class Main extends StatefulWidget {
+  const Main({super.key});
 
   @override
   _MyHomePageState createState() => _MyHomePageState();

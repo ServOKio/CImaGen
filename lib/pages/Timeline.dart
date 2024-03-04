@@ -45,7 +45,7 @@ class _TimelineState extends State<Timeline> {
               return;
             }
             if(image.re == RenderEngine.txt2img){
-              bool isHiRes = image.imageParams.generationParams?.denoisingStrength != null;
+              bool isHiRes = image.generationParams?.denoisingStrength != null;
 
               if(row.hasMain()){ //Если есть главная
                 // ok
@@ -175,14 +175,14 @@ class _TimelineState extends State<Timeline> {
 bool isIdenticalPromt(ImageMeta? one, ImageMeta? two){
   if(one == null || two == null) return false;
   return
-    one.imageParams.generationParams?.positive == two.imageParams.generationParams?.positive &&
-        one.imageParams.generationParams?.negative == two.imageParams.generationParams?.negative;
+    one.generationParams?.positive == two.generationParams?.positive &&
+        one.generationParams?.negative == two.generationParams?.negative;
 }
 
 List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   List<Difference> d = [];
-  GenerationParams? o = one?.imageParams.generationParams;
-  GenerationParams? t = two.imageParams.generationParams;
+  GenerationParams? o = one?.generationParams;
+  GenerationParams? t = two.generationParams;
   if(o == null || t == null) return d;
 
   // final String positive;
@@ -301,10 +301,10 @@ class _RowListState extends State<RowList> {
                 children: meta != null ? [
                   Text('Parameters', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 16)),
                   Container(width: 20, height: 2, color: Colors.deepPurple.shade400),
-                  InfoBox(one: 'S.Method', two: meta.imageParams.generationParams?.sampler ?? 'err'),
-                  InfoBox(one: 'S.Steps ', two: meta.imageParams.generationParams?.steps.toString() ?? 'err'),
-                  InfoBox(one: 'Size', two: meta.imageParams.generationParams?.size.toString() ?? 'err'),
-                  InfoBox(one: 'Seed', two: meta.imageParams.generationParams?.seed.toString() ?? 'err'),
+                  InfoBox(one: 'S.Method', two: meta.generationParams?.sampler ?? 'err'),
+                  InfoBox(one: 'S.Steps ', two: meta.generationParams?.steps.toString() ?? 'err'),
+                  InfoBox(one: 'Size', two: meta.generationParams?.size.toString() ?? 'err'),
+                  InfoBox(one: 'Seed', two: meta.generationParams?.seed.toString() ?? 'err'),
                 ] : [],
               ),
             ),
@@ -315,15 +315,15 @@ class _RowListState extends State<RowList> {
                 height: height,
                 child: meta != null ? Stack(
                   children: [
-                    Image.file(File(widget.rowData.main!.imageParams.path)),
+                    Image.file(File(widget.rowData.main!.fullPath)),
                     Padding(
                         padding: const EdgeInsets.all(5),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            meta.imageParams.generationParams != null ? TagBox(text: meta.imageParams.generationParams!.denoisingStrength != null ? 'Hi-Res' : 'Raw') : const SizedBox.shrink(),
-                            meta.imageParams.generationParams != null && meta.imageParams.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.imageParams.generationParams!.sampler)) : const SizedBox.shrink()
+                            meta.generationParams != null ? TagBox(text: meta.generationParams!.denoisingStrength != null ? 'Hi-Res' : 'Raw') : const SizedBox.shrink(),
+                            meta.generationParams != null && meta.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.generationParams!.sampler)) : const SizedBox.shrink()
                           ],
                         )
                     )
@@ -359,16 +359,16 @@ class _RowListState extends State<RowList> {
                   color: Colors.orange,
                   child: metaExtra != null ? Stack(
                     children: [
-                      Image.file(File(widget.rowData.extraMain!.imageParams.path)),
+                      Image.file(File(widget.rowData.extraMain!.fullPath)),
                       Padding(
                           padding: const EdgeInsets.all(5),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.start,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              metaExtra.imageParams.generationParams != null ? TagBox(text: metaExtra.imageParams.generationParams!.denoisingStrength != null ? 'Hi-Res${metaExtra.imageParams.generationParams?.hiresSampler != null ? ' ${metaExtra.imageParams.generationParams!.hiresSampler}' : ' Lanczos'}${metaExtra.imageParams.generationParams?.hiresUpscale != null ? ' x${metaExtra.imageParams.generationParams!.hiresUpscale}' : ''}' : 'Raw') : const SizedBox.shrink(),
-                              metaExtra.imageParams.generationParams != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'W&H:${metaExtra.imageParams.generationParams!.size.toString()}')) : const SizedBox.shrink(),
-                              metaExtra.imageParams.generationParams != null && metaExtra.imageParams.generationParams!.denoisingStrength != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'Ds:${metaExtra.imageParams.generationParams!.denoisingStrength}')) : const SizedBox.shrink()
+                              metaExtra.generationParams != null ? TagBox(text: metaExtra.generationParams!.denoisingStrength != null ? 'Hi-Res${metaExtra.generationParams?.hiresSampler != null ? ' ${metaExtra.generationParams!.hiresSampler}' : ' Lanczos'}${metaExtra.generationParams?.hiresUpscale != null ? ' x${metaExtra.generationParams!.hiresUpscale}' : ''}' : 'Raw') : const SizedBox.shrink(),
+                              metaExtra.generationParams != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'W&H:${metaExtra.generationParams!.size.toString()}')) : const SizedBox.shrink(),
+                              metaExtra.generationParams != null && metaExtra.generationParams!.denoisingStrength != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'Ds:${metaExtra.generationParams!.denoisingStrength}')) : const SizedBox.shrink()
                             ],
                           )
                       )
@@ -402,7 +402,7 @@ class _RowListState extends State<RowList> {
                       color: Colors.green,
                       child: Stack(
                         children: [
-                          Image.file(File(widget.rowData.images2[index].imageParams.path)),
+                          Image.file(File(widget.rowData.images2[index].fullPath)),
                           Padding(
                               padding: const EdgeInsets.all(5),
                               child: Column(

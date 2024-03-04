@@ -18,9 +18,9 @@ class ConfigManager with ChangeNotifier {
 
   Future<void> init() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String sd_webui_folter = (prefs.getString('sd_webui_folter') ?? '');
-    if(sd_webui_folter != ''){
-      final String response = File(sd_webui_folter+'/config.json').readAsStringSync();
+    String sdWebuiFolder = (prefs.getString('sd_webui_folter') ?? '');
+    if(sdWebuiFolder != ''){
+      final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
       final data = await json.decode(response);
       _json = data;
     }
@@ -49,18 +49,18 @@ Future<Uint8List> readAsBytesSync(String path) async {
   return File(path).readAsBytesSync();
 }
 
-GenerationParams? parseSDParameters(String text){
+GenerationParams? parseSDParameters(String rawData){
   Map<String, Object> gp = <String, Object>{};
 
   // Positive
   RegExp posReg = RegExp(r'\b ([\s\S]*?)(?=\nNegative prompt\b)');
-  String? posMatch = posReg.firstMatch(text)?.group(1)?.trim();
+  String? posMatch = posReg.firstMatch(rawData)?.group(1)?.trim();
   // Negative
   RegExp negReg = RegExp(r'\bNegative prompt: ([\s\S]*?)(?=\nSteps: \b)');
-  String? negMatch = negReg.firstMatch(text)?.group(1)?.trim();
+  String? negMatch = negReg.firstMatch(rawData)?.group(1)?.trim();
   // Generation params
   RegExp regExp = RegExp(r'(Steps[\s\S].*)');
-  String? genMatch = regExp.firstMatch(text)?.group(1)?.trim();
+  String? genMatch = regExp.firstMatch(rawData)?.group(1)?.trim();
 
   if(posMatch != null && negMatch != null && genMatch != null){
     Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(genMatch);
@@ -89,7 +89,7 @@ GenerationParams? parseSDParameters(String text){
       hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
       version: gp['version'] as String,
-      full: text
+      rawData: rawData
     );
   } else {
     return null;
@@ -135,7 +135,7 @@ class GenerationParams {
   final String sampler;
   final double cfgScale;
   final int seed;
-  final Size size;
+  final ImageSize size;
   final String modelHash;
   final String model;
   final double? denoisingStrength;
@@ -144,7 +144,7 @@ class GenerationParams {
   final double? hiresUpscale;
   final Map<String, String>? tiHashes;
   final String version;
-  final String? full;
+  final String? rawData;
 
   const GenerationParams({
     required this.positive,
@@ -162,7 +162,7 @@ class GenerationParams {
     this.hiresUpscale,
     this.tiHashes,
     required this.version,
-    this.full
+    this.rawData
   });
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
@@ -185,12 +185,12 @@ class GenerationParams {
       //forDB
       f['sizeW'] = size.width;
       f['sizeH'] = size.height;
-      if(full != null) f['full'] = full;
+      if(rawData != null) f['rawData'] = rawData;
       if(key != null){
         f['keyup'] = key.keyup;
         f['type'] = key.type.index;
         f['parent'] = key.parent;
-        f['name'] = key.name;
+        f['fileName'] = key.fileName;
       } else {
         throw Exception('Пошёл нахуй');
       }
@@ -216,20 +216,21 @@ class GenerationParams {
   }
 }
 
-Size sizeFromString(String s){
+ImageSize sizeFromString(String s){
   final List<String> ar = s.split('x');
-  return Size(width: int.parse(ar[0]), height: int.parse(ar[1]));
+  return ImageSize(width: int.parse(ar[0]), height: int.parse(ar[1]));
 }
 
-class Size {
+class ImageSize {
   final int width;
   final int height;
 
-  const Size({
+  const ImageSize({
     required this.width,
     required this.height
   });
 
+  @override
   String toString(){
     return '${width}x$height';
   }

@@ -122,36 +122,36 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
 
 Future<dynamic> _loadImages(String path) async {
   print('get');
-  List<ImageParams> images = [];
+  List<ImageMeta> images = [];
 
-  var dir = Directory(path);
-  final List<FileSystemEntity> files = dir.listSync();
-  for (final FileSystemEntity file in files) {
-    final ex = p.extension(file.path);
-    GenerationParams? gp;
-
-    //This shit
-    final fileBytes = await compute(readAsBytesSync, file.absolute.path);
-
-    if(ex == '.png'){
-      final trunk = pngExtract.extractChunks(fileBytes).where((e) => e["name"] == 'tEXt').toList(growable: false);
-      Uint8List uint8List = Uint8List.fromList(trunk[0]['data']);
-      String text = utf8.decode(uint8List);
-
-      gp = parseSDParameters(text);
-      if(gp != null){
-      }
-    }
-
-
-    images.add(ImageParams(path: file.path, fileName: p.basename(file.path), hasExif: gp != null, generationParams: gp));
-
-    // if (data.isEmpty) {
-    //   images.add(ImageMeta(path: file.path, fileName: basename(file.path), hasExif: false, exif: {}, sampler: 'none', seed: 0));
-    // } else {
-    //   images.add(ImageMeta(path: file.path, fileName: basename(file.path), hasExif: true, exif: {}, sampler: 'none', seed: 0));
-    // }
-  }
+  // var dir = Directory(path);
+  // final List<FileSystemEntity> files = dir.listSync();
+  // for (final FileSystemEntity file in files) {
+  //   final ex = p.extension(file.path);
+  //   GenerationParams? gp;
+  //
+  //   //This shit
+  //   final fileBytes = await compute(readAsBytesSync, file.absolute.path);
+  //
+  //   if(ex == '.png'){
+  //     final trunk = pngExtract.extractChunks(fileBytes).where((e) => e["name"] == 'tEXt').toList(growable: false);
+  //     Uint8List uint8List = Uint8List.fromList(trunk[0]['data']);
+  //     String text = utf8.decode(uint8List);
+  //
+  //     gp = parseSDParameters(text);
+  //     if(gp != null){
+  //     }
+  //   }
+  //
+  //
+  //   images.add(ImageParams(path: file.path, fileName: p.basename(file.path), hasExif: gp != null, generationParams: gp));
+  //
+  //   // if (data.isEmpty) {
+  //   //   images.add(ImageMeta(path: file.path, fileName: basename(file.path), hasExif: false, exif: {}, sampler: 'none', seed: 0));
+  //   // } else {
+  //   //   images.add(ImageMeta(path: file.path, fileName: basename(file.path), hasExif: true, exif: {}, sampler: 'none', seed: 0));
+  //   // }
+  // }
   print('return');
   return images;
 }
@@ -189,7 +189,7 @@ class _ImageListStateStateful extends State<ImageList>{
                       scrollDirection: Axis.horizontal,
                       controller: controller,
                       itemBuilder: (context, index) {
-                        ImageParams im = filter[index];
+                        ImageMeta im = filter[index];
                         return Container(
                             margin: const EdgeInsets.symmetric(horizontal: 3),
                             decoration: BoxDecoration(
@@ -198,7 +198,7 @@ class _ImageListStateStateful extends State<ImageList>{
                             ),
                             child: Stack(
                               children: [
-                                Image.file(File(im.path)),
+                                Image.file(File(im.fullPath)),
                                 Padding(
                                     padding: EdgeInsets.all(5),
                                     child: Column(
@@ -210,7 +210,7 @@ class _ImageListStateStateful extends State<ImageList>{
                                           width: 10,
                                           decoration: BoxDecoration(
                                               shape: BoxShape.circle,
-                                              color: im.hasExif
+                                              color: im.generationParams != null
                                                   ? Colors.green
                                                   : Colors.red
                                           ),
