@@ -15,9 +15,7 @@ class PortfolioGalleryImageWidget extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Ink.image(
-          image: FileImage(
-              File(imagePath)
-          ),
+          image: FileImage(File(imagePath)),
           fit: BoxFit.scaleDown,
           child: InkWell(
               onTap: onImageTap,

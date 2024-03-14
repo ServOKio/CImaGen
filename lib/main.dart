@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
@@ -115,12 +117,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => DataModel()),
         ChangeNotifierProvider(create: (_) => ConfigManager()),
         ChangeNotifierProvider(create: (_) => SQLite()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager(darkTheme)),
       ],
-      child: BetterFeedback(
+      child: const BetterFeedback(
         child: WTF()
       )
     );
@@ -152,23 +155,37 @@ class Main extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<Main> {
-  int _selectedIndex = 1;
+class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
+  late PageController _pageViewController;
+  late TabController _tabController;
+  int _currentPageIndex = 3;
+
   bool loaded = false;
 
   @override
   void initState() {
     super.initState();
+    _pageViewController = PageController(
+      initialPage: _currentPageIndex
+    );
+    _tabController = TabController(
+        length: 7,
+        initialIndex: _currentPageIndex,
+        vsync: this
+    );
     context.read<ConfigManager>().init().then((v) => context.read<SQLite>().init().then((v){
       loaded = true;
       context.read<ImageManager>().init(context);
     }));
+
+    context.read<DataModel>().jumpToTab = _updateCurrentPageIndex;
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  @override
+  void dispose() {
+    super.dispose();
+    _pageViewController.dispose();
+    _tabController.dispose();
   }
 
   // void _showModalBottomSheet(BuildContext context) {
@@ -199,17 +216,6 @@ class _MyHomePageState extends State<Main> {
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
 
-    List<Widget> widgetOptions = <Widget>[
-      Home(),
-      Gallery(),
-      Timeline(),
-      Comparison(),
-      P404(),
-      P404(),
-      Settings()
-    ];
-
-
     return Scaffold(
       drawer: Drawer(
         // Add a ListView to the drawer. This ensures the user can scroll
@@ -218,35 +224,8 @@ class _MyHomePageState extends State<Main> {
         child: ListView(
           // Important: Remove any padding from the ListView.
           padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.black,
-              ),
-              child: Text('Drawer Header'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.all_inbox),
-              title: const Text('Home'),
-              selected: _selectedIndex == 0,
-              onTap: () {
-                // Update the state of the app
-                _onItemTapped(0);
-                // Then close the drawer
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              selected: _selectedIndex == 1,
-              onTap: () {
-                // Update the state of the app
-                _onItemTapped(1);
-                // Then close the drawer
-                Navigator.pop(context);
-              },
-            ),
+          children: const [
+            Text('fdf')
           ],
         ),
       ),
@@ -274,7 +253,19 @@ class _MyHomePageState extends State<Main> {
           )
       ),
       appBar: CAppBar(),
-      body: loaded ? widgetOptions.asMap().containsKey(_selectedIndex) ? widgetOptions[_selectedIndex] : P404() : const Center(child: CircularProgressIndicator(),),
+      body: PageView(
+        controller: _pageViewController,
+        onPageChanged: _handlePageViewChanged,
+        children: <Widget>[
+          loaded ? Home() : Text(''),
+          loaded ? const Gallery() : Text(''),
+          loaded ? const Timeline() : Text(''),
+          loaded ? const Comparison() : Text(''),
+          loaded ? P404() : Text(''),
+          loaded ? P404() : Text(''),
+          loaded ? const Settings() : Text(''),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed:(){
           //_showModalBottomSheet(context);
@@ -314,12 +305,49 @@ class _MyHomePageState extends State<Main> {
             label: 'Settings',
           ),
         ],
-        currentIndex: _selectedIndex,
+        currentIndex: _currentPageIndex,
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-        onTap: _onItemTapped,
+        onTap: (index){
+          _updateCurrentPageIndex(index);
+        },
       ),
     );
+  }
+
+  void _updateCurrentPageIndex(int index) {
+    _tabController.index = index;
+    _pageViewController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _handlePageViewChanged(int currentPageIndex) {
+    if (!_isOnDesktopAndWeb) {
+      return;
+    }
+    _tabController.index = currentPageIndex;
+    setState(() {
+      _currentPageIndex = currentPageIndex;
+    });
+  }
+
+  bool get _isOnDesktopAndWeb {
+    if (kIsWeb) {
+      return true;
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return true;
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        return false;
+    }
   }
 }
 

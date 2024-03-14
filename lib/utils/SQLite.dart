@@ -227,7 +227,7 @@ class SQLite with ChangeNotifier{
           compression: maps[i]['compression'] as int,
           filter: maps[i]['filter'] as int,
           colorMode: maps[i]['colorMode'] as int,
-          thumbnail: maps[i]['thumbnail'] as String
+          thumbnail: maps[i]['thumbnail'] as String,
       );
     });
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc

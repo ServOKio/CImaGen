@@ -1,14 +1,11 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:cimagen/utils/DataModel.dart';
 import 'package:flutter/material.dart';
 import 'package:image_compare_slider/image_compare_slider.dart';
-import 'package:png_chunks_extract/png_chunks_extract.dart' as pngExtract;
-import 'package:path/path.dart' as p;
-import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 
-import '../Utils.dart';
 import '../utils/ImageManager.dart';
 
 SliderDirection direction = SliderDirection.leftToRight;
@@ -41,57 +38,93 @@ class Comparison extends StatefulWidget{
 
 class _ComparisonState extends State<Comparison> {
   double _scale = 0;
+  final TransformationController _transformationController = TransformationController();
+  GlobalKey stickyKey = GlobalKey();
+
+  double x = 0.0;
+  double y = 0.0;
+
+  bool toBottom = false;
+
+// fetches mouse pointer location
+  void _updateLocation(PointerEvent details) {
+    final keyContext = stickyKey.currentContext;
+    if (keyContext != null) {
+      final box = keyContext.findRenderObject() as RenderBox;
+      final pos = box.localToGlobal(Offset.zero);
+
+      bool t = details.position.dy < pos.dy + box.size.height / 2;
+      if(t != toBottom){
+        setState(() {
+          toBottom = t;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final dataModel = Provider.of<DataModel>(context, listen: true);
     return Scaffold(
       body: Column(
         children: [
-          ImageList(path: 'K:\\pictures\\sd\\outputs\\img2img-images\\2023-08-10', seed: 857482875),
+          ImageList(images: dataModel.comparisonBlock.getImages),
           Expanded(
-            child: Stack(
+            child: dataModel.comparisonBlock.oneSelected ? Stack(
               children: [
-                InteractiveViewer(
-                  panEnabled: true,
-                  scaleFactor: 1000,
-                  minScale: 0.1,
-                  maxScale: 4,
-                  constrained: false,
-                  onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
-                    setState(() {
-                      _scale = details.scale;
-                    });
-                  },
-                  child: ImageCompareSlider(
-                    itemOne: Image.file(
-                      File('K:/pictures/sd/outputs/img2img-images/2024-01-30/00084-DPM++ 3M SDE-1624605927.png'),
-                      colorBlendMode: itemOneBlendMode,
-                      color: itemOneColor,
-                    ),
-                    itemTwo: Image.file(
-                      File('K:/pictures/sd/outputs/img2img-images/2024-01-30/00085-DPM++ SDE Karras-1624605927.png'),
-                      colorBlendMode: itemTwoBlendMode,
-                      color: itemTwoColor,
+                MouseRegion(
+                  key: stickyKey,
+                  // onEnter: _incrementEnter,
+                  onHover: _updateLocation,
+                  // onExit: _incrementExit,
+                  child: InteractiveViewer(
+                    transformationController: _transformationController,
+                    panEnabled: true,
+                    scaleFactor: 1000,
+                    minScale: 0.1,
+                    maxScale: 4,
+                    constrained: false,
+                    onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
+                      setState(() {
+                        _scale = _transformationController.value.getMaxScaleOnAxis();
+                      });
+                    },
+                    child: ImageCompareSlider(
+                      itemOne: dataModel.comparisonBlock.firstCache!,
+                      itemTwo: dataModel.comparisonBlock.secondCache!,
                     ),
                   ),
                 ),
-                Positioned.fill(
-                  child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Text(_scale.toString(), style: TextStyle(fontSize: 10, color: Colors.white)),
-                  ),
-                ),
-                Positioned(
-                  child: Container(
-                    color: Colors.black,
-                    child: const Column(
-                      children: [
-                        Text('fsdf'),
-                      ],
-                    ),
-                  )
-                ),
+                AnimatedAlign(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeInOut,
+                    alignment: toBottom ? Alignment.bottomCenter : Alignment.topCenter,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          border: Border.all(
+                            color: Colors.black.withOpacity(0.5),
+                          ),
+                          borderRadius: const BorderRadius.all(Radius.circular(20))
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('x${_scale.toStringAsFixed(2)}'),
+                        ],
+                      ),
+                    )
+                )
               ],
+            ) : const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('First, you must select at least one image')
+                ],
+              ),
             )
           )
         ],
@@ -101,10 +134,9 @@ class _ComparisonState extends State<Comparison> {
 }
 
 class ImageList extends StatefulWidget {
-  final String path;
-  final int seed;
+  final List<ImageMeta> images;
 
-  const ImageList({ Key? key, required this.path, required this.seed }): super(key: key);
+  const ImageList({ Key? key, required this.images }): super(key: key);
 
   @override
   _ImageListStateStateful createState() => _ImageListStateStateful();
@@ -120,51 +152,13 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-Future<dynamic> _loadImages(String path) async {
-  print('get');
-  List<ImageMeta> images = [];
-
-  // var dir = Directory(path);
-  // final List<FileSystemEntity> files = dir.listSync();
-  // for (final FileSystemEntity file in files) {
-  //   final ex = p.extension(file.path);
-  //   GenerationParams? gp;
-  //
-  //   //This shit
-  //   final fileBytes = await compute(readAsBytesSync, file.absolute.path);
-  //
-  //   if(ex == '.png'){
-  //     final trunk = pngExtract.extractChunks(fileBytes).where((e) => e["name"] == 'tEXt').toList(growable: false);
-  //     Uint8List uint8List = Uint8List.fromList(trunk[0]['data']);
-  //     String text = utf8.decode(uint8List);
-  //
-  //     gp = parseSDParameters(text);
-  //     if(gp != null){
-  //     }
-  //   }
-  //
-  //
-  //   images.add(ImageParams(path: file.path, fileName: p.basename(file.path), hasExif: gp != null, generationParams: gp));
-  //
-  //   // if (data.isEmpty) {
-  //   //   images.add(ImageMeta(path: file.path, fileName: basename(file.path), hasExif: false, exif: {}, sampler: 'none', seed: 0));
-  //   // } else {
-  //   //   images.add(ImageMeta(path: file.path, fileName: basename(file.path), hasExif: true, exif: {}, sampler: 'none', seed: 0));
-  //   // }
-  // }
-  print('return');
-  return images;
-}
-
 class _ImageListStateStateful extends State<ImageList>{
   bool loaded = false;
-
-  late Future<dynamic> dataFuture;
 
   @override
   void initState() {
     super.initState();
-    dataFuture = _loadImages(widget.path);
+    // dataFuture = _loadImages(widget.path);
     //load();
   }
 
@@ -175,92 +169,51 @@ class _ImageListStateStateful extends State<ImageList>{
     return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         height: 150,
-        child: FutureBuilder(
-          builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot){
-            Widget children;
-            if (snapshot.hasData) {
-              print(snapshot.data.length);
-              final filter = snapshot.data.where((e) => e.generationParams != null && e.generationParams.seed == widget.seed).toList();
-              print(filter.length);
-              children = ScrollConfiguration(
-                  behavior: MyCustomScrollBehavior(),
-                  child: ListView.builder(
-                      itemCount: filter.length,
-                      scrollDirection: Axis.horizontal,
-                      controller: controller,
-                      itemBuilder: (context, index) {
-                        ImageMeta im = filter[index];
-                        return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 3),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(3),
-                                border: Border.all(color: Colors.white10)
-                            ),
-                            child: Stack(
-                              children: [
-                                Image.file(File(im.fullPath)),
-                                Padding(
-                                    padding: EdgeInsets.all(5),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          height: 10,
-                                          width: 10,
-                                          decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: im.generationParams != null
-                                                  ? Colors.green
-                                                  : Colors.red
-                                          ),
-                                        ),
-                                        im.generationParams != null ? Text(im.generationParams!.sampler.toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
-                                        im.generationParams != null ? Text(im.generationParams!.denoisingStrength.toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
-                                        im.generationParams != null ? Text((im.generationParams!.seed).toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink()
-                                        //{steps: 35, sampler: DPM adaptive, cfg_scale: 7, seed: 1624605927, size: 2567x1454, model_hash: a679b318bd, model: 0.7(bb95FurryMix_v100) + 0.3(crosskemonoFurryModel_crosskemono25), denoising_strength: 0.35, rng: NV, ti_hashes: "easynegative, version: 1.7.0}
-                                      ],
-                                    )
-                                )
-                              ],
-                            )
-                        );
-                      }
-                  )
-              );
-            } else if (snapshot.hasError) {
-              print(snapshot.stackTrace);
-              children = Column(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 60,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text('Error: ${snapshot.error}'),
-                  ),
-                ],
-              );
-            } else {
-              children = const Column(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: CircularProgressIndicator(),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Text('Awaiting result...'),
-                  ),
-                ],
-              );
-            }
-            return children;
-          },
-          future: dataFuture,
+        child: ScrollConfiguration(
+            behavior: MyCustomScrollBehavior(),
+            child: ListView.builder(
+                itemCount: widget.images.length,
+                scrollDirection: Axis.horizontal,
+                controller: controller,
+                itemBuilder: (context, index) {
+                  ImageMeta im = widget.images.elementAt(index);
+                  return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          border: Border.all(color: Colors.white10)
+                      ),
+                      child: Stack(
+                        children: [
+                          Image.file(File(im.fullPath)),
+                          Padding(
+                              padding: const EdgeInsets.all(5),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    height: 10,
+                                    width: 10,
+                                    decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: im.generationParams != null
+                                            ? Colors.green
+                                            : Colors.red
+                                    ),
+                                  ),
+                                  im.generationParams != null ? Text(im.generationParams!.sampler.toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
+                                  im.generationParams != null ? Text(im.generationParams!.denoisingStrength.toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
+                                  im.generationParams != null ? Text((im.generationParams!.seed).toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink()
+                                  //{steps: 35, sampler: DPM adaptive, cfg_scale: 7, seed: 1624605927, size: 2567x1454, model_hash: a679b318bd, model: 0.7(bb95FurryMix_v100) + 0.3(crosskemonoFurryModel_crosskemono25), denoising_strength: 0.35, rng: NV, ti_hashes: "easynegative, version: 1.7.0}
+                                ],
+                              )
+                          )
+                        ],
+                      )
+                  );
+                }
+            )
         )
     );
   }

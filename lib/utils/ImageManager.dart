@@ -38,18 +38,8 @@ class ImageManager extends ChangeNotifier{
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
   }
 
-  Future<void> updateIfNado(RenderEngine re, String imagePath) async {
-    // Check file type
+  Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     final String e = p.extension(imagePath);
-    if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) return;
-    final String b = p.basename(imagePath);
-    for(String d in ['before-color-correction', 'mask', 'mask-composite']){
-      if(b.contains(d)) {
-        if (kDebugMode) print('skip $b');
-        return;
-      }
-    }
-
     GenerationParams? gp;
 
     // Read
@@ -86,26 +76,43 @@ class ImageManager extends ChangeNotifier{
       final fte = e.replaceFirst('.', '');
       var fileStat = await f.stat();
 
-      _lastJob = imagePath;
-      notifyListeners();
-
-      NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, ImageMeta(
-        fullPath: p.normalize(imagePath),
-        re: re,
-        mine: mine,
-        fileTypeExtension: fte,
-        fileSize: fileStat.size,
-        dateModified: fileStat.modified,
-        size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
-        bitDepth: IHDRu8List[8],
-        colorType: IHDRu8List[9],
-        compression: IHDRu8List[10],
-        filter: IHDRu8List[11],
-        colorMode: IHDRu8List[12], // 13 bytes - ok
-        generationParams: gp
-      ));
+      return ImageMeta(
+          fullPath: p.normalize(imagePath),
+          re: re,
+          mine: mine,
+          fileTypeExtension: fte,
+          fileSize: fileStat.size,
+          dateModified: fileStat.modified,
+          size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
+          bitDepth: IHDRu8List[8],
+          colorType: IHDRu8List[9],
+          compression: IHDRu8List[10],
+          filter: IHDRu8List[11],
+          colorMode: IHDRu8List[12], // 13 bytes - ok
+          generationParams: gp
+      );
       // print(text);
+    } else {
+      return null;
     }
+  }
+
+  Future<void> updateIfNado(RenderEngine re, String imagePath) async {
+    // Check file type
+    final String e = p.extension(imagePath);
+    if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) return;
+    final String b = p.basename(imagePath);
+    for(String d in ['before-color-correction', 'mask', 'mask-composite']){
+      if(b.contains(d)) {
+        if (kDebugMode) print('skip $b');
+        return;
+      }
+    }
+
+    _lastJob = imagePath;
+    parseImage(re, imagePath).then((value) {
+      if(value != null) NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, value);
+    });
   }
 
   void watchDir(RenderEngine re, String path){
@@ -204,6 +211,7 @@ enum FilterTypes{
 // }
 
 class ImageMeta {
+  String keyup = '';
   final RenderEngine re;
   final String? mine;
   final String fileTypeExtension;
@@ -237,15 +245,17 @@ class ImageMeta {
     this.generationParams,
     this.thumbnail
   }){
+    final String parentFolder = p.basename(File(fullPath).parent.path);
     fileName = p.basename(fullPath);
     pathHash = genPathHash(fullPath);
+    keyup = genHash(re, parentFolder, fileName);
   }
 
   Future<Map<String, dynamic>> toMap({required bool forSQL}) async {
     final String parentFolder = p.basename(File(fullPath).parent.path);
     img.Image? image = await img.decodeImageFile(fullPath);
     return {
-      'keyup': genHash(re, parentFolder, fileName),
+      'keyup': keyup,
       'type': re.index,
       'parent': parentFolder,
       'fileName': fileName,
@@ -282,4 +292,27 @@ enum RenderEngine{
   img2imgGrid,
   extra,
   comfUI,
+}
+
+class ImageSize {
+  final int width;
+  final int height;
+
+  const ImageSize({
+    required this.width,
+    required this.height
+  });
+
+  @override
+  String toString(){
+    return '${width}x$height';
+  }
+
+  int totalPixels(){
+    return width*height;
+  }
+
+  double aspectRatio(){
+    return width / height;
+  }
 }

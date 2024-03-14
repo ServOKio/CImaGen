@@ -6,6 +6,8 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
+import 'package:cross_file/cross_file.dart';
 
 class ConfigManager with ChangeNotifier {
   //init
@@ -221,31 +223,13 @@ ImageSize sizeFromString(String s){
   return ImageSize(width: int.parse(ar[0]), height: int.parse(ar[1]));
 }
 
-class ImageSize {
-  final int width;
-  final int height;
-
-  const ImageSize({
-    required this.width,
-    required this.height
-  });
-
-  @override
-  String toString(){
-    return '${width}x$height';
-  }
-
-  int totalPixels(){
-    return width*height;
-  }
-
-  double aspectRatio(){
-    return width / height;
-  }
-}
-
 String genPathHash(String path){
   List<int> bytes = utf8.encode(path);
   String hash = sha256.convert(bytes).toString();
   return hash;
+}
+
+bool isImage(dynamic file){
+  final String e = p.extension(file.path);
+  return ['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''));
 }

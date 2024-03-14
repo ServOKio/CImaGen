@@ -15,10 +15,10 @@ import '../utils/SQLite.dart';
 
 class PortfolioGalleryDetailPage extends StatefulWidget {
 
-  final List<String> imagePaths;
+  final List<ImageMeta> images;
   final int currentIndex;
 
-  const PortfolioGalleryDetailPage({Key? key, required this.imagePaths, required this.currentIndex}) : super(key: key);
+  const PortfolioGalleryDetailPage({Key? key, required this.images, required this.currentIndex}) : super(key: key);
 
   @override
   _PortfolioGalleryDetailPageState createState() => _PortfolioGalleryDetailPageState();
@@ -75,14 +75,14 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
           duration: const Duration(milliseconds: 200),
           child: AppBar(
             backgroundColor: Colors.black,
-            title: Text(widget.imagePaths[_currentIndex]),
+            title: Text(widget.images[_currentIndex].fileName),
             actions: [
               IconButton(
                   icon: Icon(
-                    imageManager.favoritePaths.contains(widget.imagePaths[_currentIndex]) ? Icons.star : Icons.star_outline,
+                    imageManager.favoritePaths.contains(widget.images[_currentIndex].fullPath) ? Icons.star : Icons.star_outline,
                   ),
                   onPressed: (){
-                    imageManager.toogleFavorite(widget.imagePaths[_currentIndex]);
+                    imageManager.toogleFavorite(widget.images[_currentIndex].fullPath);
                   }
               ),
               const Gap(6),
@@ -91,7 +91,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                     Icons.info_outline,
                   ),
                   onPressed: (){
-                    requestInfo(widget.imagePaths[_currentIndex]);
+                    //requestInfo(widget.images[_currentIndex]);
                   }
               ),
               const Gap(6),
@@ -282,11 +282,11 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   Widget _buildImageCarouselSlider() {
     return CarouselSlider.builder(
-      itemCount: widget.imagePaths.length,
+      itemCount: widget.images.length,
       carouselController: carouselController,
       itemBuilder: (ctx, index, realIdx) {
         return PortfolioGalleryImageWidget(
-          imagePath: widget.imagePaths[index],
+          imagePath: widget.images[index].fullPath,
           onImageTap: () {
             carouselController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.ease);
             _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.ease);
@@ -310,10 +310,10 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   PhotoViewGallery _buildPhotoViewGallery() {
     return PhotoViewGallery.builder(
-      itemCount: widget.imagePaths.length,
+      itemCount: widget.images.length,
       builder: (BuildContext context, int index) {
         return PhotoViewGalleryPageOptions(
-          imageProvider: FileImage(File(widget.imagePaths[index])),
+          imageProvider: FileImage(File(widget.images[index].fullPath)),
           minScale: PhotoViewComputedScale.contained * 1,
           maxScale: PhotoViewComputedScale.covered * 1,
           onTapUp: (_, __, ___) => setState(() {

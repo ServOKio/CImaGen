@@ -31,6 +31,7 @@ class _TimelineState extends State<Timeline> {
     if(go == null){
       sr = true;
     } else {
+      return;
       context.read<SQLite>().getPossibleTimelineProjects().then((value) => {
         context.read<SQLite>().getImagesBySeed(
             // value[0].seed
@@ -330,11 +331,9 @@ class _RowListState extends State<RowList> {
                   ],
                 ) : metaExtra != null && (findFirstMain(widget.rows, widget.index) != null && isIdenticalPromt(findFirstMain(widget.rows, widget.index)!.main, metaExtra)) ? AspectRatio(
                   aspectRatio: metaExtra.size.aspectRatio(),
-                  child: Container(
-                    child: CustomPaint(
-                      painter: TimeLineLine(),
-                      child: Container(),
-                    ),
+                  child: CustomPaint(
+                    painter: TimeLineLine(),
+                    child: Container(),
                   ),
                 ) : widget.rowData.hasSecond() ? AspectRatio(
                   aspectRatio: widget.rowData.images2[0].size.aspectRatio(),

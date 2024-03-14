@@ -8,14 +8,15 @@ ColorScheme colorScheme = ColorScheme(
     primary: f,
     onPrimary: const Color(0xffc0eeff),
 
-    secondary: Color(0xff6c9867), //dont
+    secondary: f, //dont
     onSecondary: Color(0xffeeeaff),//dont
 
-    background: Color(0xff1A1A1A),
+    background: const Color(0xFF1a1c20), //Второстепенный
     onBackground: Color(0xff725cff),
 
-    surface: Color(0xFF222222),
-    onSurface: Color(0xffe2dbff),
+    surface: const Color(0xFF1a1c20),
+    onSurface: Colors.white,
+
 
     error: Colors.red,
     onError: Colors.white,
@@ -25,8 +26,14 @@ var darkTheme = ThemeData.from(
     textTheme: txtTheme,
     colorScheme: colorScheme,
     useMaterial3: true,
-  );
+).copyWith(
+  scaffoldBackgroundColor: const Color(0xFF131517), //# 131517 Главный фон
 
+  dividerColor: const Color(0xFF2d2f32),
+  dividerTheme: const DividerThemeData(
+    color: Color(0xFF2d2f32),
+  ),
+);
 var lightTheme= ThemeData.light();
 
 class ThemeManager extends ChangeNotifier {
