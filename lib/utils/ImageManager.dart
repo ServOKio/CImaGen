@@ -38,65 +38,6 @@ class ImageManager extends ChangeNotifier{
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
   }
 
-  Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
-    final String e = p.extension(imagePath);
-    GenerationParams? gp;
-
-    // Read
-    final fileBytes = await compute(readAsBytesSync, imagePath);
-    final File f = File(imagePath);
-
-    if(e == '.png') {
-      final List<Map<String, dynamic>> chunks = pngExtract.extractChunks(fileBytes);
-      // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
-      // [IHDR, tEXt, IDAT, IEND], [13, 1009, 25524, 0]
-
-      // IHDR
-      final IHDRtrunk = chunks.where((e) => e["name"] == 'IHDR').toList(growable: false)[0]['data'];
-      Uint8List IHDRu8List = Uint8List.fromList(IHDRtrunk);
-      var bdata = ByteData.view(Uint8List.fromList(IHDRtrunk).buffer);
-      // [
-      //  0, 0, 0, 128, Width               4 bytes
-      //  0, 0, 0, 128, Height              4 bytes
-      //  8,            Bit depth           1 byte
-      //  2,            Color type          1 byte
-      //  0,            Compression method  1 byte - always 0
-      //  0,            Filter method       1 byte
-      //  0             Interlace method    1 byte
-      // ]
-
-      // tEXt
-      final tEXtTrunk = chunks.where((e) => e["name"] == 'tEXt').toList(growable: false);
-      if(tEXtTrunk.isNotEmpty){
-        String text = utf8.decode(Uint8List.fromList(tEXtTrunk[0]['data']));
-        gp = parseSDParameters(text);
-      }
-
-      final String mine = lookupMimeType(imagePath, headerBytes: [0xFF, 0xD8]) ?? 'unknown';
-      final fte = e.replaceFirst('.', '');
-      var fileStat = await f.stat();
-
-      return ImageMeta(
-          fullPath: p.normalize(imagePath),
-          re: re,
-          mine: mine,
-          fileTypeExtension: fte,
-          fileSize: fileStat.size,
-          dateModified: fileStat.modified,
-          size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
-          bitDepth: IHDRu8List[8],
-          colorType: IHDRu8List[9],
-          compression: IHDRu8List[10],
-          filter: IHDRu8List[11],
-          colorMode: IHDRu8List[12], // 13 bytes - ok
-          generationParams: gp
-      );
-      // print(text);
-    } else {
-      return null;
-    }
-  }
-
   Future<void> updateIfNado(RenderEngine re, String imagePath) async {
     // Check file type
     final String e = p.extension(imagePath);
@@ -139,6 +80,65 @@ class ImageManager extends ChangeNotifier{
   }
 }
 
+Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
+  final String e = p.extension(imagePath);
+  GenerationParams? gp;
+
+  // Read
+  final fileBytes = await compute(readAsBytesSync, imagePath);
+  final File f = File(imagePath);
+
+  if(e == '.png') {
+    final List<Map<String, dynamic>> chunks = pngExtract.extractChunks(fileBytes);
+    // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
+    // [IHDR, tEXt, IDAT, IEND], [13, 1009, 25524, 0]
+
+    // IHDR
+    final IHDRtrunk = chunks.where((e) => e["name"] == 'IHDR').toList(growable: false)[0]['data'];
+    Uint8List IHDRu8List = Uint8List.fromList(IHDRtrunk);
+    var bdata = ByteData.view(Uint8List.fromList(IHDRtrunk).buffer);
+    // [
+    //  0, 0, 0, 128, Width               4 bytes
+    //  0, 0, 0, 128, Height              4 bytes
+    //  8,            Bit depth           1 byte
+    //  2,            Color type          1 byte
+    //  0,            Compression method  1 byte - always 0
+    //  0,            Filter method       1 byte
+    //  0             Interlace method    1 byte
+    // ]
+
+    // tEXt
+    final tEXtTrunk = chunks.where((e) => e["name"] == 'tEXt').toList(growable: false);
+    if(tEXtTrunk.isNotEmpty){
+      String text = utf8.decode(Uint8List.fromList(tEXtTrunk[0]['data']));
+      gp = parseSDParameters(text);
+    }
+
+    final String mine = lookupMimeType(imagePath, headerBytes: [0xFF, 0xD8]) ?? 'unknown';
+    final fte = e.replaceFirst('.', '');
+    var fileStat = await f.stat();
+
+    return ImageMeta(
+        fullPath: p.normalize(imagePath),
+        re: re,
+        mine: mine,
+        fileTypeExtension: fte,
+        fileSize: fileStat.size,
+        dateModified: fileStat.modified,
+        size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
+        bitDepth: IHDRu8List[8],
+        colorType: IHDRu8List[9],
+        compression: IHDRu8List[10],
+        filter: IHDRu8List[11],
+        colorMode: IHDRu8List[12], // 13 bytes - ok
+        generationParams: gp
+    );
+    // print(text);
+  } else {
+    return null;
+  }
+}
+
 class ImageKey{
   String keyup = '';
   final RenderEngine type;
@@ -155,18 +155,37 @@ class ImageKey{
 }
 
 enum ColorType{
-  greyscale,           // 0
+  greyscale,           // 0 - Each pixel consists of a single grey sample, which represents overall luminance (on a scale from black to white).
   unknown1,            // 1 - null
-  truecolor,           // 2
-  indexedColor, 	     // 3
-  greyscaleWithAlpha,  //	4
+  truecolor,           // 2 - Each pixel consists of a triplet of samples: red, green, blue.
+  indexedColor, 	     // 3 - Each pixel consists of an index into a palette (and into an associated table of alpha values, if present).
+  greyscaleWithAlpha,  //	4 - Each pixel consists of two samples: a grey sample and an alpha sample.
   unknown5,            // 5 - null
-  truecolorWithAlpha 	 // 6
+  truecolorWithAlpha 	 // 6 - Each pixel consists of four samples: red, green, blue and alpha.
 }
 
-enum InterlaceMethod{
+String getColorType(int type){
+  return <int, String>{
+    0: 'Greyscale',
+    1: 'Unknown',
+    2: 'Truecolor',
+    3: 'Indexed-color',
+    4: 'Greyscale with alpha',
+    5: 'Unknown',
+    6: 'Truecolor with alpha'
+  }[type] ?? 'Unknown';
+}
+
+enum InterlaceMethod {
   nullMethod,
   adam7,
+}
+
+String getInterlaceMethod(int type){
+  return <int, String>{
+    0: 'Null method',
+    1: 'Adam7',
+  }[type] ?? 'Unknown';
 }
 
 enum FilterTypes{
@@ -177,38 +196,22 @@ enum FilterTypes{
   paeth
 }
 
-// class ImageParams {
-//   final String path;
-//   String? parent;
-//   final String fileName;
-//   bool hasExif = false;
-//   Map<String, Object>? exif;
-//   GenerationParams? generationParams;
-//
-//   ImageParams({
-//     required this.path,
-//     required this.fileName,
-//     required this.hasExif,
-//     this.exif,
-//     this.generationParams
-//   }){
-//     parent = p.basename(File(path).parent.path);
-//   }
-//
-//   Map<String, dynamic> toMap() {
-//     Map<String, dynamic> f = {
-//       'path': path,
-//       'fileName': fileName
-//     };
-//
-//     if(generationParams != null) f['generationParams'] = generationParams?.toMap();
-//     return f;
-//   }
-//
-//   String toJsonString(){
-//     return jsonEncode(toMap());
-//   }
-// }
+// https://w3c.github.io/PNG-spec/#9-table91
+String getFilterType(int type){
+  return <int, String>{
+    0: 'None',
+    1: 'Sub',
+    2: 'Up',
+    3: 'Average',
+    4: 'Paeth'
+  }[type] ?? 'Unknown';
+}
+
+String getCompression(int type){
+  return <int, String>{
+    0 : 'Deflate'
+  }[type] ?? 'Unknown';
+}
 
 class ImageMeta {
   String keyup = '';
@@ -314,5 +317,9 @@ class ImageSize {
 
   double aspectRatio(){
     return width / height;
+  }
+
+  String withMultiply(double hiresUpscale) {
+    return '${(width * hiresUpscale).round()}x${(height * hiresUpscale).round()}';
   }
 }

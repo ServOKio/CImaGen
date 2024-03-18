@@ -109,6 +109,7 @@ class SQLite with ChangeNotifier{
               'denoisingStrength DOUBLE,'
               'rng VARCHAR(16),'
               'hiresSampler VARCHAR(128),'
+              'hiresUpscaler VARCHAR(128),'
               'hiresUpscale DOUBLE,'
               'tiHashes TEXT,'
               'version VARCHAR(16),'
@@ -251,6 +252,7 @@ class SQLite with ChangeNotifier{
         print('--- ERROR ---');
       }
       var d = maps[i];
+      List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(
         re: RenderEngine.values[d['type'] as int],
         mine: d['mine'] as String,
@@ -258,7 +260,7 @@ class SQLite with ChangeNotifier{
         fileSize: d['fileSize'] as int,
         fullPath: d['fullPath'] as String,
         dateModified: DateTime.parse(d['dateModified'] as String),
-        size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
+        size: ImageSize(width: size[0], height: size[1]),
         bitDepth: d['bitDepth'] as int,
         colorType: d['colorType'] as int,
         compression: d['compression'] as int,
@@ -278,6 +280,7 @@ class SQLite with ChangeNotifier{
             denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
             rng: d['rng'] != null ? d['rng'] as String : null,
             hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+            hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
             hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
             version: d['version'] as String,
             rawData: d['rawData']
@@ -310,6 +313,7 @@ class SQLite with ChangeNotifier{
         denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
         rng: d['rng'] != null ? d['rng'] as String : null,
         hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+        hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
         hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
         version: d['version'] as String,
         rawData: d['rawData']

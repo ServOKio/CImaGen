@@ -210,6 +210,8 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   if(o.rng != t.rng) d.add(Difference(key: 'rng', oldValue: o.rng ?? '-', newValue: t.rng ?? '-'));
   // final String? hiresSampler;
   if(o.hiresSampler != t.hiresSampler) d.add(Difference(key: 'hiresSampler', oldValue: o.hiresSampler ?? '-', newValue: t.hiresSampler ?? '-'));
+
+  if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
   // final Map<String, String>? tiHashes;

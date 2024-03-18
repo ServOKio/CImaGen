@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:crypto/crypto.dart';
@@ -7,7 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
-import 'package:cross_file/cross_file.dart';
+import 'package:intl/intl.dart';
 
 class ConfigManager with ChangeNotifier {
   //init
@@ -76,6 +77,8 @@ GenerationParams? parseSDParameters(String rawData){
       }
     }
 
+    print(gp);
+
     return GenerationParams(
       positive: posMatch,
       negative: negMatch,
@@ -89,6 +92,7 @@ GenerationParams? parseSDParameters(String rawData){
       denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
       rng: gp['rng'] != null ? gp['rng'] as String : null,
       hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
+      hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
       version: gp['version'] as String,
       rawData: rawData
@@ -143,6 +147,7 @@ class GenerationParams {
   final double? denoisingStrength;
   final String? rng;
   final String? hiresSampler;
+  final String? hiresUpscaler;
   final double? hiresUpscale;
   final Map<String, String>? tiHashes;
   final String version;
@@ -161,10 +166,11 @@ class GenerationParams {
     this.denoisingStrength,
     this.rng,
     this.hiresSampler,
+    this.hiresUpscaler,
     this.hiresUpscale,
     this.tiHashes,
     required this.version,
-    this.rawData
+    this.rawData,
   });
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
@@ -201,6 +207,7 @@ class GenerationParams {
     if (denoisingStrength != null) f['denoisingStrength'] = denoisingStrength;
     if (rng != null) f['rng'] = rng;
     if (hiresSampler != null) f['hiresSampler'] = hiresSampler;
+    if (hiresUpscaler != null) f['hiresUpscaler'] = hiresUpscaler;
     if (hiresUpscale != null) f['hiresUpscale'] = hiresUpscale;
     if (tiHashes != null) f['tiHashes'] = tiHashes;
 
@@ -233,3 +240,13 @@ bool isImage(dynamic file){
   final String e = p.extension(file.path);
   return ['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''));
 }
+
+String readableFileSize(int size, {bool base1024 = true}) {
+  final base = base1024 ? 1024 : 1000;
+  if (size <= 0) return "0";
+  final units = ["B", "kB", "MB", "GB", "TB"];
+  int digitGroups = (log(size) / log(base)).round();
+  return "${NumberFormat("#,##0.#").format(size / pow(base, digitGroups))}${units[digitGroups]}";
+}
+
+bool isRaw(dynamic image) => image.runtimeType != ImageMeta;

@@ -254,10 +254,11 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       ),
       appBar: CAppBar(),
       body: PageView(
+        physics: const NeverScrollableScrollPhysics(),
         controller: _pageViewController,
         onPageChanged: _handlePageViewChanged,
         children: <Widget>[
-          loaded ? Home() : Text(''),
+          loaded ? const Home() : Text(''),
           loaded ? const Gallery() : Text(''),
           loaded ? const Timeline() : Text(''),
           loaded ? const Comparison() : Text(''),

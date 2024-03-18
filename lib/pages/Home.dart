@@ -1,9 +1,9 @@
+import 'package:cimagen/utils/ImageManager.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
 import 'package:desktop_drop/desktop_drop.dart';
-import 'dart:io';
 import 'package:cross_file/cross_file.dart';
 
 import '../Utils.dart';
@@ -21,7 +21,9 @@ class _HomeState extends State<Home> {
   Future<void> readDraged(List<XFile> files) async {
     XFile f = files.first;
     if(isImage(f)){
-
+      parseImage(RenderEngine.txt2img, f.path).then((value){
+        print(value?.generationParams?.hiresUpscaler);
+      });
     }
   }
 

@@ -97,11 +97,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       }
     });
 
-    [txt2imgList, img2imgList][type].then((value) {
-      Folder f = value[index];
+    [txt2imgList, img2imgList][type].then((listValue) {
+      Folder f = listValue[index];
       imagesList = context.read<SQLite>().getImagesByParent(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
       imagesList?.then((value) {
-        if(value.isEmpty) {
+        bool force = listValue.length-1 == index;
+        if(value.isEmpty || force) {
           for (String p in f.files) {
             context.read<ImageManager>().updateIfNado(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, p);
           }
@@ -289,7 +290,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                                     child: Material(
                                         color: Colors.transparent,
                                         child: InkWell(
-                                          onTap:() => changeTab(0, index),
+                                          onTap:() => changeTab(1, index),
                                         )
                                     )
                                 ));
@@ -471,6 +472,13 @@ class PreviewImage extends StatelessWidget {
               icon: Icons.add_circle_outline,
               onSelected: () {
                 sp.add(imageMeta.keyup);
+              },
+            ),
+            MenuItem(
+              label: 'DeSelect all',
+              icon: Icons.remove_circle_outline,
+              onSelected: () {
+                sp.removeAll();
               },
             ),
             MenuItem(
