@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 
 import '../Utils.dart';
 import '../components/ImageInfo.dart';
+import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
 
 SliderDirection direction = SliderDirection.leftToRight;
@@ -90,7 +91,7 @@ class _MainBlockState extends State<MainBlock> {
         child: dataModel.comparisonBlock.oneSelected ? Stack(
           children: [
             const ViewBlock(),
-            displayFull ? Align(
+            dataModel.comparisonBlock.firstSelected != null ? displayFull ? Align(
               alignment: Alignment.topLeft,
               child: SingleChildScrollView(
                 child: Container(
@@ -115,8 +116,8 @@ class _MainBlockState extends State<MainBlock> {
                   padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
                   child: GetInfoOrShit(dataModel.comparisonBlock.firstSelected),
                 )
-            ),
-            displayFull ? Align(
+            ) : const SizedBox.shrink(),
+            dataModel.comparisonBlock.secondSelected != null ? displayFull ? Align(
               alignment: Alignment.topRight,
               child: SingleChildScrollView(
                 child: Container(
@@ -141,7 +142,7 @@ class _MainBlockState extends State<MainBlock> {
                   padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
                   child: GetInfoOrShit(dataModel.comparisonBlock.secondSelected),
                 )
-            )
+            ) : const SizedBox.shrink()
           ],
         ) : const Center(
           child: Column(
@@ -283,16 +284,6 @@ class ImageList extends StatefulWidget {
 
   @override
   _ImageListStateStateful createState() => _ImageListStateStateful();
-}
-
-class MyCustomScrollBehavior extends MaterialScrollBehavior {
-  // Override behavior methods and getters like dragDevices
-  @override
-  Set<PointerDeviceKind> get dragDevices => {
-    PointerDeviceKind.touch,
-    PointerDeviceKind.mouse,
-    // etc.
-  };
 }
 
 class _ImageListStateStateful extends State<ImageList>{

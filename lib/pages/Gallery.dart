@@ -652,7 +652,7 @@ class InProcess extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    final imageManager = Provider.of<ImageManager>(context);
+    final imageManager = Provider.of<ImageManager>(context, listen: true);
     return Padding(
       padding: const EdgeInsets.all(18),
       child: Center(

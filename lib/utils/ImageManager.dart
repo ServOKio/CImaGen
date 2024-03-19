@@ -24,6 +24,7 @@ class ImageManager extends ChangeNotifier{
   String get lastJob => _lastJob;
   int get jobCount => _jc;
   int _jc = 0;
+
   void updateJobCount(int c){
     _jc = c;
     notifyListeners();
@@ -50,9 +51,12 @@ class ImageManager extends ChangeNotifier{
       }
     }
 
-    _lastJob = imagePath;
     parseImage(re, imagePath).then((value) {
-      if(value != null) NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, value);
+      if(value != null) {
+        _lastJob = imagePath;
+        notifyListeners();
+        NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, value);
+      }
     });
   }
 
@@ -62,6 +66,7 @@ class ImageManager extends ChangeNotifier{
     tempFolder.watch(events: FileSystemEvent.all, recursive: true).listen((event) {
       if (event is FileSystemModifyEvent && !event.isDirectory) {
         updateIfNado(re, event.path);
+
         //print(lookupMimeType(event.path ?? "", headerBytes: [0xFF, 0xD8]));
       }
     });

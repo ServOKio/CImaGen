@@ -37,12 +37,9 @@ class _HistogramState extends State<Histogram> {
     // Iterate bitmap and count frequencies of specified component values
 
     //fuck
-    final range = data.clone().getRange(0, 0, data.width, data.width);
+    final range = data.clone().getRange(0, 0, data.width, data.height);
     while (range.moveNext()) {
       final pixel = range.current;
-      pixel.r = pixel.maxChannelValue - pixel.r; // Invert the red channel.
-      pixel.g = pixel.maxChannelValue - pixel.g; // Invert the green channel.
-      pixel.b = pixel.maxChannelValue - pixel.b; // Invert the blue channel.
 
       cF_R[pixel.r.toInt()]++;
       cF_G[pixel.g.toInt()]++;

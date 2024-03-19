@@ -272,8 +272,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           //_showModalBottomSheet(context);
           theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
         },
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        tooltip: 'Notes',
+        child: const Icon(Icons.note),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
