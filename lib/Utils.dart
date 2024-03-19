@@ -250,3 +250,14 @@ String readableFileSize(int size, {bool base1024 = true}) {
 }
 
 bool isRaw(dynamic image) => image.runtimeType != ImageMeta;
+
+
+String aspectRatioFromSize(ImageSize size) => aspectRatio(size.width, size.height);
+String aspectRatio(int width, int height){
+  int r = _gcd(width, height);
+  return '${(width/r).round()}:${(height/r).round()}';
+}
+
+int _gcd(int a, int b) {
+  return b == 0 ? a : _gcd(b, a%b);
+}

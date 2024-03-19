@@ -47,18 +47,132 @@ class Comparison extends StatefulWidget{
 }
 
 class _ComparisonState extends State<Comparison> {
+  GlobalKey stickyKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final dataModel = Provider.of<DataModel>(context);
+    bool most = dataModel.comparisonBlock.getImages.where((e) => e.size.width < e.size.height).length > dataModel.comparisonBlock.getImages.length;
+    bool isScreenWide = most;
+
+    List<Difference>? difference;
+    if(dataModel.comparisonBlock.bothHasGenerationParams) {
+      difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
+    }
+    bool hasDiff = difference != null;
+    return Scaffold(
+      body: Flex(
+        direction: isScreenWide ? Axis.horizontal : Axis.vertical,
+        children: [
+          ImageList(images: dataModel.comparisonBlock.getImages),
+          const MainBlock()
+        ],
+      ),
+    );
+  }
+}
+
+class MainBlock extends StatefulWidget {
+  const MainBlock({ Key? key }): super(key: key);
+
+  @override
+  _MainBlockState createState() => _MainBlockState();
+}
+
+class _MainBlockState extends State<MainBlock> {
+
+  bool displayFull = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final dataModel = Provider.of<DataModel>(context);
+    return Expanded(
+        child: dataModel.comparisonBlock.oneSelected ? Stack(
+          children: [
+            const ViewBlock(),
+            displayFull ? Align(
+              alignment: Alignment.topLeft,
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  width: 300,
+                  child: MyImageInfo(dataModel.comparisonBlock.firstSelected),
+                ),
+              ),
+            ) : Positioned( //left
+                top: 4,
+                left: 4,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                      borderRadius: const BorderRadius.all(Radius.circular(4))
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
+                  child: GetInfoOrShit(dataModel.comparisonBlock.firstSelected),
+                )
+            ),
+            displayFull ? Align(
+              alignment: Alignment.topRight,
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  width: 300,
+                  child: MyImageInfo(dataModel.comparisonBlock.secondSelected),
+                ),
+              ),
+            ) : Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                      borderRadius: const BorderRadius.all(Radius.circular(4))
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
+                  child: GetInfoOrShit(dataModel.comparisonBlock.secondSelected),
+                )
+            )
+          ],
+        ) : const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('First, you must select at least one image')
+            ],
+          ),
+        )
+    );
+  }
+}
+
+class ViewBlock extends StatefulWidget {
+  const ViewBlock({ Key? key }): super(key: key);
+
+  @override
+  _ViewBlockState createState() => _ViewBlockState();
+}
+
+class _ViewBlockState extends State<ViewBlock> {
+  GlobalKey stickyKey = GlobalKey();
+
   double _scale = 0;
   final TransformationController _transformationController = TransformationController();
-  GlobalKey stickyKey = GlobalKey();
 
   double x = 0.0;
   double y = 0.0;
 
   bool toBottom = false;
 
-  bool displayFull = true;
-
-// fetches mouse pointer location
   void _updateLocation(PointerEvent details) {
     final keyContext = stickyKey.currentContext;
     if (keyContext != null) {
@@ -76,140 +190,61 @@ class _ComparisonState extends State<Comparison> {
 
   @override
   Widget build(BuildContext context) {
-    final dataModel = Provider.of<DataModel>(context, listen: true);
-    bool most = dataModel.comparisonBlock.getImages.where((e) => e.size.width < e.size.height).length > dataModel.comparisonBlock.getImages.length;
-    bool isScreenWide = most;
-
-    List<Difference>? difference;
-    if(dataModel.comparisonBlock.bothHasGenerationParams) {
-      difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
-    }
-    bool hasDiff = difference != null;
-    return Scaffold(
-      body: Flex(
-        direction: isScreenWide ? Axis.horizontal : Axis.vertical,
-        children: [
-          ImageList(images: dataModel.comparisonBlock.getImages),
-          Expanded(
-            child: dataModel.comparisonBlock.oneSelected ? Stack(
-              children: [
-                MouseRegion(
-                  key: stickyKey,
-                  // onEnter: _incrementEnter,
-                  onHover: _updateLocation,
-                  // onExit: _incrementExit,
-                  child: InteractiveViewer(
-                    transformationController: _transformationController,
-                    panEnabled: true,
-                    scaleFactor: 1000,
-                    minScale: 0.000001,
-                    maxScale: 10,
-                    onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
-                      setState(() {
-                        _scale = _transformationController.value.getMaxScaleOnAxis();
-                      });
-                    },
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width,
-                      height: MediaQuery.of(context).size.height,
-                      child: Center(
-                        child: ImageCompareSlider(
-                          itemOne: dataModel.comparisonBlock.firstCache!,
-                          itemTwo: dataModel.comparisonBlock.secondCache!,
-                          dividerWidth: 1.5,
-                          handleSize: const Size(10, 10),
-                          handleRadius: const BorderRadius.all(Radius.circular(0))
-                        ),
-                      ),
-                    ),
-                  ),
+    final dataModel = Provider.of<DataModel>(context);
+    return Stack(
+      children: [
+        MouseRegion(
+          key: stickyKey,
+          onHover: _updateLocation,
+          child: InteractiveViewer(
+            transformationController: _transformationController,
+            panEnabled: true,
+            scaleFactor: 1000,
+            minScale: 0.000001,
+            maxScale: 10,
+            onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
+              setState(() {
+                _scale = _transformationController.value.getMaxScaleOnAxis();
+              });
+            },
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              child: Center(
+                child: ImageCompareSlider(
+                    itemOne: dataModel.comparisonBlock.firstCache!,
+                    itemTwo: dataModel.comparisonBlock.secondCache!,
+                    dividerWidth: 1.5,
+                    handleSize: const Size(10, 10),
+                    handleRadius: const BorderRadius.all(Radius.circular(0))
                 ),
-                AnimatedAlign(
-                    duration: const Duration(milliseconds: 150),
-                    curve: Curves.easeInOut,
-                    alignment: toBottom ? Alignment.bottomCenter : Alignment.topCenter,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          border: Border.all(
-                            color: Colors.black.withOpacity(0.5),
-                          ),
-                          borderRadius: const BorderRadius.all(Radius.circular(20))
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('x${_scale.toStringAsFixed(2)}'),
-                        ],
-                      ),
-                    )
-                ),
-                displayFull ? Align(
-                  alignment: Alignment.topLeft,
-                  child: SingleChildScrollView(
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      width: 300,
-                      child: MyImageInfo(dataModel.comparisonBlock.firstSelected),
-                    ),
+              ),
+            ),
+          ),
+        ),
+        AnimatedAlign(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeInOut,
+            alignment: toBottom ? Alignment.bottomCenter : Alignment.topCenter,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.3),
+                  border: Border.all(
+                    color: Colors.black.withOpacity(0.5),
                   ),
-                ) : Positioned( //left
-                  top: 4,
-                  left: 4,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.3),
-                        border: Border.all(
-                          color: Colors.black.withOpacity(0.5),
-                        ),
-                        borderRadius: const BorderRadius.all(Radius.circular(4))
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
-                    child: GetInfoOrShit(dataModel.comparisonBlock.firstSelected),
-                  )
-                ),
-                displayFull ? Align(
-                  alignment: Alignment.topRight,
-                  child: SingleChildScrollView(
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      width: 300,
-                      child: MyImageInfo(dataModel.comparisonBlock.secondSelected),
-                    ),
-                  ),
-                ) : Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          border: Border.all(
-                            color: Colors.black.withOpacity(0.5),
-                          ),
-                          borderRadius: const BorderRadius.all(Radius.circular(4))
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
-                      child: GetInfoOrShit(dataModel.comparisonBlock.secondSelected),
-                    )
-                )
-              ],
-            ) : const Center(
+                  borderRadius: const BorderRadius.all(Radius.circular(20))
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('First, you must select at least one image')
+                  Text('x${_scale.toStringAsFixed(2)}'),
                 ],
               ),
             )
-          )
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -263,18 +298,10 @@ class MyCustomScrollBehavior extends MaterialScrollBehavior {
 class _ImageListStateStateful extends State<ImageList>{
   bool loaded = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // dataFuture = _loadImages(widget.path);
-    //load();
-  }
-
   final ScrollController controller = ScrollController();
 
   @override
-  Widget build(BuildContext ctx) {
-    final dataModel = Provider.of<DataModel>(context, listen: false);
+  Widget build(BuildContext ctx){
     bool most = widget.images.where((e) => e.size.width < e.size.height).length > widget.images.length;
     bool isScreenWide = most;// MediaQuery.sizeOf(context).width >= maxSize;
     return Container(

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -25,12 +26,14 @@ class MyImageInfo extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           ExpansionTile(
+            initiallyExpanded: true,
             tilePadding: EdgeInsets.zero,
             title:  Text('Image info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
             children: <Widget>[
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  AspectRatio(aspectRatio: 16/9, child: Histogram(path: raw ? data as String : im!.fullPath)),
                   InfoBox(one: 'Extension/mine', two: '${im?.fileTypeExtension} (${im?.mine})'),
                   const Gap(6),
                   Container(
@@ -53,7 +56,9 @@ class MyImageInfo extends StatelessWidget {
                                   const Gap(4),
                                   InfoBox(one: 'File name', two: im?.fileName ?? '', inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Size', two: im?.size.toString() ?? '', inner: true),
+                                  InfoBox(one: 'Size', two: '${im?.size.toString()} (${aspectRatioFromSize(im!.size)})', inner: true),
+                                  const Gap(4),
+                                  InfoBox(one: 'Path', two: im?.fullPath ?? '', inner: true),
                                 ],
                               )
                             ],
