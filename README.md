@@ -21,6 +21,7 @@ Comparison allows you to select several images and compare them with each other.
 1. The histogram. We don't know why lol, but maybe it will be useful to someone, for example, when adjusting the color in ComfUI
 2. Information about the file. Its compression method, color depth and size
 3. Generation parameters. Soon we will add a feature to find errors and solve them
+
 ![image](preview/comparison.gif)
 
 ## Building
