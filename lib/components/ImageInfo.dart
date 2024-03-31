@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +56,7 @@ class MyImageInfo extends StatelessWidget {
                                   const Gap(4),
                                   InfoBox(one: 'Size', two: '${im?.size.toString()} (${aspectRatioFromSize(im!.size)})', inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Path', two: im?.fullPath ?? '', inner: true),
+                                  InfoBox(one: 'Path', two: im.fullPath ?? '', inner: true),
                                 ],
                               )
                             ],
@@ -80,10 +78,10 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  InfoBox(one: 'Bit depth', two: im?.bitDepth.toString() ?? '', inner: true),
+                                  InfoBox(one: 'Bit depth', two: im.specific?['bitDepth'].toString() ?? '', inner: true),
                                   Row(
-                                    children: List<Widget>.generate(im!.bitDepth * im.bitDepth, (i){
-                                      int c = (255 / (im!.bitDepth * im.bitDepth)).round();
+                                    children: List<Widget>.generate(im.specific?['bitDepth'] * im.specific?['bitDepth'], (i){
+                                      int c = (255 / (im?.specific?['bitDepth'] * im?.specific?['bitDepth'])).round();
                                       return Expanded(child: Container(
                                           height: 4,
                                           color: Color.fromRGBO(c*i, c*i, c*i, 1)
@@ -92,7 +90,7 @@ class MyImageInfo extends StatelessWidget {
                                   ),
                                   const Gap(4),
                                   InfoBox(one: 'Color type', two: Row(children: [
-                                    SelectableText(getColorType(im.colorType), style: const TextStyle(fontSize: 13)),
+                                    SelectableText(getColorType(im.specific?['colorType']), style: const TextStyle(fontSize: 13)),
                                     const Gap(2),
                                     Container(
                                       width: 15,
@@ -107,11 +105,11 @@ class MyImageInfo extends StatelessWidget {
                                     )
                                   ]), inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Compression', two: getCompression(im.compression), inner: true),
+                                  InfoBox(one: 'Compression', two: getCompression(im.specific?['compression']), inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Filter', two: getFilterType(im.filter), inner: true),
+                                  InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.colorMode), inner: true),
+                                  InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true),
                                 ],
                               )
                             ],

@@ -55,36 +55,45 @@ Future<Uint8List> readAsBytesSync(String path) async {
 GenerationParams? parseSDParameters(String rawData){
   Map<String, Object> gp = <String, Object>{};
 
-  // Positive
-  RegExp posReg = RegExp(r'\b([\s\S]*?)(?=\nNegative prompt\b)');
-  String? posMatch = posReg.firstMatch(rawData)?.group(1)?.replaceFirst('parameters', '').substring(1).trim(); // fucking binary symbol
-
-  // File file = File("K:\\pictures\\sd\\outputs\\txt2img-images\\2024-03-22\\hello.txt");
-  // file.writeAsString(posMatch!).then((value) => print("File has been written"));
-  // Negative
-  RegExp negReg = RegExp(r'\bNegative prompt: ([\s\S]*?)(?=\nSteps: \b)');
-  String? negMatch = negReg.firstMatch(rawData)?.group(1)?.trim();
   // Generation params
-  RegExp regExp = RegExp(r'(Steps[\s\S].*)');
-  String? genMatch = regExp.firstMatch(rawData)?.group(1)?.trim();
+  List<String> lines = rawData.trim().split("\n");
+  bool doneWithPrompt = false;
 
-  if(posMatch != null && negMatch != null && genMatch != null){
-    Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(genMatch);
-    for (final m in matches) {
-      try{
-        gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
-      } on RangeError catch(e){
-        print(e.message);
-        print(e.stackTrace);
-        print(genMatch);
-      }
+  String positivePromt = '';
+  String negativePromt = '';
+
+  Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(lines.last);
+
+  if(matches.length > 3){
+    lines.removeAt(lines.length - 1);
+  }
+
+  for(String line in lines){
+    line = line.trim();
+    if(line.startsWith('Negative prompt:')){
+      doneWithPrompt = true;
+      line = line.substring(17, line.length).trim();
     }
+    if(doneWithPrompt){
+      negativePromt += (negativePromt == "" ? '' : "\n") + line;
+    } else {
+      positivePromt += (positivePromt == "" ? '' : "\n") + line;
+    }
+  }
+  for (final m in matches) {
+    try{
+      gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
+    } on RangeError catch(e){
+      print(e.message);
+      print(e.stackTrace);
+    }
+  }
 
-    print(gp);
+  // print(gp);
 
-    return GenerationParams(
-      positive: posMatch,
-      negative: negMatch,
+  return GenerationParams(
+      positive: positivePromt,
+      negative: negativePromt,
       steps: int.parse(gp['steps'] as String),
       sampler: gp['sampler'] as String,
       cfgScale: double.parse(gp['cfg_scale'] as String),
@@ -99,10 +108,7 @@ GenerationParams? parseSDParameters(String rawData){
       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
       version: gp['version'] as String,
       rawData: rawData
-    );
-  } else {
-    return null;
-  }
+  );
 }
 
 // Steps: 35,

@@ -201,6 +201,8 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                                                           InfoBox(one: 'Steps', two: gp?.steps.toString() ?? '', inner: true),
                                                           const Gap(4),
                                                           InfoBox(one: 'CFG Scale', two: gp?.cfgScale.toString() ?? '', inner: true),
+                                                          const Gap(4),
+                                                          InfoBox(one: 'Seed', two: gp?.seed.toString() ?? '', inner: true),
                                                         ],
                                                       )
                                                     ],

@@ -15,11 +15,12 @@ class DataModel with ChangeNotifier {
   }
 
   ComparisonBlock comparisonBlock = ComparisonBlock();
+  TimelineBlock timelineBlock = TimelineBlock();
 
   DataModel() {
     comparisonBlock.changeNotify(notify);
+    timelineBlock.changeNotify(notify);
   }
-
 }
 
 class ComparisonBlock {
@@ -154,5 +155,22 @@ class ComparisonBlock {
           }
         }
     });
+  }
+}
+
+class TimelineBlock {
+  int _seed = 0;
+
+  late Function notify;
+
+  void changeNotify(Function f){
+    notify = f;
+  }
+
+  int get getSeed => _seed;
+
+  void setSeed(int seed){
+    _seed = seed;
+    notify();
   }
 }

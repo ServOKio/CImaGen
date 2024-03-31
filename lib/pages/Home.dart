@@ -26,8 +26,10 @@ class _HomeState extends State<Home> {
   Future<void> readDraged(List<XFile> files) async {
     XFile f = files.first;
     if(isImage(f)){
-      parseImage(RenderEngine.txt2img, f.path).then((value){
-        print(value?.generationParams?.positive);
+      parseImage(RenderEngine.unknown, f.path).then((value){
+        value?.toMap().then((value){
+          //print(value);
+        });
       });
     } else {
       final String e = p.extension(f.path);

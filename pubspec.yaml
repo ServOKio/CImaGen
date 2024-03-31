@@ -39,6 +39,7 @@ dependencies:
   cryptography: ^2.7.0
   cryptography_flutter: ^2.3.2
   url_launcher: ^6.2.5
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:

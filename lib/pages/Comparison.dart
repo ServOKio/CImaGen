@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:cimagen/pages/Timeline.dart';
@@ -401,10 +400,10 @@ class _ImageListStateStateful extends State<ImageList>{
                                             ),
                                           ),
                                           im.generationParams != null ? Text(im.generationParams!.sampler.toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
-                                          im.generationParams != null && im.generationParams!.denoisingStrength != null ? Text('${im.generationParams!.hiresUpscaler ?? 'None (Lanczos)'}, ${im.generationParams!.hiresUpscale} ${im.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
+                                          im.generationParams != null && im.generationParams!.denoisingStrength != null ? Text('${im.generationParams?.hiresUpscale != null ? '${im.generationParams!.hiresUpscale} ${im.generationParams!.hiresUpscaler ?? 'None (Lanczos)'}, ' : ''}${im.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink(),
                                           im.generationParams != null ? Row(
                                             children: [
-                                              im.generationParams!.denoisingStrength != null ? Container(
+                                              im.generationParams!.denoisingStrength != null && im.generationParams?.hiresUpscale != null ? Container(
                                                 padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                                 decoration: BoxDecoration(
                                                     borderRadius: const BorderRadius.all(Radius.circular(2)),
@@ -413,7 +412,7 @@ class _ImageListStateStateful extends State<ImageList>{
                                                 child: const Text('Hi-Res', style: TextStyle(color: Color(
                                                     0xffc8c4f5), fontSize: 8)),
                                               ) : const SizedBox.shrink(),
-                                              im.generationParams!.denoisingStrength != null ? const Gap(3) : const SizedBox.shrink(),
+                                              im.generationParams!.denoisingStrength != null && im.generationParams?.hiresUpscale != null ? const Gap(3) : const SizedBox.shrink(),
                                               Text(im.generationParams!.size.toString(), style: const TextStyle(fontSize: 10, color: Colors.white))
                                             ],
                                           ) : const SizedBox.shrink(),

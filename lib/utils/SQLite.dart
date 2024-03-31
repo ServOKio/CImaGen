@@ -2,18 +2,20 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:path_provider/path_provider.dart';
 import 'NavigationService.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:provider/provider.dart';
-import 'dart:io' show File, Platform;
+import 'dart:io' show Directory, File, Platform;
 
 import '../Utils.dart';
 
 class SQLite with ChangeNotifier{
   late Database database;
+  late Database constDatabase;
 
   List<Job> toBatchOne = [];
   List<Job> toBatchTwo = [];
@@ -78,12 +80,9 @@ class SQLite with ChangeNotifier{
                 'fileTypeExtension VARCHAR(8),'
                 'fileSize INTEGER,'
                 'size VARCHAR(64),'
-                'bitDepth TINYINT,'
-                'colorType TINYINT,'
-                'compression TINYINT,'
-                'filter TINYINT,'
-                'colorMode TINYINT,'
+                'specific TEXT,'
                 'imageParams TEXT,'
+                'other TEXT,'
                 'thumbnail TEXT'
             ')',
           );
@@ -116,17 +115,24 @@ class SQLite with ChangeNotifier{
               'rawData TEXT'
             ')',
           );
+        },
+        version: 1,
+    );
 
-          db.execute(
+    Directory dD = await getApplicationDocumentsDirectory();
+    constDatabase = await openDatabase(
+      path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'),
+      onCreate: (db, version) {
+        db.execute(
             'CREATE TABLE IF NOT EXISTS favorites('
                 'pathHash VARCHAR(256) PRIMARY KEY,'
                 'fullPath TEXT NOT NULL,'
                 'fileName TEXT NOT NULL,'
                 'parent TEXT NOT NULL'
-              ')'
-          );
-        },
-        version: 1,
+                ')'
+        );
+      },
+      version: 1,
     );
   }
 
@@ -146,7 +152,7 @@ class SQLite with ChangeNotifier{
       _lastJob = imageMeta.fullPath;
       notifyListeners();
       if(use){
-        toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap(forSQL: true)));
+        toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap()));
         if(imageMeta.generationParams != null) {
           toBatchTwo.add(
             Job(
@@ -163,7 +169,7 @@ class SQLite with ChangeNotifier{
           );
         }
       } else {
-        toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap(forSQL: true)));
+        toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap()));
         if(imageMeta.generationParams != null) {
           toBatchOne.add(
               Job(
@@ -210,41 +216,7 @@ class SQLite with ChangeNotifier{
 
   // TODO: СЛОМАНО
   Future<List<ImageMeta>> getImagesBySeed(int seed) async {
-    final List<Map<String, dynamic>> maps = await database.query(
-      'generation_params',
-      orderBy: 'datemodified ASC', //Pizda
-      where: 'seed = ?',
-      whereArgs: [seed]
-    );
-    return List.generate(maps.length, (i) {
-      if(maps[i]['colorType'] == null){
-        print('--- ERROR ---');
-        print(maps[i]);
-        print('--- ERROR ---');
-      }
-      return ImageMeta(
-          re: RenderEngine.values[maps[i]['type'] as int],
-          mine: maps[i]['mine'] as String,
-          fileTypeExtension: maps[i]['fileTypeExtension'] as String,
-          fileSize: maps[i]['fileSize'] as int,
-          fullPath: maps[i]['fullPath'] as String,
-          dateModified: DateTime.parse(maps[i]['dateModified'] as String),
-          size: ImageSize(width: maps[i]['sizeW'] as int, height: maps[i]['sizeH'] as int),
-          bitDepth: maps[i]['bitDepth'] as int,
-          colorType: maps[i]['colorType'] as int,
-          compression: maps[i]['compression'] as int,
-          filter: maps[i]['filter'] as int,
-          colorMode: maps[i]['colorMode'] as int,
-          thumbnail: maps[i]['thumbnail'] as String,
-      );
-    });
-    // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
-    // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
-  }
-
-  // TODO: СЛОМАНО
-  Future<List<ImageMeta>> getImagesByParent(RenderEngine type, String parent) async {
-    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type = ? AND images.parent = ? ORDER by datemodified ASC', [type.index, parent]);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where generation_params.seed = ? ORDER by datemodified ASC', [seed]);
     // final List<Map<String, dynamic>> maps = await database.rawQuery(
     //     'images',
     //     orderBy: 'datemodified ASC',//ok
@@ -261,6 +233,58 @@ class SQLite with ChangeNotifier{
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(
+          re: RenderEngine.values[d['type'] as int],
+          mine: d['mine'] as String,
+          fileTypeExtension: d['fileTypeExtension'] as String,
+          fileSize: d['fileSize'] as int,
+          fullPath: d['fullPath'] as String,
+          dateModified: DateTime.parse(d['dateModified'] as String),
+          size: ImageSize(width: size[0], height: size[1]),
+          specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
+          thumbnail: d['thumbnail'] as String,
+          generationParams: GenerationParams(
+              positive: d['positive'] as String,
+              negative: d['negative'] as String,
+              steps: d['steps'] as int,
+              sampler: d['sampler'] as String,
+              cfgScale: d['cfgScale'] as double,
+              seed: d['seed'] as int,
+              size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
+              modelHash: d['modelHash'] as String,
+              model: d['model'] as String,
+              denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+              rng: d['rng'] != null ? d['rng'] as String : null,
+              hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+              hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
+              hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+              version: d['version'] as String,
+              rawData: d['rawData']
+          )
+      );
+    });
+    // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
+    // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
+  }
+
+  // TODO: СЛОМАНО
+  Future<List<ImageMeta>> getImagesByParent(RenderEngine type, String parent) async {
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type = ? AND images.parent = ? ORDER by datemodified ASC', [type.index, parent]);
+    // final List<Map<String, dynamic>> maps = await database.rawQuery(
+    //     'images',
+    //     orderBy: 'datemodified ASC',//ok
+    //     columns: ['*', 'generation_params.full as fullParams'],//ok
+    //     where: 'type = ? AND parent = ?', //ok
+    //     whereArgs: [type.index, parent] //ok
+    // );
+    List<ImageMeta> fi = List.generate(maps.length, (i) {
+      // if(maps[i]['colorType'] == null){
+      //   print('--- ERROR ---');
+      //   print(maps[i]);
+      //   print('--- ERROR ---');
+      // }
+      var d = maps[i];
+      List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
+      return ImageMeta(
         re: RenderEngine.values[d['type'] as int],
         mine: d['mine'] as String,
         fileTypeExtension: d['fileTypeExtension'] as String,
@@ -268,11 +292,7 @@ class SQLite with ChangeNotifier{
         fullPath: d['fullPath'] as String,
         dateModified: DateTime.parse(d['dateModified'] as String),
         size: ImageSize(width: size[0], height: size[1]),
-        bitDepth: d['bitDepth'] as int,
-        colorType: d['colorType'] as int,
-        compression: d['compression'] as int,
-        filter: d['filter'] as int,
-        colorMode: d['colorMode'] as int,
+        specific: jsonDecode(d['specific'] as String),
         thumbnail: d['thumbnail'] as String,
         generationParams: GenerationParams(
             positive: d['positive'] as String,
@@ -294,6 +314,7 @@ class SQLite with ChangeNotifier{
         )
       );
     });
+    return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
@@ -331,7 +352,7 @@ class SQLite with ChangeNotifier{
   }
 
   Future<List<String>> getFavoritePaths() async {
-    final List<Map<String, dynamic>> maps = await database.query(
+    final List<Map<String, dynamic>> maps = await constDatabase.query(
         'favorites'
     );
     return maps.map((e) => e['fullPath'] as String).toList();
@@ -348,13 +369,13 @@ class SQLite with ChangeNotifier{
         'parent': path.basename(File(pa).parent.path),
         'fileName': path.basename(pa)
       };
-      database.insert(
+      constDatabase.insert(
         'favorites',
         values,
         conflictAlgorithm: ConflictAlgorithm.replace
       );
     } else {
-      database.delete(
+      constDatabase.delete(
         'favorites',
         where: 'pathHash = ?',
         whereArgs: [ph]

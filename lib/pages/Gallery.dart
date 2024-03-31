@@ -556,6 +556,21 @@ class PreviewImage extends StatelessWidget {
                 ),
               ],
             ),
+            MenuItem.submenu(
+              label: 'View in timeline',
+              icon: Icons.view_timeline_outlined,
+              items: [
+                MenuItem(
+                  label: 'by seed',
+                  value: 'timeline_by_seed',
+                  icon: Icons.compare,
+                  onSelected: () {
+                    dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed);
+                    dataModel.jumpToTab(2);
+                  },
+                ),
+              ],
+            ),
           ];
 
           final contextMenu = ContextMenu(
@@ -607,7 +622,7 @@ class PreviewImage extends StatelessWidget {
                                   child: frame != null ? child : AspectRatio(aspectRatio: imageMeta.size.width / imageMeta.size.height)
                               );
                             }),
-                          ) : const Text('')
+                          ) : const Text('No preview ?')
                       ),
                       AnimatedScale(
                         scale: imageManager
