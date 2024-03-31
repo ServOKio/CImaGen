@@ -1,5 +1,5 @@
 class Notes{
-  var tree = {
+  var hires = {
     'DPM++ 2M SDE Karras': {
       'upscalers': {
         'all': {
@@ -102,4 +102,190 @@ class Notes{
       }
     }
   };
+  Map<String, Author> authors = {
+    'takahirosi': Author(
+        name: 'takahirosi',
+        blurred: Blured.slightly,
+        rubber: true,
+        looks: Looks.almostRealistic,
+        asian: true,
+        style: Style.outlineRealistic
+    ),
+    'voidlesky': Author(
+        name: 'voidlesky',
+        looks: Looks.shaded,
+        style: Style.drawing,
+        stable: false
+    ),
+    'braeburned': Author(
+        name: 'braeburned',
+        looks: Looks.coloredSketchShaded,
+        style: Style.cartoon,
+        sharpLine: true
+    ),
+    'taran_fiddler': Author(
+        name: 'Taran Fiddler',
+        looks: Looks.almostRealistic,
+        style: Style.painting,
+        detailed: Detailed.smallDetails
+    ),
+    'thebigslick': Author(
+        name: 'The Big Slick',
+        blurred: Blured.veryLittle,
+        looks: Looks.coloredSketchShaded,
+        style: Style.drawing,
+        detailed: Detailed.smallDetails
+    ),
+    'enro_the_mutt': Author(
+        name: 'Enro the mutt',
+        looks: Looks.coloredSketchShaded,
+        style: Style.drawing,
+        detailed: Detailed.smallDetails
+    ),
+    'lvlirror': Author(
+        name: 'lvlirror',
+        looks: Looks.coloredSketchShaded,
+        style: Style.drawing,
+        detailed: Detailed.generally,
+        simpleBackground: true,
+        blurred: Blured.veryLittle
+    ),
+    'darkgem': Author(
+        name: 'darkgem',
+        looks: Looks.shaded,
+        style: Style.drawing,
+        detailed: Detailed.smallDetails,
+        blurred: Blured.veryLittle
+    ),
+    'chunie': Author(
+        name: 'Chunie',
+        looks: Looks.shaded,
+        style: Style.drawing,
+        detailed: Detailed.smallDetails,
+        blurred: Blured.veryLittle,
+        rubber: true
+    ),
+    'blotch': Author(
+        name: 'blotch',
+        looks: Looks.almostRealistic,
+        style: Style.painting,
+        detailed: Detailed.smallDetails,
+        simpleBackground: true
+    ),
+    'ventkazemaru': Author(
+        name: 'ventkazemaru',
+        looks: Looks.coloredSketch,
+        style: Style.drawing,
+        stable: true,
+        sharpLine: true
+    ),
+    'zackary911': Author(
+        name: 'braeburned',
+        looks: Looks.coloredSketchShaded,
+        style: Style.cartoon,
+        sharpLine: true,
+        hasText: true,
+        hasSignature: true
+    ),
+    'zourik': Author(
+        name: 'zourik',
+        looks: Looks.coloredSketchShaded,
+        style: Style.cartoon,
+        detailed: Detailed.generally,
+        sharpLine: true,
+        hasText: true,
+        hasSignature: true,
+        comics: true,
+    ),
+    'orf': Author(
+        name: 'orf',
+        looks: Looks.coloredSketch,
+        style: Style.cartoonDrawing,
+        sharpLine: true,
+        simpleBackground: true
+    ),
+    'k-9': Author(
+        name: 'orf',
+        looks: Looks.coloredSketch,
+        style: Style.cartoonDrawing,
+        sharpLine: true
+    ),
+    'adelaherz': Author(
+        name: 'adelaherz',
+        looks: Looks.coloredSketchShaded,
+        style: Style.drawing,
+        detailed: Detailed.smallDetails
+    ),
+    'alibi-cami': Author(
+        name: 'alibi-cami',
+        looks: Looks.coloredSketchShaded,
+        style: Style.cartoonDrawing,
+        sharpLine: true
+    ),
+  };
+}
+
+class Author{
+  String name;
+  Blured? blurred = Blured.none;
+  bool? rubber = false;
+  Looks looks;
+  bool? asian = false;
+  Style style;
+  bool? stable = true;
+  bool? sharpLine = false;
+  Detailed? detailed = Detailed.normal;
+  bool? simpleBackground = false;
+  bool? hasSignature = false;
+  bool? hasText = false;
+  bool? comics = false;
+
+  Author({
+    required this.name,
+    this.blurred,
+    this.rubber,
+    required this.looks,
+    this.asian,
+    required this.style,
+    this.stable,
+    this.sharpLine,
+    this.detailed,
+    this.simpleBackground,
+    this.hasSignature,
+    this.hasText,
+    this.comics
+  });
+}
+
+enum Blured {
+  none,
+  veryLittle,
+  slightly,
+  strongly,
+  hard
+}
+
+enum Looks {
+  sketch,
+  coloredSketch,
+  coloredSketchShaded,
+  shaded,
+  almostRealistic,
+  realistic
+}
+
+enum Style {
+  dontUseThis,
+  cartoon,
+  cartoonDrawing,
+  drawing,
+  painting,
+  outlineRealistic,
+  realistic,
+}
+
+enum Detailed {
+  normal,
+  generally,
+  smallDetails
 }

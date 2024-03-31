@@ -53,8 +53,6 @@ class ImageManager extends ChangeNotifier{
 
     parseImage(re, imagePath).then((value) {
       if(value != null) {
-        _lastJob = imagePath;
-        notifyListeners();
         NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, value);
       }
     });

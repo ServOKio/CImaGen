@@ -143,8 +143,9 @@ class SQLite with ChangeNotifier{
       //print(maps.length);
     } else {
       //Insert
+      _lastJob = imageMeta.fullPath;
+      notifyListeners();
       if(use){
-        _lastJob = imageMeta.fullPath;
         toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap(forSQL: true)));
         if(imageMeta.generationParams != null) {
           toBatchTwo.add(
@@ -162,7 +163,6 @@ class SQLite with ChangeNotifier{
           );
         }
       } else {
-        _lastJob = imageMeta.fullPath;
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap(forSQL: true)));
         if(imageMeta.generationParams != null) {
           toBatchOne.add(
@@ -186,6 +186,13 @@ class SQLite with ChangeNotifier{
       //   conflictAlgorithm: ConflictAlgorithm.ignore
       // );
     }
+  }
+
+  Future<void> clearMeta() async {
+    Batch batch = database.batch();
+    batch.delete('images');
+    batch.delete('generation_params');
+    await batch.apply();
   }
 
   Future<List<TimelineProject>> getPossibleTimelineProjects() async {

@@ -46,11 +46,18 @@ Future<List<FileSystemEntity>> dirContents(Directory dir) {
   var files = <FileSystemEntity>[];
   var completer = Completer<List<FileSystemEntity>>();
   var lister = dir.list(recursive: false);
-  lister.listen(
-          (file) => files.add(file),
-      onDone:   () => completer.complete(files)
-  );
+  lister.listen((file) => files.add(file), onDone:() => completer.complete(files));
   return completer.future;
+}
+
+Future<List<String>> dirDirs(String path) async { //Cringe
+  Directory di = Directory(path);
+  List<String> d = [];
+  List<FileSystemEntity> fe = await dirContents(di);
+  for (var element in fe) {
+    d.add(element.path);
+  }
+  return d;
 }
 
 class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
@@ -62,7 +69,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   SelectedModel model = SelectedModel();
 
   late Future<List<Folder>> txt2imgList;
+  final ScrollController _scrollControllerOne = ScrollController();
+
   late Future<List<Folder>> img2imgList;
+  final ScrollController _scrollControllerTwo = ScrollController();
 
   Future<List<ImageMeta>>? imagesList;
 
@@ -70,22 +80,34 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    var go = context
-        .read<ConfigManager>()
-        .config['outdir_txt2img_samples'];
+    var go = context.read<ConfigManager>().config['outdir_txt2img_samples'];
     if (go == null) {
       sr = true;
     } else {
-      String path = context
-          .read<ConfigManager>()
-          .config['outdir_txt2img_samples'];
+      String path = context.read<ConfigManager>().config['outdir_txt2img_samples'];
       txt2imgList = _loadMenu(path);
       txt2imgList.then((value) => imagesList = context.read<SQLite>().getImagesByParent(_tabController.index == 0 ? RenderEngine.txt2img : RenderEngine.img2img, value[0].name));
-      path = context
-          .read<ConfigManager>()
-          .config['outdir_img2img_samples'];
+      path = context.read<ConfigManager>().config['outdir_img2img_samples'];
       img2imgList = _loadMenu(path);
+
+      _scrollControllerOne.addListener(onScrollOne);
+      _scrollControllerTwo.addListener(onScrollTwo);
     }
+  }
+
+  void onScrollOne(){
+    print(_scrollControllerOne.position.pixels);
+  }
+
+  void onScrollTwo(){
+    print(_scrollControllerTwo.position.pixels);
+  }
+
+  @override
+  void dispose(){
+    super.dispose();
+    _scrollControllerOne.removeListener(onScrollOne);
+    _scrollControllerTwo.removeListener(onScrollTwo);
   }
 
   void changeTab(int type, int index) {
@@ -103,9 +125,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       imagesList?.then((value) {
         bool force = listValue.length-1 == index;
         if(value.isEmpty || force) {
-          for (String p in f.files) {
-            context.read<ImageManager>().updateIfNado(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, p);
-          }
+          dirDirs(f.path).then((value) {
+            for (var element in value) {
+              context.read<ImageManager>().updateIfNado(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, element);
+            }
+          });
         }
       });
     });
@@ -135,6 +159,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                     Widget c;
                     if (snapshot.hasData) {
                       c = ListView.separated(
+                        controller: _scrollControllerOne,
                         separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
                         itemCount: snapshot.data.length,
                         itemBuilder: (context, index) {
@@ -246,6 +271,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                     Widget c;
                     if (snapshot.hasData) {
                       c = ListView.builder(
+                        controller: _scrollControllerTwo,
                         itemCount: snapshot.data.length,
                         itemBuilder: (context, index) {
                           List<String> paths = [];

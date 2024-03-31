@@ -9,6 +9,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:cimagen/components/PortfolioGalleryImageWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:gap/gap.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
@@ -45,22 +46,6 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     _pageController = PageController(initialPage: _currentIndex);
   }
 
-  void requestInfo(String path){
-    // 0 load
-    // 1 done
-    // 2 error
-    setState(() {
-      gpState = 0;
-    });
-    _scaffoldkey.currentState!.openEndDrawer();
-    context.read<SQLite>().getGPByPath(path: path).then((v2) {
-      if(v2.isNotEmpty) gp = v2.first;
-      setState(() {
-        gpState = 1;
-      });
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final imageManager = Provider.of<ImageManager>(context);
@@ -91,6 +76,14 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                     Icons.info_outline,
                   ),
                   onPressed: (){
+                    setState(() {
+                      gpState = 0;
+                    });
+                    _scaffoldkey.currentState!.openEndDrawer();
+                    gp = widget.images[_currentIndex].generationParams;
+                    setState(() {
+                      gpState = 1;
+                    });
                     //requestInfo(widget.images[_currentIndex]);
                   }
               ),
@@ -99,7 +92,15 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                   icon: const Icon(
                     Icons.open_in_new,
                   ),
-                  onPressed: (){}
+                  onPressed: () async {
+                    final Uri smsLaunchUri = Uri(
+                      scheme: 'file',
+                      path: widget.images[_currentIndex].fullPath,
+                    );
+                    if (await canLaunchUrl(smsLaunchUri)) {
+                      launchUrl(smsLaunchUri);
+                    }
+                  }
               ),
               const Gap(6),
               IconButton(

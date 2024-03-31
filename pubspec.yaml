@@ -36,7 +36,9 @@ dependencies:
   desktop_drop: ^0.4.4
   collection: ^1.18.0
   animated_text_kit: ^4.2.2
-  rive: ^0.13.1
+  cryptography: ^2.7.0
+  cryptography_flutter: ^2.3.2
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:

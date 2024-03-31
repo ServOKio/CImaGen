@@ -6,6 +6,8 @@ import 'package:settings_ui/settings_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../utils/SQLite.dart';
+
 class Settings extends StatefulWidget{
   const Settings({ Key? key }): super(key: key);
 
@@ -41,12 +43,18 @@ class _SettingsState extends State<Settings>{
   Widget build(BuildContext context) {
     return Center(
         child: SettingsList(
+          lightTheme: SettingsThemeData(
+            settingsListBackground: Theme.of(context).scaffoldBackgroundColor,
+            titleTextColor: Theme.of(context).primaryColor,
+            tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
+          ),
           brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
           shrinkWrap: true,
           platform: DevicePlatform.fuchsia,
           sections: [
             SettingsSection(
-              title: const Text('Common'),
+              title: Text('Common'),
               tiles: <SettingsTile>[
                 SettingsTile.navigation(
                   leading: Icon(Icons.web, color: Theme.of(context).primaryColor),
@@ -74,6 +82,36 @@ class _SettingsState extends State<Settings>{
                   leading: Icon(Icons.bug_report, color: Theme.of(context).primaryColor),
                   title: Text('Enable debug'), initialValue: _debug,
                 ),
+              ],
+            ),
+            SettingsSection(
+              title: const Text('Database'),
+              tiles: <SettingsTile>[
+                SettingsTile(
+                  leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                  title: Text('Clear image database'),
+                  description: Text('Previews, image data. The list of favorites will remain untouched'),
+                  onPressed: (context){
+                    showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
+                          icon: Icon(Icons.warning_amber_outlined),
+                          title: const Text('Are you sure you want to delete the cache?'),
+                          content: const Text('The application will take some time to read all the images again'),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => context.read<SQLite>().clearMeta().then((value) => Navigator.pop(context, 'Ok')),
+                              child: const Text('Okay'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, 'Cancel'),
+                              child: const Text('Cancel'),
+                            ),
+                          ],
+                        ),
+                    );
+                  },
+                )
               ],
             ),
           ],

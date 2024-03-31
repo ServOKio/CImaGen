@@ -188,29 +188,29 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     _tabController.dispose();
   }
 
-  // void _showModalBottomSheet(BuildContext context) {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     isScrollControlled: true,
-  //     shape: const RoundedRectangleBorder(
-  //         borderRadius: BorderRadius.vertical(
-  //           top: Radius.circular(30),
-  //         )
-  //     ),
-  //     builder: (context) => DraggableScrollableSheet(
-  //         initialChildSize: 0.4,
-  //         maxChildSize: 0.9,
-  //         minChildSize: 0.32,
-  //         expand: false,
-  //         builder: (context, scrollController) {
-  //           return SingleChildScrollView(
-  //             controller: scrollController,
-  //             child: const SignInOptionsScreen(),
-  //           );
-  //         }
-  //     ),
-  //   );
-  // }
+  void _showModalBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(30),
+          )
+      ),
+      builder: (context) => DraggableScrollableSheet(
+          initialChildSize: 0.4,
+          maxChildSize: 0.9,
+          minChildSize: 0.32,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              child: const SignInOptionsScreen(),
+            );
+          }
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -231,24 +231,22 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       ),
       endDrawer: Theme(
           data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
-          child: Drawer(
-              child: Container(
-                  child: Stack(
-                      children: [
-                        Column(
-                            children: <Widget>[
-                              Container(child: Center(child: Text('gdfg', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)))),
-                              Padding(padding: EdgeInsets.all(7),child: Column(children: [
-                                Text('All content posted is responsibility of its respective poster and neither the site nor its staff shall be held responsible or liable in any way shape or form.', style: TextStyle(fontSize: 10)),
-                                Text('Please be aware that this kind of fetish artwork is NOT copyrightable in the hosting country and there for its copyright may not be upheld.', style: TextStyle(fontSize: 10)),
-                                Text('We are NOT obligated to remove content under the Digital Millennium Copyright Act.', style: TextStyle(fontSize: 10))
-                              ])),
-                              Padding(padding: EdgeInsets.only(left: 7, right: 7, bottom: 7), child: Text('Contact us by by phone toll-free! 1-844-FOX-BUTT (369-2888)', style: TextStyle(fontSize: 10)))
-                            ]
-                        )
-                      ]
+          child: const Drawer(
+              child: Stack(
+                  children: [
+                    Column(
+                        children: <Widget>[
+                          Center(child: Text('gdfg', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600))),
+                          Padding(padding: EdgeInsets.all(7),child: Column(children: [
+                            Text('All content posted is responsibility of its respective poster and neither the site nor its staff shall be held responsible or liable in any way shape or form.', style: TextStyle(fontSize: 10)),
+                            Text('Please be aware that this kind of fetish artwork is NOT copyrightable in the hosting country and there for its copyright may not be upheld.', style: TextStyle(fontSize: 10)),
+                            Text('We are NOT obligated to remove content under the Digital Millennium Copyright Act.', style: TextStyle(fontSize: 10))
+                          ])),
+                          Padding(padding: EdgeInsets.only(left: 7, right: 7, bottom: 7), child: Text('Contact us by by phone toll-free! 1-844-FOX-BUTT (369-2888)', style: TextStyle(fontSize: 10)))
+                        ]
+                    )
+                  ]
 
-                  )
               )
           )
       ),
@@ -269,8 +267,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       ),
       floatingActionButton: FloatingActionButton(
         onPressed:(){
-          //_showModalBottomSheet(context);
-          theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
+          _showModalBottomSheet(context);
+          //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
         },
         tooltip: 'Notes',
         child: const Icon(Icons.note),

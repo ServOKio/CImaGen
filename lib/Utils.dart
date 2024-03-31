@@ -56,8 +56,11 @@ GenerationParams? parseSDParameters(String rawData){
   Map<String, Object> gp = <String, Object>{};
 
   // Positive
-  RegExp posReg = RegExp(r'\b ([\s\S]*?)(?=\nNegative prompt\b)');
-  String? posMatch = posReg.firstMatch(rawData)?.group(1)?.trim();
+  RegExp posReg = RegExp(r'\b([\s\S]*?)(?=\nNegative prompt\b)');
+  String? posMatch = posReg.firstMatch(rawData)?.group(1)?.replaceFirst('parameters', '').substring(1).trim(); // fucking binary symbol
+
+  // File file = File("K:\\pictures\\sd\\outputs\\txt2img-images\\2024-03-22\\hello.txt");
+  // file.writeAsString(posMatch!).then((value) => print("File has been written"));
   // Negative
   RegExp negReg = RegExp(r'\bNegative prompt: ([\s\S]*?)(?=\nSteps: \b)');
   String? negMatch = negReg.firstMatch(rawData)?.group(1)?.trim();
@@ -260,4 +263,25 @@ String aspectRatio(int width, int height){
 
 int _gcd(int a, int b) {
   return b == 0 ? a : _gcd(b, a%b);
+}
+
+dynamic readMetadataFromSafetensors(String path) async {
+  RandomAccessFile file = await File(path).open(mode: FileMode.read);
+  var main = await file.read(8);
+  int metadata_len = bytesToInteger(main);
+  var json_start = await file.read(2);
+  if(!(metadata_len > 2 && ['{"', "{'"].contains(utf8.decode(json_start)))){
+    return null;
+  } else {
+    var json_data = json_start + await file.read(metadata_len - 2);
+    return utf8.decode(json_data);
+  }
+}
+
+int bytesToInteger(List<int> bytes) {
+  int value = 0;
+  for (var i = 0, length = bytes.length; i < length; i++) {
+    value += bytes[i] * pow(256, i).toInt();
+  }
+  return value;
 }

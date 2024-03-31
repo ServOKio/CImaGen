@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'dart:io' as Io;
@@ -59,6 +60,16 @@ class ComparisonBlock {
   bool get bothSelected => firstSelected != null && secondSelected != null;
   bool get bothHasGenerationParams => bothSelected && (firstSelected.runtimeType == ImageMeta && secondSelected.runtimeType == ImageMeta) && (firstSelected as ImageMeta).generationParams != null && (secondSelected as ImageMeta).generationParams != null;
   bool get oneSelected => firstSelected != null || secondSelected != null;
+  GenerationParams? getGPOrHull(int type){
+    switch(type) {
+      case 0:
+        return firstSelected.runtimeType == ImageMeta && (firstSelected as ImageMeta).generationParams != null ? (firstSelected as ImageMeta).generationParams : null;
+      case 1:
+        return secondSelected.runtimeType == ImageMeta && (secondSelected as ImageMeta).generationParams != null ? (secondSelected as ImageMeta).generationParams : null;
+      default:
+        return null;
+    }
+  }
 
 
   void changeSelected(int type, dynamic data){

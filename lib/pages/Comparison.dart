@@ -223,10 +223,11 @@ class _ViewBlockState extends State<ViewBlock> {
             ),
           ),
         ),
+        //Samplers
         AnimatedAlign(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeInOut,
-            alignment: toBottom ? Alignment.bottomCenter : Alignment.topCenter,
+            alignment: Alignment.topLeft,
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
