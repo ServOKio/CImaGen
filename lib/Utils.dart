@@ -53,33 +53,74 @@ Future<Uint8List> readAsBytesSync(String path) async {
 }
 
 GenerationParams? parseSDParameters(String rawData){
+  RegExp ex = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)');
+
   Map<String, Object> gp = <String, Object>{};
 
   // Generation params
   List<String> lines = rawData.trim().split("\n");
+
   bool doneWithPrompt = false;
+  bool doneWithNegative = false;
+  bool doneWithGenerationParams = false;
+  bool doneWithPositiveTemplate = false;
+  bool doneWithNegativeTemplate = false;
 
   String positivePromt = '';
   String negativePromt = '';
 
-  Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(lines.last);
+  String generationParams = '';
 
-  if(matches.length > 3){
-    lines.removeAt(lines.length - 1);
-  }
+  String positiveTemplate = '';
+  String negativeTemplate = '';
+
+  print(rawData);
 
   for(String line in lines){
     line = line.trim();
     if(line.startsWith('Negative prompt:')){
       doneWithPrompt = true;
-      line = line.substring(17, line.length).trim();
+      line = line.substring(16+1, line.length).trim();
+    }
+    if(line.startsWith('Steps:')){
+      doneWithPrompt = true;
+      doneWithNegative = true;
+      line = line.trim();
     }
     if(doneWithPrompt){
-      negativePromt += (negativePromt == "" ? '' : "\n") + line;
+      if(line.startsWith('Template:')){
+        doneWithNegative = true;
+        doneWithGenerationParams = true;
+        line = line.substring(9+1, line.length).trim();
+      }
+      if(!doneWithNegative){
+        negativePromt += (negativePromt == "" ? '' : "\n") + line;
+      } else {
+        if(line.startsWith('Template:')){
+          doneWithGenerationParams = true;
+          line = line.substring(9+1, line.length).trim();
+        }
+        if(!doneWithGenerationParams){
+          generationParams += (generationParams == "" ? '' : "\n") + line;
+        } else {
+          if(line.startsWith('Negative Template:')){
+            doneWithPositiveTemplate = true;
+            line = line.substring(18+1, line.length).trim();
+          }
+          if(!doneWithPositiveTemplate){
+            positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
+          } else {
+            negativeTemplate += (negativeTemplate == "" ? '' : "\n") + line;
+          }
+        }
+      }
     } else {
       positivePromt += (positivePromt == "" ? '' : "\n") + line;
     }
   }
+
+  Iterable<RegExpMatch> matches = ex.allMatches(generationParams);
+
   for (final m in matches) {
     try{
       gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
@@ -88,8 +129,6 @@ GenerationParams? parseSDParameters(String rawData){
       print(e.stackTrace);
     }
   }
-
-  // print(gp);
 
   return GenerationParams(
       positive: positivePromt,

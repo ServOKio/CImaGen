@@ -149,10 +149,13 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
       if(pngEx['Software'] != null){
         if(pngEx['Software'].startsWith('Topaz Photo AI')){
           re = RenderEngine.topazPhotoAI;
+        } else {
+          print('new Software');
+          print(pngEx['Software']);
         }
       }
 
-      print(pngEx);
+      //print(pngEx);
     }
 
 
@@ -198,6 +201,10 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
       }
 
       for (final entry in data.entries) {
+        print("${entry.key}: ${entry.value}");
+      }
+
+      for (final entry in data.entries) {
         switch (entry.value.tagType) {
           case 'Long':
             const int maxValue = -1 >>> 1;
@@ -214,11 +221,18 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
             if(entry.key == 'EXIF UserComment'){
               //fuck
               String fi = utf8.decode(Uint8List.fromList(entry.value.values.toList().where((e) => e != 0).toList(growable: false).cast()));
-              for (var e in ['ASCII', 'UNICODE', 'JIS', '']) {
-                if(fi.substring(0, 8).contains(e)){
-                  fi = fi.substring(e.length, fi.length);
-                  break;
+              print(fi);
+              print(entry.value.values);
+              try{
+                for (var e in ['ASCII', 'UNICODE', 'JIS', '']) {
+                  if(fi.substring(0, 8).contains(e)){
+                    fi = fi.substring(e.length, fi.length);
+                    break;
+                  }
                 }
+              } on RangeError {
+                print('RangeError');
+                print(imagePath);
               }
               jpgEx[entry.key] = fi;
             } else {

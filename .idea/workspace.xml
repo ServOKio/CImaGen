@@ -12,17 +12,7 @@
     <list default="true" id="b6840aea-bc67-40c4-8a98-cc80403c9ac8" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/Utils.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/Utils.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/components/ImageInfo.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/components/ImageInfo.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/components/PortfolioGalleryDetailPage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/components/PortfolioGalleryDetailPage.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/pages/Comparison.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/Comparison.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/pages/Gallery.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/Gallery.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/pages/Home.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/Home.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/pages/Timeline.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/Timeline.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/utils/DataModel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/utils/DataModel.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/utils/ImageManager.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/utils/ImageManager.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/utils/SQLite.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/utils/SQLite.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
