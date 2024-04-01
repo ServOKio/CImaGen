@@ -8,6 +8,14 @@
 <h1 align="center">CImaGen</h1>
 <p align="center">"What the hell is the difference between them?!"</p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white"/>
+  <img src="https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Arch_Linux-1793D1?style=for-the-badge&logo=arch-linux&logoColor=white"/>
+</p>
+
 ## About CImaGen
 
 Initially, I just needed some simple application to get exif data from an image to view the generation parameters, but then I wanted to do something more that would help me generate images
@@ -31,4 +39,10 @@ Comparison allows you to select several images and compare them with each other.
 3. CMake version 3.14.0 (Note: if you are using Visual Studio 2019 and get the error "Could not create named generator Visual Studio 16 2019" then you need to replace CMake inside Visual Studio with version 3.14. Just install CMake 3.14 and replace all files in ~`C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin` to 3.14 files)
 
 ## Contact
-<a href="https://discord.gg/hqveSV6wH7"><img src="https://discord.com/api/guilds/913437048503931001/widget.png?style=banner2"/></a>
+[![Telegram badge][]][Telegram instructions]
+[![Discord badge][]][Discord instructions]
+
+[Telegram instructions]: https://t.me/servokio
+[Telegram badge]: https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white
+[Discord instructions]: https://discord.gg/hqveSV6wH7
+[Discord badge]: https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white
