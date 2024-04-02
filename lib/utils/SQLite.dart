@@ -214,22 +214,9 @@ class SQLite with ChangeNotifier{
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
-  // TODO: СЛОМАНО
   Future<List<ImageMeta>> getImagesBySeed(int seed) async {
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where generation_params.seed = ? ORDER by datemodified ASC', [seed]);
-    // final List<Map<String, dynamic>> maps = await database.rawQuery(
-    //     'images',
-    //     orderBy: 'datemodified ASC',//ok
-    //     columns: ['*', 'generation_params.full as fullParams'],//ok
-    //     where: 'type = ? AND parent = ?', //ok
-    //     whereArgs: [type.index, parent] //ok
-    // );
     return List.generate(maps.length, (i) {
-      if(maps[i]['colorType'] == null){
-        print('--- ERROR ---');
-        print(maps[i]);
-        print('--- ERROR ---');
-      }
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(
@@ -266,22 +253,49 @@ class SQLite with ChangeNotifier{
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
-  // TODO: СЛОМАНО
+  Future<List<ImageMeta>> findByTags(List<String> tags) async {
+    String g = 'SELECT * from images join generation_params on images.keyup=generation_params.keyup where ${tags.map((e) => 'generation_params.positive LIKE ?').join(" AND ")} ORDER by datemodified DESC LIMIT 100';
+    final List<Map<String, dynamic>> maps = await database.rawQuery(g, tags.map((e) => '%$e%').toList(growable: false));
+    return List.generate(maps.length, (i) {
+      var d = maps[i];
+      List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
+      return ImageMeta(
+          re: RenderEngine.values[d['type'] as int],
+          mine: d['mine'] as String,
+          fileTypeExtension: d['fileTypeExtension'] as String,
+          fileSize: d['fileSize'] as int,
+          fullPath: d['fullPath'] as String,
+          dateModified: DateTime.parse(d['dateModified'] as String),
+          size: ImageSize(width: size[0], height: size[1]),
+          specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
+          thumbnail: d['thumbnail'] as String,
+          generationParams: GenerationParams(
+              positive: d['positive'] as String,
+              negative: d['negative'] as String,
+              steps: d['steps'] as int,
+              sampler: d['sampler'] as String,
+              cfgScale: d['cfgScale'] as double,
+              seed: d['seed'] as int,
+              size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
+              modelHash: d['modelHash'] as String,
+              model: d['model'] as String,
+              denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+              rng: d['rng'] != null ? d['rng'] as String : null,
+              hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+              hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
+              hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+              version: d['version'] as String,
+              rawData: d['rawData']
+          )
+      );
+    });
+    // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
+    // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
+  }
+
   Future<List<ImageMeta>> getImagesByParent(RenderEngine type, String parent) async {
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type = ? AND images.parent = ? ORDER by datemodified ASC', [type.index, parent]);
-    // final List<Map<String, dynamic>> maps = await database.rawQuery(
-    //     'images',
-    //     orderBy: 'datemodified ASC',//ok
-    //     columns: ['*', 'generation_params.full as fullParams'],//ok
-    //     where: 'type = ? AND parent = ?', //ok
-    //     whereArgs: [type.index, parent] //ok
-    // );
     List<ImageMeta> fi = List.generate(maps.length, (i) {
-      // if(maps[i]['colorType'] == null){
-      //   print('--- ERROR ---');
-      //   print(maps[i]);
-      //   print('--- ERROR ---');
-      // }
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(

@@ -23,8 +23,8 @@ import 'components/AppBar.dart';
 Future<void> main() async {
   //runApp(Test());
   WidgetsFlutterBinding.ensureInitialized();
-  await windowManager.ensureInitialized();
   if (Platform.isWindows) {
+    await windowManager.ensureInitialized();
     WindowManager.instance.setMinimumSize(const Size(450, 450));
     // WindowManager.instance.setMaximumSize(const Size(1200, 720));
   }
