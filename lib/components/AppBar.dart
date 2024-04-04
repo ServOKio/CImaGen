@@ -83,64 +83,59 @@ class _CustomAppBarState extends State<CAppBar>{
             surfaceTintColor: Colors.transparent,
             centerTitle: true,
             backgroundColor: const Color(0xff0c0c0e),
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 720,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: const Color(0xff15161a),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: myController,
-                            style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
-                            decoration: const InputDecoration(
-                              hintText: 'Search...',
-                              hintStyle: TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
-                              labelStyle: TextStyle(color: Colors.red),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                            ),
-                            maxLines: 1,
-                          ),
+            title: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 720,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xff15161a),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: myController,
+                        style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
+                        decoration: const InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
+                          labelStyle: TextStyle(color: Colors.red),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                         ),
-                        const Gap(8),
-                        //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
-                        AnimatedRotation(
-                          turns: turns,
-                          duration: const Duration(seconds: 2),
-                          curve: Curves.ease,
-                          child: UnicornOutlineButton(
-                            strokeWidth: 3,
-                            radius: 24,
-                            gradient: const LinearGradient(
-                                begin: Alignment.topRight,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
-                                stops: [0, 0.5, 0.9, 1]
-                            ),
-                            child: const SizedBox(
-                              width: 20,
-                              height: 20,
-                            ),
-                            onPressed: () {},
-                          ),
-                        )
-                      ],
+                        maxLines: 1,
+                      ),
                     ),
-                  ),
-                )
-              ],
+                    const Gap(8),
+                    //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
+                    AnimatedRotation(
+                      turns: turns,
+                      duration: const Duration(seconds: 2),
+                      curve: Curves.ease,
+                      child: UnicornOutlineButton(
+                        strokeWidth: 3,
+                        radius: 24,
+                        gradient: const LinearGradient(
+                            begin: Alignment.topRight,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
+                            stops: [0, 0.5, 0.9, 1]
+                        ),
+                        child: const SizedBox(
+                          width: 20,
+                          height: 20,
+                        ),
+                        onPressed: () {},
+                      ),
+                    )
+                  ],
+                ),
+              ),
             ),
             actions: <Widget>[
               IconButton(

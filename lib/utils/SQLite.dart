@@ -120,8 +120,13 @@ class SQLite with ChangeNotifier{
     );
 
     Directory dD = await getApplicationDocumentsDirectory();
+    Directory dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases'));
+    if (!await dbPath.exists()) {
+      await dbPath.create(recursive: true);
+    }
+    dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
     constDatabase = await openDatabase(
-      path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'),
+      dbPath.path,
       onCreate: (db, version) {
         db.execute(
             'CREATE TABLE IF NOT EXISTS favorites('

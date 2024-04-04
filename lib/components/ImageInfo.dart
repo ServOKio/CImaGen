@@ -176,6 +176,8 @@ class MyImageInfo extends StatelessWidget {
                                   InfoBox(one: 'Steps', two: gp?.steps.toString() ?? '', inner: true),
                                   const Gap(4),
                                   InfoBox(one: 'CFG Scale', two: gp?.cfgScale.toString() ?? '', inner: true),
+                                  gp?.denoisingStrength != null && gp?.hiresUpscale == null ? const Gap(4) : const SizedBox.shrink(),
+                                  gp?.denoisingStrength != null && gp?.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp?.denoisingStrength.toString() ?? 'none', inner: true) : const SizedBox.shrink(),
                                 ],
                               )
                             ],
@@ -217,9 +219,9 @@ class MyImageInfo extends StatelessWidget {
                 ],
               ),
               gp?.rawData != null ? ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: const Text('All parameters', style: TextStyle(fontSize: 14)),
-                subtitle: const Text('View raw generation parameters without parsing'),
+                tilePadding: const EdgeInsets.symmetric(horizontal: 6),
+                title: const Text('All parameters', style: TextStyle(fontSize: 13)),
+                subtitle: const Text('View raw generation parameters without parsing', style: TextStyle(fontSize: 12, color: Colors.white70)),
                 children: <Widget>[
                   Container(
                       padding: const EdgeInsets.all(4),

@@ -8,6 +8,7 @@ import 'package:cimagen/utils/SQLite.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
 import 'package:cimagen/Utils.dart';
@@ -17,18 +18,22 @@ import 'package:cimagen/pages/Home.dart';
 import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Settings.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'components/AppBar.dart';
 
 Future<void> main() async {
-  //runApp(Test());
-  WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isWindows) {
-    await windowManager.ensureInitialized();
-    WindowManager.instance.setMinimumSize(const Size(450, 450));
-    // WindowManager.instance.setMaximumSize(const Size(1200, 720));
+  bool debug = false;
+  if(debug) {
+    runApp(Test());
+  } else {
+    WidgetsFlutterBinding.ensureInitialized();
+    if (Platform.isWindows) {
+      await windowManager.ensureInitialized();
+      WindowManager.instance.setMinimumSize(const Size(450, 450));
+    }
+    runApp(MyApp());
   }
-  runApp(MyApp());
 }
 
 class Test extends StatelessWidget {
@@ -42,75 +47,27 @@ class Test extends StatelessWidget {
           title: const Text("Demo Project"),
         ),
         body: const Center(child: Text("Hello World!!!")),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.call),
+              label: 'Calls',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.camera),
+              label: 'Camera',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat),
+              label: 'Chats',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// class MyAppTheme {
-//
-//   bool isDark = true;
-//
-//   MyAppTheme({required this.isDark});
-//
-//   Color newsBlock = Color(0xff333333);
-//   Color themeMainColor = Colors.red;
-//   Color themeTimeStamp = Colors.grey;
-//   Color newsBlockTitleSub = Color(0xffD5D5D5);
-//   Color link = Color(0xffBBDDEE);
-//   Color pagesButtons = Colors.red;
-//   Color pagesButtonsPressed = const Color(0x77f44336);
-//
-//   void init(){
-//     newsBlock = isDark ? Color(0xff333333) : Color(0xff5C72CB);
-//     themeMainColor = isDark ? const Color(0xff725cff) : Color(0xff93d0ea);
-//     themeTimeStamp = isDark ? Colors.grey : Colors.white70;
-//     newsBlockTitleSub = Color(0xffD5D5D5);
-//     link = Color(0xffBBDDEE);
-//     pagesButtons = isDark ? const Color(0xff725cff) : Color(0xff445fca);
-//     pagesButtonsPressed = isDark ? const Color(0x77f44336) : Color(0xff667ddb);
-//   }
-//
-//   /// Default constructor
-//
-//   ThemeData get themeData {
-//     /// Create a TextTheme and ColorScheme, that we can use to generate ThemeData
-//     TextTheme txtTheme = (ThemeData.dark()).textTheme;
-//     ColorScheme colorScheme = ColorScheme(
-//       // Decide how you want to apply your own custom them, to the MaterialApp
-//         brightness: Brightness.dark,
-//         primary: const Color(0xff725cff),
-//         onPrimary: const Color(0xffc0eeff),
-//
-//         secondary: const Color(0xff6a6798), //dont
-//         onSecondary: const Color(0xffeeeaff),//dont
-//
-//         background: const Color(0xff1A1A1A),
-//         onBackground: const Color(0xff725cff),
-//
-//         surface: isDark ? const Color(0xFF222222): const Color(0xFF31469b),
-//         onSurface: const Color(0xffe2dbff),
-//
-//         error: Colors.red,
-//         onError: Colors.white
-//     );
-//
-//     /// Now that we have ColorScheme and TextTheme, we can create the ThemeData
-//     ThemeData t = ThemeData.from(
-//         textTheme: txtTheme,
-//         colorScheme: colorScheme
-//     ).copyWith(
-//       primaryColor: isDark ? const Color(0xFF222222) : const Color(0xFF31469b),
-//       scaffoldBackgroundColor: isDark ?
-//       const Color(0xFF191919) :
-//       const Color(0xFF788BD6),
-//       highlightColor: const Color(0xFF3D3D3D),
-//     );
-//
-//     return t;
-//   }
-// }
-//
 class MyApp extends StatelessWidget {
 
   @override
@@ -159,8 +116,11 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   late PageController _pageViewController;
   late TabController _tabController;
   int _currentPageIndex = 3;
+  bool permissionRequired = false;
 
   bool loaded = false;
+  bool hasError = false;
+  String? error;
 
   @override
   void initState() {
@@ -173,10 +133,46 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         initialIndex: _currentPageIndex,
         vsync: this
     );
-    context.read<ConfigManager>().init().then((v) => context.read<SQLite>().init().then((v){
-      loaded = true;
-      context.read<ImageManager>().init(context);
-    }));
+    initMe();
+  }
+
+  Future<void> initMe() async {
+    if(Platform.isAndroid){
+      if (await Permission.storage.request().isGranted) {
+        next();
+      } else if (await Permission.storage.request().isPermanentlyDenied) {
+        await openAppSettings();
+      } else if (await Permission.storage.request().isDenied) {
+        setState(() {
+          permissionRequired = true;
+        });
+      }
+    } else {
+      next();
+    }
+  }
+
+  void next(){
+    context.read<ConfigManager>().init().then((v){
+      context.read<SQLite>().init().then((v){
+        context.read<ImageManager>().init(context);
+        setState(() {
+          loaded = true;
+        });
+      }).catchError((e){
+        print(e);
+        error = 'Database loading error';
+        setState(() {
+          hasError = true;
+        });
+      });
+    }).catchError((e){
+      print(e);
+      error = 'The configuration cannot be loaded';
+      setState(() {
+        hasError = true;
+      });
+    });
 
     context.read<DataModel>().jumpToTab = _updateCurrentPageIndex;
   }
@@ -252,17 +248,17 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       ),
       appBar: CAppBar(),
       body: PageView(
-        physics: const NeverScrollableScrollPhysics(),
+        physics: Platform.isWindows ? const NeverScrollableScrollPhysics() : null,
         controller: _pageViewController,
         onPageChanged: _handlePageViewChanged,
         children: <Widget>[
-          loaded ? const Home() : Text(''),
-          loaded ? const Gallery() : Text(''),
-          loaded ? const Timeline() : Text(''),
-          loaded ? const Comparison() : Text(''),
-          loaded ? P404() : Text(''),
-          loaded ? P404() : Text(''),
-          loaded ? const Settings() : Text(''),
+          loaded ? const Home() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Gallery() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Timeline() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Comparison() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Settings() : LoadingState(loaded: loaded, errorMessage: error),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -308,6 +304,9 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
         onTap: (index){
+          setState(() {
+            _currentPageIndex = index;
+          });
           _updateCurrentPageIndex(index);
         },
       ),
@@ -324,13 +323,10 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   }
 
   void _handlePageViewChanged(int currentPageIndex) {
-    if (!_isOnDesktopAndWeb) {
-      return;
-    }
+    // if (!_isOnDesktopAndWeb) {
+    //   return;
+    // }
     _tabController.index = currentPageIndex;
-    setState(() {
-      _currentPageIndex = currentPageIndex;
-    });
   }
 
   bool get _isOnDesktopAndWeb {
@@ -348,6 +344,27 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         return false;
     }
   }
+}
+
+class LoadingState extends StatelessWidget{
+  bool loaded;
+  String? errorMessage;
+  LoadingState({super.key, required this.loaded, this.errorMessage});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+        child: Column(
+          children: [
+            Icon(Icons.error),
+            const Gap(4),
+            Text('Oops, there seems to be a error'),
+            Text(errorMessage ?? 'Error wtf')
+          ],
+        )
+    );
+  }
+
 }
 
 class SignInOptionsScreen extends StatelessWidget {

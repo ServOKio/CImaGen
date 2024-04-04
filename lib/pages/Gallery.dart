@@ -677,6 +677,30 @@ class PreviewImage extends StatelessWidget {
                                     .colorScheme
                                     .onSecondary)),
                       ),
+                      Positioned(
+                        bottom: 4,
+                        left: 4,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            imageMeta.generationParams!.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                  decoration: BoxDecoration(
+                                      borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                      color: const Color(0xff5f55a6).withOpacity(0.7)
+                                  ),
+                                  child: const Text('Hi-Res', style: TextStyle(color: Color(
+                                      0xffc8c4f5), fontSize: 8)),
+                                ),
+                                const Gap(3),
+                                Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler ?? 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
+                              ],
+                            ) : const SizedBox.shrink(),
+                          ],
+                        )
+                      )
                       // Text('${index}')
                     ],
                   )
