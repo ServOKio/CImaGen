@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:cimagen/utils/ThemeManager.dart';
+import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'package:settings_ui/settings_ui.dart';
@@ -19,6 +23,10 @@ class _SettingsState extends State<Settings>{
   String _sd_webui_folter = '';
   bool _debug = false;
 
+  String appDocumentsPath = '';
+  String appTempPath = '';
+  String? documentsPath = '';
+
   late SharedPreferences prefs;
 
   @override
@@ -33,9 +41,17 @@ class _SettingsState extends State<Settings>{
 
   _loadSettings() async {
     prefs = await SharedPreferences.getInstance();
+    Directory appDocumentsDir = await getApplicationDocumentsDirectory();
+    Directory appTempDir = await getTemporaryDirectory();
+    if(Platform.isAndroid){
+      documentsPath = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS);
+    }
+
     setState(() {
       _sd_webui_folter = (prefs.getString('sd_webui_folter') ?? 'none');
       _debug = (prefs.getBool('debug') ?? false);
+      appDocumentsPath = appDocumentsDir.absolute.path;
+      appTempPath = appTempDir.absolute.path;
     });
   }
 
@@ -111,6 +127,24 @@ class _SettingsState extends State<Settings>{
                         ),
                     );
                   },
+                )
+              ],
+            ),
+            SettingsSection(
+              title: const Text('Device info'),
+              tiles: <SettingsTile>[
+                SettingsTile(
+                  leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows , color: Theme.of(context).primaryColor),
+                  title: const Text('Device'),
+                  description: Text('${123}'),
+                ),
+                SettingsTile(
+                  leading: Icon(Icons.folder , color: Theme.of(context).primaryColor),
+                  title: const Text('Paths'),
+                  description: Text(''
+                      'App Documents\n↳ $appDocumentsPath\n'
+                      'App Temp\n↳ $appTempPath\n'
+                      'Documents\n↳ $documentsPath\n'),
                 )
               ],
             ),

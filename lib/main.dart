@@ -139,7 +139,15 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   Future<void> initMe() async {
     if(Platform.isAndroid){
       if (await Permission.storage.request().isGranted) {
-        next();
+        if (await Permission.manageExternalStorage.request().isGranted) {
+          next();
+        } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
+          await openAppSettings();
+        } else if (await Permission.manageExternalStorage.request().isDenied) {
+          setState(() {
+            permissionRequired = true;
+          });
+        }
       } else if (await Permission.storage.request().isPermanentlyDenied) {
         await openAppSettings();
       } else if (await Permission.storage.request().isDenied) {
@@ -258,7 +266,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           loaded ? const Comparison() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-          loaded ? const Settings() : LoadingState(loaded: loaded, errorMessage: error),
+          const Settings()
         ],
       ),
       floatingActionButton: FloatingActionButton(

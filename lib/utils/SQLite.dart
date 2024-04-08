@@ -28,12 +28,20 @@ class SQLite with ChangeNotifier{
   String get lastJob => _lastJob;
 
   Future<void> init() async {
-    if (Platform.isWindows || Platform.isLinux) sqfliteFfiInit();
+    if (Platform.isWindows || Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
 
-    databaseFactory = databaseFactoryFfi;
+    Directory dD = await getApplicationDocumentsDirectory();
+    Directory dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases'));
+    if (!await dbPath.exists()) {
+      await dbPath.create(recursive: true);
+    }
+    dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'images_database.db'));
 
     database = await openDatabase(
-        path.join(await getDatabasesPath(), 'images_database.db'),
+        dbPath.path,
         onOpen: (db){
           if (kDebugMode) print(db.path);
 
@@ -119,11 +127,6 @@ class SQLite with ChangeNotifier{
         version: 1,
     );
 
-    Directory dD = await getApplicationDocumentsDirectory();
-    Directory dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases'));
-    if (!await dbPath.exists()) {
-      await dbPath.create(recursive: true);
-    }
     dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
     constDatabase = await openDatabase(
       dbPath.path,

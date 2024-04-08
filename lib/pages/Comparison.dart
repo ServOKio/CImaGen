@@ -147,7 +147,10 @@ class _MainBlockState extends State<MainBlock> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('First, you must select at least one image')
+              Icon(Icons.compare, size: 50, color: Colors.white),
+              Gap(4),
+              Text('What to compare?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text('First, select at least one image', style: TextStyle(color: Colors.grey)),
             ],
           ),
         )
@@ -226,7 +229,7 @@ class _ViewBlockState extends State<ViewBlock> {
         AnimatedAlign(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeInOut,
-            alignment: Alignment.topLeft,
+            alignment: toBottom ? Alignment.bottomCenter : Alignment.topCenter,
             child: Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(

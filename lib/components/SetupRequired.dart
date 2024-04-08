@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 
 class SetupRequired extends StatelessWidget {
   final bool webui;
@@ -10,11 +11,14 @@ class SetupRequired extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('Configuration required'),
-          Text('To continue working, you need to configure:'),
-          webui ? Text('WebUI folder') : SizedBox.shrink(),
-          comfyui ? Text('ComfyUI folder') : SizedBox.shrink(),
+          const Icon(Icons.settings_suggest_outlined, size: 50, color: Colors.white),
+          const Gap(4),
+          const Text('Configuration required', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const Text('To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
+          webui ? const Text('WebUI folder', style: TextStyle(color: Colors.grey)) : const SizedBox.shrink(),
+          comfyui ? const Text('ComfyUI folder') : const SizedBox.shrink(),
         ],
       )
     );
