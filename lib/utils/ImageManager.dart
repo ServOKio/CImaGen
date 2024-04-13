@@ -434,9 +434,11 @@ class ImageMeta {
     fileName = p.basename(fullPath);
     pathHash = genPathHash(fullPath);
     keyup = genHash(re, parentFolder, fileName);
-    img.decodeImageFile(fullPath).then((va){
-      thumbnail = va != null ? base64Encode(img.encodeJpg(img.copyResize(va, width: 250), quality: 50)) : null;
-    });
+    if(thumbnail == null) {
+      img.decodeImageFile(fullPath).then((va){
+        thumbnail = va != null ? base64Encode(img.encodeJpg(img.copyResize(va, width: 250), quality: 50)) : null;
+      });
+    }
   }
 
   Future<Map<String, dynamic>> toMap() async {
