@@ -9,6 +9,7 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:cimagen/components/PortfolioGalleryImageWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:gap/gap.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../utils/ImageManager.dart';
@@ -44,6 +45,8 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   GenerationParams? gp;
 
+  late SharedPreferences prefs;
+
   @override
   void initState() {
     super.initState();
@@ -54,7 +57,8 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   }
 
   Future<void> load() async {
-    await WindowManager.instance.setFullScreen(true);
+    prefs = await SharedPreferences.getInstance();
+    if(prefs.getBool('imageview_use_fullscreen') ?? false) await WindowManager.instance.setFullScreen(true);
   }
 
   @override
@@ -64,7 +68,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   }
 
   Future<void> disp() async {
-    await WindowManager.instance.setFullScreen(false);
+    if(prefs.getBool('imageview_use_fullscreen') ?? false) await WindowManager.instance.setFullScreen(false);
   }
 
   @override

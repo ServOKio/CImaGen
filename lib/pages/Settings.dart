@@ -25,8 +25,10 @@ class Settings extends StatefulWidget{
 }
 
 class _SettingsState extends State<Settings>{
+  // Settings
   String _sd_webui_folter = '';
   bool _debug = false;
+  bool _imageview_use_fullscreen = false;
 
   String appDocumentsPath = '';
   String appTempPath = '';
@@ -59,6 +61,7 @@ class _SettingsState extends State<Settings>{
     setState(() {
       _sd_webui_folter = (prefs.getString('sd_webui_folter') ?? 'none');
       _debug = (prefs.getBool('debug') ?? false);
+      _imageview_use_fullscreen = (prefs.getBool('imageview_use_fullscreen') ?? false);
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
@@ -117,6 +120,22 @@ class _SettingsState extends State<Settings>{
                   },
                   leading: Icon(Icons.bug_report, color: Theme.of(context).primaryColor),
                   title: Text('Enable debug'), initialValue: _debug,
+                ),
+              ],
+            ),
+            SettingsSection(
+              title: Text('UI & UX'),
+              tiles: <SettingsTile>[
+                SettingsTile.switchTile(
+                  leading: Icon(Icons.fullscreen, color: Theme.of(context).primaryColor),
+                  title: const Text('Full-screen mode when viewing images'),
+                  description: Text('When viewing images, the upper control frame will be completely removed'),
+                  onToggle: (v) {
+                    setState(() {
+                      _imageview_use_fullscreen = v;
+                    });
+                    prefs.setBool('imageview_use_fullscreen', v);
+                  }, initialValue: _imageview_use_fullscreen,
                 ),
               ],
             ),
