@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/components/SetupRequired.dart';
+import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/SQLite.dart';
@@ -86,7 +87,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
     } else {
       String path = context.read<ConfigManager>().config['outdir_txt2img_samples'];
       txt2imgList = _loadMenu(path);
-      txt2imgList.then((value) => imagesList = context.read<SQLite>().getImagesByParent(_tabController.index == 0 ? RenderEngine.txt2img : RenderEngine.img2img, value[0].name));
+      txt2imgList.then((value){
+        setState(() {
+          imagesList = context.read<SQLite>().getImagesByParent(RenderEngine.txt2img, value[0].name);
+        });
+
+      });
       path = context.read<ConfigManager>().config['outdir_img2img_samples'];
       img2imgList = _loadMenu(path);
 
@@ -267,96 +273,115 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                 ),
                 FutureBuilder(
                   future: img2imgList,
-                  builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                    Widget c;
-                    if (snapshot.hasData) {
-                      c = ListView.builder(
-                        controller: _scrollControllerTwo,
-                        itemCount: snapshot.data.length,
-                        itemBuilder: (context, index) {
-                          List<String> paths = [];
+                    builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+                      Widget c;
+                      if (snapshot.hasData) {
+                        c = ListView.separated(
+                          controller: _scrollControllerOne,
+                          separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
+                          itemCount: snapshot.data.length,
+                          itemBuilder: (context, index) {
+                            List<String> paths = [];
 
-                          if(snapshot.data[index].files.length <= 4){
-                            paths = snapshot.data[index].files;
-                          } else {
-                            for (var i = 0; i < 4; i++) {
-                              paths.add(snapshot.data[index].files[i]);
+                            if(snapshot.data[index].files.length <= 4){
+                              paths = snapshot.data[index].files;
+                            } else {
+                              for (var i = 0; i < 4; i++) {
+                                paths.add(snapshot.data[index].files[i]);
+                              }
                             }
-                          }
 
-                          return Container(
-                            height: 100,
-                            color: Colors.black,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                int i = -1;
-                                List<Widget> goto = paths.map<Widget>((ent){
-                                  i++;
-                                  return Positioned(
-                                    height: 100,
-                                    width: constraints.biggest.width / paths.length,
-                                    top: 0,
-                                    left: ((constraints.biggest.width / paths.length) * i).toDouble(),
-                                    child: Image.file(File(ent), fit: BoxFit.cover),
-                                  );
-                                }).toList();
-                                goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                                goto.add(Positioned(
-                                    bottom: 0,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Column(
-                                        children: [
-                                          Text('${snapshot.data[index].name} (${snapshot.data[index].files.length})')
-                                        ],
-                                      ),
-                                    )
-                                ));
-                                goto.add(Positioned.fill(
-                                    child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap:() => changeTab(1, index),
-                                        )
-                                    )
-                                ));
-                                return Stack(children: goto);
-                              },
+                            return Container(
+                              height: 100,
+                              color: Colors.black,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  int i = -1;
+                                  List<Widget> goto = paths.map<Widget>((ent){
+                                    i++;
+                                    return Positioned(
+                                      height: 100,
+                                      width: constraints.biggest.width / paths.length,
+                                      top: 0,
+                                      left: ((constraints.biggest.width / paths.length) * i).toDouble(),
+                                      child: Image.file(File(ent), fit: BoxFit.cover),
+                                    );
+                                  }).toList();
+                                  goto.add(Container(color: Colors.black.withOpacity(0.35)));
+                                  goto.add(Positioned(
+                                      bottom: 0,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                                            Container(
+                                                decoration: BoxDecoration(
+                                                    color: Colors.black.withOpacity(0.3),
+                                                    border: Border.all(
+                                                      color: Colors.black.withOpacity(0.5),
+                                                    ),
+                                                    borderRadius: const BorderRadius.all(Radius.circular(20))
+                                                ),
+                                                padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.image, color: Colors.white70, size: 12),
+                                                    const Gap(2),
+                                                    Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
+                                                  ],
+                                                )
+                                            )
+                                          ],
+                                        ),
+                                      )
+                                  ));
+                                  goto.add(Positioned.fill(
+                                      child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: () => changeTab(1, index),
+                                          )
+                                      )
+                                  ));
+                                  return Stack(children: goto);
+                                },
+                              ),
+                            );
+                          },
+                        );
+                      } else if (snapshot.hasError) {
+                        c = Column(
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 60,
                             ),
-                          );
-                        },
-                      );
-                    } else if (snapshot.hasError) {
-                      c = Column(
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                            size: 60,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text('Error: ${snapshot.error}'),
-                          ),
-                        ],
-                      );
-                    } else {
-                      c = const Column(
-                        children: [
-                          SizedBox(
-                            width: 60,
-                            height: 60,
-                            child: CircularProgressIndicator(),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(top: 16),
-                            child: Text('Awaiting result...'),
-                          ),
-                        ],
-                      );
+                            Padding(
+                              padding: const EdgeInsets.only(top: 16),
+                              child: Text('Error: ${snapshot.error}'),
+                            ),
+                          ],
+                        );
+                      } else {
+                        c = const Column(
+                          children: [
+                            SizedBox(
+                              width: 60,
+                              height: 60,
+                              child: CircularProgressIndicator(),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.only(top: 16),
+                              child: Text('Awaiting result...'),
+                            ),
+                          ],
+                        );
+                      }
+                      return c;
                     }
-                    return c;
-                  }
                 ),
               ],
             )
@@ -514,8 +539,9 @@ class PreviewImage extends StatelessWidget {
                 imageManager.toogleFavorite(imageMeta.fullPath);
               },
             ),
+            const MenuDivider(),
             MenuItem(
-              label: 'View render history',
+              label: 'View render tree',
               icon: Icons.account_tree_sharp,
               onSelected: () {
                 // implement copy
@@ -538,20 +564,20 @@ class PreviewImage extends StatelessWidget {
                 ),
                 const MenuDivider(),
                 MenuItem(
-                  label: 'As test',
-                  value: 'comparison_as_test',
-                  icon: Icons.swipe_right,
-                  onSelected: () {
-                    dataModel.comparisonBlock.changeSelected(1, imageMeta);
-                  },
-                ),
-                MenuItem(
                   label: 'As main',
                   value: 'comparison_as_main',
                   icon: Icons.swipe_left,
                   onSelected: () {
                     dataModel.comparisonBlock.changeSelected(0, imageMeta);
                     // implement redo
+                  },
+                ),
+                MenuItem(
+                  label: 'As test',
+                  value: 'comparison_as_test',
+                  icon: Icons.swipe_right,
+                  onSelected: () {
+                    dataModel.comparisonBlock.changeSelected(1, imageMeta);
                   },
                 ),
               ],
@@ -570,6 +596,25 @@ class PreviewImage extends StatelessWidget {
                   },
                 ),
               ],
+            ),
+            const MenuDivider(),
+            MenuItem(
+              label: 'Send to MiniSD',
+              value: 'send_to_minisd',
+              icon: Icons.web_rounded,
+              onSelected: () {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));
+                // implement redo
+              },
+            ),
+            const MenuDivider(),
+            MenuItem(
+              label: 'Show in explorer',
+              value: 'show_in_explorer',
+              icon: Icons.compare,
+              onSelected: () {
+                showInExplorer(imageMeta.fullPath);
+              },
             ),
           ];
 
@@ -695,7 +740,7 @@ class PreviewImage extends StatelessWidget {
                                       0xffc8c4f5), fontSize: 8)),
                                 ),
                                 const Gap(3),
-                                Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler ?? 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
+                                Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler == null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
                               ],
                             ) : const SizedBox.shrink(),
                           ],

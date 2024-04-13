@@ -143,6 +143,93 @@ class _HomeState extends State<Home> {
               )
             ],
           )
+        ),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsetsDirectional.symmetric(horizontal: 12),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Text('categories'.toUpperCase()),
+                    Gap(12),
+                    Row(
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          color: Colors.red,
+                        ),
+                        Gap(4),
+                        Text('Main'.toUpperCase())
+                      ],
+                    )
+                  ],
+                ),
+                Gap(8),
+                Row(
+                  children: [
+                    Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w500)),
+                    Spacer(),
+                    Row(
+                      children: [
+                        Icon(Icons.grid_view_rounded, color: Theme.of(context).primaryColor),
+                        Gap(14),
+                        Icon(Icons.view_list_rounded, color: Colors.grey),
+                        Gap(21),
+                        ElevatedButton(
+                            style: ButtonStyle(
+                                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                                backgroundColor: MaterialStateProperty.all<Color>(Theme.of(context).primaryColor),
+                                shape: MaterialStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                            ),
+                            onPressed: () async {
+                              await showDialog<void>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  content: Form(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        TextFormField(
+                                          decoration: const InputDecoration(
+                                            icon: Icon(Icons.yard),
+                                            hintText: 'Briefly, but clearly',
+                                            labelText: 'Title *',
+                                          ),
+                                        ),
+                                        TextFormField(
+                                          decoration: const InputDecoration(
+                                            icon: Icon(Icons.textsms),
+                                            hintText: 'Description of what\'s here',
+                                            labelText: 'Description',
+                                          ),
+                                        ),
+                                        Gap(12),
+                                        ElevatedButton(
+                                          child: const Text('Create'),
+                                          onPressed: () {
+
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              );
+                            },
+                            child: const Text(
+                                "Create new",
+                                style: TextStyle(fontSize: 14)
+                            )
+                        )
+                      ],
+                    )
+                  ],
+                )
+              ],
+            ),
+          )
         )
       ]
     );

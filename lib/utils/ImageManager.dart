@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:exif/exif.dart';
 import 'package:flutter/foundation.dart';
@@ -26,6 +27,19 @@ class ImageManager extends ChangeNotifier{
   int get jobCount => _jc;
   int _jc = 0;
 
+  // Local
+  bool _useLastAsTest = false;
+  String get useLastAsTest => useLastAsTest;
+  bool toogleUseLastAsTest(){
+    _useLastAsTest = !_useLastAsTest;
+    return _useLastAsTest;
+  }
+
+  void setLastJob(String job){
+    _lastJob = job;
+    notifyListeners();
+  }
+
   void updateJobCount(int c){
     _jc = c;
     notifyListeners();
@@ -41,6 +55,7 @@ class ImageManager extends ChangeNotifier{
   }
 
   Future<void> updateIfNado(RenderEngine re, String imagePath) async {
+    imagePath = p.normalize(imagePath); // windows suck
     // Check file type
     final String e = p.extension(imagePath);
     if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) return;
@@ -52,9 +67,23 @@ class ImageManager extends ChangeNotifier{
       }
     }
 
-    parseImage(re, imagePath).then((value) async {
-      if(value != null) {
-        NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(re, value);
+    NavigationService.navigatorKey.currentContext?.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
+      if(doI){
+        print(genPathHash(imagePath));
+        print(imagePath);
+        ImageMeta? value = await parseImage(re, imagePath);
+        if(value != null) {
+          if (kDebugMode) print('new '+value.pathHash);
+          print(value.fullPath);
+          NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
+          if(_useLastAsTest){
+            Future.delayed(const Duration(milliseconds: 1000), () {
+              DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
+              d?.comparisonBlock.changeSelected(re.index, value);
+              d?.comparisonBlock.addImage(value);
+            });
+          }
+        }
       }
     });
   }
@@ -62,11 +91,13 @@ class ImageManager extends ChangeNotifier{
   void watchDir(RenderEngine re, String path){
     final tempFolder = File(path);
     if (kDebugMode) print('watch $path');
+    // flutter: FileSystemCreateEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.tmp', isDirectory=false)
+    // flutter: FileSystemModifyEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.tmp', isDirectory=false, contentChanged=true)
+    // flutter: FileSystemMoveEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.tmp', isDirectory=false, destination=K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.png)
+    // flutter: FileSystemModifyEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13', isDirectory=true, contentChanged=true)
     tempFolder.watch(events: FileSystemEvent.all, recursive: true).listen((event) {
-      if (event is FileSystemModifyEvent && !event.isDirectory) {
-        updateIfNado(re, event.path);
-
-        //print(lookupMimeType(event.path ?? "", headerBytes: [0xFF, 0xD8]));
+      if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
+        updateIfNado(re, event.destination ?? 'jri govno dart');
       }
     });
   }
@@ -78,7 +109,7 @@ class ImageManager extends ChangeNotifier{
       } else {
         _favoritePaths.add(path);
       }
-      print(_favoritePaths.contains(path));
+      if (kDebugMode) print(_favoritePaths.contains(path));
       notifyListeners();
     });
   }
@@ -145,6 +176,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
       // SD
       if(pngEx['parameters'] != null) gp = parseSDParameters(pngEx['parameters']);
 
+
+      // Find render Engine
       //Topaz
       if(pngEx['Software'] != null){
         if(pngEx['Software'].startsWith('Topaz Photo AI')){
@@ -153,6 +186,10 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
           print('new Software');
           print(pngEx['Software']);
         }
+      }
+
+      if(gp != null){
+        if(gp.all?['mask_blur'] != null) re = RenderEngine.inpaint;
       }
 
       //print(pngEx);
@@ -230,18 +267,19 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
                     break;
                   }
                 }
-              } on RangeError {
+                jpgEx[entry.key] = fi;
+              } on RangeError catch (e) {
                 print('RangeError');
                 print(imagePath);
+                print(e);
               }
-              jpgEx[entry.key] = fi;
             } else {
               jpgEx[entry.key] = hasPrintable ? entry.value.printable : entry.value;
             }
         }
       }
 
-      if(jpgEx['EXIF UserComment'] != null){
+      if(jpgEx['EXIF UserComment'] != null && (jpgEx['EXIF UserComment'] as String).trim().isNotEmpty){
         gp = parseSDParameters(jpgEx['EXIF UserComment']);
       }
 
@@ -396,6 +434,9 @@ class ImageMeta {
     fileName = p.basename(fullPath);
     pathHash = genPathHash(fullPath);
     keyup = genHash(re, parentFolder, fileName);
+    img.decodeImageFile(fullPath).then((va){
+      thumbnail = va != null ? base64Encode(img.encodeJpg(img.copyResize(va, width: 250), quality: 50)) : null;
+    });
   }
 
   Future<Map<String, dynamic>> toMap() async {
@@ -432,6 +473,7 @@ enum RenderEngine{
   unknown,
   txt2img,
   img2img,
+  inpaint,
   txt2imgGrid,
   img2imgGrid,
   extra,

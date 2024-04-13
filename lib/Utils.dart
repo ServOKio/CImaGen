@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ConfigManager with ChangeNotifier {
   //init
@@ -73,8 +74,6 @@ GenerationParams? parseSDParameters(String rawData){
 
   String positiveTemplate = '';
   String negativeTemplate = '';
-
-  print(rawData);
 
   for(String line in lines){
     line = line.trim();
@@ -146,6 +145,7 @@ GenerationParams? parseSDParameters(String rawData){
       hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
       version: gp['version'] as String,
+      all: gp,
       rawData: rawData
   );
 }
@@ -200,6 +200,7 @@ class GenerationParams {
   final Map<String, String>? tiHashes;
   final String version;
   final String? rawData;
+  final Map<String, dynamic>? all;
 
   const GenerationParams({
     required this.positive,
@@ -219,6 +220,7 @@ class GenerationParams {
     this.tiHashes,
     required this.version,
     this.rawData,
+    this.all
   });
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
@@ -329,4 +331,18 @@ int bytesToInteger(List<int> bytes) {
     value += bytes[i] * pow(256, i).toInt();
   }
   return value;
+}
+
+Future<void> showInExplorer(String file) async {
+  if(Platform.isWindows){
+    Process.run('explorer.exe ', [ '/select,', file]);
+  } else {
+    final Uri smsLaunchUri = Uri(
+      scheme: 'file',
+      path: file,
+    );
+    if (await canLaunchUrl(smsLaunchUri)) {
+      launchUrl(smsLaunchUri);
+    }
+  }
 }

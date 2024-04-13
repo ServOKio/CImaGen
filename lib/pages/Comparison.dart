@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:ui';
 
+import 'package:cimagen/components/CustomActionButton.dart';
+import 'package:cimagen/main.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:flutter/cupertino.dart';
@@ -15,6 +17,7 @@ import '../Utils.dart';
 import '../components/ImageInfo.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
+import '../utils/NavigationService.dart';
 
 SliderDirection direction = SliderDirection.leftToRight;
 Color dividerColor = Colors.white;
@@ -48,6 +51,26 @@ class Comparison extends StatefulWidget{
 
 class _ComparisonState extends State<Comparison> {
   GlobalKey stickyKey = GlobalKey();
+
+  @override
+  void initState(){
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.setActions([
+        CustomActionButton(icon: Icons.remove_red_eye, tooltip: 'Automatically use the last generated image as a test', onPress: (){
+
+        }, getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest())
+      ]);
+    });
+  }
+
+  @override
+  void dispose(){
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.resetActions();
+    });
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -318,20 +341,20 @@ class _ImageListStateStateful extends State<ImageList>{
                       icon: Icons.edit,
                       items: [
                         MenuItem(
-                          label: 'As test',
-                          value: 'comparison_as_test',
-                          icon: Icons.swipe_right,
-                          onSelected: () {
-                            dataModel.comparisonBlock.changeSelected(1, im);
-                          },
-                        ),
-                        MenuItem(
                           label: 'As main',
                           value: 'comparison_as_main',
                           icon: Icons.swipe_left,
                           onSelected: () {
                             dataModel.comparisonBlock.changeSelected(0, im);
                             // implement redo
+                          },
+                        ),
+                        MenuItem(
+                          label: 'As test',
+                          value: 'comparison_as_test',
+                          icon: Icons.swipe_right,
+                          onSelected: () {
+                            dataModel.comparisonBlock.changeSelected(1, im);
                           },
                         ),
                       ],

@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:cimagen/main.dart';
 import 'package:feedback/feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
@@ -55,7 +57,6 @@ class _CustomAppBarState extends State<CAppBar>{
       if(timer != null && timer!.isActive) timer?.cancel();
       timer = Timer.periodic(const Duration(milliseconds: 100), (timer) async {
         removeMe -= 10;
-        print(removeMe);
         if(removeMe <= 0){
           setState(() {
             turns += 1.3;
@@ -64,7 +65,6 @@ class _CustomAppBarState extends State<CAppBar>{
           timer.cancel();
         }
       });
-      print(text);
       if(open != text.trim().isNotEmpty){
         setState(() {
           open = text.trim().isNotEmpty;
@@ -78,83 +78,89 @@ class _CustomAppBarState extends State<CAppBar>{
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        AppBar(
-            clipBehavior: Clip.none,
-            surfaceTintColor: Colors.transparent,
-            centerTitle: true,
-            backgroundColor: const Color(0xff0c0c0e),
-            title: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 720,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: const Color(0xff15161a),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: myController,
-                        style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
-                        decoration: const InputDecoration(
-                          hintText: 'Search...',
-                          hintStyle: TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
-                          labelStyle: TextStyle(color: Colors.red),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                        ),
-                        maxLines: 1,
-                      ),
+        ListenableBuilder(
+          listenable: appBarController!,
+          builder: (BuildContext context, Widget? child){
+            return AppBar(
+                clipBehavior: Clip.none,
+                surfaceTintColor: Colors.transparent,
+                centerTitle: true,
+                backgroundColor: const Color(0xff0c0c0e),
+                title: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 720,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xff15161a),
                     ),
-                    const Gap(8),
-                    //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
-                    AnimatedRotation(
-                      turns: turns,
-                      duration: const Duration(seconds: 2),
-                      curve: Curves.ease,
-                      child: UnicornOutlineButton(
-                        strokeWidth: 3,
-                        radius: 24,
-                        gradient: const LinearGradient(
-                            begin: Alignment.topRight,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
-                            stops: [0, 0.5, 0.9, 1]
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: myController,
+                            style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
+                            decoration: InputDecoration(
+                              hintText: AppLocalizations.of(context)!.appbarSearch,
+                              hintStyle: const TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
+                              labelStyle: const TextStyle(color: Colors.red),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                            ),
+                            maxLines: 1,
+                          ),
                         ),
-                        child: const SizedBox(
-                          width: 20,
-                          height: 20,
-                        ),
-                        onPressed: () {},
-                      ),
-                    )
-                  ],
+                        const Gap(8),
+                        //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
+                        AnimatedRotation(
+                          turns: turns,
+                          duration: const Duration(seconds: 2),
+                          curve: Curves.ease,
+                          child: UnicornOutlineButton(
+                            strokeWidth: 3,
+                            radius: 24,
+                            gradient: const LinearGradient(
+                                begin: Alignment.topRight,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
+                                stops: [0, 0.5, 0.9, 1]
+                            ),
+                            child: const SizedBox(
+                              width: 20,
+                              height: 20,
+                            ),
+                            onPressed: () {},
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            actions: <Widget>[
-              IconButton(
-                icon: const Icon(Icons.bug_report),
-                tooltip: 'Report bug',
-                onPressed: () {
-                  BetterFeedback.of(context).show((feedback) async {
-                    final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
+                actions: appBarController!.actions.isEmpty ? <Widget>[
+                  IconButton(
+                    icon: const Icon(Icons.bug_report),
+                    tooltip: 'Report bug',
+                    onPressed: () {
+                      BetterFeedback.of(context).show((feedback) async {
+                        final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
 
-                    // ignore: deprecated_member_use
-                    await Share.shareFiles(
-                      [screenshotFilePath],
-                      text: feedback.text,
-                    );
-                  },
-                  );
-                },
-              ),
-            ]
+                        // ignore: deprecated_member_use
+                        await Share.shareFiles(
+                          [screenshotFilePath],
+                          text: feedback.text,
+                        );
+                      },
+                      );
+                    },
+                  ),
+                  const Gap(8)
+                ] : appBarController!.actions
+            );
+          }
         ),
         Positioned(
           left: MediaQuery.of(context).size.width / 2 - ((MediaQuery.of(context).size.width - 100) / 2),

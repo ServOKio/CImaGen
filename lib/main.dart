@@ -1,13 +1,16 @@
 import 'dart:io';
 
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
+import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
@@ -19,8 +22,14 @@ import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Settings.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'components/AppBar.dart';
+import 'components/NotesSection.dart';
+import 'l10n/all_locales.dart';
+
+GitHub? githubAPI;
+AppBarController? appBarController;
 
 Future<void> main() async {
   bool debug = false;
@@ -43,9 +52,6 @@ class Test extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text("Demo Project"),
-        ),
         body: const Center(child: Text("Hello World!!!")),
         bottomNavigationBar: BottomNavigationBar(
           items: const <BottomNavigationBarItem>[
@@ -70,10 +76,15 @@ class Test extends StatelessWidget {
 
 class MyApp extends StatelessWidget {
 
+  MyApp({super.key}) {
+    appBarController = AppBarController();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => DataModel()),
         ChangeNotifierProvider(create: (_) => ConfigManager()),
         ChangeNotifierProvider(create: (_) => SQLite()),
@@ -94,13 +105,22 @@ class WTF extends StatelessWidget{
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
     return MaterialApp(
-       navigatorKey: NavigationService.navigatorKey,
-       debugShowCheckedModeBanner: true,
-       theme: theme.getTheme,
-       darkTheme: theme.getTheme,
-       themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
-       home: const Main()
-   );
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AllLocale.all,
+      locale: Provider.of<LocaleProvider>(context).locale,
+
+      navigatorKey: NavigationService.navigatorKey,
+      debugShowCheckedModeBanner: false,
+      theme: theme.getTheme,
+      darkTheme: theme.getTheme,
+      themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
+      home: const Main()
+    );
   }
 
 }
@@ -137,6 +157,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   }
 
   Future<void> initMe() async {
+    githubAPI = GitHub();
     if(Platform.isAndroid){
       if (await Permission.storage.request().isGranted) {
         if (await Permission.manageExternalStorage.request().isGranted) {
@@ -168,14 +189,14 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           loaded = true;
         });
       }).catchError((e){
-        print(e);
+        if (kDebugMode) print(e);
         error = 'Database loading error';
         setState(() {
           hasError = true;
         });
       });
     }).catchError((e){
-      print(e);
+      if (kDebugMode) print(e);
       error = 'The configuration cannot be loaded';
       setState(() {
         hasError = true;
@@ -201,18 +222,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             top: Radius.circular(30),
           )
       ),
-      builder: (context) => DraggableScrollableSheet(
-          initialChildSize: 0.4,
-          maxChildSize: 0.9,
-          minChildSize: 0.32,
-          expand: false,
-          builder: (context, scrollController) {
-            return SingleChildScrollView(
-              controller: scrollController,
-              child: const SignInOptionsScreen(),
-            );
-          }
-      ),
+      builder: (context) => const NotesSection(),
     );
   }
 
@@ -364,47 +374,12 @@ class LoadingState extends StatelessWidget{
     return Center(
         child: Column(
           children: [
-            Icon(Icons.error),
+            const Icon(Icons.error),
             const Gap(4),
-            Text('Oops, there seems to be a error'),
+            const Text('Oops, there seems to be a error'),
             Text(errorMessage ?? 'Error wtf')
           ],
         )
-    );
-  }
-
-}
-
-class SignInOptionsScreen extends StatelessWidget {
-  const SignInOptionsScreen({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: AlignmentDirectional.topCenter,
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          top: -15,
-          child: Container(
-            width: 60,
-            height: 7,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(5),
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const Column(children: [
-          Center(
-            child: Text(
-              'OR',
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-        ])
-      ],
     );
   }
 }

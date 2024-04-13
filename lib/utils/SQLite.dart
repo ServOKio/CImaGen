@@ -41,90 +41,90 @@ class SQLite with ChangeNotifier{
     dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'images_database.db'));
 
     database = await openDatabase(
-        dbPath.path,
-        onOpen: (db){
-          if (kDebugMode) print(db.path);
+      dbPath.path,
+      onOpen: (db){
+        if (kDebugMode) print(db.path);
 
-          timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
-            try{
-              var send = use ? toBatchTwo : toBatchOne;
-              if(send.isNotEmpty){
-                use = !use;
-                inProgress = true;
-                NavigationService.navigatorKey.currentContext?.read<ImageManager>().updateJobCount(send.length);
-                Batch batch = db.batch();
-                if (kDebugMode) print('Sending ${send.length}...');
-                for (var e in send) {
-                  if(e.type == JobType.insert){
-                    batch.insert(e.to, e.obj);
-                  }
+        timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+          try{
+            var send = use ? toBatchTwo : toBatchOne;
+            if(send.isNotEmpty){
+              use = !use;
+              inProgress = true;
+              NavigationService.navigatorKey.currentContext?.read<ImageManager>().updateJobCount(send.length);
+              Batch batch = db.batch();
+              if (kDebugMode) print('Sending ${send.length}...');
+              for (var e in send) {
+                if(e.type == JobType.insert){
+                  batch.insert(e.to, e.obj);
                 }
+              }
 
-                await batch.commit(noResult: true, continueOnError: true);
-                if (kDebugMode) print('Done');
-                !use ? toBatchTwo.clear() : toBatchOne.clear();
-                inProgress = false;
-              }
-            } on Exception catch(e) {
-              if (kDebugMode){
-                print('error');
-                print(e);
-              }
+              await batch.commit(noResult: true, continueOnError: true);
+              if (kDebugMode) print('Done');
+              !use ? toBatchTwo.clear() : toBatchOne.clear();
+              inProgress = false;
             }
-          });
-        },
-        onCreate: (db, version) {
-          db.execute(
-            'CREATE TABLE IF NOT EXISTS images('
-                'keyup VARCHAR(256) PRIMARY KEY,'
-                'type TINYINT,'
-                'parent VARCHAR(128),'
-                'fileName VARCHAR(256),'
-                'pathHash VARCHAR(256),'
-                'fullPath TEXT,'
-                'dateModified DATETIME,'
+          } on Exception catch(e) {
+            if (kDebugMode){
+              print('error');
+              print(e);
+            }
+          }
+        });
+      },
+      onCreate: (db, version) {
+        db.execute(
+          'CREATE TABLE IF NOT EXISTS images('
+            'keyup VARCHAR(256) PRIMARY KEY,'
+            'type TINYINT,'
+            'parent VARCHAR(128),'
+            'fileName VARCHAR(256),'
+            'pathHash VARCHAR(256),'
+            'fullPath TEXT,'
+            'dateModified DATETIME,'
 
-                'mine VARCHAR(64),'
-                'fileTypeExtension VARCHAR(8),'
-                'fileSize INTEGER,'
-                'size VARCHAR(64),'
-                'specific TEXT,'
-                'imageParams TEXT,'
-                'other TEXT,'
-                'thumbnail TEXT'
-            ')',
-          );
+            'mine VARCHAR(64),'
+            'fileTypeExtension VARCHAR(8),'
+            'fileSize INTEGER,'
+            'size VARCHAR(64),'
+            'specific TEXT,'
+            'imageParams TEXT,'
+            'other TEXT,'
+            'thumbnail TEXT'
+          ')',
+        );
 
-          db.execute(
-            'CREATE TABLE IF NOT EXISTS generation_params('
-              'keyup VARCHAR(256) PRIMARY KEY,'
-              'type TINYINT,'
-              'parent VARCHAR(128),'
-              'fileName TEXT,'
-              'pathHash VARCHAR(256),'
+        db.execute(
+          'CREATE TABLE IF NOT EXISTS generation_params('
+            'keyup VARCHAR(256) PRIMARY KEY,'
+            'type TINYINT,'
+            'parent VARCHAR(128),'
+            'fileName TEXT,'
+            'pathHash VARCHAR(256),'
 
-              'positive TEXT,'
-              'negative TEXT,'
-              'steps INTEGER,'
-              'sampler VARCHAR(128),'
-              'cfgScale DOUBLE,'
-              'seed INTEGER,'
-              'sizeW INTEGER,'
-              'sizeH INTEGER,'
-              'modelHash VARCHAR(128),'
-              'model VARCHAR(256),'
-              'denoisingStrength DOUBLE,'
-              'rng VARCHAR(16),'
-              'hiresSampler VARCHAR(128),'
-              'hiresUpscaler VARCHAR(128),'
-              'hiresUpscale DOUBLE,'
-              'tiHashes TEXT,'
-              'version VARCHAR(16),'
-              'rawData TEXT'
-            ')',
-          );
-        },
-        version: 1,
+            'positive TEXT,'
+            'negative TEXT,'
+            'steps INTEGER,'
+            'sampler VARCHAR(128),'
+            'cfgScale DOUBLE,'
+            'seed INTEGER,'
+            'sizeW INTEGER,'
+            'sizeH INTEGER,'
+            'modelHash VARCHAR(128),'
+            'model VARCHAR(256),'
+            'denoisingStrength DOUBLE,'
+            'rng VARCHAR(16),'
+            'hiresSampler VARCHAR(128),'
+            'hiresUpscaler VARCHAR(128),'
+            'hiresUpscale DOUBLE,'
+            'tiHashes TEXT,'
+            'version VARCHAR(16),'
+            'rawData TEXT'
+          ')',
+        );
+      },
+      version: 1,
     );
 
     dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
@@ -132,25 +132,55 @@ class SQLite with ChangeNotifier{
       dbPath.path,
       onCreate: (db, version) {
         db.execute(
-            'CREATE TABLE IF NOT EXISTS favorites('
-                'pathHash VARCHAR(256) PRIMARY KEY,'
-                'fullPath TEXT NOT NULL,'
-                'fileName TEXT NOT NULL,'
-                'parent TEXT NOT NULL'
-                ')'
+          'CREATE TABLE IF NOT EXISTS favorites('
+            'pathHash VARCHAR(256) PRIMARY KEY,'
+            'fullPath TEXT NOT NULL,'
+            'fileName TEXT NOT NULL,'
+            'parent TEXT NOT NULL'
+          ')'
+        );
+        db.execute(
+          'CREATE TABLE IF NOT EXISTS notes('
+            'id INTEGER PRIMARY KEY,'
+            'title VARCHAR(256),'
+            'content TEXT,'
+            'color VARCHAR(16),'
+            'icon VARCHAR(128)'
+            ')'
+        );
+
+        // Saved
+        db.execute(
+          'CREATE TABLE IF NOT EXISTS saved_categories('
+            'id INTEGER PRIMARY KEY,'
+            'title VARCHAR(256),'
+            'description TEXT,'
+            'color VARCHAR(16),'
+            'icon VARCHAR(128),'
+            'thumbnail TEXT'
+          ')'
         );
       },
       version: 1,
     );
   }
 
+  Future<bool> shouldUpdate(String path) async {
+    final List<Map<String, dynamic>> maps = await database.query(
+      'images',
+      where: 'pathHash = ?',
+      whereArgs: [genPathHash(path)],
+    );
+    return maps.isEmpty;
+  }
+
   //TODO: ЧИНИМ
-  Future<void> updateImages(RenderEngine type, ImageMeta imageMeta) async {
+  Future<void> updateImages({required RenderEngine renderEngine, required ImageMeta imageMeta, bool fromWatch = false}) async {
     final String parentName = path.basename(File(imageMeta.fullPath).parent.path);
     final List<Map<String, dynamic>> maps = await database.query(
       'images',
       where: 'keyup = ?',
-      whereArgs: [genHash(type, parentName, imageMeta.fileName)],
+      whereArgs: [genHash(renderEngine, parentName, imageMeta.fileName)],
     );
     //print(genHash(type, parentName, imageMeta.imageParams.fileName));
     if (maps.isNotEmpty) {
@@ -200,6 +230,14 @@ class SQLite with ChangeNotifier{
       //   conflictAlgorithm: ConflictAlgorithm.ignore
       // );
     }
+  }
+
+  Future<void> rawRun(List<String> que) async {
+    Batch batch = database.batch();
+    for(String q in que){
+      batch.rawQuery(q);
+    }
+    await batch.apply();
   }
 
   Future<void> clearMeta() async {
@@ -404,6 +442,28 @@ class SQLite with ChangeNotifier{
       );
     }
   }
+
+  // Notes
+
+  // System
+  Future<Map<String, int>> getTablesInfo() async {
+    final List<Map<String, dynamic>> maps = await database.rawQuery(
+        'SELECT'
+          '(SELECT COUNT(keyup) FROM images) as totalImages,'
+          '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
+          '(SELECT SUM(filesize) FROM images WHERe type = 1) as txt2imgSumSize,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
+          '(SELECT SUM(filesize) FROM images WHERe type = 2) as img2imgSumSize'
+    );
+
+    Map<String, int> finalMe = {};
+    maps.first.forEach((key, value) {
+      finalMe[key] = value as int;
+    });
+    return finalMe;
+  }
+
 }
 
 // ImageParams imageParamsFromJson(String data) {

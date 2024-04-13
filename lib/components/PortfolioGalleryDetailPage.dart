@@ -9,10 +9,9 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:cimagen/components/PortfolioGalleryImageWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:gap/gap.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../utils/ImageManager.dart';
-import '../utils/SQLite.dart';
 
 class PortfolioGalleryDetailPage extends StatefulWidget {
 
@@ -30,6 +29,13 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   late PageController _pageController;
   bool _showAppBar = true;
 
+  bool showOriginalSize = true;
+  late PhotoViewScaleStateController changeScale;
+
+  void backCall(PhotoViewScaleStateController ns){
+    changeScale = ns;
+  }
+
   late CarouselController carouselController;
 
   int gpState = 0;
@@ -44,6 +50,21 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     carouselController = CarouselController();
     _currentIndex = widget.currentIndex;
     _pageController = PageController(initialPage: _currentIndex);
+    load();
+  }
+
+  Future<void> load() async {
+    await WindowManager.instance.setFullScreen(true);
+  }
+
+  @override
+  void dispose() {
+    disp();
+    super.dispose();
+  }
+
+  Future<void> disp() async {
+    await WindowManager.instance.setFullScreen(false);
   }
 
   @override
@@ -62,6 +83,18 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
             backgroundColor: Colors.black,
             title: Text(widget.images[_currentIndex].fileName),
             actions: [
+              IconButton(
+                  icon: Icon(
+                    showOriginalSize ? Icons.photo_size_select_large_rounded : Icons.photo_size_select_actual_rounded,
+                  ),
+                  onPressed: (){
+                    setState(() {
+                      showOriginalSize = !showOriginalSize;
+                      changeScale.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
+                    });
+                  }
+              ),
+              const Gap(6),
               IconButton(
                   icon: Icon(
                     imageManager.favoritePaths.contains(widget.images[_currentIndex].fullPath) ? Icons.star : Icons.star_outline,
@@ -93,13 +126,9 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                     Icons.open_in_new,
                   ),
                   onPressed: () async {
-                    final Uri smsLaunchUri = Uri(
-                      scheme: 'file',
-                      path: widget.images[_currentIndex].fullPath,
-                    );
-                    if (await canLaunchUrl(smsLaunchUri)) {
-                      launchUrl(smsLaunchUri);
-                    }
+                    // final String dir = dirname(widget.images[_currentIndex].fullPath);
+                    // await OpenFile.open('$dir\\');
+                    showInExplorer(widget.images[_currentIndex].fullPath);
                   }
               ),
               const Gap(6),
@@ -259,7 +288,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   Widget _buildContent() {
     return Stack(
       children: <Widget>[
-        _buildPhotoViewGallery(), //Ебало
+        _buildPhotoViewGallery(backCall), //Ебало
         _buildIndicator() //Дно
       ],
     );
@@ -311,15 +340,21 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     );
   }
 
-  PhotoViewGallery _buildPhotoViewGallery() {
+  PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
+
+  PhotoViewGallery _buildPhotoViewGallery(Function changeScale) {
+    changeScale(scaleStateController);
     return PhotoViewGallery.builder(
       itemCount: widget.images.length,
       builder: (BuildContext context, int index) {
         return PhotoViewGalleryPageOptions(
+          scaleStateController: scaleStateController,
           imageProvider: FileImage(File(widget.images[index].fullPath)),
-          minScale: PhotoViewComputedScale.contained * 1,
+          initialScale: PhotoViewComputedScale.contained,
+          minScale: 0.1,
           maxScale: PhotoViewComputedScale.covered * 1,
           onTapUp: (_, __, ___) => setState(() {
+            //scaleStateController.scaleState = PhotoViewScaleState.initial;
             _showAppBar = !_showAppBar;
           })
         );
