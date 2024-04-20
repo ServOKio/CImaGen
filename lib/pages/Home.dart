@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
@@ -28,15 +29,16 @@ class _HomeState extends State<Home> {
     if(isImage(f)){
       parseImage(RenderEngine.unknown, f.path).then((value){
         value?.toMap().then((value){
-          //print(value);
+          print(value);
         });
+        if(value?.generationParams != null) print(value!.generationParams?.toMap());
       });
     } else {
       final String e = p.extension(f.path);
       if(e == '.safetensors'){
         RandomAccessFile file = await File(f.path).open(mode: FileMode.read);
         var metadataLen = file.read(8);
-        print(metadataLen);
+        if (kDebugMode) print(metadataLen);
 
         // int metadata_len = file.elementAt(8);
         // metadata_len = int.from_bytes(metadata_len, "little")
@@ -152,7 +154,7 @@ class _HomeState extends State<Home> {
                 Row(
                   children: [
                     Text('categories'.toUpperCase()),
-                    Gap(12),
+                    const Gap(12),
                     Row(
                       children: [
                         Container(
@@ -166,11 +168,11 @@ class _HomeState extends State<Home> {
                     )
                   ],
                 ),
-                Gap(8),
+                const Gap(8),
                 Row(
                   children: [
                     Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w500)),
-                    Spacer(),
+                    const Spacer(),
                     Row(
                       children: [
                         Icon(Icons.grid_view_rounded, color: Theme.of(context).primaryColor),

@@ -222,6 +222,27 @@ class Notes{
         style: Style.cartoonDrawing,
         sharpLine: true
     ),
+    'keadonger': Author(
+        name: 'keadonger',
+        looks: Looks.coloredSketch,
+        style: Style.cartoon,
+        sharpLine: true,
+        hasGreyscale: true
+    ),
+    'zephyxus': Author(
+        name: 'zephyxus',
+        looks: Looks.coloredSketchShaded,
+        style: Style.cartoon,
+        sharpLine: true,
+        hasGreyscale: true
+    ),
+    'dorosheva-e': Author(
+        name: 'dorosheva-e',
+        looks: Looks.coloredSketchShaded,
+        style: Style.cartoonDrawing,
+        sharpLine: true,
+        detailed: Detailed.generally
+    ),
   };
 }
 
@@ -239,6 +260,7 @@ class Author{
   bool? hasSignature = false;
   bool? hasText = false;
   bool? comics = false;
+  bool? hasGreyscale = false;
 
   Author({
     required this.name,
@@ -253,7 +275,8 @@ class Author{
     this.simpleBackground,
     this.hasSignature,
     this.hasText,
-    this.comics
+    this.comics,
+    this.hasGreyscale
   });
 }
 

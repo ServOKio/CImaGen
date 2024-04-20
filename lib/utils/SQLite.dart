@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cimagen/components/NotesSection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'NavigationService.dart';
 import 'package:crypto/crypto.dart';
@@ -10,6 +12,7 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:provider/provider.dart';
 import 'dart:io' show Directory, File, Platform;
+import 'dart:math' as math;
 
 import '../Utils.dart';
 
@@ -130,35 +133,35 @@ class SQLite with ChangeNotifier{
     dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
     constDatabase = await openDatabase(
       dbPath.path,
-      onCreate: (db, version) {
+      onOpen: (db){
         db.execute(
-          'CREATE TABLE IF NOT EXISTS favorites('
-            'pathHash VARCHAR(256) PRIMARY KEY,'
-            'fullPath TEXT NOT NULL,'
-            'fileName TEXT NOT NULL,'
-            'parent TEXT NOT NULL'
-          ')'
+            'CREATE TABLE IF NOT EXISTS favorites('
+                'pathHash VARCHAR(256) PRIMARY KEY,'
+                'fullPath TEXT NOT NULL,'
+                'fileName TEXT NOT NULL,'
+                'parent TEXT NOT NULL'
+                ')'
         );
         db.execute(
-          'CREATE TABLE IF NOT EXISTS notes('
-            'id INTEGER PRIMARY KEY,'
-            'title VARCHAR(256),'
-            'content TEXT,'
-            'color VARCHAR(16),'
-            'icon VARCHAR(128)'
-            ')'
+            'CREATE TABLE IF NOT EXISTS notes('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                'title VARCHAR(256),'
+                'content TEXT,'
+                'color VARCHAR(16),'
+                'icon VARCHAR(128)'
+                ')'
         );
 
         // Saved
         db.execute(
-          'CREATE TABLE IF NOT EXISTS saved_categories('
-            'id INTEGER PRIMARY KEY,'
-            'title VARCHAR(256),'
-            'description TEXT,'
-            'color VARCHAR(16),'
-            'icon VARCHAR(128),'
-            'thumbnail TEXT'
-          ')'
+            'CREATE TABLE IF NOT EXISTS saved_categories('
+                'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                'title VARCHAR(256),'
+                'description TEXT,'
+                'color VARCHAR(16),'
+                'icon VARCHAR(128),'
+                'thumbnail TEXT'
+              ')'
         );
       },
       version: 1,
@@ -224,11 +227,6 @@ class SQLite with ChangeNotifier{
           );
         }
       }
-      // batch.insert(
-      //   'images',
-      //   imageMeta.toMap(forSQL: true),
-      //   conflictAlgorithm: ConflictAlgorithm.ignore
-      // );
     }
   }
 
@@ -295,8 +293,6 @@ class SQLite with ChangeNotifier{
           )
       );
     });
-    // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
-    // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
   Future<List<ImageMeta>> findByTags(List<String> tags) async {
@@ -444,6 +440,69 @@ class SQLite with ChangeNotifier{
   }
 
   // Notes
+  Future<Note> createNote() async {
+    Color color = Color((math.Random().nextDouble() * 0xFFFFFF).toInt()).withOpacity(1.0);
+    String title = 'New note';
+    List<IconData> ic = [
+      Icons.note_alt_outlined,
+      Icons.ac_unit,
+      Icons.photo_rounded,
+      Icons.stadium_rounded,
+      Icons.linear_scale_rounded
+    ];
+    int id = await constDatabase.insert(
+        'notes',
+        {
+          'title': title,
+          'color': '#FF${color.value.toRadixString(16).substring(2, 8)}'
+        },
+        conflictAlgorithm: ConflictAlgorithm.abort
+    );
+    return Note(id: id, title: title, content: '', color: color, icon: ic[0]);
+  }
+
+  Future<List<Note>> getNotes() async {
+    final List<Map<String, dynamic>> maps = await constDatabase.query('notes');
+    return List.generate(maps.length, (i) {
+      var d = maps[i];
+      return Note(id: d['id'] as int, title: d['title'] as String, content: d['content'] == null ? '' : d['content'] as String, color: fromHex(d['color'] as String), icon: Icons.sticky_note_2_sharp);
+    });
+  }
+
+  Future<void> updateNoteTitle(int noteID, String title) async {
+    constDatabase.update('notes', {
+      'title': title
+    },
+        where: 'id = ?',
+        whereArgs: [noteID]
+    );
+  }
+
+  Future<void> updateNoteContent(int noteID, String content) async {
+    await constDatabase.update('notes', {
+        'content': content
+      },
+      where: 'id = ?',
+      whereArgs: [noteID]
+    );
+  }
+
+  Future<void> deleteNote(int noteID) async {
+    await constDatabase.delete('notes',
+        where: 'id = ?',
+        whereArgs: [noteID]
+    );
+  }
+
+  Future<void> createCategory() async {
+    constDatabase.insert(
+        'saved_categories',
+        {
+
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace
+    );
+  }
 
   // System
   Future<Map<String, int>> getTablesInfo() async {

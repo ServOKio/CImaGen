@@ -52,6 +52,13 @@ class ImageManager extends ChangeNotifier{
     if(outdirImg2img != null) watchDir(RenderEngine.img2img, outdirImg2img as String);
 
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
+
+    // CR
+    List<String> tmp = [];
+    for (var e in xxx) {
+      if(e.contains('_')) tmp.add(e.replaceAll('_', ' '));
+    }
+    xxx.addAll(tmp);
   }
 
   Future<void> updateIfNado(RenderEngine re, String imagePath) async {
@@ -69,18 +76,18 @@ class ImageManager extends ChangeNotifier{
 
     NavigationService.navigatorKey.currentContext?.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
       if(doI){
-        print(genPathHash(imagePath));
-        print(imagePath);
         ImageMeta? value = await parseImage(re, imagePath);
         if(value != null) {
-          if (kDebugMode) print('new '+value.pathHash);
-          print(value.fullPath);
           NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
           if(_useLastAsTest){
             Future.delayed(const Duration(milliseconds: 1000), () {
               DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
-              d?.comparisonBlock.changeSelected(re.index, value);
-              d?.comparisonBlock.addImage(value);
+              if(d != null){
+                d.comparisonBlock.moveTestToMain();
+                d.comparisonBlock.changeSelected(re.index, value);
+                d.comparisonBlock.addImage(value);
+              }
+
             });
           }
         }
@@ -165,39 +172,55 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     // tEXt
     final tEXtTrunk = chunks.where((e) => e["name"] == 'tEXt').toList(growable: false);
     if(tEXtTrunk.isNotEmpty){
-      tEXtTrunk.forEach((element){
+      for (var element in tEXtTrunk) {
         List<int> fix = element['data'].map((e) => e == 0 ? 32 : e).toList(growable: false).cast<int>();
         String text = utf8.decode(Uint8List.fromList(fix));
         int idx = text.indexOf(" ");
         List parts = [text.substring(0,idx).trim(), text.substring(idx+1).trim()];
         pngEx[parts[0]] = parts[1];
-      });
+      }
 
       // SD
-      if(pngEx['parameters'] != null) gp = parseSDParameters(pngEx['parameters']);
+      if(pngEx['parameters'] != null){
+        gp = parseSDParameters(pngEx['parameters']);
+
+        if(gp != null){
+          if(gp.all?['mask_blur'] != null){
+            re = RenderEngine.inpaint;
+          } else if(pngEx['postprocessing'] != null){
+            re = RenderEngine.extra;
+          }
+        } else {
+          if(pngEx['postprocessing'] != null){
+            re = RenderEngine.extra;
+          }
+        }
+      } else if(pngEx['workflow'] != null){
+        if(await isJson(pngEx['workflow'] as String)){
+          re = RenderEngine.comfUI;
+        }
+      } else if(pngEx['prompt'] != null){
+        if(await isJson(pngEx['prompt'] as String)){
+          re = RenderEngine.comfUI;
+        }
+      }
 
 
       // Find render Engine
       //Topaz
-      if(pngEx['Software'] != null){
-        if(pngEx['Software'].startsWith('Topaz Photo AI')){
+      if(pngEx['software'] != null){
+        if(pngEx['software'].startsWith('Topaz Photo AI')){
           re = RenderEngine.topazPhotoAI;
         } else {
           print('new Software');
           print(pngEx['Software']);
         }
       }
-
-      if(gp != null){
-        if(gp.all?['mask_blur'] != null) re = RenderEngine.inpaint;
-      }
-
-      //print(pngEx);
     }
-
 
     //Remove shit
     pngEx.remove('parameters');
+    pngEx.remove('postprocessing');
 
     return ImageMeta(
         fullPath: p.normalize(imagePath),
@@ -416,6 +439,8 @@ class ImageMeta {
   String? thumbnail;
   Map<String, dynamic>? other = {};
   Map<String, dynamic>? specific = {};
+  bool isNSFW = false;
+  ContentRating rating = ContentRating.G;
 
   ImageMeta({
     required this.re,
@@ -436,7 +461,7 @@ class ImageMeta {
     keyup = genHash(re, parentFolder, fileName);
     if(thumbnail == null) {
       img.decodeImageFile(fullPath).then((va){
-        thumbnail = va != null ? base64Encode(img.encodeJpg(img.copyResize(va, width: 250), quality: 50)) : null;
+        thumbnail = va != null ? base64Encode(img.encodeJpg(img.copyResize(va, width: 256), quality: 50)) : null;
       });
     }
   }
@@ -460,7 +485,7 @@ class ImageMeta {
       'size': size.toString(),
       'specific': jsonEncode(specific),
       // 'generationParams': generationParams != null ? forSQL ? jsonEncode(generationParams?.toMap()) : generationParams?.toMap() : null, // Нахуй не нужно оно мне в базе
-      'thumbnail': image != null ? base64Encode(img.encodeJpg(img.copyResize(image, width: 250), quality: 50)) : null,
+      'thumbnail': image != null ? base64Encode(img.encodeJpg(img.copyResize(image, width: 256), quality: 50)) : null,
       'other': jsonEncode(other)
     };
   }
@@ -508,4 +533,40 @@ class ImageSize {
   String withMultiply(double hiresUpscale) {
     return '${(width * hiresUpscale).round()}x${(height * hiresUpscale).round()}';
   }
+}
+
+enum ContentRating {
+  G, // General audiences - All ages admitted
+  PG, // Parental guidance suggested - Some material may not be suitable for children.
+  PG_13, // Rated PG-13: Parents strongly cautioned - Some material may be inappropriate for children under 13.
+  R, // Rated R: Restricted - Under 17 requires accompanying parent or adult guardian.
+  NC_17, // Rated NC-17: No children under 17 admitted.
+  X, // A commission of a couple having sex, Any artwork with detailed genitalia (sheathes, vents, penises, breasts, anuses, etc.), A story of a horse who gets captured by a dragoness for her other 'needs', Reference sheets with visible genitalia (erect or flaccid), Artwork with tight enough clothing to the point where they may as well be not wearing anything at all.
+  XXX // Scat, Watersports, Snuff, Castration, Cub, Etc.
+}
+
+List<String> xxx = [
+  // Shit
+  'scat', 'scatplay', 'eating_feces', 'eating_eating', 'feces_pile', 'scat_pile', 'feces_on_penis', 'scat_on_penis', 'feces_on_face', 'scat_on_face',
+  'coprophilic_intercourse', 'scat_fucking', 'scat_inflation', 'feces_in_pussy', 'scat_in_pussy',
+  // Pee
+  'watersports', 'waterspout', 'peeing self', 'wetting', 'urine_in_mouth', 'drinking_urine', 'urine_drinking', 'urine_on_face', 'urine_on_chest',
+  'urine_on_self', 'urine_on_leg',
+  // idk
+  'snuff',
+  // Bye bye balls
+  'castration', 'exposed_testicle', 'slit_throat',
+  // No more internet for u
+  'cub', 'cub_on_cub', 'cub_penetrating'
+];
+
+List<String> x = [
+
+];
+
+ContentRating getContentRating(String text){
+  // First - normalize
+  text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+
+  return ContentRating.G;
 }

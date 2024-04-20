@@ -150,6 +150,30 @@ GenerationParams? parseSDParameters(String rawData){
   );
 }
 
+// Потом покурю
+// GenerationParams? parseComfUIParameters(String rawData){
+//
+//   return GenerationParams(
+//       positive: positivePromt,
+//       negative: negativePromt,
+//       steps: int.parse(gp['steps'] as String),
+//       sampler: gp['sampler'] as String,
+//       cfgScale: double.parse(gp['cfg_scale'] as String),
+//       seed: int.parse(gp['seed'] as String),
+//       size: sizeFromString(gp['size'] as String),
+//       modelHash: gp['model_hash'] as String,
+//       model: gp['model'] as String,
+//       denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
+//       rng: gp['rng'] != null ? gp['rng'] as String : null,
+//       hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
+//       hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
+//       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
+//       version: gp['version'] as String,
+//       all: gp,
+//       rawData: rawData
+//   );
+// }
+
 // Steps: 35,
 // Sampler: Euler a,
 // CFG scale: 7,
@@ -346,3 +370,21 @@ Future<void> showInExplorer(String file) async {
     }
   }
 }
+
+Future<bool> isJson(String text) async {
+  try{
+    await json.decode(text);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+Color fromHex(String hexString) {
+  final buffer = StringBuffer();
+  if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+  buffer.write(hexString.replaceFirst('#', ''));
+  return Color(int.parse(buffer.toString(), radix: 16));
+}
+
+// https://e621.net/db_export/

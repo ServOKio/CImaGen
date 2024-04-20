@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
+import 'package:provider/provider.dart';
+
+import '../utils/SQLite.dart';
 
 class NotesSection extends StatefulWidget{
   const NotesSection({ Key? key }): super(key: key);
@@ -8,59 +12,198 @@ class NotesSection extends StatefulWidget{
 }
 
 class _NotesSectionState extends State<NotesSection> {
-  int _selectedIndex = 0;
+  late TextEditingController _titleController;
+  late TextEditingController _contentController;
+  late FocusNode _titleFocusNode;
+  late FocusNode _contentFocusNode;
+  int _selectedIndex = -1;
+  bool _contentHasChanges = false;
+  bool _titleHasChanges = false;
+
+  List<Note> _notes = [];
+
+  @override
+  void initState(){
+    super.initState();
+    _titleController = TextEditingController();
+    _contentController = TextEditingController();
+    _contentFocusNode = FocusNode();
+    _titleFocusNode = FocusNode();
+    _titleFocusNode.addListener(() {if(!_titleFocusNode.hasFocus) saveTitle();});
+    _contentFocusNode.addListener(() {if(!_contentFocusNode.hasFocus) saveContent();});
+    loadNotes();
+  }
+
+  void loadNotes() async{
+    context.read<SQLite>().getNotes().then((notes){
+      setState(() {
+        _notes = notes;
+      });
+    });
+  }
+
+  void selectNote(int index) async {
+    saveTitle();
+    saveContent();
+    _titleController.text = _notes[index].title;
+    _contentController.text = _notes[index].content;
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  void saveTitle() async {
+    if(_titleHasChanges){
+      _notes[_selectedIndex].title = _titleController.text;
+      await context.read<SQLite>().updateNoteTitle(_notes[_selectedIndex].id, _titleController.text);
+      _titleHasChanges = false;
+    }
+  }
+
+  void saveContent() async {
+    if(_contentHasChanges){
+      _notes[_selectedIndex].content = _contentController.text;
+      await context.read<SQLite>().updateNoteContent(_notes[_selectedIndex].id, _contentController.text);
+      _contentHasChanges = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        NavigationRail(
-          labelType: NavigationRailLabelType.all,
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (int index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          leading: FloatingActionButton(
-            elevation: 0,
-            onPressed: () {
-            },
-            child: const Icon(Icons.add),
+        SizedBox(
+          width: 80,
+          child: Column(
+            children: [
+              const Gap(10),
+              FloatingActionButton(
+                elevation: 0,
+                onPressed: () {
+                  context.read<SQLite>().createNote().then((note){
+                    _notes.add(note);
+                    setState(() {
+                      _selectedIndex = _notes.length-1;
+                    });
+                  });
+                },
+                child: const Icon(Icons.add),
+              ),
+              const Gap(10),
+              Expanded(
+                child: ListView.separated(
+                  separatorBuilder: (BuildContext context, int index) => const Divider(height: 28),
+                  itemCount: _notes.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    Note element = _notes[index];
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        IconButton(
+                          icon: Icon(element.icon, color: element.color),
+                          tooltip: element.title,
+                          onPressed: () {
+                            selectNote(index);
+                          },
+                        ),
+                        Text(element.title),
+                      ],
+                    );
+                  },
+                ),
+              )
+            ],
           ),
-          destinations: const <NavigationRailDestination>[
-            NavigationRailDestination(
-              icon: Icon(Icons.favorite_border),
-              selectedIcon: Icon(Icons.favorite),
-              label: Text('First'),
-            ),
-            NavigationRailDestination(
-              icon: Badge(child: Icon(Icons.bookmark_border)),
-              selectedIcon: Badge(child: Icon(Icons.book)),
-              label: Text('Second'),
-            ),
-            NavigationRailDestination(
-              icon: Badge(
-                label: Text('4'),
-                child: Icon(Icons.star_border),
-              ),
-              selectedIcon: Badge(
-                label: Text('4'),
-                child: Icon(Icons.star),
-              ),
-              label: Text('Third'),
-            ),
-          ],
         ),
         const VerticalDivider(thickness: 1, width: 1),
         Expanded(
-          child: TextField(
-            maxLines: null,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: null,
-          ),
+          child: _selectedIndex != -1 ? Column(
+            children: [
+              AppBar(
+                title: TextField(
+                  controller: _titleController,
+                  focusNode: _titleFocusNode,
+                  onChanged: (text){
+                    if(!_titleHasChanges) _titleHasChanges = true;
+                  },
+                ),
+                actions: <Widget>[
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
+                          icon: const Icon(Icons.warning_amber_outlined),
+                          title: const Text('Do you really want to delete this note?'),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, 'Cancel'),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => context.read<SQLite>().deleteNote(_notes[_selectedIndex].id).then((f){
+                                _notes.removeAt(_selectedIndex);
+                                setState((){
+                                  _selectedIndex = -1;
+                                });
+                                Navigator.pop(context, 'Ok');
+                              }),
+                              child: const Text('Okay'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              Expanded(child: Container(
+                padding: const EdgeInsets.all(4),
+                child: TextField(
+                  focusNode: _contentFocusNode,
+                  controller: _contentController,
+                  keyboardType: TextInputType.multiline,
+                  maxLines: null,
+                  expands: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: null,
+                  onChanged: (text){
+                    if(!_contentHasChanges) _contentHasChanges = true;
+                  },
+                ),
+              ))
+            ],
+          ) : const Center(child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.sticky_note_2, size: 50, color: Colors.white),
+              Gap(4),
+              Text('Yeah, that\'s cool...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text('Your personal notes - leave as many as you want and write anything', style: TextStyle(color: Colors.grey)),
+            ],
+          )),
         ),
       ],
     );
   }
+}
+
+class Note{
+  final int id;
+  String title = 'New note';
+  String content = '';
+  Color color = Colors.indigoAccent;
+  IconData icon = Icons.note_alt_outlined;
+
+  Note({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.color,
+    required this.icon
+  });
 }

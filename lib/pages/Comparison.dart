@@ -1,13 +1,10 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:cimagen/components/CustomActionButton.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/utils/DataModel.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:gap/gap.dart';
 import 'package:image_compare_slider/image_compare_slider.dart';
@@ -58,6 +55,9 @@ class _ComparisonState extends State<Comparison> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
         CustomActionButton(icon: Icons.remove_red_eye, tooltip: 'Automatically use the last generated image as a test', onPress: (){
+
+        }, getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest()),
+        CustomActionButton(icon: Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
 
         }, getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest())
       ]);
@@ -366,12 +366,24 @@ class _ImageListStateStateful extends State<ImageList>{
                         imageManager.toogleFavorite(im.fullPath);
                       },
                     ),
+                    const MenuDivider(),
+                    MenuItem(
+                      label: 'Show in explorer',
+                      value: 'show_in_explorer',
+                      icon: Icons.compare,
+                      onSelected: () {
+                        showInExplorer(im.fullPath);
+                      },
+                    ),
                   ];
 
                   final contextMenu = ContextMenu(
                     entries: entries,
                     padding: const EdgeInsets.all(8.0),
                   );
+                  bool isMain = !isRaw(dataModel.comparisonBlock.firstSelected) && (dataModel.comparisonBlock.firstSelected as ImageMeta).keyup == im.keyup;
+                  bool isTest = !isRaw(dataModel.comparisonBlock.secondSelected) && (dataModel.comparisonBlock.secondSelected as ImageMeta).keyup == im.keyup;
+                  bool b = isMain && isTest;
                   return ContextMenuRegion(
                       contextMenu: contextMenu,
                       onItemSelected: (value) {
@@ -459,7 +471,25 @@ class _ImageListStateStateful extends State<ImageList>{
                                       )
                                   )
                               ),
-                              !isRaw(dataModel.comparisonBlock.firstSelected) && (dataModel.comparisonBlock.firstSelected as ImageMeta).keyup == im.keyup ? Positioned(
+                              b ? Positioned(
+                                left: 4,
+                                top: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                  decoration: const BoxDecoration(
+                                      borderRadius: BorderRadius.all(Radius.circular(2)),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: <Color>[
+                                        Color(0xffff6a00),
+                                        Color(0xff00adef)
+                                      ],
+                                    ),
+                                  ),
+                                  child: const Text('M & T', style: TextStyle(color: Colors.white, fontSize: 9)),
+                                ),
+                              ) : isMain ? Positioned(
                                 left: 4,
                                 top: 4,
                                 child: Container(
@@ -470,8 +500,7 @@ class _ImageListStateStateful extends State<ImageList>{
                                   ),
                                   child: const Text('Main', style: TextStyle(color: Colors.white, fontSize: 9)),
                                 ),
-                              ) : const SizedBox.shrink(),
-                              !isRaw(dataModel.comparisonBlock.secondSelected) && (dataModel.comparisonBlock.secondSelected as ImageMeta).keyup == im.keyup ? Positioned(
+                              ) : isTest ? Positioned(
                                 left: 4,
                                 top: 4,
                                 child: Container(

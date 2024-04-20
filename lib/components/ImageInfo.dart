@@ -19,6 +19,9 @@ class MyImageInfo extends StatelessWidget {
       im = data as ImageMeta;
       if(im.generationParams != null) gp = im.generationParams;
     }
+
+    int bitsPerChannel = im?.fileTypeExtension == 'jpg' ? (im?.specific?['bitsPerChannel'] ?? 0) : im?.specific?['bitDepth'] ?? 0;
+    String colorType = im?.fileTypeExtension == 'jpg' ? numChannelsToString(im?.specific?['numChannels']) : getColorType(im?.specific?['colorType']);
     return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -78,10 +81,11 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  InfoBox(one: 'Bit depth', two: im.specific?['bitDepth'].toString() ?? '', inner: true),
+                                  Text(im.specific.toString()),
+                                  InfoBox(one: 'Bit depth', two: im.fileTypeExtension == 'jpg' ? (im.specific?['bitsPerChannel'].toString() ?? 'None') : im.specific?['bitDepth'].toString() ?? 'None', inner: true),
                                   Row(
-                                    children: List<Widget>.generate(im.specific?['bitDepth'] * im.specific?['bitDepth'], (i){
-                                      int c = (255 / (im?.specific?['bitDepth'] * im?.specific?['bitDepth'])).round();
+                                    children: List<Widget>.generate(bitsPerChannel * bitsPerChannel, (i){
+                                      int c = (255 / (bitsPerChannel * bitsPerChannel)).round();
                                       return Expanded(child: Container(
                                           height: 4,
                                           color: Color.fromRGBO(c*i, c*i, c*i, 1)
@@ -90,9 +94,9 @@ class MyImageInfo extends StatelessWidget {
                                   ),
                                   const Gap(4),
                                   InfoBox(one: 'Color type', two: Row(children: [
-                                    SelectableText(getColorType(im.specific?['colorType']), style: const TextStyle(fontSize: 13)),
+                                    SelectableText(colorType, style: const TextStyle(fontSize: 13)),
                                     const Gap(2),
-                                    Container(
+                                    SizedBox(
                                       width: 15,
                                       height: 15,
                                       child: Stack(
@@ -105,11 +109,11 @@ class MyImageInfo extends StatelessWidget {
                                     )
                                   ]), inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Compression', two: getCompression(im.specific?['compression']), inner: true),
-                                  const Gap(4),
-                                  InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true),
-                                  const Gap(4),
-                                  InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true),
+                                  InfoBox(one: 'Compression', two: im.fileTypeExtension == 'jpg' ? 'NeEby' : getCompression(im.specific?['compression']), inner: true),
+                                  // const Gap(4),
+                                  // InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true),
+                                  // const Gap(4),
+                                  // InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true),
                                 ],
                               )
                             ],
@@ -121,7 +125,7 @@ class MyImageInfo extends StatelessWidget {
               )
             ],
           ),
-          ExpansionTile(
+          if (gp != null) ExpansionTile(
             tilePadding: EdgeInsets.zero,
             title:  Text('Generation info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
             children: <Widget>[
@@ -136,7 +140,7 @@ class MyImageInfo extends StatelessWidget {
                   ),
                   child: FractionallySizedBox(
                       widthFactor: 1.0,
-                      child: SelectableText(gp?.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+                      child: SelectableText(gp.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
                   )
               ),
               Container(
@@ -149,13 +153,13 @@ class MyImageInfo extends StatelessWidget {
                   ),
                   child: FractionallySizedBox(
                       widthFactor: 1.0,
-                      child: SelectableText(gp?.negative ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+                      child: SelectableText(gp.negative ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
                   )
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InfoBox(one: 'SD checkpoint', two: '${gp?.model} (${gp?.modelHash})'),
+                  InfoBox(one: 'SD checkpoint', two: '${gp.model} (${gp.modelHash})'),
                   const Gap(6),
                   Container(
                       decoration: const BoxDecoration(
@@ -171,21 +175,21 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  InfoBox(one: 'Method', two: gp?.sampler ?? '', inner: true),
+                                  InfoBox(one: 'Method', two: gp.sampler ?? '', inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Steps', two: gp?.steps.toString() ?? '', inner: true),
+                                  InfoBox(one: 'Steps', two: gp.steps.toString() ?? '', inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'CFG Scale', two: gp?.cfgScale.toString() ?? '', inner: true),
-                                  gp?.denoisingStrength != null && gp?.hiresUpscale == null ? const Gap(4) : const SizedBox.shrink(),
-                                  gp?.denoisingStrength != null && gp?.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp?.denoisingStrength.toString() ?? 'none', inner: true) : const SizedBox.shrink(),
+                                  InfoBox(one: 'CFG Scale', two: gp.cfgScale.toString() ?? '', inner: true),
+                                  gp.denoisingStrength != null && gp.hiresUpscale == null ? const Gap(4) : const SizedBox.shrink(),
+                                  gp.denoisingStrength != null && gp.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString() ?? 'none', inner: true) : const SizedBox.shrink(),
                                 ],
                               )
                             ],
                           )
                       )
                   ),
-                  gp?.hiresUpscale != null ? const Gap(4) : const SizedBox.shrink(),
-                  gp?.hiresUpscale != null ? Container(
+                  gp.hiresUpscale != null ? const Gap(4) : const SizedBox.shrink(),
+                  gp.hiresUpscale != null ? Container(
                       decoration: const BoxDecoration(
                           color: Color(0xff303030),
                           borderRadius: BorderRadius.all(Radius.circular(4))
@@ -199,13 +203,13 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  gp?.hiresSampler != null ? InfoBox(one: 'Sampler', two: gp?.hiresSampler ?? 'None', inner: true) : const SizedBox.shrink(),
-                                  gp?.hiresSampler != null ? const Gap(4) : const SizedBox.shrink(),
-                                  InfoBox(one: 'Denoising strength', two: gp?.denoisingStrength.toString() ?? 'none', inner: true),
+                                  gp.hiresSampler != null ? InfoBox(one: 'Sampler', two: gp.hiresSampler ?? 'None', inner: true) : const SizedBox.shrink(),
+                                  gp.hiresSampler != null ? const Gap(4) : const SizedBox.shrink(),
+                                  InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString() ?? 'none', inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Upscaler', two: gp?.hiresUpscaler ?? 'None (Lanczos)', inner: true),
+                                  InfoBox(one: 'Upscaler', two: gp.hiresUpscaler ?? 'None (Lanczos)', inner: true),
                                   const Gap(4),
-                                  InfoBox(one: 'Upscale', two: '${gp?.hiresUpscale} (${gp?.size.withMultiply(gp.hiresUpscale ?? 0)})' ?? '', inner: true),
+                                  InfoBox(one: 'Upscale', two: '${gp.hiresUpscale} (${gp.size.withMultiply(gp.hiresUpscale ?? 0)})' ?? '', inner: true),
                                 ],
                               )
                             ],
@@ -213,12 +217,12 @@ class MyImageInfo extends StatelessWidget {
                       )
                   ) : const SizedBox.shrink(),
                   const Gap(6),
-                  InfoBox(one: 'Width and height', two:  '${gp?.size.width}x${gp?.size.height}'),
+                  InfoBox(one: 'Width and height', two:  '${gp.size.width}x${gp.size.height}'),
                   const Gap(6),
-                  InfoBox(one: 'Version', two: gp?.version ?? ''),
+                  InfoBox(one: 'Version', two: gp.version ?? ''),
                 ],
               ),
-              gp?.rawData != null ? ExpansionTile(
+              gp.rawData != null ? ExpansionTile(
                 tilePadding: const EdgeInsets.symmetric(horizontal: 6),
                 title: const Text('All parameters', style: TextStyle(fontSize: 13)),
                 subtitle: const Text('View raw generation parameters without parsing', style: TextStyle(fontSize: 12, color: Colors.white70)),
@@ -230,14 +234,14 @@ class MyImageInfo extends StatelessWidget {
                           borderRadius: const BorderRadius.all(Radius.circular(4))
                       ),
                       child: SelectableText(
-                          (gp?.rawData ?? '').replaceFirst('parameters', ''),
+                          (gp.rawData ?? '').replaceFirst('parameters', ''),
                           style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
                       )
                   ),
                 ],
               ) : const SizedBox.shrink(),
             ],
-          ),
+          ) else const SizedBox.shrink(),
           BottomNavigationBar(
             backgroundColor: Colors.transparent,
             items: const <BottomNavigationBarItem>[

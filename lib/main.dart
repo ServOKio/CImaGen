@@ -190,7 +190,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         });
       }).catchError((e){
         if (kDebugMode) print(e);
-        error = 'Database loading error';
+        error = 'Database loading error\n'+e.toString();
         setState(() {
           hasError = true;
         });

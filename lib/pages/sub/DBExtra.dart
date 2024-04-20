@@ -136,6 +136,37 @@ class _DBExtraState extends State<DBExtra>{
 
                   ],
                 ),
+                SettingsSection(
+                  title: const Text('sections'),
+                  tiles: [
+                    SettingsTile(
+                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      title: Text('Drop saved_categories table'),
+                      description: Text('DROP TABLE saved_categories'),
+                      onPressed: (context){
+                        showDialog<String>(
+                          context: context,
+                          builder: (BuildContext context) => AlertDialog(
+                            icon: const Icon(Icons.warning_amber_outlined),
+                            title: const Text('Are you sure you want to delete this?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => context.read<SQLite>().rawRun([
+                                  'DROP TABLE saved_categories'
+                                ]).then((value) => Navigator.pop(context, 'Ok')),
+                                child: const Text('Okay'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, 'Cancel'),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ],
             ),
           )
