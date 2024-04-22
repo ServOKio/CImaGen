@@ -553,7 +553,7 @@ class SQLite with ChangeNotifier{
 
     Map<String, int> finalMe = {};
     maps.first.forEach((key, value) {
-      finalMe[key] = value as int;
+      finalMe[key] = value == null ? 0 : value as int;
     });
     return finalMe;
   }
