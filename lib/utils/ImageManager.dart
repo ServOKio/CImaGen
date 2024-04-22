@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cimagen/utils/BufferUtils.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:exif/exif.dart';
@@ -16,7 +17,7 @@ import 'package:png_chunks_extract/png_chunks_extract.dart' as pngExtract;
 
 import 'NavigationService.dart';
 
-class ImageManager extends ChangeNotifier{
+class ImageManager extends ChangeNotifier {
 
   List<String> _favoritePaths = [];
 
@@ -135,17 +136,25 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
   var fileStat = await f.stat();
 
   if(e == '.png') {
+
     final List<Map<String, dynamic>> chunks = pngExtract.extractChunks(fileBytes);
     // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
-    // [IHDR, tEXt, IDAT, IEND], [13, 1009, 25524, 0]                         - Vanilla png
-    // [IHDR, oFFs, tEXt, tEXt, tEXt, iTXt, eXIf, IDAT, IDAT, IDAT... , IEND] - Topaz Photo AI 1.5.3
+    // [IHDR, tEXt, IDAT, IEND], [13, 1009, 25524, 0]                           - Vanilla png
+    // [IHDR, oFFs, tEXt, tEXt, tEXt, iTXt, eXIf, IDAT, IDAT, IDAT... , IEND]   - Topaz Photo AI 1.5.3
+    // [IHDR, iCCP, pHYs, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, eXIf, IEND] - Crita
+
+    List<String> chunksNames = chunks.map((e) => e['name'] as String).toList();
 
     // IHDR
     final IHDRtrunk = chunks.where((e) => e["name"] == 'IHDR').toList(growable: false)[0]['data'];
 
+    var iCCP;
+    if(chunksNames.contains('iCCP')) iCCP = chunks.where((e) => e["name"] == 'iCCP').toList(growable: false)[0]['data'];
+    var pHYs;
+    if(chunksNames.contains('pHYs')) pHYs = chunks.where((e) => e["name"] == 'pHYs').toList(growable: false)[0]['data'];
+
     //debug
 
-    // print(chunks.map((e) => e['name']).toList());
     // chunks.where((e) => e["name"] == 'tEXt').toList(growable: false).forEach((element) {
     //   if(element.isNotEmpty){
     //     print(element);
@@ -168,6 +177,35 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     // ]
 
     Map<String, dynamic> pngEx = {};
+    Map<String, dynamic> specific = {
+      'bitDepth': IHDRu8List[8],
+      'colorType': IHDRu8List[9],
+      'compression': IHDRu8List[10],
+      'filter': IHDRu8List[11],
+      'colorMode': IHDRu8List[12], // 13 bytes - ok
+    };
+
+    if(iCCP != null){
+      var we = BufferReader(data: iCCP);
+      specific['profileName'] = we.getNullTerminatedByteString(); // ITUR_2100_PQ_FULL for example
+      specific['compressionMethod'] = we.getUint8();
+      //print(we.get(null));
+
+      // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html#C.iCCP
+      // Profile name:       1-79 bytes (character string)
+      // Null separator:     1 byte
+
+      // Compression method: 1 byte
+      // Compressed profile: n bytes - wtf is this shit ?
+    }
+
+    if(pHYs != null){
+      // http://www.libpng.org/pub/png/book/chapter11.html#png.ch11.div.8
+      var we = BufferReader(data: pHYs);
+      specific['pixelsPerUnitX'] = we.getInt32();
+      specific['pixelsPerUnitY'] = we.getInt32();
+      specific['pixelUnits'] = we.get(1)[0]; // 1, the units are meters; if it is 0, the units are unspecified
+    }
 
     // tEXt
     final tEXtTrunk = chunks.where((e) => e["name"] == 'tEXt').toList(growable: false);
@@ -222,7 +260,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     pngEx.remove('parameters');
     pngEx.remove('postprocessing');
 
-    return ImageMeta(
+    ImageMeta i = ImageMeta(
         fullPath: p.normalize(imagePath),
         re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
         mine: mine,
@@ -230,16 +268,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
         size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
-        specific: {
-          'bitDepth': IHDRu8List[8],
-          'colorType': IHDRu8List[9],
-          'compression': IHDRu8List[10],
-          'filter': IHDRu8List[11],
-          'colorMode': IHDRu8List[12], // 13 bytes - ok
-        },
+        specific: specific,
         generationParams: gp,
         other: pngEx
     );
+    await i.makeThumbnail();
+    return i;
     // print(text);
   } else if(['.jpg', '.jpeg'].contains(e)){
     final data = await readExifFromBytes(fileBytes);
@@ -248,9 +282,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     Map<String, dynamic> jpgEx = {};
     if (data.isEmpty) {
       print("No EXIF information found");
-      return null;
     } else {
-
       if (data.containsKey('JPEGThumbnail')) {
         print('File has JPEG thumbnail');
         data.remove('JPEGThumbnail');
@@ -260,9 +292,9 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         data.remove('TIFFThumbnail');
       }
 
-      for (final entry in data.entries) {
-        print("${entry.key}: ${entry.value}");
-      }
+      // for (final entry in data.entries) {
+      //   print("${entry.key}: ${entry.value}");
+      // }
 
       for (final entry in data.entries) {
         switch (entry.value.tagType) {
@@ -308,29 +340,30 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
       //clean
       jpgEx.remove('EXIF UserComment');
-
-      return ImageMeta(
-          fullPath: p.normalize(imagePath),
-          re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
-          mine: mine,
-          fileTypeExtension: fte,
-          fileSize: fileStat.size,
-          dateModified: fileStat.modified,
-          size: ImageSize(width: originalImage!.width, height: originalImage.height),
-          specific: {
-            'bitsPerChannel': originalImage.bitsPerChannel,
-            'rowStride': originalImage.rowStride,
-            'numChannels': originalImage.numChannels,
-            'isLdrFormat': originalImage.isLdrFormat,
-            'isHdrFormat': originalImage.isHdrFormat,
-            'hasPalette': originalImage.hasPalette,
-            'supportsPalette': originalImage.supportsPalette,
-            'hasAnimation': originalImage.hasAnimation
-          },
-          generationParams: gp,
-          other: jpgEx
-      );
     }
+    ImageMeta i = ImageMeta(
+        fullPath: p.normalize(imagePath),
+        re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
+        mine: mine,
+        fileTypeExtension: fte,
+        fileSize: fileStat.size,
+        dateModified: fileStat.modified,
+        size: ImageSize(width: originalImage!.width, height: originalImage.height),
+        specific: {
+          'bitsPerChannel': originalImage.bitsPerChannel,
+          'rowStride': originalImage.rowStride,
+          'numChannels': originalImage.numChannels,
+          'isLdrFormat': originalImage.isLdrFormat,
+          'isHdrFormat': originalImage.isHdrFormat,
+          'hasPalette': originalImage.hasPalette,
+          'supportsPalette': originalImage.supportsPalette,
+          'hasAnimation': originalImage.hasAnimation
+        },
+        generationParams: gp,
+        other: jpgEx
+    );
+    await i.makeThumbnail();
+    return i;
   } else {
     return null;
   }
@@ -459,11 +492,6 @@ class ImageMeta {
     fileName = p.basename(fullPath);
     pathHash = genPathHash(fullPath);
     keyup = genHash(re, parentFolder, fileName);
-    if(thumbnail == null) {
-      img.decodeImageFile(fullPath).then((va){
-        thumbnail = va != null ? base64Encode(img.encodeJpg(img.copyResize(va, width: 256), quality: 50)) : null;
-      });
-    }
   }
 
   Future<Map<String, dynamic>> toMap() async {
@@ -493,6 +521,13 @@ class ImageMeta {
   ImageKey getKey(){
     final String parentFolder = p.basename(File(fullPath).parent.path);
     return ImageKey(type: re, parent: parentFolder, fileName: fileName);
+  }
+
+  Future<void> makeThumbnail() async {
+    if(thumbnail == null) {
+      img.Image? im = await img.decodeImageFile(fullPath);
+      thumbnail = im != null ? base64Encode(img.encodeJpg(img.copyResize(im, width: 256), quality: 50)) : null;
+    }
   }
 }
 

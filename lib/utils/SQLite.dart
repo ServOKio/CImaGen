@@ -7,12 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'NavigationService.dart';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:provider/provider.dart';
 import 'dart:io' show Directory, File, Platform;
-import 'dart:math' as math;
+import 'package:cimagen/utils/SaveManager.dart';
 
 import '../Utils.dart';
 
@@ -238,6 +238,14 @@ class SQLite with ChangeNotifier{
     await batch.apply();
   }
 
+  Future<void> rawRunConst(List<String> que) async {
+    Batch batch = constDatabase.batch();
+    for(String q in que){
+      batch.rawQuery(q);
+    }
+    await batch.apply();
+  }
+
   Future<void> clearMeta() async {
     Batch batch = database.batch();
     batch.delete('images');
@@ -441,7 +449,7 @@ class SQLite with ChangeNotifier{
 
   // Notes
   Future<Note> createNote() async {
-    Color color = Color((math.Random().nextDouble() * 0xFFFFFF).toInt()).withOpacity(1.0);
+    Color color = getRandomColor();
     String title = 'New note';
     List<IconData> ic = [
       Icons.note_alt_outlined,
@@ -471,7 +479,7 @@ class SQLite with ChangeNotifier{
 
   Future<void> updateNoteTitle(int noteID, String title) async {
     constDatabase.update('notes', {
-      'title': title
+      'title': title.trim()
     },
         where: 'id = ?',
         whereArgs: [noteID]
@@ -494,14 +502,41 @@ class SQLite with ChangeNotifier{
     );
   }
 
-  Future<void> createCategory() async {
-    constDatabase.insert(
+  // Categories
+  Future<Category> createCategory({required String title, String? description}) async {
+    Color color = getRandomColor();
+    int id = await constDatabase.insert(
         'saved_categories',
         {
-
+          'title': title.trim(),
+          'description': description,
+          'color': '#FF${color.value.toRadixString(16).substring(2, 8)}'
         },
         conflictAlgorithm: ConflictAlgorithm.replace
     );
+
+    return Category(
+        id: id,
+        title: title.trim(),
+        description: description,
+        color: color,
+        icon: Icons.category
+    );
+  }
+
+  Future<List<Category>> getCategories() async {
+    final List<Map<String, dynamic>> maps = await constDatabase.query('saved_categories');
+    return List.generate(maps.length, (i) {
+      var d = maps[i];
+      return Category(
+        id: d['id'] as int,
+        title: d['title'] as String,
+        description: d['description'] == null ? '' : d['description'] as String,
+        color: fromHex(d['color'] as String),
+        icon: Icons.category,
+        thumbnail: d['thumbnail']
+      );
+    });
   }
 
   // System

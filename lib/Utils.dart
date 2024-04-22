@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:math' as math;
 
 class ConfigManager with ChangeNotifier {
   //init
@@ -378,6 +379,10 @@ Future<bool> isJson(String text) async {
   } catch (e) {
     return false;
   }
+}
+
+Color getRandomColor(){
+  return Color((math.Random().nextDouble() * 0xFFFFFF).toInt()).withOpacity(1.0);
 }
 
 Color fromHex(String hexString) {

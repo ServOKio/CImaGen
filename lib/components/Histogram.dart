@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart';
+import 'package:path/path.dart' as p;
 
 class Histogram extends StatefulWidget {
   final String path;
@@ -65,7 +66,15 @@ class _HistogramState extends State<Histogram> {
   }
 
   Future<img.Image?> _calculation(String imagePath) async {
-    final data = await compute(img.decodePngFile, normalize(imagePath));
+    final String e = p.extension(imagePath);
+    img.Image? data;
+    if(e == '.png'){
+      data = await compute(img.decodePngFile, normalize(imagePath));
+    } else if(['.jpg', '.jpeg'].contains(e)){
+      data = await compute(img.decodeJpgFile, normalize(imagePath));
+    } else {
+      throw Exception('sosi');
+    }
     return data;
   }
 
@@ -124,18 +133,18 @@ class _HistogramState extends State<Histogram> {
               //print('${widget.path} ${lines[0].height}');
               children = CustomPaint(painter: DemoPainter(lines));
             } else if (snapshot.hasError) {
-              children = Column(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.red,
-                    size: 60,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Text('Error: ${snapshot.error}'),
-                  ),
-                ],
+              children = Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 60,
+                    ),
+                    Text('Error: ${snapshot.error}')
+                  ],
+                ),
               );
             } else {
               children = const Center(

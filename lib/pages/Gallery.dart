@@ -88,9 +88,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       String path = context.read<ConfigManager>().config['outdir_txt2img_samples'];
       txt2imgList = _loadMenu(path);
       txt2imgList.then((value){
-        setState(() {
-          imagesList = context.read<SQLite>().getImagesByParent(RenderEngine.txt2img, value[0].name);
-        });
+        if(mounted) {
+          setState(() {
+            imagesList = context.read<SQLite>().getImagesByParent(RenderEngine.txt2img, value[0].name);
+          });
+        }
 
       });
       path = context.read<ConfigManager>().config['outdir_img2img_samples'];

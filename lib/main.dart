@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
@@ -7,6 +8,7 @@ import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
+import 'package:cimagen/utils/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +32,7 @@ import 'l10n/all_locales.dart';
 
 GitHub? githubAPI;
 AppBarController? appBarController;
+NotificationManager? notificationManager;
 
 Future<void> main() async {
   bool debug = false;
@@ -78,6 +81,8 @@ class MyApp extends StatelessWidget {
 
   MyApp({super.key}) {
     appBarController = AppBarController();
+    notificationManager = NotificationManager();
+    notificationManager?.init();
   }
 
   @override
@@ -90,10 +95,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SQLite()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager(darkTheme)),
+        ChangeNotifierProvider(create: (_) => SaveManager()),
       ],
-      child: const BetterFeedback(
-        child: WTF()
-      )
+      child: const BetterFeedback(child: WTF())
     );
   }
 }
@@ -185,6 +189,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     context.read<ConfigManager>().init().then((v){
       context.read<SQLite>().init().then((v){
         context.read<ImageManager>().init(context);
+        context.read<SaveManager>().init(context);
         setState(() {
           loaded = true;
         });
@@ -287,46 +292,53 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         tooltip: 'Notes',
         child: const Icon(Icons.note),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.all_inbox),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome_mosaic),
-            label: 'Gallery',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_tree_sharp),
-            label: 'Render History',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_to_photos),
-            label: 'Comparison',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.border_all_sharp),
-            label: 'Grid rebuild',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.amp_stories),
-            label: 'Maybe',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-        currentIndex: _currentPageIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-        onTap: (index){
+      bottomNavigationBar: NavigationBar(
+        height: 70,
+        backgroundColor: Theme.of(context).colorScheme.background,
+        indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+        surfaceTintColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        selectedIndex: _currentPageIndex,
+        onDestinationSelected: (int index) {
           setState(() {
             _currentPageIndex = index;
           });
           _updateCurrentPageIndex(index);
         },
+        destinations: const <Widget>[
+          NavigationDestination(
+            icon: Icon(Icons.inbox),
+            selectedIcon: Icon(Icons.all_inbox),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_mosaic_outlined),
+            selectedIcon: Icon(Icons.auto_awesome_mosaic),
+            label: 'Gallery',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_tree_outlined),
+            selectedIcon: Icon(Icons.account_tree_sharp),
+            label: 'Render History',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.add_to_photos_outlined),
+            selectedIcon: Icon(Icons.add_to_photos),
+            label: 'Comparison',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.border_all_sharp),
+            label: 'Grid rebuild',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.amp_stories),
+            label: 'Maybe',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
+        ],
       ),
     );
   }

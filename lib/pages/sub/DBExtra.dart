@@ -1,17 +1,8 @@
-import 'dart:io';
-
-import 'package:cimagen/pages/sub/GitHubCommits.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
-import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:pie_chart/pie_chart.dart';
 import 'package:provider/provider.dart';
 
 import 'package:settings_ui/settings_ui.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../utils/SQLite.dart';
 
@@ -46,17 +37,17 @@ class _DBExtraState extends State<DBExtra>{
               platform: DevicePlatform.fuchsia,
               sections: [
                 SettingsSection(
-                  title: Text('main.images'),
+                  title: const Text('main.images'),
                   tiles: <SettingsTile>[
                     SettingsTile(
                       leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
-                      title: Text('Delete only jpg'),
-                      description: Text('Delete from generation_params where keyup in (select keyup from images where fileTypeExtension = \'jpg\')\nDelete from images where fileTypeExtension = \'jpg\''),
+                      title: const Text('Delete only jpg'),
+                      description: const Text('Delete from generation_params where keyup in (select keyup from images where fileTypeExtension = \'jpg\')\nDelete from images where fileTypeExtension = \'jpg\''),
                       onPressed: (context){
                         showDialog<String>(
                           context: context,
                           builder: (BuildContext context) => AlertDialog(
-                            icon: Icon(Icons.warning_amber_outlined),
+                            icon: const Icon(Icons.warning_amber_outlined),
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
@@ -77,13 +68,13 @@ class _DBExtraState extends State<DBExtra>{
                     ),
                     SettingsTile(
                       leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
-                      title: Text('Delete only img2img'),
-                      description: Text('DELETE FROM images where type = 2\nDELETE FROM generation_params where type = 2'),
+                      title: const Text('Delete only img2img'),
+                      description: const Text('DELETE FROM images where type = 2\nDELETE FROM generation_params where type = 2'),
                       onPressed: (context){
                         showDialog<String>(
                           context: context,
                           builder: (BuildContext context) => AlertDialog(
-                            icon: Icon(Icons.warning_amber_outlined),
+                            icon: const Icon(Icons.warning_amber_outlined),
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
@@ -104,13 +95,13 @@ class _DBExtraState extends State<DBExtra>{
                     ),
                     SettingsTile(
                       leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
-                      title: Text('Delete invalid thumbhail'),
-                      description: Text('DELETE FROM images WHERE thumbnail IS NULL'),
+                      title: const Text('Delete invalid thumbhail'),
+                      description: const Text('DELETE FROM images WHERE thumbnail IS NULL'),
                       onPressed: (context){
                         showDialog<String>(
                           context: context,
                           builder: (BuildContext context) => AlertDialog(
-                            icon: Icon(Icons.warning_amber_outlined),
+                            icon: const Icon(Icons.warning_amber_outlined),
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
@@ -130,19 +121,17 @@ class _DBExtraState extends State<DBExtra>{
                     ),
                   ],
                 ),
-                SettingsSection(
-                  title: const Text('main.generation_params'),
-                  tiles: [
-
-                  ],
+                const SettingsSection(
+                  title: Text('main.generation_params'),
+                  tiles: [],
                 ),
                 SettingsSection(
                   title: const Text('sections'),
                   tiles: [
                     SettingsTile(
                       leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
-                      title: Text('Drop saved_categories table'),
-                      description: Text('DROP TABLE saved_categories'),
+                      title: const Text('Drop saved_categories table'),
+                      description: const Text('DROP TABLE saved_categories'),
                       onPressed: (context){
                         showDialog<String>(
                           context: context,
@@ -151,7 +140,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRun([
+                                onPressed: () => context.read<SQLite>().rawRunConst([
                                   'DROP TABLE saved_categories'
                                 ]).then((value) => Navigator.pop(context, 'Ok')),
                                 child: const Text('Okay'),

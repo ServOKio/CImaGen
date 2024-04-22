@@ -118,9 +118,11 @@ class _TimelineState extends State<Timeline> {
             }
           }
         });
-        setState(() {
+        if(mounted) {
+          setState(() {
           loaded = true;
         });
+        }
       });
     }
     //load();

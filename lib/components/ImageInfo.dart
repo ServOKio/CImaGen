@@ -51,14 +51,10 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  InfoBox(one: 'Date modified', two: im?.dateModified.toIso8601String() ?? '', inner: true),
-                                  const Gap(4),
+                                  InfoBox(one: 'Date modified', two: im?.dateModified.toIso8601String() ?? '', inner: true, withGap: false),
                                   InfoBox(one: 'File size', two: readableFileSize(im?.fileSize ?? 0), inner: true),
-                                  const Gap(4),
                                   InfoBox(one: 'File name', two: im?.fileName ?? '', inner: true),
-                                  const Gap(4),
                                   InfoBox(one: 'Size', two: '${im?.size.toString()} (${aspectRatioFromSize(im!.size)})', inner: true),
-                                  const Gap(4),
                                   InfoBox(one: 'Path', two: im.fullPath ?? '', inner: true),
                                 ],
                               )
@@ -81,7 +77,7 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  Text(im.specific.toString()),
+                                  // SelectableText(im.specific.toString()),
                                   InfoBox(one: 'Bit depth', two: im.fileTypeExtension == 'jpg' ? (im.specific?['bitsPerChannel'].toString() ?? 'None') : im.specific?['bitDepth'].toString() ?? 'None', inner: true),
                                   Row(
                                     children: List<Widget>.generate(bitsPerChannel * bitsPerChannel, (i){
@@ -92,7 +88,6 @@ class MyImageInfo extends StatelessWidget {
                                       ));
                                     }),
                                   ),
-                                  const Gap(4),
                                   InfoBox(one: 'Color type', two: Row(children: [
                                     SelectableText(colorType, style: const TextStyle(fontSize: 13)),
                                     const Gap(2),
@@ -108,12 +103,12 @@ class MyImageInfo extends StatelessWidget {
                                       ),
                                     )
                                   ]), inner: true),
-                                  const Gap(4),
-                                  InfoBox(one: 'Compression', two: im.fileTypeExtension == 'jpg' ? 'NeEby' : getCompression(im.specific?['compression']), inner: true),
-                                  // const Gap(4),
-                                  // InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true),
-                                  // const Gap(4),
-                                  // InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true),
+                                  im.specific?['compression'] != null ? InfoBox(one: 'Compression', two: getCompression(im.specific?['compression']), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['filter'] != null ? InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['colorMode'] != null ? InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['profileName'] != null ? InfoBox(one: 'Profile Name', two: im.specific?['profileName'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['pixelUnits'] != null ? InfoBox(one: 'Pixel units', two: im.specific?['pixelUnits'] == 1 ? 'Meters' : 'Not specified', inner: true) : const SizedBox.shrink(),
+                                  im.specific?['pixelUnits'] != null ? InfoBox(one: 'Pixels per unit X/Y', two: '${im.specific?['pixelsPerUnitX']}x${im.specific?['pixelsPerUnitY']}', inner: true) : const SizedBox.shrink(),
                                 ],
                               )
                             ],
@@ -159,7 +154,7 @@ class MyImageInfo extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InfoBox(one: 'SD checkpoint', two: '${gp.model} (${gp.modelHash})'),
+                  InfoBox(one: 'SD checkpoint', two: '${gp.model} (${gp.modelHash})', withGap: false),
                   const Gap(6),
                   Container(
                       decoration: const BoxDecoration(
@@ -175,12 +170,9 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  InfoBox(one: 'Method', two: gp.sampler ?? '', inner: true),
-                                  const Gap(4),
+                                  InfoBox(one: 'Method', two: gp.sampler ?? '', inner: true, withGap: false),
                                   InfoBox(one: 'Steps', two: gp.steps.toString() ?? '', inner: true),
-                                  const Gap(4),
                                   InfoBox(one: 'CFG Scale', two: gp.cfgScale.toString() ?? '', inner: true),
-                                  gp.denoisingStrength != null && gp.hiresUpscale == null ? const Gap(4) : const SizedBox.shrink(),
                                   gp.denoisingStrength != null && gp.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString() ?? 'none', inner: true) : const SizedBox.shrink(),
                                 ],
                               )
@@ -203,12 +195,9 @@ class MyImageInfo extends StatelessWidget {
                               const Gap(6),
                               Column(
                                 children: [
-                                  gp.hiresSampler != null ? InfoBox(one: 'Sampler', two: gp.hiresSampler ?? 'None', inner: true) : const SizedBox.shrink(),
-                                  gp.hiresSampler != null ? const Gap(4) : const SizedBox.shrink(),
+                                  gp.hiresSampler != null ? InfoBox(one: 'Sampler', two: gp.hiresSampler ?? 'None', inner: true, withGap: false) : const SizedBox.shrink(),
                                   InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString() ?? 'none', inner: true),
-                                  const Gap(4),
                                   InfoBox(one: 'Upscaler', two: gp.hiresUpscaler ?? 'None (Lanczos)', inner: true),
-                                  const Gap(4),
                                   InfoBox(one: 'Upscale', two: '${gp.hiresUpscale} (${gp.size.withMultiply(gp.hiresUpscale ?? 0)})' ?? '', inner: true),
                                 ],
                               )
@@ -276,12 +265,14 @@ class InfoBox extends StatelessWidget{
   final String one;
   final dynamic two;
   final bool inner;
+  final bool withGap;
 
-  const InfoBox({ Key? key, required this.one, required this.two, this.inner = false}): super(key: key);
+  const InfoBox({ Key? key, required this.one, required this.two, this.inner = false, this.withGap = true}): super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Container(
+        margin: withGap ? const EdgeInsets.only(top: 4) : null,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
             color: !inner ? Theme.of(context).scaffoldBackgroundColor : const Color(0xff1a1a1a),
