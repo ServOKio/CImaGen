@@ -392,4 +392,27 @@ Color fromHex(String hexString) {
   return Color(int.parse(buffer.toString(), radix: 16));
 }
 
+List<int> _daysInMonth365 = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+bool isValidDate(int year, int month, int day) {
+  if (year < 1 || year > 9999 || month < 0 || month > 11) return false;
+
+  int daysInMonth = _daysInMonth365[month];
+  if (month == 1) {
+    bool isLeapYear = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    if (isLeapYear) daysInMonth++;
+  }
+  return day >= 1 && day <= daysInMonth;
+}
+
+bool isValidTime(int hours, int minutes, int seconds) {
+  return hours >= 0 && hours < 24
+      && minutes >= 0 && minutes < 60
+      && seconds >= 0 && seconds < 60;
+}
+
+bool isHDR(String profileName){
+  return ['ITUR_2100_PQ_FULL'].contains(profileName);
+}
+
 // https://e621.net/db_export/

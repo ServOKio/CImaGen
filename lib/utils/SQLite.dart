@@ -27,9 +27,6 @@ class SQLite with ChangeNotifier{
 
   late Timer timer;
 
-  String _lastJob = '';
-  String get lastJob => _lastJob;
-
   Future<void> init() async {
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
@@ -190,8 +187,6 @@ class SQLite with ChangeNotifier{
       //print(maps.length);
     } else {
       //Insert
-      _lastJob = imageMeta.fullPath;
-      notifyListeners();
       if(use){
         toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap()));
         if(imageMeta.generationParams != null) {

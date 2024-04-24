@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cimagen/modules/ICCProfiles.dart';
 import 'package:cimagen/utils/BufferUtils.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/SQLite.dart';
@@ -36,7 +37,7 @@ class ImageManager extends ChangeNotifier {
     return _useLastAsTest;
   }
 
-  void setLastJob(String job){
+  void updateLastJob(String job){
     _lastJob = job;
     notifyListeners();
   }
@@ -75,25 +76,25 @@ class ImageManager extends ChangeNotifier {
       }
     }
 
-    NavigationService.navigatorKey.currentContext?.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
-      if(doI){
-        ImageMeta? value = await parseImage(re, imagePath);
-        if(value != null) {
-          NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
-          if(_useLastAsTest){
-            Future.delayed(const Duration(milliseconds: 1000), () {
-              DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
-              if(d != null){
-                d.comparisonBlock.moveTestToMain();
-                d.comparisonBlock.changeSelected(re.index, value);
-                d.comparisonBlock.addImage(value);
-              }
+    bool? doI = await NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(imagePath);
+    if(doI){
+      ImageMeta? value = await parseImage(re, imagePath);
+      updateLastJob(imagePath);
+      if(value != null) {
+        NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
+        if(_useLastAsTest){
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
+            if(d != null){
+              d.comparisonBlock.moveTestToMain();
+              d.comparisonBlock.changeSelected(re.index, value);
+              d.comparisonBlock.addImage(value);
+            }
 
-            });
-          }
+          });
         }
       }
-    });
+    }
   }
 
   void watchDir(RenderEngine re, String path){
@@ -187,9 +188,67 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
     if(iCCP != null){
       var we = BufferReader(data: iCCP);
-      specific['profileName'] = we.getNullTerminatedByteString(); // ITUR_2100_PQ_FULL for example
-      specific['compressionMethod'] = we.getUint8();
-      //print(we.get(null));
+      specific['iccProfileName'] = we.getNullTerminatedByteString(); // ITUR_2100_PQ_FULL for example
+      int cm = we.getUint8();
+      specific['iccCompressionMethod'] = cm;
+      if(cm == 0){
+        List<int> t = we.get(null);
+        var inflated = zlib.decode(t);
+        var icc = BufferReader(data: inflated);
+        specific['iccProfileSize'] = icc.getInt32();
+        specific['iccCmmType'] = icc.get4ByteString();
+        specific['iccVersion'] = icc.getInt32();
+        specific['iccClass'] = icc.get4ByteString();
+        specific['iccColorSpace'] = icc.get4ByteString();
+        specific['iccConnectionSpace'] = icc.get4ByteString();
+        specific['iccDateTime'] = icc.getDate();
+        specific['iccSignature'] = icc.get4ByteString();
+        specific['iccPlatform'] = icc.get4ByteString();
+        specific['iccFlags'] = icc.getInt32();
+        specific['iccDeviceMake'] = icc.get4ByteString();
+
+        // deviceModel
+        int temp = icc.getInt32();
+        if (temp != 0) {
+          if (temp <= 0x20202020) {
+            specific['deviceModel'] = temp;
+          } else {
+            specific['deviceModel'] = icc.getStringFromInt32(temp);
+          }
+        }
+
+        specific['iccRenderingIntent'] = icc.getInt32();
+        specific['iccRenderingIntent'] = icc.getInt64();
+
+        List<double> xyz = [
+          icc.getS15Fixed16(),
+          icc.getS15Fixed16(),
+          icc.getS15Fixed16()
+        ];
+        specific['iccXYZValues'] = xyz;
+
+        // Process 'ICC tags'
+        // for (int i = 0; i < 16*3; i++) {
+        //   print('${icc.getInt32()} ${i} ${icc.offset}');
+        // }
+        icc.addOffset(48);
+        int tagCount = icc.getInt32();
+
+        List<String> tagKeys = [];
+        for (int i = 0; i < tagCount; i++) {
+          int tagType = icc.getInt32();
+          int tagPtr = icc.getInt32();
+          int tagLen = icc.getInt32();
+          List<int> b = icc.getBytes(tagPtr, tagLen);
+          String tk = 'iccTag$tagType';
+          specific[tk] = b;
+          tagKeys.add(tk);
+          // print(getTag(tagType));
+          // print(parsed);
+        }
+        specific['iccTagKeys'] = tagKeys;
+        print(specific);
+      }
 
       // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html#C.iCCP
       // Profile name:       1-79 bytes (character string)
@@ -496,7 +555,9 @@ class ImageMeta {
 
   Future<Map<String, dynamic>> toMap() async {
     final String parentFolder = p.basename(File(fullPath).parent.path);
-    img.Image? image = await img.decodeImageFile(fullPath);
+    if(thumbnail == null){
+      await makeThumbnail();
+    }
     return {
       'keyup': keyup,
       'type': re.index,
@@ -513,7 +574,7 @@ class ImageMeta {
       'size': size.toString(),
       'specific': jsonEncode(specific),
       // 'generationParams': generationParams != null ? forSQL ? jsonEncode(generationParams?.toMap()) : generationParams?.toMap() : null, // Нахуй не нужно оно мне в базе
-      'thumbnail': image != null ? base64Encode(img.encodeJpg(img.copyResize(image, width: 256), quality: 50)) : null,
+      'thumbnail': thumbnail,
       'other': jsonEncode(other)
     };
   }

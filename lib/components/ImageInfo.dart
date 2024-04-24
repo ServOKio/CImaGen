@@ -2,8 +2,10 @@ import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:intl/intl.dart';
 
 import '../Utils.dart';
+import '../modules/ICCProfiles.dart';
 
 class MyImageInfo extends StatelessWidget {
   dynamic data;
@@ -22,6 +24,7 @@ class MyImageInfo extends StatelessWidget {
 
     int bitsPerChannel = im?.fileTypeExtension == 'jpg' ? (im?.specific?['bitsPerChannel'] ?? 0) : im?.specific?['bitDepth'] ?? 0;
     String colorType = im?.fileTypeExtension == 'jpg' ? numChannelsToString(im?.specific?['numChannels']) : getColorType(im?.specific?['colorType']);
+    NumberFormat f = NumberFormat("0.####");
     return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -115,6 +118,62 @@ class MyImageInfo extends StatelessWidget {
                           )
                       )
                   ),
+                  im.specific?['iccProfileName'] != null ? const Gap(4) : const SizedBox.shrink(),
+                  im.specific?['iccProfileName'] != null ? Container(
+                      decoration: const BoxDecoration(
+                          color: Color(0xff303030),
+                          borderRadius: BorderRadius.all(Radius.circular(4))
+                      ),
+                      child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('Icc Profile', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                                  const Spacer(),
+                                  isHDR(im.specific?['iccProfileName']) ? Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(4),
+                                      color: Colors.black38,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: const Icon(Icons.hdr_on_rounded, color: Colors.white),
+                                  ) : const SizedBox.shrink()
+                                ],
+                              ),
+                              const Gap(6),
+                              Column(
+                                children: [
+                                  // SelectableText(im.specific.toString()),
+                                  InfoBox(one: 'Profile Name Raw', two: im.specific?['iccProfileName'], inner: true),
+                                  im.specific?['iccCompressionMethod'] != null ? InfoBox(one: 'Compression method', two: im.specific?['iccCompressionMethod'].toString(), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccProfileSize'] != null ? InfoBox(one: 'Profile size', two: im.specific?['iccProfileSize'].toString(), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccCmmType'] != null ? InfoBox(one: 'CMM type', two: im.specific?['iccCmmType'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccVersion'] != null ? InfoBox(one: 'Version', two: getProfileVersionDescription(im.specific?['iccVersion']), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccClass'] != null ? InfoBox(one: 'Class', two: im.specific?['iccClass'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccColorSpace'] != null ? InfoBox(one: 'Color space', two: im.specific?['iccColorSpace'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccConnectionSpace'] != null ? InfoBox(one: 'Connection space', two: im.specific?['iccConnectionSpace'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccDateTime'] != null ? InfoBox(one: 'Date Time', two: im.specific?['iccDateTime'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccSignature'] != null ? InfoBox(one: 'Signature', two: im.specific?['iccSignature'], inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccPlatform'] != null ? InfoBox(one: 'Platform', two: im.specific?['iccPlatform'].toString(), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccFlags'] != null ? InfoBox(one: 'Flags', two: im.specific?['iccFlags'].toString(), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccDeviceMake'] != null ? InfoBox(one: 'Device make', two: im.specific?['iccDeviceMake'].toString(), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccRenderingIntent'] != null ? InfoBox(one: 'Rendering intent', two: getIndexedDescription(im.specific?['iccRenderingIntent']), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccXYZValues'] != null ? InfoBox(one: 'XYZ values', two: im.specific?['iccXYZValues'].map((e) => f.format(e)).toString(), inner: true) : const SizedBox.shrink(),
+                                  im.specific?['iccTagCount'] != null ? InfoBox(one: 'Tag count', two: im.specific?['iccTagCount'].toString(), inner: true) : const SizedBox.shrink(),
+                                  ...im.specific?['iccTagKeys'].map((el){
+                                    int pa = int.parse(el.replaceFirst('iccTag', ''));
+                                    String t = readTag(im?.specific?[el]);
+                                    return InfoBox(one: getTag(pa), two: pa == 1952801640 ? '$t (${getTechnologyDescription(t)})' : t, inner: true);
+                                  }),
+                                ],
+                              )
+                            ],
+                          )
+                      )
+                  ) : SizedBox.shrink(),
                   const Gap(6),
                 ],
               )
@@ -282,7 +341,7 @@ class InfoBox extends StatelessWidget{
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
             child: Row( // This shit killed four hours of my life.
               children: [
-                Text(one, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                SelectableText(one, style: const TextStyle(fontSize: 12, color: Colors.white70)),
                 const Gap(6),
                 Expanded(
                   child: Align(
