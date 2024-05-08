@@ -42,7 +42,59 @@ class SQLite with ChangeNotifier{
 
     database = await openDatabase(
       dbPath.path,
-      onOpen: (db){
+      onOpen: (db) async {
+
+        await db.execute(
+          'CREATE TABLE IF NOT EXISTS images('
+              'keyup VARCHAR(256) PRIMARY KEY,'
+              'type TINYINT,'
+              'parent VARCHAR(128),'
+              'fileName VARCHAR(256),'
+              'pathHash VARCHAR(256),'
+              'fullPath TEXT,'
+              'dateModified DATETIME,'
+
+              'mine VARCHAR(64),'
+              'fileTypeExtension VARCHAR(8),'
+              'fileSize INTEGER,'
+              'size VARCHAR(64),'
+              'specific TEXT,'
+              'imageParams TEXT,'
+              'other TEXT,'
+              'thumbnail TEXT'
+              ')',
+        );
+
+        await db.execute(
+          'CREATE TABLE IF NOT EXISTS generation_params('
+              'keyup VARCHAR(256) PRIMARY KEY,'
+              'type TINYINT,'
+              'parent VARCHAR(128),'
+              'fileName TEXT,'
+              'pathHash VARCHAR(256),'
+
+              'positive TEXT,'
+              'negative TEXT,'
+              'steps INTEGER,'
+              'sampler VARCHAR(128),'
+              'cfgScale DOUBLE,'
+              'seed INTEGER,'
+              'sizeW INTEGER,'
+              'sizeH INTEGER,'
+              'checkpointType INTEGER,'
+              'checkpoint VARCHAR(256),'
+              'checkpointHash VARCHAR(128),'
+              'denoisingStrength DOUBLE,'
+              'rng VARCHAR(16),'
+              'hiresSampler VARCHAR(128),'
+              'hiresUpscaler VARCHAR(128),'
+              'hiresUpscale DOUBLE,'
+              'tiHashes TEXT,'
+              'version VARCHAR(16),'
+              'rawData TEXT'
+              ')',
+        );
+
         if (kDebugMode) print(db.path);
 
         timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
@@ -74,55 +126,6 @@ class SQLite with ChangeNotifier{
         });
       },
       onCreate: (db, version) {
-        db.execute(
-          'CREATE TABLE IF NOT EXISTS images('
-            'keyup VARCHAR(256) PRIMARY KEY,'
-            'type TINYINT,'
-            'parent VARCHAR(128),'
-            'fileName VARCHAR(256),'
-            'pathHash VARCHAR(256),'
-            'fullPath TEXT,'
-            'dateModified DATETIME,'
-
-            'mine VARCHAR(64),'
-            'fileTypeExtension VARCHAR(8),'
-            'fileSize INTEGER,'
-            'size VARCHAR(64),'
-            'specific TEXT,'
-            'imageParams TEXT,'
-            'other TEXT,'
-            'thumbnail TEXT'
-          ')',
-        );
-
-        db.execute(
-          'CREATE TABLE IF NOT EXISTS generation_params('
-            'keyup VARCHAR(256) PRIMARY KEY,'
-            'type TINYINT,'
-            'parent VARCHAR(128),'
-            'fileName TEXT,'
-            'pathHash VARCHAR(256),'
-
-            'positive TEXT,'
-            'negative TEXT,'
-            'steps INTEGER,'
-            'sampler VARCHAR(128),'
-            'cfgScale DOUBLE,'
-            'seed INTEGER,'
-            'sizeW INTEGER,'
-            'sizeH INTEGER,'
-            'modelHash VARCHAR(128),'
-            'model VARCHAR(256),'
-            'denoisingStrength DOUBLE,'
-            'rng VARCHAR(16),'
-            'hiresSampler VARCHAR(128),'
-            'hiresUpscaler VARCHAR(128),'
-            'hiresUpscale DOUBLE,'
-            'tiHashes TEXT,'
-            'version VARCHAR(16),'
-            'rawData TEXT'
-          ')',
-        );
       },
       version: 1,
     );
@@ -137,7 +140,7 @@ class SQLite with ChangeNotifier{
                 'fullPath TEXT NOT NULL,'
                 'fileName TEXT NOT NULL,'
                 'parent TEXT NOT NULL'
-                ')'
+              ')'
         );
         db.execute(
             'CREATE TABLE IF NOT EXISTS notes('
@@ -146,7 +149,7 @@ class SQLite with ChangeNotifier{
                 'content TEXT,'
                 'color VARCHAR(16),'
                 'icon VARCHAR(128)'
-                ')'
+              ')'
         );
 
         // Saved
@@ -190,17 +193,18 @@ class SQLite with ChangeNotifier{
       if(use){
         toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap()));
         if(imageMeta.generationParams != null) {
+          Map<String, dynamic> m = imageMeta.generationParams!.toMap(
+              forDB: true,
+              key: imageMeta.getKey(),
+              amply: {
+                'pathHash': genPathHash(imageMeta.fullPath)
+              }
+          );
           toBatchTwo.add(
             Job(
                 to: 'generation_params',
                 type: JobType.insert,
-                obj: imageMeta.generationParams!.toMap(
-                    forDB: true,
-                    key: imageMeta.getKey(),
-                    amply: {
-                      'pathHash': genPathHash(imageMeta.fullPath)
-                    }
-                )
+                obj: m
             )
           );
         }
@@ -284,8 +288,9 @@ class SQLite with ChangeNotifier{
               cfgScale: d['cfgScale'] as double,
               seed: d['seed'] as int,
               size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-              modelHash: d['modelHash'] as String,
-              model: d['model'] as String,
+              checkpointType: CheckpointType.values[d['checkpointType'] as int],
+              checkpoint: d['checkpoint'] as String,
+              checkpointHash: d['checkpointHash'] as String,
               denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
               rng: d['rng'] != null ? d['rng'] as String : null,
               hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
@@ -322,8 +327,9 @@ class SQLite with ChangeNotifier{
               cfgScale: d['cfgScale'] as double,
               seed: d['seed'] as int,
               size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-              modelHash: d['modelHash'] as String,
-              model: d['model'] as String,
+              checkpointType: CheckpointType.values[d['checkpointType'] as int],
+              checkpoint: d['checkpoint'] as String,
+              checkpointHash: d['checkpointHash'] as String,
               denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
               rng: d['rng'] != null ? d['rng'] as String : null,
               hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
@@ -339,6 +345,7 @@ class SQLite with ChangeNotifier{
   }
 
   Future<List<ImageMeta>> getImagesByParent(RenderEngine type, String parent) async {
+    print('$type ${type.index} $parent');
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type = ? AND images.parent = ? ORDER by datemodified ASC', [type.index, parent]);
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
@@ -361,8 +368,9 @@ class SQLite with ChangeNotifier{
             cfgScale: d['cfgScale'] as double,
             seed: d['seed'] as int,
             size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-            modelHash: d['modelHash'] as String,
-            model: d['model'] as String,
+            checkpointType: CheckpointType.values[d['checkpointType'] as int],
+            checkpoint: d['checkpoint'] as String,
+            checkpointHash: d['checkpointHash'] as String,
             denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
             rng: d['rng'] != null ? d['rng'] as String : null,
             hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
@@ -373,6 +381,7 @@ class SQLite with ChangeNotifier{
         )
       );
     });
+    print(fi.length);
     return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
@@ -395,8 +404,9 @@ class SQLite with ChangeNotifier{
         cfgScale: d['cfgScale'] as double,
         seed: d['seed'] as int,
         size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-        modelHash: d['modelHash'] as String,
-        model: d['model'] as String,
+        checkpointType: CheckpointType.values[d['checkpointType'] as int],
+        checkpoint: d['checkpoint'] as String,
+        checkpointHash: d['checkpointHash'] as String,
         denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
         rng: d['rng'] != null ? d['rng'] as String : null,
         hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,

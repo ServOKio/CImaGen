@@ -173,16 +173,17 @@ class MyImageInfo extends StatelessWidget {
                             ],
                           )
                       )
-                  ) : SizedBox.shrink(),
+                  ) : const SizedBox.shrink(),
                   const Gap(6),
                 ],
               )
             ],
           ),
-          if (gp != null) ExpansionTile(
+          if (!raw && im.re != RenderEngine.unknown) ExpansionTile(
             tilePadding: EdgeInsets.zero,
             title:  Text('Generation info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
             children: <Widget>[
+              InfoBox(one: 'Render engine', two: im.re.toString(), inner: true, withGap: false),
               Container(
                   padding: const EdgeInsets.all(4.0),
                   margin: const EdgeInsets.only(bottom: 8),
@@ -194,7 +195,7 @@ class MyImageInfo extends StatelessWidget {
                   ),
                   child: FractionallySizedBox(
                       widthFactor: 1.0,
-                      child: SelectableText(gp.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+                      child: SelectableText(gp!.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
                   )
               ),
               Container(
@@ -213,7 +214,8 @@ class MyImageInfo extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InfoBox(one: 'SD checkpoint', two: '${gp.model} (${gp.modelHash})', withGap: false),
+                  InfoBox(one: 'SD checkpoint type', two: '${gp.checkpointType}', withGap: false),
+                  InfoBox(one: 'SD checkpoint', two: '${gp.checkpoint} (${gp.checkpointHash})', withGap: false),
                   const Gap(6),
                   Container(
                       decoration: const BoxDecoration(

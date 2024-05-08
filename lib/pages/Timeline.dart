@@ -200,10 +200,12 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   if(o.seed != t.seed) d.add(Difference(key: 'seed', oldValue: o.seed.toString(), newValue: t.seed.toString()));
   // final Size size;
   if(o.size.toString() != t.size.toString()) d.add(Difference(key: 'size', oldValue: o.size.toString(), newValue: t.size.toString()));
-  // final String modelHash;
-  if(o.modelHash != t.modelHash) d.add(Difference(key: 'modelHash', oldValue: o.modelHash, newValue: t.modelHash));
+  // final CheckpointType checkpointType;
+  if(o.checkpointType != t.checkpointType) d.add(Difference(key: 'checkpointType', oldValue: o.checkpointType.toString(), newValue: t.checkpointType.toString()));
   // final String model;
-  if(o.model != t.model) d.add(Difference(key: 'model', oldValue: o.model, newValue: t.model));
+  if(o.checkpoint != t.checkpoint) d.add(Difference(key: 'checkpoint', oldValue: o.checkpoint, newValue: t.checkpoint));
+  // final String modelHash;
+  if(o.checkpointHash != t.checkpointHash) d.add(Difference(key: 'checkpointHash', oldValue: o.checkpointHash, newValue: t.checkpointHash));
   // final double? denoisingStrength;
   if(o.denoisingStrength != t.denoisingStrength) d.add(Difference(key: 'denoisingStrength', oldValue: (o.denoisingStrength ?? '-').toString(), newValue: (t.denoisingStrength ?? '-').toString()));
   // final String? rng;

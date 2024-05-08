@@ -130,6 +130,8 @@ GenerationParams? parseSDParameters(String rawData){
     }
   }
 
+  bool isRefiner = gp['refiner'] != null;
+
   return GenerationParams(
       positive: positivePromt,
       negative: negativePromt,
@@ -138,8 +140,9 @@ GenerationParams? parseSDParameters(String rawData){
       cfgScale: double.parse(gp['cfg_scale'] as String),
       seed: int.parse(gp['seed'] as String),
       size: sizeFromString(gp['size'] as String),
-      modelHash: gp['model_hash'] as String,
-      model: gp['model'] as String,
+      checkpointType: isRefiner ? CheckpointType.refiner : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
+      checkpoint: gp[isRefiner ? 'refiner' : 'model'] as String,
+      checkpointHash: gp['model_hash'] as String,
       denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
       rng: gp['rng'] != null ? gp['rng'] as String : null,
       hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
@@ -215,8 +218,9 @@ class GenerationParams {
   final double cfgScale;
   final int seed;
   final ImageSize size;
-  final String modelHash;
-  final String model;
+  final CheckpointType checkpointType;
+  final String checkpoint;
+  final String checkpointHash;
   final double? denoisingStrength;
   final String? rng;
   final String? hiresSampler;
@@ -235,8 +239,9 @@ class GenerationParams {
     required this.cfgScale,
     required this.seed,
     required this.size,
-    required this.modelHash,
-    required this.model,
+    required this.checkpointType,
+    required this.checkpoint,
+    required this.checkpointHash,
     this.denoisingStrength,
     this.rng,
     this.hiresSampler,
@@ -257,8 +262,9 @@ class GenerationParams {
       'cfgScale': cfgScale,
 
       'seed': seed,
-      'modelHash': modelHash,
-      'model': model,
+      'checkpointType': checkpointType.index,
+      'checkpoint': checkpoint,
+      'checkpointHash': checkpointHash,
       'version': version,
     };
 

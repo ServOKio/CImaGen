@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/components/ImageInfo.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
@@ -43,7 +44,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   final GlobalKey<ScaffoldState> _scaffoldkey = GlobalKey();
 
-  GenerationParams? gp;
+  ImageMeta? im;
 
   late SharedPreferences prefs;
 
@@ -117,7 +118,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                       gpState = 0;
                     });
                     _scaffoldkey.currentState!.openEndDrawer();
-                    gp = widget.images[_currentIndex].generationParams;
+                    im = widget.images[_currentIndex];
                     setState(() {
                       gpState = 1;
                     });
@@ -152,7 +153,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
               canvasColor: Colors.black.withOpacity(0.5),
           ),
           child: SizedBox(
-            width: MediaQuery.of(context).size.width > 1280 ? 720 : MediaQuery.of(context).size.width * 0.75, // 75% of screen will be occupied
+            width: 300,
             child: Drawer(
                 child: Stack(
                     children: <Widget> [
@@ -164,115 +165,10 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                       ),
                       SingleChildScrollView(
                         child: Container(
+                            padding: const EdgeInsets.all(6),
                             child: [
                               const Center(child: CircularProgressIndicator()),
-                              gp != null ? Padding(padding: const EdgeInsets.all(8), child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Container(
-                                        padding: const EdgeInsets.all(4.0),
-                                        margin: const EdgeInsets.only(bottom: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.1),
-                                          border: Border.all(color: Colors.green, width: 1),
-                                          borderRadius: const BorderRadius.all(Radius.circular(5.0)),
-                                        ),
-                                        child: FractionallySizedBox(
-                                            widthFactor: 1.0,
-                                            child: SelectableText(gp?.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14))
-                                        )
-                                    ),
-                                    Container(
-                                        padding: const EdgeInsets.all(4.0),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.withOpacity(0.1),
-                                          border: Border.all(color: Colors.red, width: 1,),
-                                          borderRadius: const BorderRadius.all(Radius.circular(5.0)),
-                                        ),
-                                        child: FractionallySizedBox(
-                                            widthFactor: 1.0,
-                                            child: SelectableText(gp?.negative ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14))
-                                        )
-                                    ),
-                                    const Gap(8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Parameters', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
-                                        Container(width: 20, height: 2, color: Colors.deepPurple.shade400),
-                                      ],
-                                    ),
-                                    const Gap(4),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                          color: Theme.of(context).scaffoldBackgroundColor,
-                                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(4))
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            InfoBox(one: 'SD checkpoint', two: '${gp?.model} (${gp?.modelHash})'),
-                                            const Gap(6),
-                                            Container(
-                                              decoration: const BoxDecoration(
-                                                  color: Color(0xff303030),
-                                                  borderRadius: BorderRadius.all(Radius.circular(4))
-                                              ),
-                                              child: Padding(
-                                                  padding: const EdgeInsets.all(8),
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      const Text('Sampling', style: TextStyle(fontSize: 12, color: Colors.white70)),
-                                                      const Gap(6),
-                                                      Column(
-                                                        children: [
-                                                          InfoBox(one: 'Method', two: gp?.sampler ?? '', inner: true),
-                                                          const Gap(4),
-                                                          InfoBox(one: 'Steps', two: gp?.steps.toString() ?? '', inner: true),
-                                                          const Gap(4),
-                                                          InfoBox(one: 'CFG Scale', two: gp?.cfgScale.toString() ?? '', inner: true),
-                                                          const Gap(4),
-                                                          InfoBox(one: 'Seed', two: gp?.seed.toString() ?? '', inner: true),
-                                                        ],
-                                                      )
-                                                    ],
-                                                  )
-                                              )
-                                            ),
-                                            const Gap(6),
-                                            InfoBox(one: 'Sampling steps', two: gp?.steps.toString() ?? ''),
-                                            const Gap(6),
-                                            InfoBox(one: 'CFG Scale', two: gp?.cfgScale.toString() ?? ''),
-                                            const Gap(6),
-                                            InfoBox(one: 'Width and height', two:  '${gp?.size.width}x${gp?.size.height}'),
-                                            const Gap(6),
-                                            InfoBox(one: 'Version', two: gp?.version ?? ''),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    gp?.rawData != null ? ExpansionTile(
-                                      title: const Text('All parameters'),
-                                      subtitle: const Text('View raw generation parameters without parsing'),
-                                      children: <Widget>[
-                                        Container(
-                                          padding: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                              color: Theme.of(context).scaffoldBackgroundColor,
-                                              borderRadius: const BorderRadius.all(Radius.circular(4))
-                                          ),
-                                          child: SelectableText(
-                                              (gp?.rawData ?? '').replaceFirst('parameters', ''),
-                                              style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
-                                          )
-                                        ),
-                                      ],
-                                    ) : const SizedBox.shrink(),
-                                  ]
-                              )) : const Text('None'),
+                              im != null ? MyImageInfo(im, ) : const Text('None'),
                               const Text('Error')
                             ][gpState]
                         ),
@@ -283,7 +179,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
           )
       ),
       onEndDrawerChanged: (isOpen) {
-        if(!isOpen) gp = null;
+        if(!isOpen) im = null;
       },
     );
   }

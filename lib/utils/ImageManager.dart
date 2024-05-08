@@ -279,6 +279,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
       // SD
       if(pngEx['parameters'] != null){
+        re = RenderEngine.txt2img;
         gp = parseSDParameters(pngEx['parameters']);
 
         if(gp != null){
@@ -590,6 +591,13 @@ class ImageMeta {
       thumbnail = im != null ? base64Encode(img.encodeJpg(img.copyResize(im, width: 256), quality: 50)) : null;
     }
   }
+}
+
+enum CheckpointType{
+  unknown,
+  model,
+  refiner,
+  inpaint
 }
 
 enum RenderEngine{

@@ -37,7 +37,7 @@ class _DBExtraState extends State<DBExtra>{
               platform: DevicePlatform.fuchsia,
               sections: [
                 SettingsSection(
-                  title: const Text('main.images'),
+                  title: const Text('shit'),
                   tiles: <SettingsTile>[
                     SettingsTile(
                       leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
@@ -119,14 +119,37 @@ class _DBExtraState extends State<DBExtra>{
                         );
                       },
                     ),
+                    SettingsTile(
+                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      title: const Text('Drop all tables for images'),
+                      description: const Text('DROP TABLE images\nDROP TABLE generation_params'),
+                      onPressed: (context){
+                        showDialog<String>(
+                          context: context,
+                          builder: (BuildContext context) => AlertDialog(
+                            icon: const Icon(Icons.warning_amber_outlined),
+                            title: const Text('Are you sure you want to delete this?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => context.read<SQLite>().rawRun([
+                                  'DROP TABLE images',
+                                  'DROP TABLE generation_params'
+                                ]).then((value) => Navigator.pop(context, 'Ok')),
+                                child: const Text('Okay'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, 'Cancel'),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
-                const SettingsSection(
-                  title: Text('main.generation_params'),
-                  tiles: [],
-                ),
                 SettingsSection(
-                  title: const Text('sections'),
+                  title: const Text('const'),
                   tiles: [
                     SettingsTile(
                       leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
