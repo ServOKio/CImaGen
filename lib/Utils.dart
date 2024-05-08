@@ -21,13 +21,33 @@ class ConfigManager with ChangeNotifier {
   int get count => _count;
   Map<String, dynamic> get config => _json;
 
+  // WebUI
+  String _webui_root = '';
+  String _webui_outputs_folder = '';
+
+  Map<String, String> _webuiPaths = {};
+  Map<String, String> get webuiPaths => _webuiPaths;
+
   Future<void> init() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String sdWebuiFolder = (prefs.getString('sd_webui_folter') ?? '');
-    if(sdWebuiFolder != ''){
+    if(sdWebuiFolder.isNotEmpty){
+      _webui_root = sdWebuiFolder;
       final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
       final data = await json.decode(response);
       _json = data;
+    } else {
+      _webui_outputs_folder = (prefs.getString('sd_remote_webui_outputs_folder') ?? '');
+      if(_webui_outputs_folder.isNotEmpty){
+        List<String> f = ['extras-images', 'img2img-grids', 'img2img-images', 'txt2img-grids', 'txt2img-images'];
+        for (String pa in f) {
+          String pat = p.join(_webui_outputs_folder, pa);
+          if(await Directory(pat).exists()){
+            if (kDebugMode) print('Found $pa');
+            _webuiPaths[pa] = pat;
+          }
+        }
+      }
     }
   }
 
@@ -154,7 +174,7 @@ GenerationParams? parseSDParameters(String rawData){
   );
 }
 
-// Потом покурю
+// TODO: Потом покурю
 // GenerationParams? parseComfUIParameters(String rawData){
 //
 //   return GenerationParams(

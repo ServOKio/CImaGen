@@ -48,10 +48,10 @@ class ImageManager extends ChangeNotifier {
   }
 
   void init(BuildContext context){
-    var outdirTxt2img = context.read<ConfigManager>().config['outdir_txt2img_samples'];
-    var outdirImg2img = context.read<ConfigManager>().config['outdir_img2img_samples'];
-    if(outdirTxt2img != null) watchDir(RenderEngine.txt2img, outdirTxt2img as String);
-    if(outdirImg2img != null) watchDir(RenderEngine.img2img, outdirImg2img as String);
+    var outdirTxt2img = context.read<ConfigManager>().webuiPaths['txt2img-images'];
+    var outdirImg2img = context.read<ConfigManager>().webuiPaths['img2img-images'];
+    if(outdirTxt2img != null) watchDir(RenderEngine.txt2img, outdirTxt2img);
+    if(outdirImg2img != null) watchDir(RenderEngine.img2img, outdirImg2img);
 
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
 
@@ -90,7 +90,6 @@ class ImageManager extends ChangeNotifier {
               d.comparisonBlock.changeSelected(re.index, value);
               d.comparisonBlock.addImage(value);
             }
-
           });
         }
       }

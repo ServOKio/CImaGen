@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cimagen/pages/sub/DBExtra.dart';
 import 'package:cimagen/pages/sub/GitHubCommits.dart';
+import 'package:cimagen/pages/sub/RemoteVersionSettings.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +27,9 @@ class Settings extends StatefulWidget{
 
 class _SettingsState extends State<Settings>{
   // Settings
-  String _sd_webui_folter = '';
+  String _sd_webui_folder = '';
+  bool _use_remote_version = false;
+
   bool _debug = false;
   bool _imageview_use_fullscreen = false;
 
@@ -59,8 +62,9 @@ class _SettingsState extends State<Settings>{
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     setState(() {
-      _sd_webui_folter = (prefs.getString('sd_webui_folter') ?? 'none');
-      _debug = (prefs.getBool('debug') ?? false);
+      _sd_webui_folder = (prefs.getString('sd_webui_folder') ?? 'none');
+      _use_remote_version = prefs.getBool('use_remote_version') ?? false;
+      _debug = prefs.getBool('debug') ?? false;
       _imageview_use_fullscreen = (prefs.getBool('imageview_use_fullscreen') ?? false);
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
@@ -93,22 +97,29 @@ class _SettingsState extends State<Settings>{
           platform: DevicePlatform.fuchsia,
           sections: [
             SettingsSection(
-              title: Text('Common'),
+              title: const Text('Common'),
               tiles: <SettingsTile>[
                 SettingsTile.navigation(
+                  enabled: _use_remote_version == false,
                   leading: Icon(Icons.web, color: Theme.of(context).primaryColor),
                   title: const Text('Stable Diffusion web UI location'),
-                  value: Text(_sd_webui_folter),
+                  value: Text(_use_remote_version ? 'Turn off the remote version to use the local version' : _sd_webui_folder),
                   onPressed: (context) async {
-                    SharedPreferences prefs = await SharedPreferences.getInstance();
                     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-
                     if (selectedDirectory != null) {
                       prefs.setString('sd_webui_folter', selectedDirectory);
                       setState(() {
-                        _sd_webui_folter = selectedDirectory;
+                        _sd_webui_folder = selectedDirectory;
                       });
                     }
+                  },
+                ),
+                SettingsTile.navigation(
+                  leading: Icon(Icons.network_check_rounded, color: Theme.of(context).primaryColor),
+                  title: Text('Use the remote version'),
+                  description: Text('Specify the IP address to access the WebUI or select a network folder'),
+                  onPressed: (context){
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const RemoteVersionSettings()));
                   },
                 ),
                 SettingsTile.switchTile(

@@ -81,12 +81,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    var go = context.read<ConfigManager>().config['outdir_txt2img_samples'];
+    var go = context.read<ConfigManager>().webuiPaths['txt2img-images'];
     if (go == null) {
       sr = true;
     } else {
-      String path = context.read<ConfigManager>().config['outdir_txt2img_samples'];
-      txt2imgList = _loadMenu(path);
+      txt2imgList = _loadMenu(go);
       txt2imgList.then((value){
         if(mounted) {
           setState(() {
@@ -95,8 +94,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
         }
 
       });
-      path = context.read<ConfigManager>().config['outdir_img2img_samples'];
-      img2imgList = _loadMenu(path);
+      go = context.read<ConfigManager>().webuiPaths['img2img-images'];
+      if (go != null) {
+        img2imgList = _loadMenu(go);
+      }
 
       _scrollControllerOne.addListener(onScrollOne);
       _scrollControllerTwo.addListener(onScrollTwo);
