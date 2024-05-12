@@ -32,6 +32,9 @@ Comparison allows you to select several images and compare them with each other.
 
 ![image](preview/comparison.gif)
 
+### Status
+In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
+
 ## Building
 
 > [!WARNING]
