@@ -10,7 +10,6 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white"/>
   <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white"/>
   <img src="https://img.shields.io/badge/iOS-000000?style=for-the-badge&logo=ios&logoColor=white"/>
   <img src="https://img.shields.io/badge/Arch_Linux-1793D1?style=for-the-badge&logo=arch-linux&logoColor=white"/>
@@ -32,7 +31,20 @@ Comparison allows you to select several images and compare them with each other.
 
 ![image](preview/comparison.gif)
 
+|||
+| ------------- | ------------- |
+| <h4>Find the difference</h4> The brighter the area, the more strongly it is changed  | <img src="preview/gif_1.gif" width="300px"/>  |
+| <h4>Split view</h4> Put the images next to each other to choose the best one | <img src="preview/gif_2.gif" width="300px"/>  |
+| <h4>Reading metadata and generation parameters</h4> Reading data from Topaz Photo AI, Photoshop, NovelAI, ArtBot, Adobe ImageReady, Celsus Studio Tool, Tensor Art, PhotoScape, A1111 and more | <img src="preview/gif_3.gif" width="300px"/>  |
+| <h4>Notes</h4> As much as you want and whatever you want | <img src="preview/gif_4.gif" width="300px"/>  |
+
+### Status
+In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
+
 ## Building
+
+> [!WARNING]
+> At the moment, the structure of tables in databases is constantly changing, so please do not try to build the application until I deal with this piece of nastiness.
 
 1. Android studio
 2. Visual studio 2019 ~16.11 (why 16.11 ? Because the Clang compiler that is needed for the [rive](https://github.com/rive-app/rive-flutter/issues/369#issuecomment-2022541422) plugin is in this version) + "Desktop development with C++"
