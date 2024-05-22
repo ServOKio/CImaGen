@@ -1,8 +1,9 @@
 name: Build App Installer
 on:
   push:
-    branches:
-      - dev
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 permissions:
   contents: write
 jobs:
