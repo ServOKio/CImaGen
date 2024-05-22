@@ -32,6 +32,11 @@ Comparison allows you to select several images and compare them with each other.
 
 ![image](preview/comparison.gif)
 
+|||
+| ------------- | ------------- |
+| <h4>Find the difference</h4> The brighter the area, the more strongly it is changed</span>  | <img src="preview/gif_1.gif" height="300px"/>  |
+| Content Cell  | Content Cell  |
+
 ### Status
 In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
 
