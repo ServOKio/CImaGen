@@ -72,7 +72,7 @@ class _HistogramState extends State<Histogram> {
   Future<img.Image?> _calculation(String imagePath, BoxConstraints constraints) async {
     img.Image? data;
     if(false){
-      data = await img.decodeImageFile(imagePath, byExtension: false);
+      data = await img.decodeImageFile(imagePath);
     } else {
       final Uint8List bytes = await compute(readAsBytesSync, imagePath);
       data = img.decodeImage(bytes);
