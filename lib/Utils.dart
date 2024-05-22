@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
@@ -490,6 +491,27 @@ bool get isOnDesktopAndWeb {
     case TargetPlatform.fuchsia:
       return false;
   }
+}
+
+Future<String> getDeviceInfo() async {
+  String f = '';
+
+  DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+  if(Platform.isWindows){
+    WindowsDeviceInfo info = await deviceInfo.windowsInfo;
+    f += 'Build Lab: ${info.buildLab}\n';
+    f += 'Build Lab Ex: ${info.buildLabEx}\n';
+    f += 'Build Number: ${info.buildNumber}\n';
+    f += 'Computer Name: ${info.computerName}\n';
+    f += 'CSD Version: ${info.csdVersion}\n';
+    f += 'Device ID: ${info.deviceId}\n';
+    f += 'Display Version: ${info.displayVersion}\n';
+    f += 'Edition ID: ${info.editionId}\n';
+    f += 'Registered Owner: ${info.registeredOwner}\n';
+    f += 'Release ID: ${info.releaseId}\n';
+    f += 'User Name: ${info.userName}\n';
+  }
+  return f;
 }
 
 // https://e621.net/db_export/

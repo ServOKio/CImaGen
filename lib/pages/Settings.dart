@@ -40,6 +40,8 @@ class _SettingsState extends State<Settings>{
   String? documentsPath = '';
   String appVersion = '-';
 
+  String _deviceInfo = '-';
+
   Map<String, double> dataMap = {};
 
   @override
@@ -60,6 +62,8 @@ class _SettingsState extends State<Settings>{
     }
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
+    String deviceInfo = await getDeviceInfo();
+
     setState(() {
       _sd_webui_folder = prefs!.getString('sd_webui_folder') ?? 'none';
       _use_remote_version = prefs!.getBool('use_remote_version') ?? false;
@@ -68,6 +72,7 @@ class _SettingsState extends State<Settings>{
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
+      _deviceInfo = deviceInfo;
     });
 
     context.read<SQLite>().getTablesInfo().then((value) => {
@@ -194,24 +199,24 @@ class _SettingsState extends State<Settings>{
                 )
               ],
             ),
-            // SettingsSection(
-            //   title: const Text('Device info'),
-            //   tiles: <SettingsTile>[
-            //     SettingsTile(
-            //       leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows , color: f),
-            //       title: const Text('Device'),
-            //       description: Text('${f.toString()}'),
-            //     ),
-            //     SettingsTile(
-            //       leading: Icon(Icons.folder ),
-            //       title: const Text('Paths'),
-            //       description: Text(''
-            //           'App Documents\n↳ $appDocumentsPath\n'
-            //           'App Temp\n↳ $appTempPath\n'
-            //           'Documents\n↳ $documentsPath\n'),
-            //     )
-            //   ],
-            // ),
+            SettingsSection(
+              title: const Text('Device info'),
+              tiles: <SettingsTile>[
+                SettingsTile(
+                  leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows , color: f),
+                  title: const Text('Device'),
+                  description: SelectableText(_deviceInfo),
+                ),
+                SettingsTile(
+                  leading: Icon(Icons.folder ),
+                  title: const Text('Paths'),
+                  description: Text(''
+                      'App Documents\n↳ $appDocumentsPath\n'
+                      'App Temp\n↳ $appTempPath\n'
+                      'Documents\n↳ $documentsPath\n'),
+                )
+              ],
+            ),
             SettingsSection(
               title: const Text('CImaGen'),
               tiles: <SettingsTile>[

@@ -128,9 +128,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       imagesList?.then((value) {
         bool force = value.length-1 == index;
         if(value.isEmpty || force) {
-          // context.read<ImageManager>().getter.indexFolder(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name).then((jobID){
-          //
-          // });
+          context.read<ImageManager>().getter.indexFolder(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name).then((jobID){
+
+          });
         }
       });
     });
