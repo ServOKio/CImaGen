@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:image/image.dart' as img;
+import 'package:mime/mime.dart';
 import 'package:path/path.dart';
 import 'package:path/path.dart' as p;
+
+import '../Utils.dart';
 
 class Histogram extends StatefulWidget {
   final String path;
@@ -17,12 +20,13 @@ class _HistogramState extends State<Histogram> {
   late img.Image photo;
   String last = '';
 
+  bool debug = false;
+
   Future<img.Image?>? data;
 
   @override
   void initState() {
     super.initState();
-    data = _calculation(widget.path);
   }
 
   Map<String, dynamic> getColourFrequencies(img.Image data) {
@@ -65,38 +69,34 @@ class _HistogramState extends State<Histogram> {
     };
   }
 
-  Future<img.Image?> _calculation(String imagePath) async {
-    final String e = p.extension(imagePath);
+  Future<img.Image?> _calculation(String imagePath, BoxConstraints constraints) async {
     img.Image? data;
-    if(e == '.png'){
-      data = await compute(img.decodePngFile, normalize(imagePath));
-    } else if(['.jpg', '.jpeg'].contains(e)){
-      data = await compute(img.decodeJpgFile, normalize(imagePath));
+    if(false){
+      data = await img.decodeImageFile(imagePath, byExtension: false);
     } else {
-      throw Exception('sosi');
+      final Uint8List bytes = await compute(readAsBytesSync, imagePath);
+      data = img.decodeImage(bytes);
     }
     return data;
   }
 
   @override
   Widget build(BuildContext context) {
-    if(last != widget.path) {
-      data = _calculation(widget.path);
-      last = widget.path;
-    }
     return LayoutBuilder(builder: (context, constraints) {
       return Container(
         color: Colors.black,
         child: FutureBuilder(
-          future: data, // a previously-obtained Future<String> or null
+          future: _calculation(widget.path, constraints), // a previously-obtained Future<String> or null
           builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
             Widget children;
             if (snapshot.hasData) {
+              if(debug){
+                return Text('done');
+              }
               List<Line> lines = [];
               double boxHeight = constraints.maxHeight;
               double lineWidth = constraints.maxWidth / 255;
 
-              // //init
               Map<String, dynamic> colourFrequencies = getColourFrequencies(snapshot.data);
               double x = 0.0;
               // //R
@@ -128,7 +128,6 @@ class _HistogramState extends State<Histogram> {
                 lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
                 x += lineWidth;
               }
-
               //lines.add(Line(color: Colors.red, width: 2, height: 50, x: 0, y: 50)); //debug
               //print('${widget.path} ${lines[0].height}');
               children = CustomPaint(painter: DemoPainter(lines));

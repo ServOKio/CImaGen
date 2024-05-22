@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -25,11 +26,11 @@ class DataModel with ChangeNotifier {
 
 class ComparisonBlock {
   dynamic firstSelected;
-  Image? firstCache;
+  Uint8List? firstCache; // НЕ ТРОГАТЬ УЕБУ
   ImageSize? firstImageSize;
 
   dynamic secondSelected;
-  Image? secondCache;
+  Uint8List? secondCache; // НЕ ТРОГАТЬ УЕБУ
   ImageSize? secondImageSize;
 
   late Function notify;
@@ -38,11 +39,11 @@ class ComparisonBlock {
     notify = f;
   }
 
-  List<ImageMeta> _images = [];
+  List<dynamic> _images = [];
 
-  List<ImageMeta> get getImages => _images;
+  List<dynamic> get getImages => _images;
 
-  void addAllImages(List<ImageMeta> images){
+  void addAllImages(List<dynamic> images){
     _images = images;
     notify();
   }
@@ -59,6 +60,7 @@ class ComparisonBlock {
   }
 
   void moveTestToMain(){
+    if(secondCache == null) return;
     firstSelected = secondSelected;
     firstCache = secondCache;
     firstImageSize = secondImageSize;
@@ -90,19 +92,35 @@ class ComparisonBlock {
     // notify();
   }
 
-  void updateFuckingCache(int type){
+  Future<void> updateFuckingCache(int type) async {
     // Допустим куколд прислал изображение, его читаем сразу
     dynamic s = type == 0 ? firstSelected : secondSelected;
-    String path = s.runtimeType == ImageMeta ? (s as ImageMeta).fullPath : s;
+    String path = '';
+    if(s.runtimeType == ImageMeta){
+      ImageMeta im = s as ImageMeta;
+      if(im.isLocal){
+        path = im.fullPath;
+      } else {
+        if(im.tempFilePath != null){
+          path = im.tempFilePath!;
+        } else {
+          await im.parseNetworkImage();
+          path = im.tempFilePath!;
+        }
+      }
+    } else {
+      path = s;
+    }
     Io.File(path).readAsBytes().then((b) {
         Il.Image? de = Il.decodeImage(b);
         if(de != null) {
+          // ok
           if(type == 0){
             firstImageSize = ImageSize(width: de.width, height: de.height);
-            firstCache = Image.file(File(path));
+            firstCache = b;
           } else {
             secondImageSize = ImageSize(width: de.width, height: de.height);
-            secondCache = Image.file(File(path));
+            secondCache = b;
           }
           //Ура, прочитали, теперь сверяем и потом скейлим
           //Блять, надо узнать что скейлить
@@ -118,17 +136,11 @@ class ComparisonBlock {
             }
 
             if(type == 0){
-              secondCache = Image.memory(Il.encodePng(image));
+              secondCache = Il.encodePng(image);
               secondImageSize =  ImageSize(width: de.width, height: de.height);
             } else {
-              firstCache = Image.memory(Il.encodePng(image));
+              firstCache = Il.encodePng(image);
               firstImageSize =  ImageSize(width: de.width, height: de.height);
-            }
-
-            if(type == 0){
-              firstCache = Image.file(File(path));
-            } else {
-              secondCache = Image.file(File(path));
             }
             notify();
           } else {
@@ -140,18 +152,29 @@ class ComparisonBlock {
               //Срать
               notify();
             } else {
+              //flutter: comparison_as_main
+              //[ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: Null check operator used on a null value
               bool what = secondImageSize!.totalPixels() < firstImageSize!.totalPixels();
               s = what ? secondSelected : firstSelected;
-              path = s.runtimeType == ImageMeta ? (s as ImageMeta).fullPath : s;
+              if(s.runtimeType == ImageMeta){
+                ImageMeta im = s as ImageMeta;
+                if(im.isLocal){
+                  path = im.fullPath;
+                } else if(im.tempFilePath != null){
+                  path = im.tempFilePath!;
+                }
+              } else {
+                path = s;
+              }
               Io.File(path).readAsBytes().then((b) {
                 de = Il.decodeImage(b);
                 if(de != null) {
                   Il.Image d = Il.copyResize(de!, width: [firstImageSize, secondImageSize][what ? 0 : 1]?.width);
                   if(what){
-                    secondCache = Image.memory(Il.encodePng(d));
+                    secondCache = Il.encodePng(d);
                     secondImageSize = firstImageSize;
                   } else {
-                    firstCache = Image.memory(Il.encodePng(d));
+                    firstCache = Il.encodePng(d);
                     firstImageSize = secondImageSize;
                   }
                 }

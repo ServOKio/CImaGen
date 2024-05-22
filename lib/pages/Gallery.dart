@@ -2,45 +2,25 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cimagen/components/SetupRequired.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/SQLite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:cimagen/Utils.dart';
-import 'package:path/path.dart' as p;
+import 'package:shimmer/shimmer.dart';
 
-import '../components/CustomMasonryView.dart';
 import '../components/PortfolioGalleryDetailPage.dart';
+import '../modules/webUI/AbMain.dart';
+import '../utils/NavigationService.dart';
 
-class Gallery extends StatefulWidget{
-  const Gallery({ Key? key }): super(key: key);
-
-  @override
-  _GalleryState createState() => _GalleryState();
-}
-
-Future<List<Folder>> _loadMenu(String path) async {
-  List<Folder> f = [];
-  int ind = 0;
-  Directory di = Directory(path);
-  List<FileSystemEntity> fe = await dirContents(di);
-  for(FileSystemEntity ent in fe){
-    f.add(
-        Folder(
-            index: ind,
-            path: ent.path,
-            name: p.basename(ent.path),
-            files: (await dirContents(Directory(ent.path))).map((ent) => p.normalize(ent.path)).toList()
-        )
-    );
-    ind++;
-  }
-  return f;
+Future<List<Folder>> _loadMenu(RenderEngine re) async {
+  return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(re);
 }
 
 Future<List<FileSystemEntity>> dirContents(Directory dir) {
@@ -61,7 +41,15 @@ Future<List<String>> dirDirs(String path) async { //Cringe
   return d;
 }
 
+class Gallery extends StatefulWidget{
+  const Gallery({ Key? key }): super(key: key);
+
+  @override
+  State<Gallery> createState() => _GalleryState();
+}
+
 class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
+  String currentKey = 'null';
   int _t2iSelected = 0;
   int _i2iSelected = 0;
 
@@ -75,28 +63,31 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   late Future<List<Folder>> img2imgList;
   final ScrollController _scrollControllerTwo = ScrollController();
 
-  Future<List<ImageMeta>>? imagesList;
+  Future<List<dynamic>>? imagesList;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    var go = context.read<ConfigManager>().webuiPaths['txt2img-images'];
-    if (go == null) {
+    var go = context.read<ImageManager>().getter.loaded;
+    if (!go) {
       sr = true;
     } else {
-      txt2imgList = _loadMenu(go);
-      txt2imgList.then((value){
-        if(mounted) {
-          setState(() {
-            imagesList = context.read<SQLite>().getImagesByParent(RenderEngine.txt2img, value[0].name);
-          });
-        }
+      go = context.read<ImageManager>().getter.webuiPaths['outdir_txt2img-images'] != null;
+      if(go){
+        txt2imgList = _loadMenu(RenderEngine.txt2img);
+        txt2imgList.then((value){
+          if(mounted && value.isNotEmpty) {
+            setState(() {
+              imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.txt2img, value[0].name);
+            });
+          }
 
-      });
-      go = context.read<ConfigManager>().webuiPaths['img2img-images'];
-      if (go != null) {
-        img2imgList = _loadMenu(go);
+        });
+        go = context.read<ImageManager>().getter.webuiPaths['outdir_img2img-images'] != null;
+        if (go) {
+          img2imgList = _loadMenu(RenderEngine.img2img);
+        }
       }
 
       _scrollControllerOne.addListener(onScrollOne);
@@ -126,19 +117,20 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       } else {
         _i2iSelected = index;
       }
+      currentKey = '$type:$index';
     });
+
 
     [txt2imgList, img2imgList][type].then((listValue) {
       Folder f = listValue[index];
-      imagesList = context.read<SQLite>().getImagesByParent(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
+      imagesList = context.read<ImageManager>().getter.getFolderFiles(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
+      // imagesList = context.read<SQLite>().getImagesByParent(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
       imagesList?.then((value) {
-        bool force = listValue.length-1 == index;
+        bool force = value.length-1 == index;
         if(value.isEmpty || force) {
-          dirDirs(f.path).then((value) {
-            for (var element in value) {
-              context.read<ImageManager>().updateIfNado(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, element);
-            }
-          });
+          // context.read<ImageManager>().getter.indexFolder(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name).then((jobID){
+          //
+          // });
         }
       });
     });
@@ -162,235 +154,137 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
             child: TabBarView(
               controller: _tabController,
               children: <Widget>[
-                FutureBuilder(
-                  future: txt2imgList,
-                  builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                    Widget c;
-                    if (snapshot.hasData) {
-                      c = ListView.separated(
-                        controller: _scrollControllerOne,
-                        separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
-                        itemCount: snapshot.data.length,
-                        itemBuilder: (context, index) {
-                          List<String> paths = [];
-
-                          if(snapshot.data[index].files.length <= 4){
-                            paths = snapshot.data[index].files;
-                          } else {
-                            for (var i = 0; i < 4; i++) {
-                              paths.add(snapshot.data[index].files[i]);
-                            }
-                          }
-
-                          return Container(
-                            height: 100,
-                            color: Colors.black,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                int i = -1;
-                                List<Widget> goto = paths.map<Widget>((ent){
-                                  i++;
-                                  return Positioned(
-                                    height: 100,
-                                    width: constraints.biggest.width / paths.length,
-                                    top: 0,
-                                    left: ((constraints.biggest.width / paths.length) * i).toDouble(),
-                                    child: Image.file(File(ent), fit: BoxFit.cover),
-                                  );
-                                }).toList();
-                                goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                                goto.add(Positioned(
-                                    bottom: 0,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.black.withOpacity(0.3),
-                                              border: Border.all(
-                                                color: Colors.black.withOpacity(0.5),
-                                              ),
-                                              borderRadius: const BorderRadius.all(Radius.circular(20))
-                                            ),
-                                            padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.image, color: Colors.white70, size: 12),
-                                                const Gap(2),
-                                                Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
-                                              ],
-                                            )
-                                          )
-                                        ],
-                                      ),
-                                    )
-                                ));
-                                goto.add(Positioned.fill(
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () => changeTab(0, index),
-                                    )
-                                  )
-                                ));
-                                return Stack(children: goto);
-                              },
-                            ),
-                          );
-                        },
-                      );
-                    } else if (snapshot.hasError) {
-                      c = Column(
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            color: Colors.red,
-                            size: 60,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(top: 16),
-                            child: Text('Error: ${snapshot.error}'),
-                          ),
-                        ],
-                      );
-                    } else {
-                      c = const Column(
-                        children: [
-                          SizedBox(
-                            width: 60,
-                            height: 60,
-                            child: CircularProgressIndicator(),
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(top: 16),
-                            child: Text('Awaiting result...'),
-                          ),
-                        ],
-                      );
-                    }
-                    return c;
-                  }
-                ),
-                FutureBuilder(
-                  future: img2imgList,
-                    builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                      Widget c;
-                      if (snapshot.hasData) {
-                        c = ListView.separated(
-                          controller: _scrollControllerOne,
-                          separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
-                          itemCount: snapshot.data.length,
-                          itemBuilder: (context, index) {
-                            List<String> paths = [];
-
-                            if(snapshot.data[index].files.length <= 4){
-                              paths = snapshot.data[index].files;
-                            } else {
-                              for (var i = 0; i < 4; i++) {
-                                paths.add(snapshot.data[index].files[i]);
-                              }
-                            }
-
-                            return Container(
-                              height: 100,
-                              color: Colors.black,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  int i = -1;
-                                  List<Widget> goto = paths.map<Widget>((ent){
-                                    i++;
-                                    return Positioned(
-                                      height: 100,
-                                      width: constraints.biggest.width / paths.length,
-                                      top: 0,
-                                      left: ((constraints.biggest.width / paths.length) * i).toDouble(),
-                                      child: Image.file(File(ent), fit: BoxFit.cover),
-                                    );
-                                  }).toList();
-                                  goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                                  goto.add(Positioned(
-                                      bottom: 0,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(4),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                            Container(
-                                                decoration: BoxDecoration(
-                                                    color: Colors.black.withOpacity(0.3),
-                                                    border: Border.all(
-                                                      color: Colors.black.withOpacity(0.5),
-                                                    ),
-                                                    borderRadius: const BorderRadius.all(Radius.circular(20))
-                                                ),
-                                                padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(Icons.image, color: Colors.white70, size: 12),
-                                                    const Gap(2),
-                                                    Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
-                                                  ],
-                                                )
-                                            )
-                                          ],
-                                        ),
-                                      )
-                                  ));
-                                  goto.add(Positioned.fill(
-                                      child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            onTap: () => changeTab(1, index),
-                                          )
-                                      )
-                                  ));
-                                  return Stack(children: goto);
-                                },
-                              ),
-                            );
-                          },
-                        );
-                      } else if (snapshot.hasError) {
-                        c = Column(
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 60,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Text('Error: ${snapshot.error}'),
-                            ),
-                          ],
-                        );
-                      } else {
-                        c = const Column(
-                          children: [
-                            SizedBox(
-                              width: 60,
-                              height: 60,
-                              child: CircularProgressIndicator(),
-                            ),
-                            Padding(
-                              padding: EdgeInsets.only(top: 16),
-                              child: Text('Awaiting result...'),
-                            ),
-                          ],
-                        );
-                      }
-                      return c;
-                    }
-                ),
+                _fBuilder(0),
+                _fBuilder(1)
               ],
             )
           )
         ],
       ),
+    );
+  }
+
+  Widget _fBuilder(int type){
+    return FutureBuilder(
+        future: type == 0 ? txt2imgList : img2imgList,
+        builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+          Widget c;
+          if (snapshot.hasData) {
+            c = ListView.separated(
+              controller: _scrollControllerOne,
+              separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
+              itemCount: snapshot.data.length,
+              itemBuilder: (context, index) {
+                List<FolderFile> files = [];
+
+                if(snapshot.data[index].files.length <= 4){
+                  files = snapshot.data[index].files;
+                } else {
+                  for (var i = 0; i < 4; i++) {
+                    files.add(snapshot.data[index].files[i]);
+                  }
+                }
+
+                return Container(
+                  height: 100,
+                  color: Colors.black,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      int i = -1;
+                      List<Widget> goto = files.map<Widget>((ent){
+                        i++;
+                        return Positioned(
+                          height: 100,
+                          width: constraints.biggest.width / files.length,
+                          top: 0,
+                          left: ((constraints.biggest.width / files.length) * i).toDouble(),
+                          child: ent.isLocal ? Image.file(File(ent.fullPath), fit: BoxFit.cover) : Image.network(ent.thumbnail ?? ent.fullPath, fit: BoxFit.cover),
+                        );
+                      }).toList();
+                      goto.add(Container(color: Colors.black.withOpacity(0.35)));
+                      goto.add(Positioned(
+                          bottom: 0,
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                                Container(
+                                    decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.3),
+                                        border: Border.all(
+                                          color: Colors.black.withOpacity(0.5),
+                                        ),
+                                        borderRadius: const BorderRadius.all(Radius.circular(20))
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.image, color: Colors.white70, size: 12),
+                                        const Gap(2),
+                                        Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
+                                      ],
+                                    )
+                                )
+                              ],
+                            ),
+                          )
+                      ));
+                      goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeTab(type, index)))));
+                      goto.add(AnimatedPositioned(
+                        top: 100 / 2 - 42 / 2,
+                        right: (type == 0 ? _t2iSelected : _i2iSelected) == index ? 0 : -12,
+                        duration: const Duration(seconds: 1),
+                        curve: Curves.ease,
+                        child: Container(
+                          width: 12,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                          ),
+                        ),
+                      ));
+                      return Stack(clipBehavior: Clip.none, children: goto);
+                    },
+                  ),
+                );
+              },
+            );
+          } else if (snapshot.hasError) {
+            c = Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 60,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text('Error: ${snapshot.error}'),
+                ),
+              ],
+            );
+          } else {
+            c = const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: CircularProgressIndicator(),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Text('Awaiting result...'),
+                ),
+              ],
+            );
+          }
+          return c;
+        }
     );
   }
 
@@ -406,94 +300,114 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    const breakpoint = 600.0;
     return ChangeNotifierProvider(
       create: (context) => model,
       child:  sr
-        ? const Expanded(
-            child: Center(
-              child: SetupRequired(webui: true, comfyui: false),
-            ),
-          )
-        : Row(children: <Widget>[
+        ? const Center(child: SetupRequired(webui: true, comfyui: false))
+        : screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
           _buildNavigationRail(),
           Expanded(
-            child: MouseRegion(
-              onHover: _updateLocation,
-              child: imagesList == null ? const InProcess() : FutureBuilder(
-                  future: imagesList,
-                  builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                    Widget children;
-                    if (snapshot.hasData) {
-                      children = snapshot.data.length == 0 ? const InProcess() : SingleChildScrollView(
-                        child: CustomMasonryView(
-                          key: Key((_tabController.index == 0 ? _t2iSelected : _i2iSelected).toString()),
-                          itemRadius: 0,
-                          itemPadding: 4,
-                          listOfItem: snapshot.data,
-                          numberOfColumn: (MediaQuery.of(context).size.width / 200).round(),
-                          itemBuilder: (ii) {
-                            return PreviewImage(
-                              key: Key(ii.item.keyup),
-                              imagesList: snapshot.data,
-                              imageMeta: ii.item,
-                              selectedModel: model,
-                              index: ii.index,
-                              onImageTap: () {
-                                Navigator.push(
-                                    context,
-                                    _createGalleryDetailRoute(
-                                        snapshot.data,
-                                        ii.index
-                                    )
-                                );
-                              },
-                            );
-                          },
-                        ),
-                      );
-                    } else if (snapshot.hasError) {
-                      children = Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          children: [
-                            const Text('Oops, there seems to be a error.'),
-                            ExpansionTile(
-                              title: const Text('Error Information'),
-                              subtitle: const Text('Use this information to solve the problem'),
-                              children: <Widget>[
-                                Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                        color: Theme.of(context).scaffoldBackgroundColor,
-                                        borderRadius: const BorderRadius.all(Radius.circular(4))
-                                    ),
-                                    child: SelectableText(
-                                        snapshot.error.toString(),
-                                        style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
-                                    )
-                                ),
-                              ],
-                            )
-                          ],
-                        ),
-                      );
-                    } else {
-                      children = const Padding(
-                        padding: EdgeInsets.only(top: 16),
-                        child: Text('Awaiting result...'),
-                      );
-                    }
-                    return children;
-                  }
-                  )
-              )
+            child: _buildMainSection()
           )
         ]
+      ) : Scaffold(
+        body: _buildMainSection(),
+        // use SizedBox to contrain the AppMenu to a fixed width
+        drawer: Theme(
+          data: ThemeData.dark(useMaterial3: false).copyWith(
+            canvasColor: Theme.of(context).scaffoldBackgroundColor,
+          ),
+          child: SizedBox(
+            width: 200,
+            child: Drawer(
+            child: _buildNavigationRail(),
+            ),
+          ),
+        )
       )
     );
   }
 
-  MaterialPageRoute _createGalleryDetailRoute(List<ImageMeta> images, int currentIndex) {
+  Widget _buildMainSection(){
+    return MouseRegion(
+        onHover: _updateLocation,
+        child: imagesList == null ? const InProcess() : FutureBuilder(
+            key: Key(currentKey),
+            future: imagesList,
+            builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+              Widget children;
+              if (snapshot.hasData) {
+                children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                    itemCount: snapshot.data.length,
+                    mainAxisSpacing: 5,
+                    crossAxisSpacing: 5,
+                    crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
+                    itemBuilder: (context, index) {
+                      var it = snapshot.data[index];
+                      return PreviewImage(
+                        key: Key(it.keyup),
+                        imagesList: snapshot.data,
+                        imageMeta: it,
+                        selectedModel: model,
+                        index: index,
+                        onImageTap: () {
+                          Navigator.push(
+                              context,
+                              _createGalleryDetailRoute(
+                                  snapshot.data,
+                                  index
+                              )
+                          );
+                        },
+                      );
+                    });
+              } else if (snapshot.hasError) {
+                children = Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      const Text('Oops, there seems to be a error.'),
+                      ExpansionTile(
+                        title: const Text('Error Information'),
+                        subtitle: const Text('Use this information to solve the problem'),
+                        children: <Widget>[
+                          Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                  color: Theme.of(context).scaffoldBackgroundColor,
+                                  borderRadius: const BorderRadius.all(Radius.circular(4))
+                              ),
+                              child: SelectableText(
+                                  snapshot.error.toString(),
+                                  style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
+                              )
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                );
+              } else {
+                children = const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Loading...'),
+                      Gap(8),
+                      LinearProgressIndicator()
+                    ],
+                  )
+                );
+              }
+              return children;
+            })
+    );
+  }
+
+  MaterialPageRoute _createGalleryDetailRoute(List<dynamic> images, int currentIndex) {
       return MaterialPageRoute(
         builder: (context) => PortfolioGalleryDetailPage(
           images: images,
@@ -506,7 +420,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
 class PreviewImage extends StatelessWidget {
   final ImageMeta imageMeta;
   final SelectedModel selectedModel;
-  final List<ImageMeta> imagesList;
+  final List<dynamic> imagesList;
   final VoidCallback onImageTap;
   int? index = -1;
 
@@ -635,6 +549,7 @@ class PreviewImage extends StatelessWidget {
                 }
               },
               onTap: () {
+                print(imageMeta.generationParams!.toJsonString());
                 //print('tap ${sp.selected.isNotEmpty} ${sp.selected.length}');
                 if (sp.selected.isNotEmpty) {
                   //print(imageMeta.keyup);
@@ -659,7 +574,7 @@ class PreviewImage extends StatelessWidget {
                           scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
                           duration: const Duration(milliseconds: 200),
                           curve: Curves.ease,
-                          child: imageMeta.thumbnail != null ? Image.memory(
+                          child: imageMeta.isLocal && imageMeta.thumbnail != null ? Image.memory(
                             base64Decode(imageMeta.thumbnail ?? ''),
                             filterQuality: FilterQuality.low,
                             gaplessPlayback: dontBlink,
@@ -667,9 +582,28 @@ class PreviewImage extends StatelessWidget {
                               if (wasSynchronouslyLoaded) return child;
                               return AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 200),
-                                  child: frame != null ? child : AspectRatio(aspectRatio: imageMeta.size.width / imageMeta.size.height)
+                                  child: frame != null ? child : imageMeta.size != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height) : CircularProgressIndicator()
                               );
                             }),
+                          ) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
+                            imageUrl: imageMeta.networkThumbnail!,
+                            imageBuilder: (context, imageProvider) {
+                              return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
+                            },
+                            progressIndicatorBuilder: (context, url, downloadProgress) => Shimmer.fromColors(
+                              baseColor: Colors.transparent,
+                              highlightColor: Colors.white30,
+                              child: AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height),
+                            ),
+                            errorWidget: (context, url, error) => Padding(padding: const EdgeInsets.all(8), child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error, color: Colors.white, size: 28),
+                                const Text('Error', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                const Gap(8),
+                                SelectableText(error.toString(), style: const TextStyle(color: Colors.grey))
+                              ],
+                            )),
                           ) : const Text('No preview ?')
                       ),
                       AnimatedScale(
@@ -702,10 +636,9 @@ class PreviewImage extends StatelessWidget {
                         ),
                       ),
                       AnimatedScale(
-                        scale:
-                        sp.selected.contains(imageMeta.keyup)
+                        scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup)
                             ? 1
-                            : 0,
+                            : 0 : 0,
                         duration: const Duration(
                             milliseconds: 200),
                         curve: Curves.ease,
@@ -719,13 +652,10 @@ class PreviewImage extends StatelessWidget {
                               shape:
                               BoxShape.circle,
                             ),
-                            child: Icon(Icons.check,
-                                color: Theme.of(
-                                    context)
-                                    .colorScheme
-                                    .onSecondary)),
+                            child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
+                        ),
                       ),
-                      Positioned(
+                      imageMeta.generationParams != null ? Positioned(
                         bottom: 4,
                         left: 4,
                         child: Column(
@@ -743,13 +673,17 @@ class PreviewImage extends StatelessWidget {
                                       0xffc8c4f5), fontSize: 8)),
                                 ),
                                 const Gap(3),
-                                Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler == null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
+                                Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
                               ],
                             ) : const SizedBox.shrink(),
                           ],
                         )
-                      )
-                      // Text('${index}')
+                      ) : const SizedBox.shrink(),
+                      // Positioned(
+                      //     top: 4,
+                      //     left: 4,
+                      //     child: Container(width: 10, height: 10, color: imageMeta.size == null ? Colors.redAccent : Colors.greenAccent)
+                      // )
                     ],
                   )
               )
@@ -789,7 +723,99 @@ class InProcess extends StatelessWidget{
       ),
     );
   }
+}
 
+class EmplyFolderPlaceholder extends StatelessWidget{
+  const EmplyFolderPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    bool isNull = context.read<ConfigManager>().isNull;
+    return LayoutBuilder(builder: (context, constraints) {
+      return Container(
+        color: Color(0xffe5e5e5),
+        child: Center(
+          child: Container(
+            height: constraints.maxHeight / 2,
+            color: Colors.white,
+            child: Stack(
+              children: [
+                Positioned(
+                  right: 0,
+                  top: !isNull ? 0 : null,
+                  left: !isNull ? constraints.maxWidth / 2 : null,
+                  bottom: !isNull ? 0 : null,
+                  child: isNull ? Image.asset('images/uhhh.png', height: constraints.maxHeight / 2) : Icon(Icons.folder_copy, color: Color(0xffd87034), size: constraints.maxHeight / 3),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 50),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Уууупсс!', style: TextStyle(color: Colors.black, fontSize: 32, fontWeight: FontWeight.bold)),
+                        Gap(8),
+                        Text('Кажется, произошла ошибка', style: TextStyle(color: Colors.grey)),
+                        isNull ? Row(
+                          children: [
+                            Text('П', style: TextStyle(color: Colors.grey)),
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Text('о', style: TextStyle(color: Colors.grey)),
+                                Positioned(
+                                  top: 12,
+                                    child: Container(
+                                    height: 1,
+                                    width: 10,
+                                    color: Colors.grey,
+                                  )
+                                )
+                              ],
+                            ),
+                            Text('апка пустая, поэтому наполните её чем-то и мы проверим её', style: TextStyle(color: Colors.grey))
+                          ],
+                        ) : Text('Похоже папка пустая. Проверьте пустая ли папка или нет', style: TextStyle(color: Colors.grey)),
+                        Gap(14),
+                        TextButton(
+                          style: TextButton.styleFrom(
+                            backgroundColor: Color(0xffd87034).withOpacity(0.2),
+                            foregroundColor: Color(0xffd87034)
+                          ),
+                          onPressed: () {
+                            showDialog<String>(
+                              context: context,
+                              builder: (BuildContext context) => AlertDialog(
+                                icon: const Icon(Icons.warning),
+                                iconColor: Colors.yellowAccent,
+                                title: const Text('This feature is not ready yet'),
+                                content: Text('sorry ('),
+                                actions: <Widget>[
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, 'OK'),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: Text(isNull ? 'Уже заполнили ? Проверить' : 'Проверили ? Проиндексировать',style: TextStyle(fontWeight: FontWeight.w400)),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ); // Create a function here to adapt to the parent widget's constraints
+    });
+  }
 }
 
 class SelectedModel extends ChangeNotifier {
@@ -817,18 +843,4 @@ class SelectedModel extends ChangeNotifier {
     _selectedKeyUp.clear();
     notifyListeners();
   }
-}
-
-class Folder {
-  final int index;
-  final String path;
-  final String name;
-  final List<String> files;
-
-  Folder({
-    required this.index,
-    required this.path,
-    required this.name,
-    required this.files
-  });
 }

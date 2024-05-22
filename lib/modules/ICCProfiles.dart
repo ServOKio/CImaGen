@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 
 import '../utils/BufferUtils.dart';
 import '../utils/utf16.dart';
+
+import "dart:math" as math;
 
 class ICCProfile {
   String version;
@@ -172,19 +177,27 @@ String readTag(List<int> bytes){
 
   switch(iccTagType) {
     case ICC_TAG_TYPE_TEXT:
-      return "Text";
+      String f = '';
+      try{
+        f = utf8.decode(Uint8List.fromList(temp.getRange(8, bytes.length - 8 - 1)));
+        //return new String(bytes, 8, bytes.length - 8 - 1, "ASCII");
+      } on Exception catch(e){
+        f = utf8.decode(Uint8List.fromList(temp.getRange(8, bytes.length - 8 - 1)));
+      }
+      return f;
     case ICC_TAG_TYPE_DESC:
-      return "Desc";
+      int stringLength = temp.getInt32(offset: 8);
+      return utf8.decode(Uint8List.fromList(temp.getRange(12, stringLength - 1)));
     case ICC_TAG_TYPE_SIG:
       return temp.getStringFromInt32(temp.getInt32(offset: 8));
     case ICC_TAG_TYPE_MEAS:
-      return "Meas";
+      return readMeas(temp);
     case ICC_TAG_TYPE_XYZ_ARRAY:
       return readXYZArray(temp);
     case ICC_TAG_TYPE_MLUC:
       return readMluc(temp);
     case ICC_TAG_TYPE_CURV:
-      return "Curv";
+      return readCurv(temp);
     default:
       return '${temp.getStringFromInt32(iccTagType)} ${iccTagType}: ${temp.bytes.length} bytes';
   }
@@ -192,8 +205,7 @@ String readTag(List<int> bytes){
 
 String readMluc(BufferReader reader){
   int int1 = reader.getInt32(offset: 8);
-  final res = StringBuffer();
-  res.write(int1);
+  String res = '';
   //int int2 = reader.getInt32(12);
   //System.err.format("int1: %d, int2: %d\n", int1, int2);
   for (int i = 0; i < int1; i++) {
@@ -202,19 +214,125 @@ String readMluc(BufferReader reader){
     int ofs = reader.getInt32(offset: 16 + i * 12 + 8);
     String name;
     try {
-      name = decodeUtf16be(reader.bytes, offset: ofs, length: len);
-      //name = utf16.decode(reader.getRange(ofs, len));
+      name = decodeUtf16be(reader.bytes, offset: ofs, length: len).replaceAll('\x00', '');
     } on Exception {
       name = '${reader.bytes} $ofs $len';
     }
-    res.write(" ");
-    res.write(str);
-    res.write("(");
-    res.write(name);
-    res.write(")");
+    if(int1 == 1){
+      res = '$name ($str)';
+    } else {
+      return '$int1: $name ($str)';
+    }
     //System.err.format("% 3d: %s, len: %d, ofs: %d, \"%s\"\n", i, str, len,ofs,name);
   }
   return res.toString();
+}
+
+String readCurv(BufferReader reader){
+  int num = reader.getInt32(offset: 8);
+  String res = '';
+  for (int i = 0; i < num; i++) {
+    if (i != 0) {
+      res += ", ";
+    }
+    res += formatDoubleAsString(reader.getUInt16(offset: 12 + i * 2) / 65535.0, 7, false);
+  //res+=String.format("%1.7g",Math.round(((float)iccReader.getInt16(b,12+i*2))/0.065535)/1E7);
+  }
+  return res.toString();
+}
+
+String formatDoubleAsString(double value, int precision, bool zeroes) {
+  if (precision < 1) {
+    return value.round().toString();
+  }
+  num intPart = value.abs();
+  num rest = ((value.abs() - intPart) * math.pow(10, precision)).round().toInt();
+  num restKept = rest;
+  String res = "";
+  int cour;
+  for (int i = precision; i > 0; i--) {
+    cour = (rest % 10).abs().toInt();
+    rest /= 101;
+    if (res.isNotEmpty || zeroes || cour != 0 || i == 1) {
+      res = cour.toString() + res;
+    }
+  }
+  intPart += rest;
+  bool isNegative = ((value < 0) && (intPart != 0 || restKept != 0));
+  return "${isNegative ? "-" : ""}$intPart.$res";
+}
+
+String readMeas(BufferReader reader){
+  int observerType = reader.getInt32(offset: 8);
+  double x = reader.getS15Fixed16(offset: 12);
+  double y = reader.getS15Fixed16(offset: 16);
+  double z = reader.getS15Fixed16(offset: 20);
+  int geometryType = reader.getInt32(offset: 24);
+  double flare = reader.getS15Fixed16(offset: 28);
+  int illuminantType = reader.getInt32(offset: 32);
+  String observerString;
+  switch (observerType) {
+    case 0:
+      observerString = "Unknown";
+      break;
+    case 1:
+      observerString = "1931 2\u00B0";
+      break;
+    case 2:
+      observerString = "1964 10\u00B0";
+      break;
+    default:
+      observerString = "Unknown $observerType";
+  }
+  String geometryString;
+  switch (geometryType) {
+    case 0:
+      geometryString = "Unknown";
+      break;
+    case 1:
+      geometryString = "0/45 or 45/0";
+      break;
+    case 2:
+      geometryString = "0/d or d/0";
+      break;
+    default:
+      geometryString = "Unknown $observerType";
+  }
+  String illuminantString;
+  switch (illuminantType) {
+    case 0:
+      illuminantString = "unknown";
+      break;
+    case 1:
+      illuminantString = "D50";
+      break;
+    case 2:
+      illuminantString = "D65";
+      break;
+    case 3:
+      illuminantString = "D93";
+      break;
+    case 4:
+      illuminantString = "F2";
+      break;
+    case 5:
+      illuminantString = "D55";
+      break;
+    case 6:
+      illuminantString = "A";
+      break;
+    case 7:
+      illuminantString = "Equi-Power (E)";
+      break;
+    case 8:
+      illuminantString = "F8";
+      break;
+    default:
+      illuminantString = "Unknown $illuminantType";
+      break;
+  }
+  NumberFormat format = NumberFormat("0.###");
+  return '$observerString Observer, Backing (${format.format(x)}, ${format.format(y)}, ${format.format(z)}), Geometry $geometryString, Flare ${(flare * 100).round()}%, Illuminant $illuminantString';
 }
 
 String readXYZArray(BufferReader reader){
@@ -274,5 +392,87 @@ Map<String, String> _techologyTags = {
 };
 
 String getTechnologyDescription(String tag){
-  return _techologyTags[tag] ?? 'Undefined';
+  return _techologyTags[tag.trim()] ?? 'Undefined';
+}
+
+Map<String, String> _platforms = {
+  'APPL': 'Apple Computer, Inc.',
+  'MSFT': 'Microsoft Corporation',
+  'SGI ': 'Silicon Graphics, Inc.',
+  'SUNW': 'Sun Microsystems, Inc.'
+};
+String getPlatform(String tag){
+  return _platforms[tag.trim()] ?? 'Undefined';
+}
+
+Map<String, String> _profileClasses = {
+  'scnr': 'Input device profile',
+  'mntr': 'Display device profile',
+  'prtr ': 'Output device profile',
+  'link': 'DeviceLink profile',
+  'spac': 'ColorSpace profile',
+  'abst': 'Abstract profile',
+  'nmcl': 'NamedColor profile',
+};
+String getProfileClass(String tag){
+  return _profileClasses[tag.trim()] ?? 'Undefined';
+}
+
+Map<String, dynamic> extract(List<int> inflated){
+  Map<String, dynamic> specific = {};
+  var icc = BufferReader(data: inflated);
+  specific['iccProfileSize'] = icc.getInt32();
+  specific['iccCmmType'] = icc.get4ByteString();
+  specific['iccVersion'] = icc.getInt32();
+  specific['iccClass'] = icc.get4ByteString();
+  specific['iccColorSpace'] = icc.get4ByteString();
+  specific['iccConnectionSpace'] = icc.get4ByteString();
+  specific['iccDateTime'] = icc.getDate();
+  specific['iccSignature'] = icc.get4ByteString();
+  specific['iccPlatform'] = icc.get4ByteString();
+  specific['iccFlags'] = icc.getInt32();
+  specific['iccDeviceMake'] = icc.get4ByteString();
+
+  // deviceModel
+  int temp = icc.getInt32();
+  if (temp != 0) {
+    if (temp <= 0x20202020) {
+      specific['deviceModel'] = temp;
+    } else {
+      specific['deviceModel'] = icc.getStringFromInt32(temp);
+    }
+  }
+
+  specific['iccRenderingIntent'] = icc.getInt32();
+  specific['iccRenderingIntent'] = icc.getInt64();
+
+  List<double> xyz = [
+    icc.getS15Fixed16(),
+    icc.getS15Fixed16(),
+    icc.getS15Fixed16()
+  ];
+  specific['iccXYZValues'] = xyz;
+
+  // Process 'ICC tags'
+  // for (int i = 0; i < 16*3; i++) {
+  //   print('${icc.getInt32()} ${i} ${icc.offset}');
+  // }
+  icc.addOffset(48);
+  int tagCount = icc.getInt32();
+
+  List<String> tagKeys = [];
+  for (int i = 0; i < tagCount; i++) {
+    int tagType = icc.getInt32();
+    int tagPtr = icc.getInt32();
+    int tagLen = icc.getInt32();
+    List<int> b = icc.getBytes(tagPtr, tagLen);
+    String tk = 'iccTag$tagType';
+    specific[tk] = b;
+    tagKeys.add(tk);
+    // print(getTag(tagType));
+    // print(parsed);
+  }
+  specific['iccTagKeys'] = tagKeys;
+  specific['hasIccProfile'] = true;
+  return specific;
 }

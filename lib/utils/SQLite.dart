@@ -6,7 +6,6 @@ import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'NavigationService.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -46,53 +45,57 @@ class SQLite with ChangeNotifier{
 
         await db.execute(
           'CREATE TABLE IF NOT EXISTS images('
-              'keyup VARCHAR(256) PRIMARY KEY,'
-              'type TINYINT,'
-              'parent VARCHAR(128),'
-              'fileName VARCHAR(256),'
-              'pathHash VARCHAR(256),'
-              'fullPath TEXT,'
-              'dateModified DATETIME,'
+            'keyup VARCHAR(256) PRIMARY KEY,'
+            'isLocal BOOL,'
+            'host VARCHAR(256),'
+            'type TINYINT,'
+            'parent VARCHAR(128),'
+            'fileName VARCHAR(256),'
+            'pathHash VARCHAR(256),'
+            'fullPath TEXT,'
+            'dateModified DATETIME,'
 
-              'mine VARCHAR(64),'
-              'fileTypeExtension VARCHAR(8),'
-              'fileSize INTEGER,'
-              'size VARCHAR(64),'
-              'specific TEXT,'
-              'imageParams TEXT,'
-              'other TEXT,'
-              'thumbnail TEXT'
-              ')',
+            'mine VARCHAR(64),'
+            'fileTypeExtension VARCHAR(8),'
+            'fileSize INTEGER,'
+            'size VARCHAR(64),'
+            'specific TEXT,'
+            'imageParams TEXT,'
+            'other TEXT,'
+            'thumbnail TEXT'
+          ')',
         );
 
         await db.execute(
           'CREATE TABLE IF NOT EXISTS generation_params('
-              'keyup VARCHAR(256) PRIMARY KEY,'
-              'type TINYINT,'
-              'parent VARCHAR(128),'
-              'fileName TEXT,'
-              'pathHash VARCHAR(256),'
+            'keyup VARCHAR(256) PRIMARY KEY,'
+            'isLocal BOOL,'
+            'host VARCHAR(256),'
+            'type TINYINT,'
+            'parent VARCHAR(128),'
+            'fileName TEXT,'
+            'pathHash VARCHAR(256),'
 
-              'positive TEXT,'
-              'negative TEXT,'
-              'steps INTEGER,'
-              'sampler VARCHAR(128),'
-              'cfgScale DOUBLE,'
-              'seed INTEGER,'
-              'sizeW INTEGER,'
-              'sizeH INTEGER,'
-              'checkpointType INTEGER,'
-              'checkpoint VARCHAR(256),'
-              'checkpointHash VARCHAR(128),'
-              'denoisingStrength DOUBLE,'
-              'rng VARCHAR(16),'
-              'hiresSampler VARCHAR(128),'
-              'hiresUpscaler VARCHAR(128),'
-              'hiresUpscale DOUBLE,'
-              'tiHashes TEXT,'
-              'version VARCHAR(16),'
-              'rawData TEXT'
-              ')',
+            'positive TEXT,'
+            'negative TEXT,'
+            'steps INTEGER,'
+            'sampler VARCHAR(128),'
+            'cfgScale DOUBLE,'
+            'seed INTEGER,'
+            'sizeW INTEGER,'
+            'sizeH INTEGER,'
+            'checkpointType INTEGER,'
+            'checkpoint VARCHAR(256),'
+            'checkpointHash VARCHAR(128),'
+            'denoisingStrength DOUBLE,'
+            'rng VARCHAR(16),'
+            'hiresSampler VARCHAR(128),'
+            'hiresUpscaler VARCHAR(128),'
+            'hiresUpscale DOUBLE,'
+            'tiHashes TEXT,'
+            'version VARCHAR(16),'
+            'rawData TEXT'
+          ')',
         );
 
         if (kDebugMode) print(db.path);
@@ -112,7 +115,8 @@ class SQLite with ChangeNotifier{
                 }
               }
 
-              await batch.commit(noResult: true, continueOnError: true);
+              bool debug = true;
+              await batch.commit(noResult: !debug, continueOnError: !debug);
               if (kDebugMode) print('Done');
               !use ? toBatchTwo.clear() : toBatchOne.clear();
               inProgress = false;
@@ -135,33 +139,34 @@ class SQLite with ChangeNotifier{
       dbPath.path,
       onOpen: (db){
         db.execute(
-            'CREATE TABLE IF NOT EXISTS favorites('
-                'pathHash VARCHAR(256) PRIMARY KEY,'
-                'fullPath TEXT NOT NULL,'
-                'fileName TEXT NOT NULL,'
-                'parent TEXT NOT NULL'
-              ')'
+          'CREATE TABLE IF NOT EXISTS favorites('
+            'pathHash VARCHAR(256) PRIMARY KEY,'
+            'fullPath TEXT NOT NULL,'
+            'fileName TEXT NOT NULL,'
+            'parent TEXT NOT NULL'
+          ')'
         );
+
         db.execute(
-            'CREATE TABLE IF NOT EXISTS notes('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT,'
-                'title VARCHAR(256),'
-                'content TEXT,'
-                'color VARCHAR(16),'
-                'icon VARCHAR(128)'
-              ')'
+          'CREATE TABLE IF NOT EXISTS notes('
+            'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+            'title VARCHAR(256),'
+            'content TEXT,'
+            'color VARCHAR(16),'
+            'icon VARCHAR(128)'
+          ')'
         );
 
         // Saved
         db.execute(
-            'CREATE TABLE IF NOT EXISTS saved_categories('
-                'id INTEGER PRIMARY KEY AUTOINCREMENT,'
-                'title VARCHAR(256),'
-                'description TEXT,'
-                'color VARCHAR(16),'
-                'icon VARCHAR(128),'
-                'thumbnail TEXT'
-              ')'
+          'CREATE TABLE IF NOT EXISTS saved_categories('
+            'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+            'title VARCHAR(256),'
+            'description TEXT,'
+            'color VARCHAR(16),'
+            'icon VARCHAR(128),'
+            'thumbnail TEXT'
+          ')'
         );
       },
       version: 1,
@@ -183,7 +188,7 @@ class SQLite with ChangeNotifier{
     final List<Map<String, dynamic>> maps = await database.query(
       'images',
       where: 'keyup = ?',
-      whereArgs: [genHash(renderEngine, parentName, imageMeta.fileName)],
+      whereArgs: [genHash(renderEngine, parentName, imageMeta.fileName, host: imageMeta.host)],
     );
     //print(genHash(type, parentName, imageMeta.imageParams.fileName));
     if (maps.isNotEmpty) {
@@ -352,6 +357,8 @@ class SQLite with ChangeNotifier{
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(
         re: RenderEngine.values[d['type'] as int],
+        isLocal: d['isLocal'] != null ? (d['isLocal'] as int) == 1 : true,
+        host: d['host'] != null ? d['host'] as String : null,
         mine: d['mine'] as String,
         fileTypeExtension: d['fileTypeExtension'] as String,
         fileSize: d['fileSize'] as int,
@@ -596,12 +603,6 @@ class SQLite with ChangeNotifier{
 //       generationParams: gp
 //   );
 // }
-
-String genHash(RenderEngine re, String parent, String name){
-  List<int> bytes = utf8.encode([re.index.toString(), parent, name].join());
-  String hash = sha256.convert(bytes).toString();
-  return hash;
-}
 
 class TimelineProject {
   final int seed;

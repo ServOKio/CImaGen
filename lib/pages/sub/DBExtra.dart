@@ -40,7 +40,7 @@ class _DBExtraState extends State<DBExtra>{
                   title: const Text('shit'),
                   tiles: <SettingsTile>[
                     SettingsTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      leading: Icon(Icons.delete),
                       title: const Text('Delete only jpg'),
                       description: const Text('Delete from generation_params where keyup in (select keyup from images where fileTypeExtension = \'jpg\')\nDelete from images where fileTypeExtension = \'jpg\''),
                       onPressed: (context){
@@ -67,7 +67,7 @@ class _DBExtraState extends State<DBExtra>{
                       },
                     ),
                     SettingsTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      leading: Icon(Icons.delete),
                       title: const Text('Delete only img2img'),
                       description: const Text('DELETE FROM images where type = 2\nDELETE FROM generation_params where type = 2'),
                       onPressed: (context){
@@ -94,7 +94,7 @@ class _DBExtraState extends State<DBExtra>{
                       },
                     ),
                     SettingsTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      leading: Icon(Icons.delete),
                       title: const Text('Delete invalid thumbhail'),
                       description: const Text('DELETE FROM images WHERE thumbnail IS NULL'),
                       onPressed: (context){
@@ -120,7 +120,7 @@ class _DBExtraState extends State<DBExtra>{
                       },
                     ),
                     SettingsTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      leading: Icon(Icons.delete),
                       title: const Text('Drop all tables for images'),
                       description: const Text('DROP TABLE images\nDROP TABLE generation_params'),
                       onPressed: (context){
@@ -152,7 +152,7 @@ class _DBExtraState extends State<DBExtra>{
                   title: const Text('const'),
                   tiles: [
                     SettingsTile(
-                      leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                      leading: Icon(Icons.delete),
                       title: const Text('Drop saved_categories table'),
                       description: const Text('DROP TABLE saved_categories'),
                       onPressed: (context){

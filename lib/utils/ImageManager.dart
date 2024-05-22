@@ -1,12 +1,18 @@
+import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:cimagen/modules/ICCProfiles.dart';
+import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/webUI/AbMain.dart';
+import 'package:cimagen/modules/webUI/OnLocal.dart';
 import 'package:cimagen/utils/BufferUtils.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/SQLite.dart';
-import 'package:exif/exif.dart';
+import 'package:collection/collection.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:xml/xml.dart';
 
 import '../Utils.dart';
 import 'package:provider/provider.dart';
@@ -14,8 +20,11 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:png_chunks_extract/png_chunks_extract.dart' as pngExtract;
+import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
+import 'package:http/http.dart' as http;
 
+import '../modules/ICCProfiles.dart';
+import '../modules/webUI/OnRemote.dart';
 import 'NavigationService.dart';
 
 class ImageManager extends ChangeNotifier {
@@ -31,7 +40,7 @@ class ImageManager extends ChangeNotifier {
 
   // Local
   bool _useLastAsTest = false;
-  String get useLastAsTest => useLastAsTest;
+  bool get useLastAsTest => _useLastAsTest;
   bool toogleUseLastAsTest(){
     _useLastAsTest = !_useLastAsTest;
     return _useLastAsTest;
@@ -47,11 +56,12 @@ class ImageManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Getters
+  late AbMain _getter;
+  AbMain get getter => _getter;
+
   void init(BuildContext context){
-    var outdirTxt2img = context.read<ConfigManager>().webuiPaths['txt2img-images'];
-    var outdirImg2img = context.read<ConfigManager>().webuiPaths['img2img-images'];
-    if(outdirTxt2img != null) watchDir(RenderEngine.txt2img, outdirTxt2img);
-    if(outdirImg2img != null) watchDir(RenderEngine.img2img, outdirImg2img);
+    changeGetter(prefs?.getBool('use_remote_version') ?? false ? 1 : 0, exit: false);
 
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
 
@@ -63,49 +73,51 @@ class ImageManager extends ChangeNotifier {
     xxx.addAll(tmp);
   }
 
+  /// Changing [AbMain]
+  ///
+  /// * 1 - [OnRemote]
+  /// * default - [OnLocal]
+  Future<void> changeGetter(int type, {bool exit = true}) async {
+    switch (type) {
+      case 1:
+        if(exit) _getter.exit();
+        _getter = OnRemote()..init();
+      default:
+        if(exit) _getter.exit();
+        _getter = OnLocal()..init();
+    }
+  }
+
   Future<void> updateIfNado(RenderEngine re, String imagePath) async {
     imagePath = p.normalize(imagePath); // windows suck
     // Check file type
     final String e = p.extension(imagePath);
     if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) return;
     final String b = p.basename(imagePath);
-    for(String d in ['before-color-correction', 'mask', 'mask-composite']){
+    for(String d in ['mask', 'before']){
       if(b.contains(d)) {
         if (kDebugMode) print('skip $b');
         return;
       }
     }
 
-    bool? doI = await NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(imagePath);
-    if(doI){
-      ImageMeta? value = await parseImage(re, imagePath);
-      updateLastJob(imagePath);
-      if(value != null) {
-        NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
-        if(_useLastAsTest){
-          Future.delayed(const Duration(milliseconds: 1000), () {
-            DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
-            if(d != null){
-              d.comparisonBlock.moveTestToMain();
-              d.comparisonBlock.changeSelected(re.index, value);
-              d.comparisonBlock.addImage(value);
-            }
-          });
+    bool? doI = await NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
+      if(doI){
+        ImageMeta? value = await parseImage(re, imagePath);
+        updateLastJob(imagePath);
+        if(value != null) {
+          NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
+          if(_useLastAsTest){
+            Future.delayed(const Duration(milliseconds: 1000), () {
+              DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
+              if(d != null){
+                d.comparisonBlock.moveTestToMain();
+                d.comparisonBlock.changeSelected(re.index, value);
+                d.comparisonBlock.addImage(value);
+              }
+            });
+          }
         }
-      }
-    }
-  }
-
-  void watchDir(RenderEngine re, String path){
-    final tempFolder = File(path);
-    if (kDebugMode) print('watch $path');
-    // flutter: FileSystemCreateEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.tmp', isDirectory=false)
-    // flutter: FileSystemModifyEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.tmp', isDirectory=false, contentChanged=true)
-    // flutter: FileSystemMoveEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.tmp', isDirectory=false, destination=K:/pictures/sd/outputs/txt2img-images\2024-04-13\00058-Euler a-3200625744.png)
-    // flutter: FileSystemModifyEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13', isDirectory=true, contentChanged=true)
-    tempFolder.watch(events: FileSystemEvent.all, recursive: true).listen((event) {
-      if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
-        updateIfNado(re, event.destination ?? 'jri govno dart');
       }
     });
   }
@@ -123,210 +135,306 @@ class ImageManager extends ChangeNotifier {
   }
 }
 
+final listEqual = const ListEquality().equals;
 Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
-  final String e = p.extension(imagePath);
+  bool debug = false;
+
   GenerationParams? gp;
 
   // Read
-  final fileBytes = await compute(readAsBytesSync, imagePath);
+  final Uint8List fileBytes = await compute(readAsBytesSync, imagePath);
   final File f = File(imagePath);
 
-  final String mine = lookupMimeType(imagePath, headerBytes: [0xFF, 0xD8]) ?? 'unknown';
-  final fte = e.replaceFirst('.', '');
+  final String mine = lookupMimeType(imagePath, headerBytes: fileBytes) ?? 'unknown';
+  String e = mine.split('/').last;
   var fileStat = await f.stat();
 
-  if(e == '.png') {
+  if(e == 'png') {
 
-    final List<Map<String, dynamic>> chunks = pngExtract.extractChunks(fileBytes);
-    // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
-    // [IHDR, tEXt, IDAT, IEND], [13, 1009, 25524, 0]                           - Vanilla png
-    // [IHDR, oFFs, tEXt, tEXt, tEXt, iTXt, eXIf, IDAT, IDAT, IDAT... , IEND]   - Topaz Photo AI 1.5.3
-    // [IHDR, iCCP, pHYs, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, eXIf, IEND] - Crita
+    String? error;
 
-    List<String> chunksNames = chunks.map((e) => e['name'] as String).toList();
-
-    // IHDR
-    final IHDRtrunk = chunks.where((e) => e["name"] == 'IHDR').toList(growable: false)[0]['data'];
-
-    var iCCP;
-    if(chunksNames.contains('iCCP')) iCCP = chunks.where((e) => e["name"] == 'iCCP').toList(growable: false)[0]['data'];
-    var pHYs;
-    if(chunksNames.contains('pHYs')) pHYs = chunks.where((e) => e["name"] == 'pHYs').toList(growable: false)[0]['data'];
-
-    //debug
-
-    // chunks.where((e) => e["name"] == 'tEXt').toList(growable: false).forEach((element) {
-    //   if(element.isNotEmpty){
-    //     print(element);
-    //     List<int> fix = element['data'].map((e) => e == 0 ? 32 : e).toList(growable: false).cast<int>();
-    //     String text = utf8.decode(Uint8List.fromList(fix));
-    //     print(text);
-    //   }
-    // });
-
-    Uint8List IHDRu8List = Uint8List.fromList(IHDRtrunk);
-    var bdata = ByteData.view(Uint8List.fromList(IHDRtrunk).buffer);
-    // [
-    //  0, 0, 0, 128, Width               4 bytes
-    //  0, 0, 0, 128, Height              4 bytes
-    //  8,            Bit depth           1 byte
-    //  2,            Color type          1 byte
-    //  0,            Compression method  1 byte - always 0
-    //  0,            Filter method       1 byte
-    //  0             Interlace method    1 byte
-    // ]
+    List<Map<String, dynamic>> chunks = [];
+    try{
+      chunks = png_extract.extractChunks(fileBytes);
+    } catch(e){
+      if(debug) print(e);
+      error = e.toString();
+    }
 
     Map<String, dynamic> pngEx = {};
-    Map<String, dynamic> specific = {
-      'bitDepth': IHDRu8List[8],
-      'colorType': IHDRu8List[9],
-      'compression': IHDRu8List[10],
-      'filter': IHDRu8List[11],
-      'colorMode': IHDRu8List[12], // 13 bytes - ok
-    };
+    Map<String, dynamic> specific = {};
 
-    if(iCCP != null){
-      var we = BufferReader(data: iCCP);
-      specific['iccProfileName'] = we.getNullTerminatedByteString(); // ITUR_2100_PQ_FULL for example
-      int cm = we.getUint8();
-      specific['iccCompressionMethod'] = cm;
-      if(cm == 0){
-        List<int> t = we.get(null);
-        var inflated = zlib.decode(t);
-        var icc = BufferReader(data: inflated);
-        specific['iccProfileSize'] = icc.getInt32();
-        specific['iccCmmType'] = icc.get4ByteString();
-        specific['iccVersion'] = icc.getInt32();
-        specific['iccClass'] = icc.get4ByteString();
-        specific['iccColorSpace'] = icc.get4ByteString();
-        specific['iccConnectionSpace'] = icc.get4ByteString();
-        specific['iccDateTime'] = icc.getDate();
-        specific['iccSignature'] = icc.get4ByteString();
-        specific['iccPlatform'] = icc.get4ByteString();
-        specific['iccFlags'] = icc.getInt32();
-        specific['iccDeviceMake'] = icc.get4ByteString();
+    var bdata;
 
-        // deviceModel
-        int temp = icc.getInt32();
-        if (temp != 0) {
-          if (temp <= 0x20202020) {
-            specific['deviceModel'] = temp;
-          } else {
-            specific['deviceModel'] = icc.getStringFromInt32(temp);
+    if(error == null){
+      // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
+      // [IHDR, tEXt, IDAT, IEND], [13, 1009, 25524, 0]                           - Vanilla png
+      // [IHDR, oFFs, tEXt, tEXt, tEXt, iTXt, eXIf, IDAT, IDAT, IDAT... , IEND]   - Topaz Photo AI 1.5.3
+      // [IHDR, iCCP, pHYs, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, eXIf, IEND] - Crita
+      // [IHDR, pHYs, iTXt, IDAT, IDAT, IDAT, IDAT, eXIf, IEND]                   - Photoshop
+
+      List<String> chunksNames = chunks.map((e) => e['name'] as String).toList();
+
+      if(debug) print('Chunk names: ${chunksNames.join(', ')}');
+
+      // IHDR
+      final IHDRtrunk = chunks.where((e) => e["name"] == 'IHDR').toList(growable: false)[0]['data'];
+
+      var iCCP;
+      if(chunksNames.contains('iCCP')) iCCP = chunks.where((e) => e["name"] == 'iCCP').toList(growable: false)[0]['data'];
+      var pHYs;
+      if(chunksNames.contains('pHYs')) pHYs = chunks.where((e) => e["name"] == 'pHYs').toList(growable: false)[0]['data'];
+      var iTXt;
+      if(chunksNames.contains('iTXt')) iTXt = chunks.where((e) => e["name"] == 'iTXt').toList(growable: false)[0]['data'];
+
+      //debug
+
+      // chunks.where((e) => e["name"] == 'tEXt').toList(growable: false).forEach((element) {
+      //   if(element.isNotEmpty){
+      //     print(element);
+      //     List<int> fix = element['data'].map((e) => e == 0 ? 32 : e).toList(growable: false).cast<int>();
+      //     String text = utf8.decode(Uint8List.fromList(fix));
+      //     print(text);
+      //   }
+      // });
+
+      // ================================
+
+      Uint8List IHDRu8List = Uint8List.fromList(IHDRtrunk);
+      bdata = ByteData.view(Uint8List.fromList(IHDRtrunk).buffer);
+      // [
+      //  0, 0, 0, 128, Width               4 bytes
+      //  0, 0, 0, 128, Height              4 bytes
+      //  8,            Bit depth           1 byte
+      //  2,            Color type          1 byte
+      //  0,            Compression method  1 byte - always 0
+      //  0,            Filter method       1 byte
+      //  0             Interlace method    1 byte
+      // ]
+
+      specific.addAll({
+        'bitDepth': IHDRu8List[8],
+        'colorType': IHDRu8List[9],
+        'compression': IHDRu8List[10],
+        'filter': IHDRu8List[11],
+        'colorMode': IHDRu8List[12], // 13 bytes - ok
+      });
+
+      // TODO: PNG:SignificantBits
+      if(iCCP != null){
+        var we = BufferReader(data: iCCP);
+        specific['iccProfileName'] = we.getNullTerminatedByteString(); // ITUR_2100_PQ_FULL for example
+        int cm = we.getUint8();
+        specific['iccCompressionMethod'] = cm;
+        if(cm == 0){
+          List<int> t = we.get(null);
+          var inflated = zlib.decode(t);
+          specific.addAll(extract(inflated));
+        } else {
+          if(debug) print('Invalid compression method value $cm');
+        }
+
+        // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html#C.iCCP
+        // Profile name:       1-79 bytes (character string)
+        // Null separator:     1 byte
+
+        // Compression method: 1 byte
+        // Compressed profile: n bytes - wtf is this shit ?
+      }
+
+      if(pHYs != null){
+        // http://www.libpng.org/pub/png/book/chapter11.html#png.ch11.div.8
+        var we = BufferReader(data: pHYs);
+        specific['pixelsPerUnitX'] = we.getInt32();
+        specific['pixelsPerUnitY'] = we.getInt32();
+        specific['pixelUnits'] = we.get(1)[0]; // 1, the units are meters; if it is 0, the units are unspecified
+      }
+
+      if(iTXt != null) {
+        var we = BufferReader(data: iTXt);
+        String main = we.getNullTerminatedByteString();
+        int compressionFlag = we.getUint8();
+        int compressionMethod = we.getUint8();
+        String languageTag = we.getNullTerminatedByteString();
+        String translatedKeyword = we.getNullTerminatedByteString();
+        String text = utf8.decode(Uint8List.fromList(we.get(null)));
+        if(debug) print('m:$main cf:$compressionFlag cm:$compressionMethod l:$languageTag t:$translatedKeyword t:$text');
+        if(main == 'XML:com.adobe.xmp'){
+          try{
+            final document = XmlDocument.parse(text);
+            Map<String, dynamic> t = {};
+            document.findAllElements('rdf:Description').first.attributes.forEach((p0) {
+              t['${p0.name.prefix != null ? '${p0.name.prefix}:' : ''}${p0.name.local}'] = p0.value;
+            });
+            if(t['xmp:CreatorTool'] != null){
+              specific['xmpCreatorTool'] = t['xmp:CreatorTool'];
+              if(t['xmp:CreatorTool']!.startsWith('Adobe Photoshop')) pngEx['softwareType'] = Software.photoshop;
+            }
+            if(t['xmp:CreateDate'] != null) specific['xmpCreateDate'] = t['xmp:CreateDate'];
+            if(t['xmp:ModifyDate'] != null) specific['xmpModifyDate'] = t['xmp:ModifyDate'];
+            if(t['xmp:MetadataDate'] != null) specific['xmpMetadataDate'] = t['xmp:MetadataDate'];
+            if(t['dc:format'] != null) specific['xmpDcFormat'] = t['dc:format'];
+            if(t['photoshop:ColorMode'] != null) specific['xmpPhotoshopColorMode'] = int.parse(t['photoshop:ColorMode']); // https://helpx.adobe.com/photoshop/using/color-modes.html
+          } catch (e) {
+            // No specified type, handles all
+            if(debug) print('Something really unknown: $e');
+          }
+        } else if(main == 'parameters'){
+          // hello 1.5
+          re = RenderEngine.txt2img;
+          gp = parseSDParameters(text);
+        }
+        // String text = utf8.decode(Uint8List.fromList(iTXt));
+        // print(text);
+      }
+
+      // tEXt
+      final tEXtTrunk = chunks.where((e) => e["name"] == 'tEXt').toList(growable: false);
+      if(tEXtTrunk.isNotEmpty){
+        for (var element in tEXtTrunk) {
+          List<int> fix = element['data'].map((e) => e == 0 ? 32 : e).toList(growable: false).cast<int>();
+          String text = '';
+          // Ебануться, латынь 0-0
+          try{
+            text = utf8.decode(Uint8List.fromList(fix));
+          } on FormatException catch (e) {
+            text = latin1.decode(Uint8List.fromList(fix));
+          }
+          int idx = text.indexOf(" ");
+          List parts = [text.substring(0,idx).trim(), text.substring(idx+1).trim()];
+          pngEx[parts[0].toLowerCase()] = parts[1];
+        }
+
+        // SD
+        if(pngEx['parameters'] != null){
+          re = RenderEngine.txt2img;
+          if(pngEx['generation_data'] != null && await isJson(pngEx['generation_data'])){
+            pngEx['softwareType'] = Software.tensorArt;
+          }
+          gp = parseSDParameters(pngEx['parameters']);
+        } else if(pngEx['workflow'] != null){
+          if(await isJson(pngEx['workflow'] as String)){
+            re = RenderEngine.comfUI;
+            parseComfUIParameters(pngEx['prompt']);
+          }
+        } else if(pngEx['prompt'] != null){
+          if(await isJson(pngEx['prompt'] as String)){
+            if(pngEx['generation_data'] == null){
+              re = RenderEngine.comfUI;
+              parseComfUIParameters(pngEx['prompt']);
+            } else {
+              pngEx['softwareType'] = Software.tensorArt;
+            }
           }
         }
-
-        specific['iccRenderingIntent'] = icc.getInt32();
-        specific['iccRenderingIntent'] = icc.getInt64();
-
-        List<double> xyz = [
-          icc.getS15Fixed16(),
-          icc.getS15Fixed16(),
-          icc.getS15Fixed16()
-        ];
-        specific['iccXYZValues'] = xyz;
-
-        // Process 'ICC tags'
-        // for (int i = 0; i < 16*3; i++) {
-        //   print('${icc.getInt32()} ${i} ${icc.offset}');
-        // }
-        icc.addOffset(48);
-        int tagCount = icc.getInt32();
-
-        List<String> tagKeys = [];
-        for (int i = 0; i < tagCount; i++) {
-          int tagType = icc.getInt32();
-          int tagPtr = icc.getInt32();
-          int tagLen = icc.getInt32();
-          List<int> b = icc.getBytes(tagPtr, tagLen);
-          String tk = 'iccTag$tagType';
-          specific[tk] = b;
-          tagKeys.add(tk);
-          // print(getTag(tagType));
-          // print(parsed);
-        }
-        specific['iccTagKeys'] = tagKeys;
-        print(specific);
-      }
-
-      // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html#C.iCCP
-      // Profile name:       1-79 bytes (character string)
-      // Null separator:     1 byte
-
-      // Compression method: 1 byte
-      // Compressed profile: n bytes - wtf is this shit ?
-    }
-
-    if(pHYs != null){
-      // http://www.libpng.org/pub/png/book/chapter11.html#png.ch11.div.8
-      var we = BufferReader(data: pHYs);
-      specific['pixelsPerUnitX'] = we.getInt32();
-      specific['pixelsPerUnitY'] = we.getInt32();
-      specific['pixelUnits'] = we.get(1)[0]; // 1, the units are meters; if it is 0, the units are unspecified
-    }
-
-    // tEXt
-    final tEXtTrunk = chunks.where((e) => e["name"] == 'tEXt').toList(growable: false);
-    if(tEXtTrunk.isNotEmpty){
-      for (var element in tEXtTrunk) {
-        List<int> fix = element['data'].map((e) => e == 0 ? 32 : e).toList(growable: false).cast<int>();
-        String text = utf8.decode(Uint8List.fromList(fix));
-        int idx = text.indexOf(" ");
-        List parts = [text.substring(0,idx).trim(), text.substring(idx+1).trim()];
-        pngEx[parts[0]] = parts[1];
-      }
-
-      // SD
-      if(pngEx['parameters'] != null){
-        re = RenderEngine.txt2img;
-        gp = parseSDParameters(pngEx['parameters']);
 
         if(gp != null){
           if(gp.all?['mask_blur'] != null){
             re = RenderEngine.inpaint;
           } else if(pngEx['postprocessing'] != null){
             re = RenderEngine.extra;
+          } else if(gp.all?['denoising_strength'] != null && gp.all?['hires_upscale'] == null){
+            re = RenderEngine.img2img;
           }
         } else {
           if(pngEx['postprocessing'] != null){
             re = RenderEngine.extra;
           }
         }
-      } else if(pngEx['workflow'] != null){
-        if(await isJson(pngEx['workflow'] as String)){
-          re = RenderEngine.comfUI;
+
+
+        // Find render Engine
+        //Topaz
+        if(pngEx['software'] != null){
+          if(pngEx['software'].startsWith('Topaz Photo AI')){
+            pngEx['softwareType'] = Software.topazPhotoAI;
+          } else if(pngEx['software'] == 'NovelAI'){
+            pngEx['softwareType'] = Software.novelAI;
+            if(await isJson(pngEx['comment'] as String)){
+              final data = jsonDecode(pngEx['comment']);
+              // {
+              //   "prompt": "protogen",
+              //   "steps": 28,
+              //   "height": 1024,
+              //   "width": 1024,
+              //   "scale": 6.2,
+              //   "uncond_scale": 1,
+              //   "cfg_rescale": 0,
+              //   "seed": 1354345381,
+              //   "n_samples": 1,
+              //   "hide_debug_overlay": false,
+              //   "noise_schedule": "native",
+              //   "legacy_v3_extend": false,
+              //   "reference_information_extracted_multiple": [],
+              //   "reference_strength_multiple": [],
+              //   "sampler": "k_euler_ancestral",
+              //   "controlnet_strength": 1,
+              //   "controlnet_model": null,
+              //   "dynamic_thresholding": false,
+              //   "dynamic_thresholding_percentile": 0.999,
+              //   "dynamic_thresholding_mimic_scale": 10,
+              //   "sm": false,
+              //   "sm_dyn": false,
+              //   "skip_cfg_below_sigma": 0,
+              //   "lora_unet_weights": null,
+              //   "lora_clip_weights": null,
+              //   "uc": "high contrast",
+              //   "request_type": "PromptGenerateRequest",
+              //   "signed_hash": "wOTyzWt95rON2w43sVLPfXYBJuBf3EeD3AYdxDtYfDXKYKvcBqi9huWsBPy/DMgrVRZZY304fSkiMR70235MBg=="
+              // }
+              gp = GenerationParams(
+                  positive: data['prompt'] as String,
+                  negative: data['uc'] as String,
+                  steps: data['steps'] as int,
+                  sampler: data['sampler'] as String,
+                  cfgScale: data['cfg_rescale'] as double,
+                  seed: data['seed'] as int,
+                  size: ImageSize(width: data['width'], height: data['height']),
+                  checkpointType: pngEx['source'] != null ? pngEx['source'].startsWith('Stable Diffusion') ? CheckpointType.model : CheckpointType.unknown : CheckpointType.unknown,
+                  checkpoint: pngEx['source'],
+                  checkpointHash: null,
+                  version: null,
+                  rawData: jsonEncode(data)
+              );
+            }
+          } else if(pngEx['software'] == 'Adobe ImageReady') {
+            pngEx['softwareType'] = Software.adobeImageReady;
+          } else if(pngEx['software'] == 'Celsys Studio Tool') {
+            pngEx['softwareType'] = Software.celsysStudioTool;
+          } else if(pngEx['software'] == 'PhotoScape') {
+            pngEx['softwareType'] = Software.photoScape;
+          } else if(pngEx['software'].startsWith('Adobe Photoshop')) {
+            pngEx['softwareType'] = Software.photoshop;
+          } else {
+            print(imagePath);
+            print('new Software');
+            print(pngEx);
+          }
         }
-      } else if(pngEx['prompt'] != null){
-        if(await isJson(pngEx['prompt'] as String)){
-          re = RenderEngine.comfUI;
-        }
+
+        if(debug) print(pngEx);
       }
 
+      //Remove shit
+      pngEx.remove('parameters');
+      pngEx.remove('postprocessing');
+      if(pngEx['softwareType'] != null ) pngEx['softwareType'] = pngEx['softwareType'].index;
 
-      // Find render Engine
-      //Topaz
-      if(pngEx['software'] != null){
-        if(pngEx['software'].startsWith('Topaz Photo AI')){
-          re = RenderEngine.topazPhotoAI;
-        } else {
-          print('new Software');
-          print(pngEx['Software']);
-        }
+      if(debug){
+        print('final');
+        print(specific);
       }
     }
 
-    //Remove shit
-    pngEx.remove('parameters');
-    pngEx.remove('postprocessing');
-
     ImageMeta i = ImageMeta(
+        error: error,
         fullPath: p.normalize(imagePath),
         re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
         mine: mine,
-        fileTypeExtension: fte,
+        fileTypeExtension: e,
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
-        size: ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)),
+        size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : ImageSize(width: 500, height: 500),
         specific: specific,
         generationParams: gp,
         other: pngEx
@@ -334,92 +442,270 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     await i.makeThumbnail();
     return i;
     // print(text);
-  } else if(['.jpg', '.jpeg'].contains(e)){
-    final data = await readExifFromBytes(fileBytes);
-    final originalImage = img.decodeImage(fileBytes);
+  } else if(['jpg', 'jpeg'].contains(e)){
+    // Welcome to hell
+    Map<String, dynamic> specific = {};
+
+    // icc
+    int SEGMENT_IDENTIFIER = 0xFF;
+    int SEGMENT_SOS = 0xDA;
+    int MARKER_EOI = 0xD9;
+
+    var reader = BufferReader(data: fileBytes);
+    int magicNumber = 0;
+    String? error;
+    try{
+      magicNumber = reader.getUInt16();
+    } catch(e){
+      error = e.toString();
+    }
+
+    if(error == null){
+      if (magicNumber != 0xFFD8) {
+        print("JPEG data is expected to begin with 0xFFD8 (ÿØ) not 0x${magicNumber.toRadixString(16)}");
+      } else {
+        HashMap<int, List<int>> segmentDataMap = HashMap<int, List<int>>();
+
+        List<int> getOrCreateSegmentList(int segmentType) {
+          List<int> segmentList;
+          if (segmentDataMap.containsKey(segmentType)) {
+            segmentList = segmentDataMap[segmentType]!;
+          } else {
+            segmentList = [];
+            segmentDataMap[segmentType] = segmentList;
+          }
+          return segmentList;
+        }
+
+        void addSegment(int segmentType, dynamic segmentBytes){
+          getOrCreateSegmentList(segmentType).addAll(segmentBytes);
+        }
+
+        bool hasError = false;
+
+        do {
+          // Find the segment marker. Markers are zero or more 0xFF bytes, followed
+          // by a 0xFF and then a byte not equal to 0x00 or 0xFF.
+
+          int segmentIdentifier = reader.getInt8();
+          int segmentType = reader.getInt8();
+
+          // Read until we have a 0xFF byte followed by a byte that is not 0xFF or 0x00
+          while (segmentIdentifier != SEGMENT_IDENTIFIER || segmentType == SEGMENT_IDENTIFIER || segmentType == 0) {
+            segmentIdentifier = segmentType;
+            segmentType = reader.getInt8();
+          }
+
+          if (segmentType == SEGMENT_SOS) {
+            // The 'Start-Of-Scan' segment's length doesn't include the image data, instead would
+            // have to search for the two bytes: 0xFF 0xD9 (EOI).
+            // It comes last so simply return at this point
+            //return segmentData;
+            break;
+          }
+
+          if (segmentType == MARKER_EOI) {
+            // the 'End-Of-Image' segment -- this should never be found in this fashion
+            //return segmentData;
+            break;
+          }
+
+          // next 2-bytes are <segment-size>: [high-byte] [low-byte]
+          int segmentLength = reader.getUInt16();
+
+          // segment length includes size bytes, so subtract two
+          segmentLength -= 2;
+
+          if (segmentLength < 0) {
+            if(debug) print("JPEG segment size would be less than zero");
+            hasError = true;
+            break;
+          }
+
+          List<int> segmentBytes = reader.get(segmentLength);
+          assert(segmentLength == segmentBytes.length);
+          addSegment(segmentType, segmentBytes);
+
+        } while (true);
+
+        if(!hasError && segmentDataMap.containsKey(0xE2)){
+          List<int> segmentBytes = segmentDataMap[0xE2]!;
+
+          String JPEG_SEGMENT_PREAMBLE = "ICC_PROFILE";
+          int preambleLength = JPEG_SEGMENT_PREAMBLE.length;
+
+          List<int> newB = segmentBytes.sublist(14);
+          specific.addAll(extract(newB));
+        }
+      }
+    }
+
+    img.Image? originalImage;
+    try{
+      originalImage = img.decodeJpg(fileBytes);
+    } catch(e){
+      if(debug) print('Sosi $e');
+      error = e.toString();
+    }
 
     Map<String, dynamic> jpgEx = {};
-    if (data.isEmpty) {
-      print("No EXIF information found");
-    } else {
-      if (data.containsKey('JPEGThumbnail')) {
-        print('File has JPEG thumbnail');
-        data.remove('JPEGThumbnail');
-      }
-      if (data.containsKey('TIFFThumbnail')) {
-        print('File has TIFF thumbnail');
-        data.remove('TIFFThumbnail');
-      }
 
-      // for (final entry in data.entries) {
-      //   print("${entry.key}: ${entry.value}");
-      // }
-
-      for (final entry in data.entries) {
-        switch (entry.value.tagType) {
-          case 'Long':
-            const int maxValue = -1 >>> 1;
-            jpgEx[entry.key] =  BigInt.parse(entry.value.printable) > BigInt.from(maxValue) ? entry.value.printable : int.parse(entry.value.printable);
-          default:
-            // print('${entry.value.tagType} ${entry.value.runtimeType} ${entry.value is String}');
-            // if(entry.value.runtimeType == IfdTag) print(entry.value.values);
-            var hasPrintable = false;
-            try {
-              (entry.value as dynamic).printable;
-              hasPrintable = true;
-            } on NoSuchMethodError {}
-
-            if(entry.key == 'EXIF UserComment'){
-              //fuck
-              String fi = utf8.decode(Uint8List.fromList(entry.value.values.toList().where((e) => e != 0).toList(growable: false).cast()));
-              print(fi);
-              print(entry.value.values);
-              try{
-                for (var e in ['ASCII', 'UNICODE', 'JIS', '']) {
-                  if(fi.substring(0, 8).contains(e)){
-                    fi = fi.substring(e.length, fi.length);
-                    break;
-                  }
-                }
-                jpgEx[entry.key] = fi;
-              } on RangeError catch (e) {
-                print('RangeError');
-                print(imagePath);
-                print(e);
-              }
-            } else {
-              jpgEx[entry.key] = hasPrintable ? entry.value.printable : entry.value;
-            }
+    if(error == null && originalImage!.exif.exifIfd.hasUserComment){
+      String fi = utf8.decode(Uint8List.fromList(originalImage.exif.exifIfd[0x9286]!.toData().toList().where((e) => e != 0).toList(growable: false).cast()));
+      try{
+        for (var e in ['ASCII', 'UNICODE', 'JIS', '']) {
+          if(fi.substring(0, 8).contains(e)){
+            fi = fi.substring(e.length, fi.length);
+            break;
+          }
         }
+        jpgEx['EXIF UserComment'] = fi;
+      } on RangeError catch (e) {
+        print('RangeError');
+        print(imagePath);
+        print(e);
       }
 
       if(jpgEx['EXIF UserComment'] != null && (jpgEx['EXIF UserComment'] as String).trim().isNotEmpty){
         gp = parseSDParameters(jpgEx['EXIF UserComment']);
+
+        if(gp != null){
+          if(gp.all?['mask_blur'] != null){
+            re = RenderEngine.inpaint;
+          } else if(gp.all?['denoising_strength'] != null && gp.all?['hires_upscale'] == null){
+            re = RenderEngine.img2img;
+          }
+        }
       }
 
       //clean
       jpgEx.remove('EXIF UserComment');
     }
+
+    if(error == null  && originalImage!.exif.imageIfd.hasSoftware){
+      String fi = originalImage.exif.imageIfd.software ?? '';
+      if(fi.startsWith('ArtBot - Create') && gp != null) {
+        jpgEx['softwareType'] = Software.artBot;
+        if(re == RenderEngine.unknown) re = RenderEngine.txt2img;
+      }
+    }
+
+    if(error == null ) {
+      specific.addAll({
+        'bitsPerChannel': originalImage!.bitsPerChannel,
+        'rowStride': originalImage.rowStride,
+        'numChannels': originalImage.numChannels,
+        'isLdrFormat': originalImage.isLdrFormat,
+        'isHdrFormat': originalImage.isHdrFormat,
+        'hasPalette': originalImage.hasPalette,
+        'supportsPalette': originalImage.supportsPalette,
+        'hasAnimation': originalImage.hasAnimation
+      });
+    }
+
+    if(jpgEx['softwareType'] != null) jpgEx['softwareType'] = jpgEx['softwareType'].index;
+
     ImageMeta i = ImageMeta(
+        error: error,
         fullPath: p.normalize(imagePath),
         re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
         mine: mine,
-        fileTypeExtension: fte,
+        fileTypeExtension: e,
+        fileSize: fileStat.size,
+        dateModified: fileStat.modified,
+        size: error == null ? ImageSize(width: originalImage!.width, height: originalImage.height) : const ImageSize(width: 500, height: 500),
+        specific: specific,
+        generationParams: gp,
+        other: jpgEx
+    );
+    if(error == null ) await i.makeThumbnail();
+    return i;
+  } else if(['webp'].contains(e)) {
+    Map<String, dynamic> specific = {};
+    Map<String, dynamic> webpEx = {};
+
+    final originalImage = img.decodeWebP(fileBytes);
+
+    // Fuuuuuck... it's u again...
+    var reader = BufferReader(data: fileBytes);
+    reader.setOffset(12);
+    while (true) {
+      final header = reader.getRange(reader.offset, 8);
+      if (header.isEmpty) {
+        print("No EXIF information found");
+        break;
+      } else if (header.length < 8) {
+        print("Invalid RIFF encoding");
+        break;
+      }
+
+      final tag = String.fromCharCodes(header.sublist(0, 4));
+      final length = Int8List.fromList(header.sublist(4, 8)).buffer.asByteData().getInt32(0, Endian.little);
+      print('$tag $length');
+
+      // According to exiftool's RIFF documentation, WebP uses "EXIF" as tag
+      // name while other RIFF-based files tend to use "Exif".
+      if (tag == "EXIF") {
+        // Look for Exif\x00\x00, and skip it if present. The WebP implementation
+        // in Exiv2 also handles a \xFF\x01\xFF\xE1\x00\x00 prefix, but with no
+        // explanation or test file present, so we ignore that for now.
+        List<int> exifHeader = reader.getRange(reader.offset, 6);
+        if (!listEqual(exifHeader, Uint8List.fromList('Exif\x00\x00'.codeUnits))) {
+          reader.setOffset(reader.offset - exifHeader.length);
+        }
+        final offset = reader.offset;
+        final endian = reader.endianOfByte(reader.getByte(reader.offset));
+        //ReadParams(endian: endian, offset: offset);
+        print('exif fosdofosidfiuasdbfiarws');
+        break;
+      }
+
+      // Skip forward to the next box.
+      reader.setOffset(reader.offset + length + header.length);
+    }
+
+
+    specific.addAll({
+      'bitsPerChannel': originalImage!.bitsPerChannel,
+      'rowStride': originalImage.rowStride,
+      'numChannels': originalImage.numChannels,
+      'isLdrFormat': originalImage.isLdrFormat,
+      'isHdrFormat': originalImage.isHdrFormat,
+      'hasPalette': originalImage.hasPalette,
+      'supportsPalette': originalImage.supportsPalette,
+      'hasAnimation': originalImage.hasAnimation
+    });
+
+    ImageMeta i = ImageMeta(
+        fullPath: p.normalize(imagePath),
+        re: re,
+        mine: mine,
+        fileTypeExtension: e,
+        fileSize: fileStat.size,
+        dateModified: fileStat.modified,
+        size: ImageSize(width: originalImage.width, height: originalImage.height),
+        specific: specific,
+        generationParams: gp,
+        other: webpEx
+    );
+    await i.makeThumbnail();
+    return i;
+  } else if(['gif'].contains(e)) {
+    Map<String, dynamic> specific = {};
+    Map<String, dynamic> gifEx = {};
+
+    final originalImage = img.decodeGif(fileBytes);
+    ImageMeta i = ImageMeta(
+        fullPath: p.normalize(imagePath),
+        re: re,
+        mine: mine,
+        fileTypeExtension: e,
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
         size: ImageSize(width: originalImage!.width, height: originalImage.height),
-        specific: {
-          'bitsPerChannel': originalImage.bitsPerChannel,
-          'rowStride': originalImage.rowStride,
-          'numChannels': originalImage.numChannels,
-          'isLdrFormat': originalImage.isLdrFormat,
-          'isHdrFormat': originalImage.isHdrFormat,
-          'hasPalette': originalImage.hasPalette,
-          'supportsPalette': originalImage.supportsPalette,
-          'hasAnimation': originalImage.hasAnimation
-        },
+        specific: specific,
         generationParams: gp,
-        other: jpgEx
+        other: gifEx
     );
     await i.makeThumbnail();
     return i;
@@ -433,13 +719,15 @@ class ImageKey{
   final RenderEngine type;
   final String parent;
   final String fileName;
+  final String? host;
 
   ImageKey({
     required this.type,
     required this.parent,
-    required this.fileName
+    required this.fileName,
+    this.host
   }){
-    keyup = genHash(type, parent, fileName);
+    keyup = genHash(type, parent, fileName, host: host);
   }
 }
 
@@ -462,6 +750,19 @@ String getColorType(int type){
     4: 'Greyscale with alpha',
     5: 'Unknown',
     6: 'Truecolor with alpha'
+  }[type] ?? 'Unknown';
+}
+
+String xmpColorModeToString(int type){
+  return <int, String>{
+    0: 'Bitmap',
+    1: 'Grayscale',
+    2: 'Indexed',
+    3: 'RGB',
+    4: 'CMYK',
+    7: 'Multichannel',
+    8: 'Duotone',
+    9: 'Lab',
   }[type] ?? 'Unknown';
 }
 
@@ -516,50 +817,72 @@ String getCompression(int type){
   }[type] ?? 'Unknown';
 }
 
+// final String fullPath;
+// final String? fullNetworkPath;
+// bool isLocal = true;
+// String? thumbnail;
+// String? thumbnailNetwork;
+
 class ImageMeta {
+  // Main
   String keyup = '';
-  final RenderEngine re;
-  final String? mine;
+  //Network
+  bool isLocal = true;
+  final String? host;
+  // Other
+  String? error;
+  RenderEngine re;
+  String? mine;
   final String fileTypeExtension;
   final DateTime dateModified;
   final int fileSize;
   String fileName = '';
-  final ImageSize size;
+  ImageSize? size;
   String pathHash = '';
-  final String fullPath;
+  String fullPath;
+  String? fullNetworkPath;
+  String? tempFilePath;
   GenerationParams? generationParams;
   String? thumbnail;
+  String? networkThumbnail;
   Map<String, dynamic>? other = {};
   Map<String, dynamic>? specific = {};
   bool isNSFW = false;
   ContentRating rating = ContentRating.G;
 
   ImageMeta({
+    this.error,
+    this.isLocal = true,
+    this.host,
     required this.re,
-    required this.mine,
+    this.mine,
     required this.fileTypeExtension,
     required this.fileSize,
     required this.dateModified,
-    required this.size,
+    this.size,
     this.specific,
     required this.fullPath,
+    this.fullNetworkPath,
     this.generationParams,
     this.thumbnail,
+    this.networkThumbnail,
     this.other,
   }){
     final String parentFolder = p.basename(File(fullPath).parent.path);
     fileName = p.basename(fullPath);
     pathHash = genPathHash(fullPath);
-    keyup = genHash(re, parentFolder, fileName);
+    keyup = genHash(re, parentFolder, fileName, host: host);
   }
 
   Future<Map<String, dynamic>> toMap() async {
     final String parentFolder = p.basename(File(fullPath).parent.path);
-    if(thumbnail == null){
+    if(thumbnail == null && isLocal){
       await makeThumbnail();
     }
     return {
       'keyup': keyup,
+      'isLocal': isLocal ? 1 : 0,
+      'host': host,
       'type': re.index,
       'parent': parentFolder,
       'fileName': fileName,
@@ -581,22 +904,196 @@ class ImageMeta {
 
   ImageKey getKey(){
     final String parentFolder = p.basename(File(fullPath).parent.path);
-    return ImageKey(type: re, parent: parentFolder, fileName: fileName);
+    return ImageKey(type: re, parent: parentFolder, fileName: fileName, host: host);
   }
 
   Future<void> makeThumbnail() async {
-    if(thumbnail == null) {
-      img.Image? im = await img.decodeImageFile(fullPath);
-      thumbnail = im != null ? base64Encode(img.encodeJpg(img.copyResize(im, width: 256), quality: 50)) : null;
+    if(thumbnail == null && isLocal) {
+      img.Image? data;
+      switch (mine?.split('/').last) {
+        case 'png':
+          data = await compute(img.decodePngFile, fullPath);
+          break;
+        case 'jpg':
+        case 'jpeg':
+          data = await compute(img.decodeJpgFile, fullPath);
+          break;
+        case 'gif':
+          data = await compute(img.decodeGifFile, fullPath);
+          break;
+        case 'webp':
+          data = await compute(img.decodeWebPFile, fullPath);
+          break;
+      }
+      thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
     }
   }
+
+  Future<void> parseNetworkImage() async {
+    if(!isLocal && fullNetworkPath != null){
+      // Download to temp
+      String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
+      String pa = p.join(appTempDir, '$keyup-$fileName');
+      File f = File(pa);
+      if(!f.existsSync()){
+        http.Response res = await http.get(Uri.parse(fullNetworkPath!));
+        if(res.statusCode == 200){
+          f.writeAsBytes(res.bodyBytes);
+          tempFilePath = pa;
+        }
+      } else {
+        tempFilePath = pa;
+      }
+
+      if(tempFilePath != null){
+        ImageMeta? im = await parseImage(RenderEngine.unknown, pa);
+        if(im != null){
+          size = im.size;
+          generationParams = im.generationParams;
+          other = im.other;
+          specific = im.specific;
+          mine = im.mine;
+          re = im.re;
+        }
+      }
+    }
+  }
+
+  String toText(TextType type){
+    bool byImageLib = fileTypeExtension != 'png';
+    String fi = '';
+    String prefix = [TextType.discord].contains(type) ? '> ': '';
+    bool b = [TextType.discord, TextType.md].contains(type);
+
+    String? colorType = byImageLib ? numChannelsToString(specific?['numChannels']) : specific?['colorType'] != null ? getColorType(specific?['colorType']) : null;
+
+    bool isWebuiForge = false;
+    String wForgeV = '';
+    String wUIV = '';
+    String parentVersion = '';
+
+    if(generationParams?.version != null){
+      RegExp ex = RegExp(r'(f[0-9]+\.[0-9]+\.[0-9]+)(v[0-9]+\.[0-9]+\.[0-9]+)(.*)');
+      if(ex.hasMatch(generationParams!.version ?? '')){
+        RegExpMatch match = ex.allMatches(generationParams!.version ?? '').first;
+        if(match[1] != null && match[1]!.startsWith('f')){
+          isWebuiForge = true;
+          List<String> pa = match[3]!.split('-');
+          wForgeV = match[1]!;
+          wUIV = '${match[2]}${pa[0]}';
+          parentVersion = pa.getRange(1, pa.length).join('-');
+        }
+      }
+    }
+
+    String tb(String t){
+      return b ? '`$t`' : t;
+    }
+
+    fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Image Info\n';
+    if(mine != null) fi += '${prefix}Mine type: ${tb(mine!)}\n';
+    fi += '${prefix}File size: ${tb(readableFileSize(fileSize))}\n';
+    if(size != null) fi += '${prefix}Size: ${tb('${size.toString()} (${aspectRatioFromSize(size!)})')}\n';
+    fi += '\n';
+
+    fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Raw\n';
+    fi += '${prefix}Bit depth: ${tb(byImageLib ? (specific?['bitsPerChannel'].toString() ?? 'None') : specific?['bitDepth'].toString() ?? 'None')}\n';
+    if(colorType != null) fi += '${prefix}Color type: ${tb(colorType)}\n';
+    if(specific?['compression'] != null) fi += '${prefix}Compression: ${tb(getCompression(specific?['compression']))}\n';
+    if(specific?['filter'] != null) fi += '${prefix}Filter: ${tb(getFilterType(specific?['filter']))}\n';
+    if(specific?['colorMode'] != null) fi += '${prefix}Color mode: ${tb(getInterlaceMethod(specific?['colorMode']))}\n';
+    if(specific?['profileName'] != null) fi += '${prefix}Profile name: ${tb(specific?['profileName'])}\n';
+    if(specific?['pixelUnits'] != null) fi += '${prefix}Pixel units: ${tb(specific?['pixelUnits'] == 1 ? 'Meters' : 'Not specified')}\n';
+    if(specific?['pixelsPerUnitX'] != null) fi += '${prefix}Pixels per unit X/Y: ${tb('${specific?['pixelsPerUnitX']}x${specific?['pixelsPerUnitY']}')}\n';
+    fi += '\n';
+
+    if(specific?['hasIccProfile'] != null){
+      fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}ICC Profile\n';
+      if(specific?['iccProfileName'] != null) fi += '${prefix}Raw Profile Name: ${tb(specific!['iccProfileName'])}\n';
+      if(specific?['iccCompressionMethod'] != null) fi += '${prefix}Compression method: ${tb(specific!['iccCompressionMethod'].toString())}\n';
+      if(specific?['iccCmmType'] != null) fi += '${prefix}CMM type: ${tb(getFilterType(specific?['iccCmmType']))}\n';
+      if(specific?['iccVersion'] != null) fi += '${prefix}Version: ${tb(getProfileVersionDescription(specific?['iccVersion']))}\n';
+      if(specific?['iccClass'] != null) fi += '${prefix}Profile Class: ${tb(getProfileClass(specific?['iccClass']))}\n';
+      if(specific?['iccColorSpace'] != null) fi += '${prefix}Color space: ${tb(specific?['iccColorSpace'])}\n';
+      if(specific?['iccConnectionSpace'] != null) fi += '${prefix}Connection space: ${tb(specific?['iccConnectionSpace'])}\n';
+      if(specific?['iccSignature'] != null) fi += '${prefix}Signature: ${tb(specific?['iccSignature'])}\n';
+      if(specific?['iccPlatform'] != null) fi += '${prefix}Platform: ${tb(getPlatform(specific?['iccPlatform']))}\n';
+      if(specific?['iccDeviceMake'] != null) fi += '${prefix}Device make: ${tb(specific?['iccDeviceMake'])}\n';
+      if(specific?['iccRenderingIntent'] != null) fi += '${prefix}Rendering intent: ${tb(getIndexedDescription(specific?['iccRenderingIntent']))}\n';
+      fi += '\n';
+    }
+
+    if(specific?['xmpCreatorTool'] != null){
+      fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Editor\n';
+      fi += '${prefix}Creator tool: ${tb(specific?['xmpCreatorTool'])}\n';
+      if(specific?['xmpPhotoshopColorMode'] != null) fi += '${prefix}Photoshop colormode: ${tb(xmpColorModeToString(specific?['xmpPhotoshopColorMode']))}\n';
+      if(specific?['xmpCreateDate'] != null) fi += '${prefix}Create date: ${tb(specific?['xmpCreateDate'])}\n';
+      if(specific?['xmpModifyDate'] != null) fi += '${prefix}Modify date: ${tb(specific?['xmpModifyDate'])}\n';
+      if(specific?['xmpMetadataDate'] != null) fi += '${prefix}Metadata date: ${tb(specific?['xmpMetadataDate'])}\n';
+      if(specific?['xmpDcFormat'] != null) fi += '${prefix}DC format: ${specific?['xmpDcFormat']}}\n';
+      fi += '\n';
+    }
+
+    if(generationParams != null){
+      fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Generation Info\n';
+      if(re != RenderEngine.unknown) fi += '${prefix}Render engine: ${tb(renderEngineToString(re))}\n';
+      if(other?['softwareType'] != null) fi += '${prefix}Software: ${tb(softwareToString(Software.values[other?['softwareType']]))}\n';
+      fi += 'Promt:\n```diff\n';
+      if(generationParams?.positive != null) fi += '+ ${generationParams!.positive.replaceAll("\n", " ").trim()}\n';
+      if(generationParams?.positive != null && generationParams?.negative != null) fi += '\n';
+      if(generationParams?.negative != null) fi += '- ${generationParams!.negative.replaceAll("\n", " ").trim()}\n';
+      fi += '```\n';
+      fi += '${prefix}Checkpoint type: ${tb(checkpointTypeToString(generationParams!.checkpointType))}\n';
+      fi += '${prefix}Checkpoint: ${tb('${generationParams!.checkpoint}${generationParams!.checkpointHash != null ? ' (${generationParams!.checkpointHash})' : ''}')}\n';
+      fi += '$prefix**Sampling**\n';
+      fi += '${prefix}Method: ${tb(generationParams!.sampler)}\n';
+      fi += '${prefix}Steps: ${tb(generationParams!.steps.toString())}\n';
+      fi += '${prefix}CFG Scale: ${tb(generationParams!.cfgScale.toString())}\n';
+      if(generationParams?.denoisingStrength != null && generationParams?.hiresUpscale == null) fi += '${prefix}Denoising strength: ${tb(generationParams!.denoisingStrength.toString())}\n';
+      if(generationParams?.hiresUpscale != null){
+        fi += '$prefix**Hi-res**\n';
+        if(generationParams?.hiresSampler != null) fi += '${prefix}Sampler: ${tb(generationParams?.hiresSampler ?? 'None')}\n';
+        fi += '${prefix}Denoising strength: ${tb(generationParams!.denoisingStrength.toString())}\n';
+        fi += '${prefix}Upscaler: ${tb(generationParams!.hiresUpscaler ?? 'None (Lanczos)')}\n';
+        fi += '${prefix}Upscale: ${tb('${generationParams!.hiresUpscale} (${generationParams!.size.withMultiply(generationParams!.hiresUpscale ?? 0)})')}\n';
+      }
+      fi += '${prefix}Seed: ${tb(generationParams!.seed.toString())}\n';
+      fi += '${prefix}Width and height: ${tb('${generationParams!.size.width}x${generationParams!.size.height}')}\n';
+      if(isWebuiForge){
+        fi += '$prefix**Version**\n';
+        fi += '${prefix}WebUI Forge: ${tb(wForgeV)}\n';
+        fi += '${prefix}Parent version: ${tb(parentVersion)}\n';
+        fi += '${prefix}WebUI: ${tb(wUIV)}';
+      } else {
+        if(generationParams?.version != null) fi += '${prefix}Version: ${tb(generationParams?.version ?? 'Undefined')}';
+      }
+    }
+    return fi;
+  }
+}
+
+enum TextType{
+  raw,
+  discord,
+  md
 }
 
 enum CheckpointType{
   unknown,
   model,
   refiner,
-  inpaint
+  inpaint,
+  unet
+}
+
+String checkpointTypeToString(CheckpointType ct){
+  return {
+    CheckpointType.unknown: 'Unknown',
+    CheckpointType.model: 'Model',
+    CheckpointType.refiner: 'Refiner',
+    CheckpointType.inpaint: 'Inpaint',
+    CheckpointType.unet: 'UNet'
+  }[ct] ?? 'Unknown*';
 }
 
 enum RenderEngine{
@@ -607,8 +1104,44 @@ enum RenderEngine{
   txt2imgGrid,
   img2imgGrid,
   extra,
-  comfUI,
-  topazPhotoAI
+  comfUI
+}
+
+enum Software {
+  topazPhotoAI,
+  photoshop,
+  novelAI,
+  artBot, // https://tinybots.net/artbot
+  adobeImageReady,
+  celsysStudioTool,
+  tensorArt, // https://tensor.art/,
+  photoScape
+}
+
+String renderEngineToString(RenderEngine re){
+  return {
+    RenderEngine.unknown: 'Unknown',
+    RenderEngine.txt2img: 'txt2img',
+    RenderEngine.img2img: 'img2img',
+    RenderEngine.inpaint: 'Inpaint',
+    RenderEngine.txt2imgGrid: 'txt2img grid',
+    RenderEngine.img2imgGrid: 'img2img grid',
+    RenderEngine.extra: 'Extra',
+    RenderEngine.comfUI: 'ComfUI'
+  }[re] ?? 'Unknown*';
+}
+
+String softwareToString(Software re){
+  return {
+    Software.topazPhotoAI: 'Topaz Photo AI',
+    Software.photoshop: 'Photoshop',
+    Software.novelAI: 'NovelAI',
+    Software.artBot: 'ArtBot',
+    Software.adobeImageReady: 'Adobe ImageReady',
+    Software.celsysStudioTool: 'Celsys Studio Tool',
+    Software.tensorArt: 'TensorArt',
+    Software.photoScape: 'PhotoScape'
+  }[re] ?? 'Unknown*';
 }
 
 class ImageSize {
@@ -667,9 +1200,16 @@ List<String> x = [
 
 ];
 
+// TODO ;d
 ContentRating getContentRating(String text){
   // First - normalize
   text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
 
   return ContentRating.G;
+}
+
+String genHash(RenderEngine re, String parent, String name, {String? host}){
+  List<int> bytes = utf8.encode([host != null ? 'network' : 'local', host ?? 'null', re.index.toString(), parent, name].join());
+  String hash = sha256.convert(bytes).toString();
+  return hash;
 }

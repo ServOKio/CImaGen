@@ -29,6 +29,12 @@ class BufferReader{
   void addOffset(int off) => _offset += off;
   void setOffset(int off) => _offset = off;
 
+  int getInt8({bool dontMove = false, int? offset}){
+    int v = getByte(offset ?? _offset);
+    if(!dontMove && offset == null) _offset = (offset ?? _offset) + 1;
+    return v;
+  }
+
   int getUint8(){
     var value = view.getInt8(_offset);
     _offset += 1;
@@ -45,6 +51,37 @@ class BufferReader{
     var value = view.getInt16(offset ?? _offset, endian);
     _offset = (offset ?? _offset) + 2;
     return value;
+  }
+
+  int getUInt16({bool dontMove = false, int? offset}){
+    //validateIndex(index, 2);
+
+    if (_isMotorolaByteOrder) {
+      // Motorola - MSB first
+      int f = (getByte(offset ?? _offset) << 8 & 0xFF00) | (getByte((offset ?? _offset) + 1) & 0xFF);
+      if(!dontMove && offset == null) _offset = (offset ?? _offset) + 2;
+      return f;
+    } else {
+      // Intel ordering - LSB first
+      int f = (getByte((offset ?? _offset) + 1) << 8 & 0xFF00) | (getByte(offset ?? _offset) & 0xFF);
+      if(!dontMove && offset == null) _offset = (offset ?? _offset) + 2;
+      return f;
+    }
+  }
+
+  double getS15Fixed16({int? offset}) {
+    if (_isMotorolaByteOrder) {
+      int res = (getByte(offset ?? _offset) & 0xFF) << 8 | (getByte((offset ?? _offset) + 1) & 0xFF);
+      int d = (getByte((offset ?? _offset) + 2) & 0xFF) << 8 | (getByte((offset ?? _offset) + 3) & 0xFF);
+      if(offset == null) _offset += 4;
+      return res + d / 65536.0;
+    } else {
+      // this particular branch is untested
+      int res = (getByte((offset ?? _offset) + 3) & 0xFF) << 8 | (getByte((offset ?? _offset) + 2) & 0xFF);
+      int d = (getByte((offset ?? _offset) + 1) & 0xFF) << 8 | (getByte(offset ?? _offset) & 0xFF);
+      if(offset == null) _offset += 4;
+      return (res + d / 65536.0);
+    }
   }
 
   int getInt64(){
@@ -70,10 +107,10 @@ class BufferReader{
     return value;
   }
 
-  List<int> get(int? byteLength){
+  List<int> get(int? byteLength, {bool dontMove = false}){
     int? end = byteLength == null ? null : _offset + byteLength;
     var value = data.sublist(_offset, end);
-    _offset += value.length;
+    if(!dontMove) _offset += value.length;
     return value;
   }
 
@@ -81,21 +118,6 @@ class BufferReader{
     int end = start + byteLength;
     var value = data.sublist(start, end);
     return value;
-  }
-
-  double getS15Fixed16({int? offset}) {
-    if (_isMotorolaByteOrder) {
-      int res = (getByte(offset ?? _offset) & 0xFF) << 8 | (getByte((offset ?? _offset) + 1) & 0xFF);
-      int d = (getByte((offset ?? _offset) + 2) & 0xFF) << 8 | (getByte((offset ?? _offset) + 3) & 0xFF);
-      if(offset == null) _offset += 4;
-      return res + d / 65536.0;
-    } else {
-      // this particular branch is untested
-      int res = (getByte((offset ?? _offset) + 3) & 0xFF) << 8 | (getByte((offset ?? _offset) + 2) & 0xFF);
-      int d = (getByte((offset ?? _offset) + 1) & 0xFF) << 8 | (getByte(offset ?? _offset) & 0xFF);
-      if(offset == null) _offset += 4;
-      return (res + d / 65536.0);
-    }
   }
 
   int getByte(int index){
@@ -143,5 +165,12 @@ class BufferReader{
     } else {
       return "ICC data describes an invalid date/time: year=$y month=$m day=$d hour=$h minute=$M second=$s";
     }
+  }
+
+  Endian endianOfByte(int b) {
+    if (b == 'I'.codeUnitAt(0)) {
+      return Endian.little;
+    }
+    return Endian.big;
   }
 }

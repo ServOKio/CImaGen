@@ -2,13 +2,16 @@ import 'dart:convert';
 
 import 'package:cimagen/components/CustomActionButton.dart';
 import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/webUI/NNancy.dart';
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:gap/gap.dart';
 import 'package:image_compare_slider/image_compare_slider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/rendering.dart';
 
 import '../Utils.dart';
 import '../components/ImageInfo.dart';
@@ -32,10 +35,6 @@ bool fillHandle = true;
 double handleRadius = 10;
 Color? itemOneColor;
 Color? itemTwoColor;
-BlendMode itemOneBlendMode = BlendMode.overlay;
-BlendMode itemTwoBlendMode = BlendMode.darken;
-Widget Function(Widget)? itemOneWrapper;
-Widget Function(Widget)? itemTwoWrapper;
 
 int maxSize = 1280;
 
@@ -43,7 +42,7 @@ class Comparison extends StatefulWidget{
   const Comparison({ Key? key }): super(key: key);
 
   @override
-  _ComparisonState createState() => _ComparisonState();
+  State<Comparison> createState() => _ComparisonState();
 }
 
 class _ComparisonState extends State<Comparison> {
@@ -54,12 +53,20 @@ class _ComparisonState extends State<Comparison> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
-        CustomActionButton(icon: Icons.remove_red_eye, tooltip: 'Automatically use the last generated image as a test', onPress: (){
-
-        }, getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest()),
+        CustomActionButton(
+            icon: Icons.remove_red_eye,
+            tooltip: 'Automatically use the last generated image as a test',
+            onPress: (){
+              NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest();
+            },
+            getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
+        ),
         CustomActionButton(icon: Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
 
-        }, getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest())
+        }, getter: () => false),
+        CustomActionButton(icon: Icons.image_search, tooltip: 'Show the difference', onPress: (){
+
+        }, getter: () => false)
       ]);
     });
   }
@@ -77,12 +84,6 @@ class _ComparisonState extends State<Comparison> {
     final dataModel = Provider.of<DataModel>(context);
     bool most = dataModel.comparisonBlock.getImages.where((e) => e.size.width < e.size.height).length > dataModel.comparisonBlock.getImages.length;
     bool isScreenWide = most;
-
-    List<Difference>? difference;
-    if(dataModel.comparisonBlock.bothHasGenerationParams) {
-      difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
-    }
-    bool hasDiff = difference != null;
     return Scaffold(
       body: Flex(
         direction: isScreenWide ? Axis.horizontal : Axis.vertical,
@@ -185,11 +186,14 @@ class ViewBlock extends StatefulWidget {
   const ViewBlock({ Key? key }): super(key: key);
 
   @override
-  _ViewBlockState createState() => _ViewBlockState();
+  State<ViewBlock> createState() => _ViewBlockState();
 }
 
 class _ViewBlockState extends State<ViewBlock> {
   GlobalKey stickyKey = GlobalKey();
+
+  bool _showImageDifference = false;
+  bool _asSplit = false;
 
   double _scale = 0;
   final TransformationController _transformationController = TransformationController();
@@ -217,6 +221,102 @@ class _ViewBlockState extends State<ViewBlock> {
   @override
   Widget build(BuildContext context) {
     final dataModel = Provider.of<DataModel>(context);
+
+    final entries = <ContextMenuEntry>[
+      MenuItem(
+        label: 'Show as split',
+        icon: Icons.splitscreen,
+        onSelected: () {
+          setState(() {
+            _asSplit = !_asSplit;
+          });
+        },
+      ),
+      MenuItem(
+        label: 'Show the visual difference',
+        icon: Icons.image_search_rounded,
+        onSelected: () {
+          setState(() {
+            _showImageDifference = !_showImageDifference;
+          });
+        },
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: 'Find difference ',
+        icon: Icons.difference,
+        onSelected: () {
+          List<Difference>? difference;
+          if(dataModel.comparisonBlock.bothHasGenerationParams) {
+            difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
+          }
+          bool hasDiff = difference != null && difference.isNotEmpty;
+
+          if(hasDiff){
+            Map<String, String> keysMap = {
+              'cfgScale': 'cfgS',
+              'size': 'w&h',
+              'modelHash': 'mHash',
+              'denoisingStrength': 'D.s.',
+              'rng': 'RNG',
+              'hiresSampler': 'hSampler',
+              'hiresUpscale': 'hUpscale',
+              'version': 'v'
+            };
+
+            showDialog<String>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                icon: const Icon(Icons.remove_red_eye),
+                iconColor: Colors.yellowAccent,
+                title: const Text('The images have differences'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: difference!.map((ent){
+                    return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
+                  }).toList()
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'OK'),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            showDialog<String>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                icon: const Icon(Icons.question_mark),
+                title: const Text('Seriously?'),
+                content: const Text('The images have the same parameters'),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: (){
+                      Navigator.pop(context, 'Help');
+                      NNancy.calculateTransformersCacheHash('F:/PC2/documents/TRANSFORMERS_CACHE');
+                    },
+                    child: const Text('Try to find the error'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'OK'),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+        },
+      ),
+    ];
+
+    final contextMenu = ContextMenu(
+      entries: entries,
+      padding: const EdgeInsets.all(8.0),
+    );
+
     return Stack(
       children: [
         MouseRegion(
@@ -237,12 +337,29 @@ class _ViewBlockState extends State<ViewBlock> {
               width: MediaQuery.of(context).size.width,
               height: MediaQuery.of(context).size.height,
               child: Center(
-                child: ImageCompareSlider(
-                    itemOne: dataModel.comparisonBlock.firstCache!,
-                    itemTwo: dataModel.comparisonBlock.secondCache!,
-                    dividerWidth: 1.5,
-                    handleSize: const Size(10, 10),
-                    handleRadius: const BorderRadius.all(Radius.circular(0))
+                child: ContextMenuRegion(
+                  contextMenu: contextMenu,
+                  child: _asSplit ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                    Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
+                    Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                  ]) : _showImageDifference ? Stack(
+                    children: [
+                      Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
+                      BlendMask(
+                        opacity: 1.0,
+                        blendMode: BlendMode.difference,
+                        child: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
+                      ),
+                    ],
+                  ): ImageCompareSlider(
+                      itemOne: Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
+                      itemTwo: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                      dividerWidth: 1.5,
+                      handleSize: const Size(0, 0),
+                      handleRadius: const BorderRadius.all(Radius.circular(0))
+                  ),
                 ),
               ),
             ),
@@ -304,12 +421,12 @@ class GetInfoOrShit extends StatelessWidget {
 }
 
 class ImageList extends StatefulWidget {
-  final List<ImageMeta> images;
+  final List<dynamic> images;
 
   const ImageList({ Key? key, required this.images }): super(key: key);
 
   @override
-  _ImageListStateStateful createState() => _ImageListStateStateful();
+  State<ImageList> createState() => _ImageListStateStateful();
 }
 
 class _ImageListStateStateful extends State<ImageList>{
@@ -368,6 +485,16 @@ class _ImageListStateStateful extends State<ImageList>{
                     ),
                     const MenuDivider(),
                     MenuItem(
+                      label: 'Send to MiniSD',
+                      value: 'send_to_minisd',
+                      icon: Icons.web_rounded,
+                      onSelected: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: im)));
+                        // implement redo
+                      },
+                    ),
+                    const MenuDivider(),
+                    MenuItem(
                       label: 'Show in explorer',
                       value: 'show_in_explorer',
                       icon: Icons.compare,
@@ -398,11 +525,11 @@ class _ImageListStateStateful extends State<ImageList>{
                           child: Stack(
                             children: [
                               AspectRatio(
-                                aspectRatio: im.size.width / im.size.height,
-                                child: Image.memory(
-                                  gaplessPlayback: true,
-                                  base64Decode(im.thumbnail ?? '')
-                                ),
+                                aspectRatio: im.size!.width / im.size!.height,
+                                child: im.isLocal ? Image.memory(
+                                    gaplessPlayback: true,
+                                    base64Decode(im.thumbnail ?? '')
+                                ) : Image.network(im.networkThumbnail!),
                               ),
                               Positioned(
                                 bottom: 0,
@@ -454,6 +581,7 @@ class _ImageListStateStateful extends State<ImageList>{
                                               Text(im.generationParams!.size.toString(), style: const TextStyle(fontSize: 10, color: Colors.white))
                                             ],
                                           ) : const SizedBox.shrink(),
+                                          Text(im.fileName.split('-').first, style: const TextStyle(fontSize: 10, color: Colors.white)),
                                           //im.generationParams != null ? Text((im.generationParams!.seed).toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink()
                                           //{steps: 35, sampler: DPM adaptive, cfg_scale: 7, seed: 1624605927, size: 2567x1454, model_hash: a679b318bd, model: 0.7(bb95FurryMix_v100) + 0.3(crosskemonoFurryModel_crosskemono25), denoising_strength: 0.35, rng: NV, ti_hashes: "easynegative, version: 1.7.0}
                                         ],
@@ -559,4 +687,50 @@ extension RegExpExtension on RegExp {
 
 extension StringExtension on String {
   List<String> splitWithDelim(RegExp pattern) => pattern.allMatchesWithSep(this);
+}
+
+class BlendMask extends SingleChildRenderObjectWidget {
+  final BlendMode blendMode;
+  final double opacity;
+
+  const BlendMask({
+    required this.blendMode,
+    this.opacity = 1.0,
+    super.key,
+    super.child,
+  });
+
+  @override
+  RenderObject createRenderObject(context) {
+    return RenderBlendMask(blendMode, opacity);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, RenderBlendMask renderObject) {
+    renderObject.blendMode = blendMode;
+    renderObject.opacity = opacity;
+  }
+}
+
+class RenderBlendMask extends RenderProxyBox {
+  BlendMode blendMode;
+  double opacity;
+
+  RenderBlendMask(this.blendMode, this.opacity);
+
+  @override
+  void paint(context, offset) {
+    // Create a new layer and specify the blend mode and opacity to composite it with:
+    context.canvas.saveLayer(
+      offset & size,
+      Paint()
+        ..blendMode = blendMode
+        ..color = Color.fromARGB((opacity * 255).round(), 255, 255, 255),
+    );
+
+    super.paint(context, offset);
+
+    // Composite the layer back into the canvas using the blendmode:
+    context.canvas.restore();
+  }
 }

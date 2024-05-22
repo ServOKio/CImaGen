@@ -20,8 +20,9 @@ import 'package:cimagen/Utils.dart';
 import 'package:cimagen/pages/Comparison.dart';
 import 'package:cimagen/pages/Gallery.dart';
 import 'package:cimagen/pages/Home.dart';
-import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -33,6 +34,7 @@ import 'l10n/all_locales.dart';
 GitHub? githubAPI;
 AppBarController? appBarController;
 NotificationManager? notificationManager;
+SharedPreferences? prefs;
 
 Future<void> main() async {
   bool debug = false;
@@ -40,6 +42,7 @@ Future<void> main() async {
     runApp(Test());
   } else {
     WidgetsFlutterBinding.ensureInitialized();
+    await SystemTheme.accentColor.load();
     if (Platform.isWindows) {
       await windowManager.ensureInitialized();
       WindowManager.instance.setMinimumSize(const Size(450, 450));
@@ -80,9 +83,14 @@ class Test extends StatelessWidget {
 class MyApp extends StatelessWidget {
 
   MyApp({super.key}) {
+    initAsync();
     appBarController = AppBarController();
     notificationManager = NotificationManager();
     notificationManager?.init();
+  }
+
+  Future<void> initAsync() async {
+    prefs = await SharedPreferences.getInstance();
   }
 
   @override
@@ -94,10 +102,24 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConfigManager()),
         ChangeNotifierProvider(create: (_) => SQLite()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
-        ChangeNotifierProvider(create: (_) => ThemeManager(darkTheme)),
+        ChangeNotifierProvider(create: (_) => ThemeManager()),
         ChangeNotifierProvider(create: (_) => SaveManager()),
       ],
-      child: const BetterFeedback(child: WTF())
+      child: BetterFeedback(
+          theme: FeedbackThemeData(
+            background: Colors.black,
+            bottomSheetDescriptionStyle: const TextStyle(color: Colors.white),
+            bottomSheetTextInputStyle: const TextStyle(color: Colors.white),
+            feedbackSheetColor: Colors.grey[900]!,
+            drawColors: [
+              Colors.red,
+              Colors.green,
+              Colors.blue,
+              Colors.yellow,
+            ],
+          ),
+          child: WTF()
+      )
     );
   }
 }
@@ -119,7 +141,7 @@ class WTF extends StatelessWidget{
       locale: Provider.of<LocaleProvider>(context).locale,
 
       navigatorKey: NavigationService.navigatorKey,
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: true,
       theme: theme.getTheme,
       darkTheme: theme.getTheme,
       themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
@@ -138,8 +160,7 @@ class Main extends StatefulWidget {
 
 class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   late PageController _pageViewController;
-  late TabController _tabController;
-  int _currentPageIndex = 3;
+  int _currentPageIndex = 0; // 3
   bool permissionRequired = false;
 
   bool loaded = false;
@@ -151,11 +172,6 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     super.initState();
     _pageViewController = PageController(
       initialPage: _currentPageIndex
-    );
-    _tabController = TabController(
-        length: 7,
-        initialIndex: _currentPageIndex,
-        vsync: this
     );
     initMe();
   }
@@ -215,12 +231,12 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   void dispose() {
     super.dispose();
     _pageViewController.dispose();
-    _tabController.dispose();
   }
 
   void _showModalBottomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
@@ -236,51 +252,17 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     final theme = Provider.of<ThemeManager>(context);
 
     return Scaffold(
-      drawer: Drawer(
-        // Add a ListView to the drawer. This ensures the user can scroll
-        // through the options in the drawer if there isn't enough vertical
-        // space to fit everything.
-        child: ListView(
-          // Important: Remove any padding from the ListView.
-          padding: EdgeInsets.zero,
-          children: const [
-            Text('fdf')
-          ],
-        ),
-      ),
-      endDrawer: Theme(
-          data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
-          child: const Drawer(
-              child: Stack(
-                  children: [
-                    Column(
-                        children: <Widget>[
-                          Center(child: Text('gdfg', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600))),
-                          Padding(padding: EdgeInsets.all(7),child: Column(children: [
-                            Text('All content posted is responsibility of its respective poster and neither the site nor its staff shall be held responsible or liable in any way shape or form.', style: TextStyle(fontSize: 10)),
-                            Text('Please be aware that this kind of fetish artwork is NOT copyrightable in the hosting country and there for its copyright may not be upheld.', style: TextStyle(fontSize: 10)),
-                            Text('We are NOT obligated to remove content under the Digital Millennium Copyright Act.', style: TextStyle(fontSize: 10))
-                          ])),
-                          Padding(padding: EdgeInsets.only(left: 7, right: 7, bottom: 7), child: Text('Contact us by by phone toll-free! 1-844-FOX-BUTT (369-2888)', style: TextStyle(fontSize: 10)))
-                        ]
-                    )
-                  ]
-
-              )
-          )
-      ),
       appBar: CAppBar(),
       body: PageView(
-        physics: Platform.isWindows ? const NeverScrollableScrollPhysics() : null,
+        physics: const NeverScrollableScrollPhysics(),
         controller: _pageViewController,
-        onPageChanged: _handlePageViewChanged,
         children: <Widget>[
           loaded ? const Home() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? const Gallery() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? const Timeline() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? const Comparison() : LoadingState(loaded: loaded, errorMessage: error),
-          loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-          loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+          // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+          // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
           const Settings()
         ],
       ),
@@ -300,9 +282,6 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         selectedIndex: _currentPageIndex,
         onDestinationSelected: (int index) {
-          setState(() {
-            _currentPageIndex = index;
-          });
           _updateCurrentPageIndex(index);
         },
         destinations: const <Widget>[
@@ -326,14 +305,14 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             selectedIcon: Icon(Icons.add_to_photos),
             label: 'Comparison',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.border_all_sharp),
-            label: 'Grid rebuild',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.amp_stories),
-            label: 'Maybe',
-          ),
+          // NavigationDestination(
+          //   icon: Icon(Icons.border_all_sharp),
+          //   label: 'Grid rebuild',
+          // ),
+          // NavigationDestination(
+          //   icon: Icon(Icons.amp_stories),
+          //   label: 'Maybe',
+          // ),
           NavigationDestination(
             icon: Icon(Icons.settings),
             label: 'Settings',
@@ -344,35 +323,14 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   }
 
   void _updateCurrentPageIndex(int index) {
-    _tabController.index = index;
+    setState(() {
+      _currentPageIndex = index;
+    });
     _pageViewController.animateToPage(
       index,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
     );
-  }
-
-  void _handlePageViewChanged(int currentPageIndex) {
-    // if (!_isOnDesktopAndWeb) {
-    //   return;
-    // }
-    _tabController.index = currentPageIndex;
-  }
-
-  bool get _isOnDesktopAndWeb {
-    if (kIsWeb) {
-      return true;
-    }
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.macOS:
-      case TargetPlatform.linux:
-      case TargetPlatform.windows:
-        return true;
-      case TargetPlatform.android:
-      case TargetPlatform.iOS:
-      case TargetPlatform.fuchsia:
-        return false;
-    }
   }
 }
 

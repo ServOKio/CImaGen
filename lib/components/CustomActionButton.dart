@@ -17,7 +17,7 @@ class _CustomActionButtonState extends State<CustomActionButton>{
 
   @override
   void initState(){
-    //blyat
+    active = widget.getter();
   }
 
   @override

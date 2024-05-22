@@ -28,8 +28,8 @@ class _TimelineState extends State<Timeline> {
   @override
   void initState() {
     super.initState();
-    var go = context.read<ConfigManager>().config['outdir_txt2img_samples'];
-    if(go == null){
+    var go = context.read<ImageManager>().getter.loaded;
+    if(!go){
       sr = true;
     } else {
       final dataModel = Provider.of<DataModel>(context, listen: false);
@@ -37,12 +37,12 @@ class _TimelineState extends State<Timeline> {
           dataModel.timelineBlock.getSeed
       ).then((v2) {
         ImageRow row = ImageRow();
-        v2.forEach((image) {
+        for (var image in v2) {
           if(debug){
             row.addExtraMain(image);
             rows.add(row);
             row = ImageRow();
-            return;
+            continue;
           }
           if(image.re == RenderEngine.txt2img){
             bool isHiRes = image.generationParams?.denoisingStrength != null;
@@ -94,12 +94,13 @@ class _TimelineState extends State<Timeline> {
               }
             }
           } else if(image.re == RenderEngine.img2img){
-            if(row.hasMain() && row.hasExtraMain()){ // Есть оба
+            if(row.hasMain() && row.hasExtraMain()){// Есть оба
               // Бля, а вот тут боль - при сохранение, допустим картинка отрендерилась, можно написать хуйню и оно сохранит в хуйней, а не с тем что рендерило
               bool shit = false;
 
               if(!isIdenticalPromt(row.extraMain, image)) shit = true;
-              if(row.extraMain != null && row.extraMain?.size.aspectRatio() != image.size.aspectRatio()) shit = true;
+              // TODO потом
+              // if(row.extraMain != null && row.extraMain?.size.aspectRatio() != image.size.aspectRatio()) shit = true;
               if(shit){ //Получается онли img2img
                 rows.add(row);
                 row = ImageRow();
@@ -117,7 +118,7 @@ class _TimelineState extends State<Timeline> {
               }
             }
           }
-        });
+        }
         if(mounted) {
           setState(() {
           loaded = true;
@@ -130,7 +131,7 @@ class _TimelineState extends State<Timeline> {
 
   @override
   Widget build(BuildContext context) {
-    return sr ? Center(
+    return sr ? const Center(
       child: SetupRequired(webui: true, comfyui: false),
     ) : Row(
         children: <Widget>[
@@ -201,9 +202,9 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   // final CheckpointType checkpointType;
   if(o.checkpointType != t.checkpointType) d.add(Difference(key: 'checkpointType', oldValue: o.checkpointType.toString(), newValue: t.checkpointType.toString()));
   // final String model;
-  if(o.checkpoint != t.checkpoint) d.add(Difference(key: 'checkpoint', oldValue: o.checkpoint, newValue: t.checkpoint));
+  if(o.checkpoint != t.checkpoint) d.add(Difference(key: 'checkpoint', oldValue: o.checkpoint ?? '-', newValue: t.checkpoint ?? '-'));
   // final String modelHash;
-  if(o.checkpointHash != t.checkpointHash) d.add(Difference(key: 'checkpointHash', oldValue: o.checkpointHash, newValue: t.checkpointHash));
+  if(o.checkpointHash != t.checkpointHash) d.add(Difference(key: 'checkpointHash', oldValue: o.checkpointHash ?? '-', newValue: t.checkpointHash ?? '-'));
   // final double? denoisingStrength;
   if(o.denoisingStrength != t.denoisingStrength) d.add(Difference(key: 'denoisingStrength', oldValue: (o.denoisingStrength ?? '-').toString(), newValue: (t.denoisingStrength ?? '-').toString()));
   // final String? rng;
@@ -214,9 +215,11 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
+
+  if(o.all?['hires_steps'] != t.all?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.all?['hires_steps'] ?? '-').toString(), newValue: (t.all?['hires_steps'] ?? '-').toString()));
   // final Map<String, String>? tiHashes;
   // final String version;
-  if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version, newValue: t.version));
+  if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
 
   return d;
 }
@@ -312,6 +315,7 @@ class _RowListState extends State<RowList> {
               ),
             ),
           ),
+          // TODO Fix
           Row(
             children: [
               SizedBox( // Основное
@@ -332,19 +336,19 @@ class _RowListState extends State<RowList> {
                     )
                   ],
                 ) : metaExtra != null && (findFirstMain(widget.rows, widget.index) != null && isIdenticalPromt(findFirstMain(widget.rows, widget.index)!.main, metaExtra)) ? AspectRatio(
-                  aspectRatio: metaExtra.size.aspectRatio(),
+                  aspectRatio: metaExtra.size!.aspectRatio(),
                   child: CustomPaint(
                     painter: TimeLineLine(),
                     child: Container(),
                   ),
                 ) : widget.rowData.hasSecond() ? AspectRatio(
-                  aspectRatio: widget.rowData.images2[0].size.aspectRatio(),
+                  aspectRatio: widget.rowData.images2[0].size!.aspectRatio(),
                   child: Container(
                     height: height,
                     color: Colors.pink,
                   ),
                 ) : metaExtra != null ? AspectRatio(
-                  aspectRatio: metaExtra.size.aspectRatio(),
+                  aspectRatio: metaExtra.size!.aspectRatio(),
                   child: Container(
                     height: height,
                     color: Colors.indigoAccent,
@@ -376,7 +380,7 @@ class _RowListState extends State<RowList> {
                     ],
                   ) : const Text('none')
               ) : meta != null && widget.rowData.hasSecond() ? AspectRatio(
-                aspectRatio: meta.size.aspectRatio(),
+                aspectRatio: meta.size!.aspectRatio(),
                 child: Container(
                   color: Colors.blue,
                   child: const Text('fdf'),
@@ -384,7 +388,7 @@ class _RowListState extends State<RowList> {
               ) : widget.rowData.hasSecond() ? SizedBox(
                 height: height,
                 child: AspectRatio(
-                  aspectRatio: widget.rowData.images2[0].size.aspectRatio(),
+                  aspectRatio: widget.rowData.images2[0].size!.aspectRatio(),
                   child: Container(
                     color: Colors.cyanAccent,
                   ),

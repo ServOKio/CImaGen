@@ -4,56 +4,92 @@ import 'dart:math';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:crypto/crypto.dart';
+import 'dart:ffi';
+
+import 'package:ffi/ffi.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
+import 'package:win32/win32.dart';
 
 class ConfigManager with ChangeNotifier {
-  //init
-  Map<String, dynamic> _json = <String, dynamic>{};
   int _count = 0;
 
   //Getter
   int get count => _count;
-  Map<String, dynamic> get config => _json;
 
-  // WebUI
-  String _webui_root = '';
-  String _webui_outputs_folder = '';
+  String _tempDir = './temp';
+  String get tempDir => _tempDir;
 
-  Map<String, String> _webuiPaths = {};
-  Map<String, String> get webuiPaths => _webuiPaths;
+  bool _isNull = false;
+  bool get isNull => _isNull;
 
   Future<void> init() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String sdWebuiFolder = (prefs.getString('sd_webui_folter') ?? '');
-    if(sdWebuiFolder.isNotEmpty){
-      _webui_root = sdWebuiFolder;
-      final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
-      final data = await json.decode(response);
-      _json = data;
+    Directory appTempDir = await getTemporaryDirectory();
+    Directory tDir = Directory(p.join(appTempDir.path, 'cImagen'));
+    if(!tDir.existsSync()){
+      tDir.create(recursive: true).then((value) => _tempDir = value.path);
     } else {
-      _webui_outputs_folder = (prefs.getString('sd_remote_webui_outputs_folder') ?? '');
-      if(_webui_outputs_folder.isNotEmpty){
-        List<String> f = ['extras-images', 'img2img-grids', 'img2img-images', 'txt2img-grids', 'txt2img-images'];
-        for (String pa in f) {
-          String pat = p.join(_webui_outputs_folder, pa);
-          if(await Directory(pat).exists()){
-            if (kDebugMode) print('Found $pa');
-            _webuiPaths[pa] = pat;
-          }
-        }
-      }
+      _tempDir = tDir.path;
+    }
+
+    if(Platform.isWindows){
+      _isNull = (getUserName() == 'aandr' && getComputerName() == 'WORKHORSE') || (getUserName() == 'TurboBox' && getComputerName() == 'TURBOBOX');
     }
   }
 
   void increment() {
     _count++;
   }
+}
+
+String getUserName() {
+  const usernameLength = 256;
+  final pcbBuffer = calloc<DWORD>()..value = usernameLength + 1;
+  final lpBuffer = wsalloc(usernameLength + 1);
+
+  try {
+    final result = GetUserName(lpBuffer, pcbBuffer);
+    if (result != 0) {
+      return lpBuffer.toDartString();
+    } else {
+      throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
+    }
+  } finally {
+    free(pcbBuffer);
+    free(lpBuffer);
+  }
+}
+
+String getComputerName() {
+  final nameLength = calloc<DWORD>();
+  String name;
+
+  GetComputerNameEx(COMPUTER_NAME_FORMAT.ComputerNameDnsFullyQualified, nullptr, nameLength);
+
+  final namePtr = wsalloc(nameLength.value);
+
+  try {
+    final result = GetComputerNameEx(
+        COMPUTER_NAME_FORMAT.ComputerNameDnsFullyQualified,
+        namePtr,
+        nameLength);
+
+    if (result != 0) {
+      name = namePtr.toDartString();
+    } else {
+      throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
+    }
+  } finally {
+    free(namePtr);
+    free(nameLength);
+  }
+  return name;
 }
 
 Color getColor(int index){
@@ -69,134 +105,131 @@ Color getColor(int index){
   return c[index % c.length];
 }
 
+const _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
+Random _rnd = Random();
+String getRandomString(int length) => String.fromCharCodes(Iterable.generate(length, (_) => _chars.codeUnitAt(_rnd.nextInt(_chars.length))));
+
 // FS
 Future<Uint8List> readAsBytesSync(String path) async {
   return File(path).readAsBytesSync();
 }
 
+// TODO Rewrite this stupid shit
 GenerationParams? parseSDParameters(String rawData){
-  RegExp ex = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)');
+  try{
+    RegExp ex = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)');
 
-  Map<String, Object> gp = <String, Object>{};
+    Map<String, Object> gp = <String, Object>{};
 
-  // Generation params
-  List<String> lines = rawData.trim().split("\n");
+    // Generation params
+    List<String> lines = rawData.trim().split("\n");
 
-  bool doneWithPrompt = false;
-  bool doneWithNegative = false;
-  bool doneWithGenerationParams = false;
-  bool doneWithPositiveTemplate = false;
-  bool doneWithNegativeTemplate = false;
+    bool doneWithPrompt = false;
+    bool doneWithNegative = false;
+    bool doneWithGenerationParams = false;
+    bool doneWithPositiveTemplate = false;
+    bool doneWithNegativeTemplate = false;
 
-  String positivePromt = '';
-  String negativePromt = '';
+    String positivePromt = '';
+    String negativePromt = '';
 
-  String generationParams = '';
+    String generationParams = '';
 
-  String positiveTemplate = '';
-  String negativeTemplate = '';
+    String positiveTemplate = '';
+    String negativeTemplate = '';
 
-  for(String line in lines){
-    line = line.trim();
-    if(line.startsWith('Negative prompt:')){
-      doneWithPrompt = true;
-      line = line.substring(16+1, line.length).trim();
-    }
-    if(line.startsWith('Steps:')){
-      doneWithPrompt = true;
-      doneWithNegative = true;
+    for(String line in lines){
       line = line.trim();
-    }
-    if(doneWithPrompt){
-      if(line.startsWith('Template:')){
-        doneWithNegative = true;
-        doneWithGenerationParams = true;
-        line = line.substring(9+1, line.length).trim();
+      if(line.startsWith('Negative prompt:')){
+        doneWithPrompt = true;
+        line = line.substring(16+1, line.length).trim();
       }
-      if(!doneWithNegative){
-        negativePromt += (negativePromt == "" ? '' : "\n") + line;
-      } else {
+      if(line.startsWith('Steps:')){
+        doneWithPrompt = true;
+        doneWithNegative = true;
+        line = line.trim();
+      }
+      if(doneWithPrompt){
         if(line.startsWith('Template:')){
+          doneWithNegative = true;
           doneWithGenerationParams = true;
           line = line.substring(9+1, line.length).trim();
         }
-        if(!doneWithGenerationParams){
-          generationParams += (generationParams == "" ? '' : "\n") + line;
+        if(!doneWithNegative){
+          negativePromt += (negativePromt == "" ? '' : "\n") + line;
         } else {
-          if(line.startsWith('Negative Template:')){
-            doneWithPositiveTemplate = true;
-            line = line.substring(18+1, line.length).trim();
+          if(line.startsWith('Template:')){
+            doneWithGenerationParams = true;
+            line = line.substring(9+1, line.length).trim();
           }
-          if(!doneWithPositiveTemplate){
-            positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
+          if(!doneWithGenerationParams){
+            generationParams += (generationParams == "" ? '' : "\n") + line;
           } else {
-            negativeTemplate += (negativeTemplate == "" ? '' : "\n") + line;
+            if(line.startsWith('Negative Template:')){
+              doneWithPositiveTemplate = true;
+              line = line.substring(18+1, line.length).trim();
+            }
+            if(!doneWithPositiveTemplate){
+              positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
+            } else {
+              negativeTemplate += (negativeTemplate == "" ? '' : "\n") + line;
+            }
           }
         }
+      } else {
+        positivePromt += (positivePromt == "" ? '' : "\n") + line;
       }
-    } else {
-      positivePromt += (positivePromt == "" ? '' : "\n") + line;
     }
-  }
 
-  Iterable<RegExpMatch> matches = ex.allMatches(generationParams);
+    Iterable<RegExpMatch> matches = ex.allMatches(generationParams);
 
-  for (final m in matches) {
-    try{
-      gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
-    } on RangeError catch(e){
-      print(e.message);
-      print(e.stackTrace);
+    for (final m in matches) {
+      try{
+        gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
+      } on RangeError catch(e){
+        print(e.message);
+        print(e.stackTrace);
+      }
     }
+
+    bool isRefiner = gp['refiner'] != null;
+    bool isUNET = gp['unet'] != null;
+
+    Object? model = gp[isRefiner ? 'refiner' : isUNET ? 'unet' : 'model'];
+
+    GenerationParams gpF = GenerationParams(
+        positive: positivePromt,
+        negative: negativePromt,
+        steps: int.parse(gp['steps'] as String),
+        sampler: gp['sampler'] as String,
+        cfgScale: double.parse(gp['cfg_scale'] as String),
+        seed: int.parse(gp['seed'] as String),
+        size: sizeFromString(gp['size'] as String),
+        checkpointType: isRefiner ? CheckpointType.refiner : isUNET ? CheckpointType.unet : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
+        checkpoint: model != null ? model as String : null,
+        checkpointHash: gp['model_hash'] != null ? gp['model_hash'] as String : null,
+        denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
+        rng: gp['rng'] != null ? gp['rng'] as String : null,
+        hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
+        hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
+        hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
+        version: gp['version']  != null ? gp['version'] as String : null,
+        all: gp,
+        rawData: rawData
+    );
+    return gpF;
+  } catch(e){
+    return null;
   }
-
-  bool isRefiner = gp['refiner'] != null;
-
-  return GenerationParams(
-      positive: positivePromt,
-      negative: negativePromt,
-      steps: int.parse(gp['steps'] as String),
-      sampler: gp['sampler'] as String,
-      cfgScale: double.parse(gp['cfg_scale'] as String),
-      seed: int.parse(gp['seed'] as String),
-      size: sizeFromString(gp['size'] as String),
-      checkpointType: isRefiner ? CheckpointType.refiner : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
-      checkpoint: gp[isRefiner ? 'refiner' : 'model'] as String,
-      checkpointHash: gp['model_hash'] as String,
-      denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
-      rng: gp['rng'] != null ? gp['rng'] as String : null,
-      hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
-      hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
-      hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
-      version: gp['version'] as String,
-      all: gp,
-      rawData: rawData
-  );
 }
 
 // TODO: Потом покурю
-// GenerationParams? parseComfUIParameters(String rawData){
-//
-//   return GenerationParams(
-//       positive: positivePromt,
-//       negative: negativePromt,
-//       steps: int.parse(gp['steps'] as String),
-//       sampler: gp['sampler'] as String,
-//       cfgScale: double.parse(gp['cfg_scale'] as String),
-//       seed: int.parse(gp['seed'] as String),
-//       size: sizeFromString(gp['size'] as String),
-//       modelHash: gp['model_hash'] as String,
-//       model: gp['model'] as String,
-//       denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
-//       rng: gp['rng'] != null ? gp['rng'] as String : null,
-//       hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
-//       hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
-//       hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
-//       version: gp['version'] as String,
-//       all: gp,
-//       rawData: rawData
-//   );
-// }
+void parseComfUIParameters(String rawData){
+  var data = jsonDecode(rawData);
+  if(data['nodes'] != null){
+    // Vanilla ComfUI
+  }
+}
 
 // Steps: 35,
 // Sampler: Euler a,
@@ -239,15 +272,15 @@ class GenerationParams {
   final int seed;
   final ImageSize size;
   final CheckpointType checkpointType;
-  final String checkpoint;
-  final String checkpointHash;
+  final String? checkpoint;
+  final String? checkpointHash;
   final double? denoisingStrength;
   final String? rng;
   final String? hiresSampler;
   final String? hiresUpscaler;
   final double? hiresUpscale;
   final Map<String, String>? tiHashes;
-  final String version;
+  final String? version;
   final String? rawData;
   final Map<String, dynamic>? all;
 
@@ -300,6 +333,8 @@ class GenerationParams {
         f['type'] = key.type.index;
         f['parent'] = key.parent;
         f['fileName'] = key.fileName;
+        f['isLocal'] = key.host == null ? 1 : 0;
+        f['host'] = key.host;
       } else {
         throw Exception('Пошёл нахуй');
       }
@@ -366,13 +401,13 @@ int _gcd(int a, int b) {
 dynamic readMetadataFromSafetensors(String path) async {
   RandomAccessFile file = await File(path).open(mode: FileMode.read);
   var main = await file.read(8);
-  int metadata_len = bytesToInteger(main);
-  var json_start = await file.read(2);
-  if(!(metadata_len > 2 && ['{"', "{'"].contains(utf8.decode(json_start)))){
+  int metadataLen = bytesToInteger(main);
+  var jsonStart = await file.read(2);
+  if(!(metadataLen > 2 && ['{"', "{'"].contains(utf8.decode(jsonStart)))){
     return null;
   } else {
-    var json_data = json_start + await file.read(metadata_len - 2);
-    return utf8.decode(json_data);
+    var jsonData = jsonStart + await file.read(metadataLen - 2);
+    return utf8.decode(jsonData);
   }
 }
 
@@ -388,12 +423,12 @@ Future<void> showInExplorer(String file) async {
   if(Platform.isWindows){
     Process.run('explorer.exe ', [ '/select,', file]);
   } else {
-    final Uri smsLaunchUri = Uri(
+    final Uri launchUri = Uri(
       scheme: 'file',
       path: file,
     );
-    if (await canLaunchUrl(smsLaunchUri)) {
-      launchUrl(smsLaunchUri);
+    if (await canLaunchUrl(launchUri)) {
+      launchUrl(launchUri);
     }
   }
 }
@@ -439,6 +474,22 @@ bool isValidTime(int hours, int minutes, int seconds) {
 
 bool isHDR(String profileName){
   return ['ITUR_2100_PQ_FULL'].contains(profileName);
+}
+
+bool get isOnDesktopAndWeb {
+  if (kIsWeb) {
+    return true;
+  }
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return true;
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.fuchsia:
+      return false;
+  }
 }
 
 // https://e621.net/db_export/

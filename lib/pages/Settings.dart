@@ -14,8 +14,10 @@ import 'package:provider/provider.dart';
 import 'package:settings_ui/settings_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:system_theme/system_theme.dart';
 
 import '../Utils.dart';
+import '../main.dart';
 import '../utils/SQLite.dart';
 
 class Settings extends StatefulWidget{
@@ -40,8 +42,6 @@ class _SettingsState extends State<Settings>{
 
   Map<String, double> dataMap = {};
 
-  late SharedPreferences prefs;
-
   @override
   void initState() {
     super.initState();
@@ -53,7 +53,6 @@ class _SettingsState extends State<Settings>{
   // }
 
   _loadSettings() async {
-    prefs = await SharedPreferences.getInstance();
     Directory appDocumentsDir = await getApplicationDocumentsDirectory();
     Directory appTempDir = await getTemporaryDirectory();
     if(Platform.isAndroid){
@@ -62,10 +61,10 @@ class _SettingsState extends State<Settings>{
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     setState(() {
-      _sd_webui_folder = (prefs.getString('sd_webui_folder') ?? 'none');
-      _use_remote_version = prefs.getBool('use_remote_version') ?? false;
-      _debug = prefs.getBool('debug') ?? false;
-      _imageview_use_fullscreen = (prefs.getBool('imageview_use_fullscreen') ?? false);
+      _sd_webui_folder = prefs!.getString('sd_webui_folder') ?? 'none';
+      _use_remote_version = prefs!.getBool('use_remote_version') ?? false;
+      _debug = prefs!.getBool('debug') ?? false;
+      _imageview_use_fullscreen = (prefs!.getBool('imageview_use_fullscreen') ?? false);
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
@@ -84,9 +83,11 @@ class _SettingsState extends State<Settings>{
 
   @override
   Widget build(BuildContext context) {
+    Color f = SystemTheme.accentColor.accent;
     return Center(
         child: SettingsList(
           lightTheme: SettingsThemeData(
+            leadingIconsColor: Theme.of(context).colorScheme.primary,
             settingsListBackground: Theme.of(context).scaffoldBackgroundColor,
             titleTextColor: Theme.of(context).primaryColor,
             tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
@@ -101,22 +102,26 @@ class _SettingsState extends State<Settings>{
               tiles: <SettingsTile>[
                 SettingsTile.navigation(
                   enabled: _use_remote_version == false,
-                  leading: Icon(Icons.web, color: Theme.of(context).primaryColor),
+                  leading: Icon(Icons.web),
                   title: const Text('Stable Diffusion web UI location'),
                   value: Text(_use_remote_version ? 'Turn off the remote version to use the local version' : _sd_webui_folder),
                   onPressed: (context) async {
+                    SharedPreferences prefs = await SharedPreferences.getInstance();
                     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                     if (selectedDirectory != null) {
-                      prefs.setString('sd_webui_folter', selectedDirectory);
+                      prefs.setString('sd_webui_folder', selectedDirectory);
                       setState(() {
                         _sd_webui_folder = selectedDirectory;
+                      });
+                      prefs.getKeys().forEach((element) {
+                        print(prefs.get(element));
                       });
                     }
                   },
                 ),
                 SettingsTile.navigation(
-                  leading: Icon(Icons.network_check_rounded, color: Theme.of(context).primaryColor),
-                  title: Text('Use the remote version'),
+                  leading: Icon(Icons.network_check_rounded),
+                  title: Text('Remote version settings'),
                   description: Text('Specify the IP address to access the WebUI or select a network folder'),
                   onPressed: (context){
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const RemoteVersionSettings()));
@@ -127,9 +132,9 @@ class _SettingsState extends State<Settings>{
                     setState(() {
                       _debug = v;
                     });
-                    prefs.setBool('debug', v);
+                    prefs!.setBool('debug', v);
                   },
-                  leading: Icon(Icons.bug_report, color: Theme.of(context).primaryColor),
+                  leading: Icon(Icons.bug_report),
                   title: Text('Enable debug'), initialValue: _debug,
                 ),
               ],
@@ -138,14 +143,14 @@ class _SettingsState extends State<Settings>{
               title: Text('UI & UX'),
               tiles: <SettingsTile>[
                 SettingsTile.switchTile(
-                  leading: Icon(Icons.fullscreen, color: Theme.of(context).primaryColor),
+                  leading: Icon(Icons.fullscreen),
                   title: const Text('Full-screen mode when viewing images'),
                   description: Text('When viewing images, the upper control frame will be completely removed'),
                   onToggle: (v) {
                     setState(() {
                       _imageview_use_fullscreen = v;
                     });
-                    prefs.setBool('imageview_use_fullscreen', v);
+                    prefs!.setBool('imageview_use_fullscreen', v);
                   }, initialValue: _imageview_use_fullscreen,
                 ),
               ],
@@ -155,7 +160,7 @@ class _SettingsState extends State<Settings>{
               tiles: [
                 DBChart(dataMap: dataMap),
                 SettingsTile(
-                  leading: Icon(Icons.delete, color: Theme.of(context).primaryColor),
+                  leading: Icon(Icons.delete),
                   title: Text('Clear image database'),
                   description: Text('Previews, image data. The list of favorites will remain untouched'),
                   onPressed: (context){
@@ -180,7 +185,7 @@ class _SettingsState extends State<Settings>{
                   },
                 ),
                 SettingsTile(
-                  leading: Icon(Icons.warning, color: Theme.of(context).primaryColor),
+                  leading: Icon(Icons.warning),
                   title: Text('Extra'),
                   description: Text('Not recommended for noobs'),
                   onPressed: (context){
@@ -189,34 +194,34 @@ class _SettingsState extends State<Settings>{
                 )
               ],
             ),
-            SettingsSection(
-              title: const Text('Device info'),
-              tiles: <SettingsTile>[
-                SettingsTile(
-                  leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows , color: Theme.of(context).primaryColor),
-                  title: const Text('Device'),
-                  description: Text('${123}'),
-                ),
-                SettingsTile(
-                  leading: Icon(Icons.folder , color: Theme.of(context).primaryColor),
-                  title: const Text('Paths'),
-                  description: Text(''
-                      'App Documents\n↳ $appDocumentsPath\n'
-                      'App Temp\n↳ $appTempPath\n'
-                      'Documents\n↳ $documentsPath\n'),
-                )
-              ],
-            ),
+            // SettingsSection(
+            //   title: const Text('Device info'),
+            //   tiles: <SettingsTile>[
+            //     SettingsTile(
+            //       leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows , color: f),
+            //       title: const Text('Device'),
+            //       description: Text('${f.toString()}'),
+            //     ),
+            //     SettingsTile(
+            //       leading: Icon(Icons.folder ),
+            //       title: const Text('Paths'),
+            //       description: Text(''
+            //           'App Documents\n↳ $appDocumentsPath\n'
+            //           'App Temp\n↳ $appTempPath\n'
+            //           'Documents\n↳ $documentsPath\n'),
+            //     )
+            //   ],
+            // ),
             SettingsSection(
               title: const Text('CImaGen'),
               tiles: <SettingsTile>[
                 SettingsTile(
-                  leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows , color: Theme.of(context).primaryColor),
+                  leading: Icon(Platform.isAndroid ? Icons.phone_android : Icons.desktop_windows ),
                   title: const Text('App'),
                   description: Text(appVersion),
                 ),
                 SettingsTile(
-                  leading: Icon(Icons.system_update_alt, color: Theme.of(context).primaryColor),
+                  leading: Icon(Icons.system_update_alt),
                   title: Text('Updates'),
                   description: Text('View the list of changes'),
                   onPressed: (context){

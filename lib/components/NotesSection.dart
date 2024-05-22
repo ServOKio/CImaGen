@@ -177,15 +177,18 @@ class _NotesSectionState extends State<NotesSection> {
                 ),
               ))
             ],
-          ) : const Center(child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.sticky_note_2, size: 50, color: Colors.white),
-              Gap(4),
-              Text('Yeah, that\'s cool...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              Text('Your personal notes - leave as many as you want and write anything', style: TextStyle(color: Colors.grey)),
-            ],
-          )),
+          ) : const Padding(
+            padding: EdgeInsets.all(30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.sticky_note_2, size: 50, color: Colors.white),
+                Gap(4),
+                Text('Yeah, that\'s cool...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text('Your personal notes - leave as many as you want and write anything', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
         ),
       ],
     );

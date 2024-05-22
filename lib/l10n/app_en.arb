@@ -1,3 +1,18 @@
 {
-  "appbarSearch": "Search..."
+  "appbarSearch": "Search...",
+
+  "home_reader_dialog_title": "An error has occurred",
+  "home_reader_dialog_error_prefix": "Error",
+  "home_reader_dialog_error_description": "If this error continues to occur, just write to us in a telegram or discord",
+  "home_reader_dialog_error_buttons_ok": "Ok",
+
+  "home_reader_form_select_file_mobile0": "Select a file",
+  "home_reader_form_select_file_desktop0": "Drag-n-Drop to unload",
+  "home_reader_form_select_file_desktop1": "or",
+  "home_reader_form_select_file_desktop2": "Enter URL",
+
+  "home_main_categories_start_title": "Let's start with...",
+  "home_main_categories_start_description": "Inside the categories, you can create ideas, projects, notes for them, and more",
+  "home_main_categories_buttons_create": "Create new",
+  "home_main_categories_block_fast_preview": "Quick preview"
 }

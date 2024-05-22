@@ -11,13 +11,14 @@ import 'package:cimagen/components/PortfolioGalleryImageWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:gap/gap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../utils/ImageManager.dart';
 
 class PortfolioGalleryDetailPage extends StatefulWidget {
 
-  final List<ImageMeta> images;
+  final List<dynamic> images;
   final int currentIndex;
 
   const PortfolioGalleryDetailPage({Key? key, required this.images, required this.currentIndex}) : super(key: key);
@@ -36,6 +37,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   void backCall(PhotoViewScaleStateController ns){
     changeScale = ns;
+    // changeScale.scaleState = PhotoViewScaleState.originalSize;
   }
 
   late CarouselController carouselController;
@@ -75,76 +77,100 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   @override
   Widget build(BuildContext context) {
     final imageManager = Provider.of<ImageManager>(context);
+    AppBar appBar = AppBar(
+      backgroundColor: Colors.black,
+      title: Text(widget.images[_currentIndex].fileName),
+      actions: [
+        IconButton(
+            icon: Icon(
+              showOriginalSize ? Icons.photo_size_select_large_rounded : Icons.photo_size_select_actual_rounded,
+            ),
+            onPressed: (){
+              setState(() {
+                showOriginalSize = !showOriginalSize;
+                changeScale.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
+              });
+            }
+        ),
+        const Gap(6),
+        IconButton(
+            icon: Icon(
+              imageManager.favoritePaths.contains(widget.images[_currentIndex].fullPath) ? Icons.star : Icons.star_outline,
+            ),
+            onPressed: (){
+              imageManager.toogleFavorite(widget.images[_currentIndex].fullPath);
+            }
+        ),
+        const Gap(6),
+        IconButton(
+            icon: const Icon(
+              Icons.info_outline,
+            ),
+            onPressed: (){
+              setState(() {
+                gpState = 0;
+              });
+              _scaffoldkey.currentState!.openEndDrawer();
+              im = widget.images[_currentIndex];
+              setState(() {
+                gpState = 1;
+              });
+              //requestInfo(widget.images[_currentIndex]);
+            }
+        ),
+        const Gap(6),
+        IconButton(
+            icon: const Icon(
+              Icons.open_in_new,
+            ),
+            onPressed: () async {
+              if(!widget.images[_currentIndex].isLocal){
+                final Uri url = Uri.parse(widget.images[_currentIndex].fullNetworkPath);
+                if (!await launchUrl(url)) {
+                  await showDialog<String>(
+                    context: context,
+                    builder: (BuildContext context) => AlertDialog(
+                      title: const Text('AlertDialog Title'),
+                      content: const Text('AlertDialog description'),
+                      actions: <Widget>[
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, 'Cancel'),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, 'OK'),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              } else {
+                showInExplorer(widget.images[_currentIndex].fullPath);
+              }
+              // final String dir = dirname(widget.images[_currentIndex].fullPath);
+              // await OpenFile.open('$dir\\');
+            }
+        ),
+        const Gap(6),
+        IconButton(
+            icon: const Icon(
+              Icons.more_vert,
+            ),
+            onPressed: (){}
+        ),
+      ],
+    );
     return Scaffold(
       key: _scaffoldkey,
       backgroundColor: Colors.black,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
+        preferredSize: Size.fromHeight(appBar.preferredSize.height),
         child: AnimatedContainer(
           curve: Curves.ease,
-          height: _showAppBar ? 55.0 : 0.0,
+          height: _showAppBar ? appBar.preferredSize.height*2 : 0.0,
           duration: const Duration(milliseconds: 200),
-          child: AppBar(
-            backgroundColor: Colors.black,
-            title: Text(widget.images[_currentIndex].fileName),
-            actions: [
-              IconButton(
-                  icon: Icon(
-                    showOriginalSize ? Icons.photo_size_select_large_rounded : Icons.photo_size_select_actual_rounded,
-                  ),
-                  onPressed: (){
-                    setState(() {
-                      showOriginalSize = !showOriginalSize;
-                      changeScale.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
-                    });
-                  }
-              ),
-              const Gap(6),
-              IconButton(
-                  icon: Icon(
-                    imageManager.favoritePaths.contains(widget.images[_currentIndex].fullPath) ? Icons.star : Icons.star_outline,
-                  ),
-                  onPressed: (){
-                    imageManager.toogleFavorite(widget.images[_currentIndex].fullPath);
-                  }
-              ),
-              const Gap(6),
-              IconButton(
-                  icon: const Icon(
-                    Icons.info_outline,
-                  ),
-                  onPressed: (){
-                    setState(() {
-                      gpState = 0;
-                    });
-                    _scaffoldkey.currentState!.openEndDrawer();
-                    im = widget.images[_currentIndex];
-                    setState(() {
-                      gpState = 1;
-                    });
-                    //requestInfo(widget.images[_currentIndex]);
-                  }
-              ),
-              const Gap(6),
-              IconButton(
-                  icon: const Icon(
-                    Icons.open_in_new,
-                  ),
-                  onPressed: () async {
-                    // final String dir = dirname(widget.images[_currentIndex].fullPath);
-                    // await OpenFile.open('$dir\\');
-                    showInExplorer(widget.images[_currentIndex].fullPath);
-                  }
-              ),
-              const Gap(6),
-              IconButton(
-                  icon: const Icon(
-                    Icons.more_vert,
-                  ),
-                  onPressed: (){}
-              ),
-            ],
-          ),
+          child: appBar,
         ),
       ),
       body: _buildContent(),
@@ -168,7 +194,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                             padding: const EdgeInsets.all(6),
                             child: [
                               const Center(child: CircularProgressIndicator()),
-                              im != null ? MyImageInfo(im, ) : const Text('None'),
+                              im != null ? MyImageInfo(im!) : const Text('None'),
                               const Text('Error')
                             ][gpState]
                         ),
@@ -218,7 +244,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
       carouselController: carouselController,
       itemBuilder: (ctx, index, realIdx) {
         return PortfolioGalleryImageWidget(
-          imagePath: widget.images[index].fullPath,
+          imageMeta: widget.images[index],
           onImageTap: () {
             carouselController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.ease);
             _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.ease);
@@ -242,14 +268,21 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
 
+  // ТУТ МЫ ЕБАШИМ ВЕРХ
   PhotoViewGallery _buildPhotoViewGallery(Function changeScale) {
     changeScale(scaleStateController);
     return PhotoViewGallery.builder(
       itemCount: widget.images.length,
       builder: (BuildContext context, int index) {
+        ImageProvider? provider;
+        if(!widget.images[index].isLocal){
+          provider = NetworkImage(widget.images[index].fullNetworkPath);
+        } else {
+          provider = FileImage(File(widget.images[index].fullPath));
+        }
         return PhotoViewGalleryPageOptions(
           scaleStateController: scaleStateController,
-          imageProvider: FileImage(File(widget.images[index].fullPath)),
+          imageProvider: provider,
           initialScale: PhotoViewComputedScale.contained,
           minScale: 0.1,
           maxScale: PhotoViewComputedScale.covered * 1,
@@ -262,14 +295,8 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
       enableRotation: true,
       scrollPhysics: const BouncingScrollPhysics(),
       pageController: _pageController,
-      loadingBuilder: (context, event) => Center(
-        child: SizedBox(
-          width: 20.0,
-          height: 20.0,
-          child: CircularProgressIndicator(
-            value: event == null ? 0 : event.cumulativeBytesLoaded / (event.expectedTotalBytes ?? 0),
-          ),
-        ),
+      loadingBuilder: (context, event) => const Center(
+        child: CircularProgressIndicator(),
       ),
       onPageChanged: (int index) => setState(() {
         _currentIndex = index;
