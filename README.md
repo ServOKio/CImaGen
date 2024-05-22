@@ -34,8 +34,10 @@ Comparison allows you to select several images and compare them with each other.
 
 |||
 | ------------- | ------------- |
-| <h4>Find the difference</h4> The brighter the area, the more strongly it is changed</span>  | <img src="preview/gif_1.gif" height="300px"/>  |
-| Content Cell  | Content Cell  |
+| <h4>Find the difference</h4> The brighter the area, the more strongly it is changed  | <img src="preview/gif_1.gif" width="300px"/>  |
+| <h4>Split view</h4> Put the images next to each other to choose the best one | <img src="preview/gif_2.gif" width="300px"/>  |
+| <h4>Reading metadata and generation parameters</h4> Reading data from Topaz Photo AI, Photoshop, NovelAI, ArtBot, Adobe ImageReady, Celsus Studio Tool, Tensor Art, PhotoScape, A1111 and more | <img src="preview/gif_3.gif" width="300px"/>  |
+| <h4>Notes</h4> As much as you want and whatever you want | <img src="preview/gif_4.gif" width="300px"/>  |
 
 ### Status
 In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
