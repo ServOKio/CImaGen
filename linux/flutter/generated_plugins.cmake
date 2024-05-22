@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
   file_selector_linux
   screen_retriever
+  sqlite3_flutter_libs
   system_theme
   url_launcher_linux
   window_manager

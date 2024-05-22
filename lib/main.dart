@@ -341,15 +341,14 @@ class LoadingState extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-        child: Column(
-          children: [
-            const Icon(Icons.error),
-            const Gap(4),
-            const Text('Oops, there seems to be a error'),
-            Text(errorMessage ?? 'Error wtf')
-          ],
-        )
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.error),
+        const Gap(4),
+        const Text('Oops, there seems to be a error'),
+        SelectableText(errorMessage ?? 'Error wtf')
+      ],
     );
   }
 }

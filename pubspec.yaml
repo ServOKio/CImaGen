@@ -1,7 +1,7 @@
 name: cimagen
 description: "Image work"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0
 
 environment:
   sdk: '>=3.2.6 <4.0.0'
@@ -63,12 +63,15 @@ dependencies:
   image_painter: ^0.7.1
   win32: ^5.5.0
   ffi: ^2.1.2
+  sqlite3_flutter_libs: ^0.5.21
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
+  msix: ^3.16.7
+  inno_bundle: ^0.5.0
 flutter:
   uses-material-design: true
   generate: true
@@ -111,3 +114,26 @@ flutter:
          weight: 700
        - asset: fonts/OpenSans-ExtraBold.ttf
          weight: 800
+
+msix_config:
+  display_name: CImaGen
+  publisher_display_name: ServOKio
+  identity_name: net.servokio.cimagen
+  msix_version: 0.0.1.1
+  logo_path: preview/icon.png
+  languages: en-us, ru-RU
+  capabilities: internetClient
+
+inno_bundle:
+  id: af897610-4fc5-1fe5-a132-3b682fa2ff26
+  name: CImaGen
+  description: "A utility for working with SD-WebUI and ComfUI images"
+  url: https://github.com/ServOKio/CImaGen
+  support_url: https://github.com/ServOKio/CImaGen/issues
+  updates_url: https://github.com/ServOKio/CImaGen/releases
+  languages:
+    - english
+    - russian
+  admin: false
+  installer_icon: windows/runner/resources/app_icon.ico
+  publisher: ServOKio
