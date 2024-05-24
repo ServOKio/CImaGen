@@ -30,6 +30,7 @@ class OnLocal implements AbMain {
 
   // Other
   List<StreamSubscription<FileSystemEvent>> watchList = [];
+  Map<int, ParseJob> _jobs = {};
 
   @override
   Future<void> init() async {
@@ -60,7 +61,7 @@ class OnLocal implements AbMain {
   }
 
   @override
-  Future<List> getFolderFiles(RenderEngine renderEngine, String sub) {
+  Future<List<ImageMeta>> getFolderFiles(RenderEngine renderEngine, String sub) {
     return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(renderEngine, sub);
   }
 
@@ -118,17 +119,17 @@ class OnLocal implements AbMain {
   }
 
   @override
-  Future<int> indexFolder(RenderEngine renderEngine, String sub) async {
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async {
     // Read all files sizes and get hash
     Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
     List<FileSystemEntity> fe = await dirContents(di);
 
-    for (FileSystemEntity element in fe) {
-      NavigationService.navigatorKey.currentContext!.read<ImageManager>().updateIfNado(renderEngine, element.path);
-    }
+    ParseJob job = ParseJob();
+    int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));
+    _jobs[jobID] = job;
 
     // Return job id
-    return -1;
+    return job.controller.stream;
   }
 }
 

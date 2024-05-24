@@ -18,6 +18,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:math' as math;
 import 'package:win32/win32.dart';
 
+import 'main.dart';
+
 class ConfigManager with ChangeNotifier {
   int _count = 0;
 
@@ -31,17 +33,27 @@ class ConfigManager with ChangeNotifier {
   bool get isNull => _isNull;
 
   Future<void> init() async {
-    Directory appTempDir = await getTemporaryDirectory();
-    Directory tDir = Directory(p.join(appTempDir.path, 'cImagen'));
-    if(!tDir.existsSync()){
-      tDir.create(recursive: true).then((value) => _tempDir = value.path);
+    updateCacheLocation();
+    if(Platform.isWindows){
+      _isNull = (getUserName() == 'aandr' && getComputerName().toLowerCase() == 'workhorse') || (getUserName() == 'TurboBox' && getComputerName() == 'TurboBox');
+    }
+  }
+
+  Future<String> updateCacheLocation() async {
+    String? customCacheDir = prefs!.getString('custom_cache_dir');
+    Directory tDir;
+    if(customCacheDir != null){
+      tDir = Directory(customCacheDir);
     } else {
-      _tempDir = tDir.path;
+      Directory appTempDir = await getTemporaryDirectory();
+      tDir = Directory(p.join(appTempDir.path, 'cImagen'));
     }
 
-    if(Platform.isWindows){
-      _isNull = (getUserName() == 'aandr' && getComputerName() == 'WORKHORSE') || (getUserName() == 'TurboBox' && getComputerName() == 'TURBOBOX');
+    if(!tDir.existsSync()){
+      tDir.createSync(recursive: true);
     }
+    _tempDir = tDir.path;
+    return _tempDir;
   }
 
   void increment() {
@@ -109,6 +121,10 @@ Color getColor(int index){
 const _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
 Random _rnd = Random();
 String getRandomString(int length) => String.fromCharCodes(Iterable.generate(length, (_) => _chars.codeUnitAt(_rnd.nextInt(_chars.length))));
+
+int getRandomInt(int min, int max) {
+  return min + _rnd.nextInt(max - min);
+}
 
 // FS
 Future<Uint8List> readAsBytesSync(String path) async {

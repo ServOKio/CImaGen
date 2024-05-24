@@ -15,9 +15,11 @@ import 'package:settings_ui/settings_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
+import 'package:path/path.dart' as p;
 
 import '../Utils.dart';
 import '../main.dart';
+import '../modules/webUI/OnLocal.dart';
 import '../utils/SQLite.dart';
 
 class Settings extends StatefulWidget{
@@ -35,6 +37,8 @@ class _SettingsState extends State<Settings>{
   bool _debug = false;
   bool _imageview_use_fullscreen = false;
 
+  String _custom_cache_dir = '-';
+
   String appDocumentsPath = '';
   String appTempPath = '';
   String? documentsPath = '';
@@ -50,15 +54,13 @@ class _SettingsState extends State<Settings>{
     _loadSettings();
   }
 
-  // void setBo(key, bool val) {
-  //   prefs.setBool(key.toString(), val);
-  // }
-
   _loadSettings() async {
     Directory appDocumentsDir = await getApplicationDocumentsDirectory();
     Directory appTempDir = await getTemporaryDirectory();
     if(Platform.isAndroid){
       documentsPath = await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS);
+    } else if(Platform.isWindows){
+      documentsPath = appDocumentsDir.path;
     }
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
@@ -73,6 +75,7 @@ class _SettingsState extends State<Settings>{
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
       _deviceInfo = deviceInfo;
+      _custom_cache_dir = context.read<ConfigManager>().tempDir;
     });
 
     context.read<SQLite>().getTablesInfo().then((value) => {
@@ -107,7 +110,7 @@ class _SettingsState extends State<Settings>{
               tiles: <SettingsTile>[
                 SettingsTile.navigation(
                   enabled: _use_remote_version == false,
-                  leading: Icon(Icons.web),
+                  leading: const Icon(Icons.web),
                   title: const Text('Stable Diffusion web UI location'),
                   value: Text(_use_remote_version ? 'Turn off the remote version to use the local version' : _sd_webui_folder),
                   onPressed: (context) async {
@@ -125,7 +128,45 @@ class _SettingsState extends State<Settings>{
                   },
                 ),
                 SettingsTile.navigation(
-                  leading: Icon(Icons.network_check_rounded),
+                  leading: const Icon(Icons.cached),
+                  title: const Text('Cache Location'),
+                  value: Text('The place where the cache will be located (temporary shit that can be deleted after a while)\nNow: $_custom_cache_dir'),
+                  onPressed: (context) async {
+                    SharedPreferences prefs = await SharedPreferences.getInstance();
+                    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      List<FileSystemEntity> fe = await dirContents(Directory(selectedDirectory));
+                      if(fe.isNotEmpty){
+                        Directory tDir = Directory(p.join(selectedDirectory, 'cImagen'));
+                        tDir.create(recursive: true).then((va){
+                          setState(() {
+                            _custom_cache_dir = va.path;
+                          });
+                          prefs.setString('custom_cache_dir', va.path);
+                          context.read<ConfigManager>().updateCacheLocation();
+                        });
+                      } else {
+                        prefs.setString('custom_cache_dir', selectedDirectory);
+                        context.read<ConfigManager>().updateCacheLocation();
+                      }
+                    }
+                  },
+                ),
+                SettingsTile(
+                  leading: Icon(Icons.restart_alt),
+                  title: Text('Restore the default cache location'),
+                  onPressed: (context) async {
+                    SharedPreferences prefs = await SharedPreferences.getInstance();
+                    prefs.remove('custom_cache_dir');
+                    context.read<ConfigManager>().updateCacheLocation().then((value){
+                      setState(() {
+                        _custom_cache_dir = value;
+                      });
+                    });
+                  },
+                ),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.network_check_rounded),
                   title: Text('Remote version settings'),
                   description: Text('Specify the IP address to access the WebUI or select a network folder'),
                   onPressed: (context){

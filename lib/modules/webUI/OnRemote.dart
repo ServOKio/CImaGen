@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cimagen/main.dart';
@@ -108,7 +109,7 @@ class OnRemote implements AbMain{
   }
 
   @override
-  Future<List<dynamic>> getFolderFiles(RenderEngine renderEngine, String sub) async{
+  Future<List<ImageMeta>> getFolderFiles(RenderEngine renderEngine, String sub) async{
     List<ImageMeta> list = [];
     Uri parse = Uri.parse(prefs!.getString('sd_remote_webui_address') ?? '');
     Uri base = Uri(
@@ -148,7 +149,6 @@ class OnRemote implements AbMain{
         final String e = p.extension(f['fullpath']);
 
         ImageMeta im = ImageMeta(
-            isLocal: false,
             host: Uri(
                 host: parse.host,
                 port: parse.port
@@ -185,7 +185,7 @@ class OnRemote implements AbMain{
   }
 
   @override
-  Future<int> indexFolder(RenderEngine renderEngine, String sub) {
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) {
     // TODO: implement indexFolder
     throw UnimplementedError();
   }

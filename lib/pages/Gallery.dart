@@ -63,7 +63,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   late Future<List<Folder>> img2imgList;
   final ScrollController _scrollControllerTwo = ScrollController();
 
-  Future<List<dynamic>>? imagesList;
+  dynamic imagesList;
 
   @override
   void initState() {
@@ -78,8 +78,19 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
         txt2imgList = _loadMenu(RenderEngine.txt2img);
         txt2imgList.then((value){
           if(mounted && value.isNotEmpty) {
-            setState(() {
-              imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.txt2img, value[0].name);
+            Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.txt2img, value[0].name);
+            _imagesList.then((listRes){
+              if(listRes.isEmpty){
+                context.read<ImageManager>().getter.indexFolder(RenderEngine.txt2img, value[0].name).then((stream){
+                  setState(() {
+                    imagesList = stream;
+                  });
+                });
+              } else {
+                setState(() {
+                  imagesList = _imagesList;
+                });
+              }
             });
           }
 
@@ -128,8 +139,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       imagesList?.then((value) {
         bool force = value.length-1 == index;
         if(value.isEmpty || force) {
-          context.read<ImageManager>().getter.indexFolder(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name).then((jobID){
-
+          context.read<ImageManager>().getter.indexFolder(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name).then((stream){
+            setState(() {
+              imagesList = stream;
+            });
           });
         }
       });
@@ -333,7 +346,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   Widget _buildMainSection(){
     return MouseRegion(
         onHover: _updateLocation,
-        child: imagesList == null ? const InProcess() : FutureBuilder(
+        child: imagesList == null ? const InProcess() : imagesList.runtimeType.hashCode == 413171854 ? FutureBuilder(
             key: Key(currentKey),
             future: imagesList,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
@@ -362,7 +375,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                           );
                         },
                       );
-                    });
+                   }
+                );
               } else if (snapshot.hasError) {
                 children = Padding(
                   padding: const EdgeInsets.all(18),
@@ -403,7 +417,109 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                 );
               }
               return children;
-            })
+            }) : StreamBuilder<List<ImageMeta>>(
+              stream: imagesList,
+              builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
+                Widget children;
+                if (snapshot.hasError) {
+                  children = Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      children: [
+                        const Text('Oops, there seems to be a error.'),
+                        ExpansionTile(
+                          title: const Text('Error Information'),
+                          subtitle: const Text('Use this information to solve the problem'),
+                          children: <Widget>[
+                            Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                    color: Theme.of(context).scaffoldBackgroundColor,
+                                    borderRadius: const BorderRadius.all(Radius.circular(4))
+                                ),
+                                child: SelectableText(
+                                    snapshot.error.toString(),
+                                    style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
+                                )
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  );
+                } else {
+                  switch (snapshot.connectionState) {
+                    case ConnectionState.none:
+                      children = Text('Hyi');
+                    case ConnectionState.waiting:
+                      children = const Padding(
+                          padding: EdgeInsets.only(top: 16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Loading...'),
+                              Gap(8),
+                              LinearProgressIndicator()
+                            ],
+                          )
+                      );
+                    case ConnectionState.active:
+                      children = MasonryGridView.count(
+                          itemCount: snapshot.data!.length,
+                          mainAxisSpacing: 5,
+                          crossAxisSpacing: 5,
+                          crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
+                          itemBuilder: (context, index) {
+                            var it = snapshot.data![index];
+                            return PreviewImage(
+                              key: Key(it.keyup),
+                              imagesList: snapshot.data!,
+                              imageMeta: it,
+                              selectedModel: model,
+                              index: index,
+                              onImageTap: () {
+                                Navigator.push(
+                                    context,
+                                    _createGalleryDetailRoute(
+                                        snapshot.data!,
+                                        index
+                                    )
+                                );
+                              },
+                            );
+                          }
+                      );
+                    case ConnectionState.done:
+                      children = snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                          itemCount: snapshot.data!.length,
+                          mainAxisSpacing: 5,
+                          crossAxisSpacing: 5,
+                          crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
+                          itemBuilder: (context, index) {
+                            var it = snapshot.data![index];
+                            return PreviewImage(
+                              key: Key(it.keyup),
+                              imagesList: snapshot.data!,
+                              imageMeta: it,
+                              selectedModel: model,
+                              index: index,
+                              onImageTap: () {
+                                Navigator.push(
+                                    context,
+                                    _createGalleryDetailRoute(
+                                        snapshot.data!,
+                                        index
+                                    )
+                                );
+                              },
+                            );
+                          }
+                      );
+                  }
+                }
+                return children;
+          },
+        )
     );
   }
 
@@ -424,7 +540,7 @@ class PreviewImage extends StatelessWidget {
   final VoidCallback onImageTap;
   int? index = -1;
 
-  final bool dontBlink = false;
+  final bool dontBlink = true;
 
   PreviewImage({ Key? key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, this.index}): super(key: key);
 
@@ -549,7 +665,6 @@ class PreviewImage extends StatelessWidget {
                 }
               },
               onTap: () {
-                print(imageMeta.generationParams!.toJsonString());
                 //print('tap ${sp.selected.isNotEmpty} ${sp.selected.length}');
                 if (sp.selected.isNotEmpty) {
                   //print(imageMeta.keyup);
@@ -574,18 +689,11 @@ class PreviewImage extends StatelessWidget {
                           scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
                           duration: const Duration(milliseconds: 200),
                           curve: Curves.ease,
-                          child: imageMeta.isLocal && imageMeta.thumbnail != null ? Image.memory(
+                          child: imageMeta.isLocal && imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
                             base64Decode(imageMeta.thumbnail ?? ''),
                             filterQuality: FilterQuality.low,
                             gaplessPlayback: dontBlink,
-                            frameBuilder: dontBlink ? null : ((context, child, frame, wasSynchronouslyLoaded) {
-                              if (wasSynchronouslyLoaded) return child;
-                              return AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 200),
-                                  child: frame != null ? child : imageMeta.size != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height) : CircularProgressIndicator()
-                              );
-                            }),
-                          ) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
+                          )) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
                             imageUrl: imageMeta.networkThumbnail!,
                             imageBuilder: (context, imageProvider) {
                               return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));

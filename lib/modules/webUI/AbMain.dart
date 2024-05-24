@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
@@ -17,15 +18,21 @@ abstract class AbMain {
     return [];
   }
 
-  Future<List<dynamic>> getFolderFiles(RenderEngine renderEngine, String sub) async{
+  Future<List<ImageMeta>> getFolderFiles(RenderEngine renderEngine, String sub) async{
     return [];
   }
 
-  Future<int> indexFolder(RenderEngine renderEngine, String sub) async{
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async{
     // Read all files sizes and get hash
+    late final StreamController<List<ImageMeta>> controller;
+    controller = StreamController<List<ImageMeta>>(
+      onListen: () async {
+        await controller.close();
+      },
+    );
 
     // Return job id
-    return -1;
+    return controller.stream;
   }
 
   void exit() async {

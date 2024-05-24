@@ -111,12 +111,11 @@ class SQLite with ChangeNotifier{
               if (kDebugMode) print('Sending ${send.length}...');
               for (var e in send) {
                 if(e.type == JobType.insert){
-                  batch.insert(e.to, e.obj);
+                  batch.insert(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.fail);
                 }
               }
 
-              bool debug = true;
-              await batch.commit(noResult: !debug, continueOnError: !debug);
+              await batch.commit(noResult: false, continueOnError: false);
               if (kDebugMode) print('Done');
               !use ? toBatchTwo.clear() : toBatchOne.clear();
               inProgress = false;
@@ -173,11 +172,11 @@ class SQLite with ChangeNotifier{
     );
   }
 
-  Future<bool> shouldUpdate(String path) async {
+  Future<bool> shouldUpdate(String path, {String? host}) async {
     final List<Map<String, dynamic>> maps = await database.query(
       'images',
-      where: 'pathHash = ?',
-      whereArgs: [genPathHash(path)],
+      where: 'pathHash = ? AND host = ?',
+      whereArgs: [genPathHash(path), host],
     );
     return maps.isEmpty;
   }
@@ -323,7 +322,7 @@ class SQLite with ChangeNotifier{
           dateModified: DateTime.parse(d['dateModified'] as String),
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
-          thumbnail: d['thumbnail'] as String,
+          thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
           generationParams: GenerationParams(
               positive: d['positive'] as String,
               negative: d['negative'] as String,
@@ -350,14 +349,15 @@ class SQLite with ChangeNotifier{
   }
 
   Future<List<ImageMeta>> getImagesByParent(RenderEngine type, String parent) async {
-    print('$type ${type.index} $parent');
+    if (kDebugMode) {
+      print('$type ${type.index} $parent');
+    }
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type = ? AND images.parent = ? ORDER by datemodified ASC', [type.index, parent]);
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(
         re: RenderEngine.values[d['type'] as int],
-        isLocal: d['isLocal'] != null ? (d['isLocal'] as int) == 1 : true,
         host: d['host'] != null ? d['host'] as String : null,
         mine: d['mine'] as String,
         fileTypeExtension: d['fileTypeExtension'] as String,
@@ -366,7 +366,7 @@ class SQLite with ChangeNotifier{
         dateModified: DateTime.parse(d['dateModified'] as String),
         size: ImageSize(width: size[0], height: size[1]),
         specific: jsonDecode(d['specific'] as String),
-        thumbnail: d['thumbnail'] as String,
+        thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
         generationParams: GenerationParams(
             positive: d['positive'] as String,
             negative: d['negative'] as String,
@@ -388,7 +388,9 @@ class SQLite with ChangeNotifier{
         )
       );
     });
-    print(fi.length);
+    if (kDebugMode) {
+      print(fi.length);
+    }
     return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc

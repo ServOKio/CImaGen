@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:cimagen/main.dart';
@@ -132,6 +134,79 @@ class ImageManager extends ChangeNotifier {
       if (kDebugMode) print(_favoritePaths.contains(path));
       notifyListeners();
     });
+  }
+}
+
+class ParseJob {
+  int _jobID = -1;
+  int get jobID => _jobID;
+
+  List<String> _cache = [];
+  List<ImageMeta> _done = [];
+  int _doneTotal = 0;
+
+  late StreamController<List<ImageMeta>> _controller;
+  StreamController<List<ImageMeta>> get controller => _controller;
+
+  List<ImageMeta> get finished => _done;
+
+  bool get isDone => _cache.length == _doneTotal;
+
+  var rng = Random();
+
+  Future<int> putAndGetJobID(RenderEngine? re, List<String> imagePaths, {String? host}) async {
+    print('get ${imagePaths.length}');
+    _cache.addAll(imagePaths);
+    _jobID = getRandomInt(1000, 100000);
+    // Main
+    _controller = StreamController<List<ImageMeta>>();
+
+    _parse(re, host);
+    return _jobID;
+
+  }
+
+  Future<void> _parse(RenderEngine? re, String? host) async {
+    for(String path in _cache){
+      bool yes = true;
+      path = p.normalize(path);
+      // Check file type
+      final String e = p.extension(path);
+      if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
+        yes = false;
+        _doneTotal++;
+        _isDone();
+        continue;
+      }
+      final String b = p.basename(path);
+      for(String d in ['mask', 'before']){
+        if(b.contains(d)) {
+          yes = false;
+          _doneTotal++;
+          _isDone();
+        }
+      }
+      if(yes){
+        ImageMeta? value = await parseImage(re ?? RenderEngine.unknown, path);
+        if(value != null){
+          _done.add(value);
+          _controller.add(finished);
+          NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
+            if(doI){
+              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false);
+            }
+          });
+        }
+        _doneTotal++;
+        _isDone();
+      }
+    }
+  }
+
+  void _isDone(){
+    if(isDone){
+      _controller.close();
+    }
   }
 }
 
@@ -827,8 +902,8 @@ class ImageMeta {
   // Main
   String keyup = '';
   //Network
-  bool isLocal = true;
-  final String? host;
+  bool get isLocal => host == null;
+  String? host;
   // Other
   String? error;
   RenderEngine re;
@@ -852,7 +927,6 @@ class ImageMeta {
 
   ImageMeta({
     this.error,
-    this.isLocal = true,
     this.host,
     required this.re,
     this.mine,
@@ -900,6 +974,10 @@ class ImageMeta {
       'thumbnail': thumbnail,
       'other': jsonEncode(other)
     };
+  }
+
+  void updateHost(String host){
+    this.host = host;
   }
 
   ImageKey getKey(){
