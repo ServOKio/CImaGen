@@ -346,7 +346,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   Widget _buildMainSection(){
     return MouseRegion(
         onHover: _updateLocation,
-        child: imagesList == null ? const InProcess() : imagesList.runtimeType.hashCode == 413171854 ? FutureBuilder(
+        child: imagesList == null ? const InProcess() : imagesList.runtimeType.toString() == 'Future<List<ImageMeta>>' ? FutureBuilder(
             key: Key(currentKey),
             future: imagesList,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
@@ -490,7 +490,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                           }
                       );
                     case ConnectionState.done:
-                      children = snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                      children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
                           itemCount: snapshot.data!.length,
                           mainAxisSpacing: 5,
                           crossAxisSpacing: 5,
