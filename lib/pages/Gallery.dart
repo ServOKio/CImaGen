@@ -346,7 +346,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   Widget _buildMainSection(){
     return MouseRegion(
         onHover: _updateLocation,
-        child: imagesList == null ? const InProcess() : imagesList.runtimeType.hashCode == 413171854 ? FutureBuilder(
+        child: imagesList == null ? const InProcess() : imagesList.runtimeType.toString() == 'Future<List<ImageMeta>>' ? FutureBuilder(
             key: Key(currentKey),
             future: imagesList,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
