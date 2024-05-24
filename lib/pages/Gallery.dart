@@ -490,7 +490,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                           }
                       );
                     case ConnectionState.done:
-                      children = snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                      children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
                           itemCount: snapshot.data!.length,
                           mainAxisSpacing: 5,
                           crossAxisSpacing: 5,
