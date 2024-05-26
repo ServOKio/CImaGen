@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +8,6 @@ import 'package:intl/intl.dart';
 
 import '../Utils.dart';
 import '../modules/ICCProfiles.dart';
-
 
 class MyImageInfo extends StatefulWidget {
   ImageMeta data;
@@ -54,7 +55,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             ExpansionTile(
-              initiallyExpanded: gp == null,
+              initiallyExpanded: gp == null && im.specific?['comfUINodes'] == null,
               tilePadding: EdgeInsets.zero,
               title:  Text('Image info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
               children: <Widget>[
@@ -284,7 +285,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Gap(6),
                                 Column(
                                   children: [
-                                    InfoBox(one: 'Method', two: gp.sampler ?? '', inner: true, withGap: false),
+                                    InfoBox(one: 'Sampler name', two: gp.sampler ?? '', inner: true, withGap: false),
                                     InfoBox(one: 'Steps', two: gp.steps.toString(), inner: true),
                                     InfoBox(one: 'CFG Scale', two: gp.cfgScale.toString(), inner: true),
                                     gp.denoisingStrength != null && gp.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString(), inner: true) : const SizedBox.shrink(),
@@ -465,6 +466,33 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 ) : const SizedBox.shrink(),
               ],
             ) else const SizedBox.shrink(),
+            if (im.specific?['comfUINodes'] != null) ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              initiallyExpanded: true,
+              title:  Text('ComfUI render tree', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
+              subtitle: const Text('Direct connection of nodes for image generation', style: TextStyle(fontSize: 12, color: Colors.white70)),
+              children: [
+                ...withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>ComfUINodePreview(data: el)).toList(), element: const Icon(Icons.arrow_downward)),
+                im.other?['prompt'] != null ? ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 6),
+                  title: const Text('All parameters', style: TextStyle(fontSize: 13)),
+                  subtitle: const Text('View raw generation parameters without parsing', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                  children: <Widget>[
+                    Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            borderRadius: const BorderRadius.all(Radius.circular(4))
+                        ),
+                        child: SelectableText(
+                            im.other?['prompt'] ?? '?',
+                            style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
+                        )
+                    ),
+                  ],
+                ) : const SizedBox.shrink(),
+              ]
+            ) else const SizedBox.shrink(),
             BottomNavigationBar(
               backgroundColor: Colors.transparent,
               items: const <BottomNavigationBarItem>[
@@ -493,8 +521,428 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
       ),
     );
   }
-
 }
+
+class ComfUINodePreview extends StatelessWidget{
+  final dynamic data;
+
+  const ComfUINodePreview({ Key? key, required this.data}): super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+          color: Color(0xff303030),
+          borderRadius: BorderRadius.all(Radius.circular(4))
+      ),
+      padding: EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(data['type'], style: TextStyle(fontSize: 12, color: Colors.white70)),
+          const Gap(6),
+          Column(
+            children: getForType(data)
+            // [
+            //   InfoBox(one: 'Bit depth', two: 'None', inner: true),
+            // ],
+          )
+        ],
+      ),
+    );
+  }
+}
+
+List<Widget> getForType(dynamic data){
+  switch (data['type']) {
+    case 'EmptyLatentImage':
+      return [
+        InfoBox(one: 'Width and height', two:  '${data['width']}x${data['height']}', inner: true),
+        InfoBox(one: 'Batch size', two:  data['batchSize'].toString(), inner: true)
+      ];
+    case 'SDXL Quick Empty Latent (WLSH)':
+      return [
+        InfoBox(one: 'Resolution', two:  data['resolution'], inner: true),
+        InfoBox(one: 'Direction', two:  data['direction'].toString(), inner: true),
+        InfoBox(one: 'Batch size', two:  data['batchSize'].toString(), inner: true)
+      ];
+    case 'SamplerCustom':
+      return [
+        InfoBox(one: 'Add noise', two: data['addNoise'] ? 'True' : 'False', inner: true),
+        InfoBox(one: 'Noise seed', two:  data['noiseSeed'].toString(), inner: true),
+        InfoBox(one: 'CFG Scale', two:  data['cfg'].toString(), inner: true),
+        InfoBox(one: 'Model', two:  data['model'], inner: true),
+        InfoBox(one: 'Sampler name', two:  data['sampler'], inner: true), // TODO normalize
+        InfoBox(one: 'Sigmas', two:  data['sigmas'], inner: true), // TODO normalize
+        Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              border: Border.all(color: Colors.green, width: 1),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ),
+        data['negative'].trim() != '' ? Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              border: Border.all(color: Colors.red, width: 1,),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ) : const SizedBox.shrink(),
+      ];
+    case 'KSampler':
+      return [
+        InfoBox(one: 'Seed', two: data['seed'].toString(), inner: true),
+        InfoBox(one: 'Steps', two:  data['steps'].toString(), inner: true),
+        InfoBox(one: 'CFG Scale', two:  data['cfg'].toString(), inner: true),
+        InfoBox(one: 'Sampler name', two:  data['samplerName'], inner: true), // TODO normalize
+        InfoBox(one: 'Scheduler', two:  data['scheduler'], inner: true),
+        Container(
+            margin: const EdgeInsets.only(top: 4),
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(
+                color: Color(0xff1a1a1a),
+                borderRadius: BorderRadius.all(Radius.circular(4))
+            ),
+            child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row( // This shit killed four hours of my life.
+                      children: [
+                        const SelectableText('Model', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                        const Gap(6),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(data['model'].first, style: const TextStyle(fontSize: 13)),
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                    ...data['model'].sublist(1).map<Widget>((el)=>Row( // This shit killed four hours of my life.
+                      children: [
+                        const SelectableText('Lora', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                        const Gap(6),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(el, style: const TextStyle(fontSize: 13)),
+                            ),
+                          ),
+                        )
+                      ],
+                    )).toList()
+                  ],
+                )
+            )
+        ),
+        Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              border: Border.all(color: Colors.green, width: 1),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ),
+        data['negative'].trim() != '' ? Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              border: Border.all(color: Colors.red, width: 1,),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ) : const SizedBox.shrink(),
+      ];
+    case 'VAEDecodeTiled':
+      return [
+        InfoBox(one: 'Tile size', two:  data['tileSize'].toString(), inner: true),
+        InfoBox(one: 'VAE', two:  data['vae'], inner: true)
+      ];
+    case 'VAEDecode':
+      return [
+        InfoBox(one: 'VAE', two:  data['vae'], inner: true)
+      ];
+    case 'VAEEncodeTiled':
+      return [
+        InfoBox(one: 'Tile size', two:  data['tileSize'].toString(), inner: true),
+        InfoBox(one: 'VAE', two:  data['vae'], inner: true)
+      ];
+    case 'UltimateSDUpscale':
+      return [
+        InfoBox(one: 'Upscale by', two: data['upscaleBy'].toString(), inner: true),
+        InfoBox(one: 'Seed', two: data['seed'].toString(), inner: true),
+        InfoBox(one: 'Steps', two:  data['steps'].toString(), inner: true),
+        InfoBox(one: 'CFG Scale', two:  data['cfg'].toString(), inner: true),
+        InfoBox(one: 'Sampler name', two:  data['samplerName'], inner: true), // TODO normalize
+        InfoBox(one: 'Scheduler', two:  data['scheduler'], inner: true),
+        InfoBox(one: 'Denoise', two:  data['denoise'].toString(), inner: true),
+        InfoBox(one: 'Mode type', two:  data['modeType'], inner: true),
+        InfoBox(one: 'Tile width and height', two:  '${data['tileWidth']}x${data['tileHeight']}', inner: true),
+        InfoBox(one: 'Mask blur', two:  data['maskBlur'].toString(), inner: true),
+        InfoBox(one: 'Tile padding', two:  data['tilePadding'].toString(), inner: true),
+        InfoBox(one: 'Seam fix mode', two:  data['seamFixMode'], inner: true),
+        InfoBox(one: 'Seam fix denoise', two:  data['seamFixDenoise'].toString(), inner: true),
+        InfoBox(one: 'Seam fix width', two:  data['seamFixWidth'].toString(), inner: true),
+        InfoBox(one: 'Seam fix mask blur', two:  data['seamFixMaskBlur'].toString(), inner: true),
+        InfoBox(one: 'Seam fix padding', two:  data['seamFixPadding'].toString(), inner: true),
+        InfoBox(one: 'Force uniform tiles', two:  data['seamFixPadding'].toString(), inner: true),
+        Container(
+            margin: const EdgeInsets.only(top: 4),
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(
+                color: Color(0xff1a1a1a),
+                borderRadius: BorderRadius.all(Radius.circular(4))
+            ),
+            child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row( // This shit killed four hours of my life.
+                      children: [
+                        const SelectableText('Model', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                        const Gap(6),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(data['model'].first, style: const TextStyle(fontSize: 13)),
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                    ...data['model'].sublist(1, data['model'].length - 2).map<Widget>((el)=>Row( // This shit killed four hours of my life.
+                      children: [
+                        const SelectableText('Lora', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                        const Gap(6),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(el, style: const TextStyle(fontSize: 13)),
+                            ),
+                          ),
+                        )
+                      ],
+                    )).toList()
+                  ],
+                )
+            )
+        ),
+        Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              border: Border.all(color: Colors.green, width: 1),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ),
+        data['negative'].trim() != '' ? Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              border: Border.all(color: Colors.red, width: 1,),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ) : const SizedBox.shrink(),
+        InfoBox(one: 'VAE', two:  data['vae'], inner: true),
+        InfoBox(one: 'Upscale model', two:  data['upscaleModel'], inner: true),
+      ];
+    case 'NNLatentUpscale':
+      return [
+        InfoBox(one: 'Version', two: data['version'], inner: true),
+        InfoBox(one: 'Upscale', two: data['upscale'].toString(), inner: true),
+      ];
+    case 'SamplerCustomAdvanced':
+      return [
+        InfoBox(one: 'Noise', two: data['noise'], inner: true),
+        InfoBox(one: 'Guider', two: data['guider'], inner: true),
+        InfoBox(one: 'Sampler', two: data['sampler'], inner: true),
+        InfoBox(one: 'Sigmas', two: data['sigmas'], inner: true),
+      ];
+    case 'FaceDetailer':
+      return [
+        InfoBox(one: 'Guide size', two: data['guideSize'].toString(), inner: true),
+        InfoBox(one: 'Guide size for', two: data['guideSizeFor'] ? 'True' : 'False', inner: true),
+        InfoBox(one: 'Max size', two: data['maxSize'].toString(), inner: true),
+        InfoBox(one: 'Guide size', two: data['guideSize'].toString(), inner: true),
+        InfoBox(one: 'Seed', two: data['seed'].toString(), inner: true),
+        InfoBox(one: 'Steps', two:  data['steps'].toString(), inner: true),
+        InfoBox(one: 'CFG Scale', two:  data['cfg'].toString(), inner: true),
+        InfoBox(one: 'Sampler name', two:  data['samplerName'], inner: true), // TODO normalize
+        InfoBox(one: 'Scheduler', two:  data['scheduler'], inner: true),
+        InfoBox(one: 'Denoise', two:  data['denoise'].toString(), inner: true),
+        InfoBox(one: 'Noise mask', two:  data['noiseMask'] ? 'True' : 'False', inner: true),
+        InfoBox(one: 'Force inpaint', two:  data['forceInpaint'] ? 'True' : 'False', inner: true),
+        InfoBox(one: 'BBox threshold', two:  data['bboxThreshold'].toString(), inner: true),
+        InfoBox(one: 'BBox dilation', two:  data['bboxDilation'].toString(), inner: true),
+        InfoBox(one: 'BBox crop factor', two:  data['bboxCropFactor'].toString(), inner: true),
+        InfoBox(one: 'Sam detection hint', two:  data['samDetectionHint'], inner: true),
+        InfoBox(one: 'Sam dilation', two:  data['samDilation'].toString(), inner: true),
+        InfoBox(one: 'Sam threshold', two:  data['samThreshold'].toString(), inner: true),
+        InfoBox(one: 'Sam BBox expansion', two:  data['samBboxExpansion'].toString(), inner: true),
+        InfoBox(one: 'Sam mask hint threshold', two:  data['samMaskHintThreshold'].toString(), inner: true),
+        InfoBox(one: 'Sam mask hint use negative', two:  data['samMaskHintUseNegative'], inner: true), // dolbaeb
+        InfoBox(one: 'Drop size', two:  data['dropSize'].toString(), inner: true),
+        InfoBox(one: 'Wildcard', two:  data['wildcard'], inner: true),
+        InfoBox(one: 'Cycle', two:  data['cycle'].toString(), inner: true),
+        InfoBox(one: 'Inpaint model', two:  data['inpaintModel'] ? 'True' : 'False', inner: true),
+        InfoBox(one: 'Noise mask feather', two:  data['noiseMaskFeather'].toString(), inner: true),
+        // InfoBox(one: 'Image', two:  data['image'].toString(), inner: true),
+        Container(
+            margin: const EdgeInsets.only(top: 4),
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(
+                color: Color(0xff1a1a1a),
+                borderRadius: BorderRadius.all(Radius.circular(4))
+            ),
+            child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row( // This shit killed four hours of my life.
+                      children: [
+                        const SelectableText('Model', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                        const Gap(6),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(data['model'].first, style: const TextStyle(fontSize: 13)),
+                            ),
+                          ),
+                        )
+                      ],
+                    ),
+                    const SelectableText('Lora', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SelectableText(data['model'].sublist(1).join('\n'), style: const TextStyle(fontSize: 13)),
+                    )
+                  ],
+                )
+            )
+        ),
+        Container(
+            margin: const EdgeInsets.only(top: 4),
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(
+                color: Color(0xff1a1a1a),
+                borderRadius: BorderRadius.all(Radius.circular(4))
+            ),
+            child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SelectableText('Clip', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SelectableText(data['clip'].join('\n'), style: const TextStyle(fontSize: 13)),
+                    )
+                  ],
+                )
+            )
+        ),
+        Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              border: Border.all(color: Colors.green, width: 1),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ),
+        data['negative'].trim() != '' ? Container(
+            padding: const EdgeInsets.all(4.0),
+            margin: const EdgeInsets.only(top: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              border: Border.all(color: Colors.red, width: 1,),
+              borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+            ),
+            child: FractionallySizedBox(
+                widthFactor: 1.0,
+                child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+            )
+        ) : const SizedBox.shrink(),
+        InfoBox(one: 'VAE', two:  data['vae'], inner: true),
+        InfoBox(one: 'BBox detector', two:  data['bboxDetector'], inner: true),
+        InfoBox(one: 'Sam model name', two:  data['samModelOpt']['modelName'], inner: true),
+        InfoBox(one: 'Sam model device mode', two:  data['samModelOpt']['deviceMode'], inner: true),
+        InfoBox(one: 'Segm detector opt', two:  data['segmDetectorOpt'], inner: true),
+      ];
+    case 'SaveImage':
+      return [
+        InfoBox(one: 'Prefix', two:  data['path'], inner: true),
+      ];
+    default:
+      return [
+        Column(
+          children: [
+            SelectableText('Error: ${data['type']}'),
+            SelectableText(jsonEncode(data))
+          ],
+        )
+      ];
+  }
+}
+
+List<Widget> withSpaceBetween({required List<Widget> list, required Widget element}) => [
+  for (int i = 0; i < list.length; i++)
+    ...[
+      if (i > 0)
+        element,
+      list[i],
+    ],
+];
 
 class InfoBox extends StatelessWidget{
   final String one;

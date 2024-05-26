@@ -240,11 +240,177 @@ GenerationParams? parseSDParameters(String rawData){
   }
 }
 
-// TODO: Потом покурю
-void parseComfUIParameters(String rawData){
-  var data = jsonDecode(rawData);
-  if(data['nodes'] != null){
+List<dynamic> parseComfUIParameters(String rawData){
+  var myData = jsonDecode(rawData);
+  if(myData['nodes'] != null){
     // Vanilla ComfUI
+    // TODO: Страшная штука, курить много
+    return [];
+  } else {
+    List<dynamic> fi = [];
+    List<dynamic> best = [];
+    for (String key in myData.keys){
+      dynamic d = myData[key];
+      String classType = d['class_type'];
+
+      if(['SaveImage'].contains(classType)){
+        fi.add(List.from(getImageLine(d, myData).reversed));
+      }
+    }
+    // Find best
+    // 1. With max correct nodes
+    List<dynamic> test = fi.where((el) => ['SDXL Quick Empty Latent (WLSH)', 'EmptyLatentImage'].contains(el[0]['type']) && el[el.length-1]['type'] == 'SaveImage').toList(growable: false);
+    test.sort((a, b) => a.length > b.length ? 0 : 1);
+    if(test.isNotEmpty){
+      best = test[0];
+    } else {
+      print(fi);
+    }
+    return best;
+  }
+}
+
+List<dynamic> getImageLine(dynamic el, dynamic data){
+  List<dynamic> history = [];
+  if(el['class_type'] == 'SaveImage'){
+    history.add({
+      'type': 'SaveImage',
+      'path': el['inputs']['filename_prefix']
+    });
+    findNext(data[el['inputs']['images'][0]], data, history);
+  }
+  return history;
+}
+
+void findNext(dynamic el, dynamic data, List<dynamic> history){
+  var inp = el['inputs'];
+  switch (el['class_type']) {
+    case 'UltimateSDUpscale':
+      history.add(fillMap(data, inp, 'image', 'UltimateSDUpscale'));
+      findNext(data[inp['image'][0]], data, history);
+      break;
+    case 'VAEDecodeTiled':
+      history.add(fillMap(data, inp, 'samples', 'VAEDecodeTiled'));
+      findNext(data[inp['samples'][0]], data, history);
+      break;
+    case 'KSampler':
+      history.add(fillMap(data, inp, 'latent_image', 'KSampler'));
+      findNext(data[inp['latent_image'][0]], data, history);
+      break;
+    case 'VAEEncodeTiled':
+      history.add(fillMap(data, inp, 'pixels', 'VAEEncodeTiled'));
+      findNext(data[inp['pixels'][0]], data, history);
+      break;
+    case 'VAEDecode':
+      history.add(fillMap(data, inp, 'samples', 'VAEDecode'));
+      findNext(data[inp['samples'][0]], data, history);
+      break;
+    case 'SamplerCustomAdvanced':
+      history.add(fillMap(data, inp, 'latent_image', 'SamplerCustomAdvanced'));
+      findNext(data[inp['latent_image'][0]], data, history);
+      break;
+    case 'NNLatentUpscale':
+      history.add(fillMap(data, inp, 'latent', 'NNLatentUpscale'));
+      findNext(data[inp['latent'][0]], data, history);
+      break;
+    case 'SamplerCustom':
+      history.add(fillMap(data, inp, 'latent_image', 'SamplerCustom'));
+      findNext(data[inp['latent_image'][0]], data, history);
+      break;
+    //starters
+    case 'EmptyLatentImage':
+      history.add(fillMap(data, inp, '', 'EmptyLatentImage'));
+      break;
+    case 'SDXL Quick Empty Latent (WLSH)':
+      history.add(fillMap(data, inp, '', 'SDXL Quick Empty Latent (WLSH)'));
+      break;
+    // other
+    case 'FaceDetailer':
+      history.add(fillMap(data, inp, '', 'FaceDetailer'));
+      findNext(data[inp['image'][0]], data, history);
+      break;
+    default:
+      history.add({
+        'type': 'next_not_found',
+        'classType': el['class_type'],
+        'data': inp
+      });
+  }
+}
+
+Map<String, dynamic> fillMap(data, input, key, action){
+  var temp = {'type': action};
+  for(String _key in input.keys){
+    if(_key == key) continue;
+    temp[normalizeKey(_key)] = vilkaIliJopa(data, input[_key]);
+  }
+  return temp;
+}
+
+String normalizeKey(String key){
+  List<String> kw = key.split('');
+  kw.asMap().forEach((i, e) {
+    kw[i] = i-1 == -1 ? e : kw[i-1] == '_' ? e.toUpperCase(): e;
+  });
+  return kw.where((e) => e != '_').join('');
+}
+
+dynamic vilkaIliJopa(dynamic data, dynamic check){ // dynamic vilka Ili Jopa - ;D
+  if(check == null) return null;
+  if((check.runtimeType == List<dynamic>) && check.length == 2 && check[0].runtimeType == String){
+    return findEnd(data[check[0]], data);
+  } else {
+    return check;
+  }
+}
+
+dynamic findEnd(dynamic node, dynamic data){
+  var inp = node['inputs'];
+  switch (node['class_type']) {
+    case 'CLIPTextEncode':
+      return inp['text'];
+    case 'Text Multiline':
+      return inp['text'];
+    case 'CLIPTextEncodeSDXL':
+      return findEnd(data[inp['text_g'][0]], data);
+    case 'Simple String Combine (WLSH)':
+      // https://comfy.icu/node/Simple-String-Combine-WLSH
+      String addition = vilkaIliJopa(data, inp['addition']);
+      String main = vilkaIliJopa(data, inp['input_string']);
+      String separator = inp['separator'] == 'comma' ? ',' : inp['separator'] == 'space' ? ' ' : inp['separator'] == 'newline' ? '\n' : '';
+      return inp['placement'] == 'before' ? '$main$separator$addition' : '$addition$separator$main';
+    case 'CheckpointLoaderSimple':
+      return inp['ckpt_name'];
+    case 'VAELoader':
+      return inp['vae_name'];
+    case 'UpscaleModelLoader':
+      return inp['model_name'];
+    case 'LoraLoader':
+      List<String> fi = [inp['lora_name']];
+      loraStack(fi, data[inp['model'][0]], data);
+      return List.from(fi.reversed);
+    case 'SAMLoader':
+      return {
+        'modelName': inp['model_name'],
+        'deviceMode': inp['device_mode']
+      };
+    default:
+      return node['class_type'];
+  }
+}
+
+void loraStack(List<String> fi, dynamic node, dynamic data){
+  var inp = node['inputs'];
+  switch (node['class_type']) {
+    case 'LoraLoader':
+      fi.add('${inp['lora_name']}:${inp['strength_model']}');
+      loraStack(fi, data[inp['model'][0]], data);
+      break;
+    case 'CheckpointLoaderSimple':
+      fi.add(inp['ckpt_name']);
+      break;
+    default:
+      fi.add('IDK: ${node['class_type']}');
   }
 }
 

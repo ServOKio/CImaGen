@@ -390,13 +390,15 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         } else if(pngEx['workflow'] != null){
           if(await isJson(pngEx['workflow'] as String)){
             re = RenderEngine.comfUI;
-            parseComfUIParameters(pngEx['prompt']);
+            List<dynamic> nodesList = parseComfUIParameters(pngEx['prompt']);
+            if(nodesList.isNotEmpty) specific['comfUINodes'] = nodesList;
           }
         } else if(pngEx['prompt'] != null){
           if(await isJson(pngEx['prompt'] as String)){
             if(pngEx['generation_data'] == null){
               re = RenderEngine.comfUI;
-              parseComfUIParameters(pngEx['prompt']);
+              List<dynamic> nodesList = parseComfUIParameters(pngEx['prompt']);
+              if(nodesList.isNotEmpty) specific['comfUINodes'] = nodesList;
             } else {
               pngEx['softwareType'] = Software.tensorArt;
             }

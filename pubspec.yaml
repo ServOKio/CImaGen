@@ -76,7 +76,6 @@ flutter:
   uses-material-design: true
   generate: true
   assets:
-    - images/uhhh.png
 #   - images/a_dot_ham.jpeg
 
   fonts:

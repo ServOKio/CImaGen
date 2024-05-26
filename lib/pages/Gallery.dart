@@ -849,13 +849,6 @@ class EmplyFolderPlaceholder extends StatelessWidget{
             child: Stack(
               children: [
                 Positioned(
-                  right: 0,
-                  top: !isNull ? 0 : null,
-                  left: !isNull ? constraints.maxWidth / 2 : null,
-                  bottom: !isNull ? 0 : null,
-                  child: isNull ? Image.asset('images/uhhh.png', height: constraints.maxHeight / 2) : Icon(Icons.folder_copy, color: Color(0xffd87034), size: constraints.maxHeight / 3),
-                ),
-                Positioned(
                   top: 0,
                   left: 0,
                   bottom: 0,
