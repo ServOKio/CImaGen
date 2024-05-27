@@ -566,6 +566,10 @@ List<Widget> getForType(dynamic data){
         InfoBox(one: 'Direction', two:  data['direction'].toString(), inner: true),
         InfoBox(one: 'Batch size', two:  data['batchSize'].toString(), inner: true)
       ];
+    case 'LoadImage':
+      return [
+        InfoBox(one: 'Image', two:  data['image'], inner: true),
+      ];
     case 'SamplerCustom':
       return [
         InfoBox(one: 'Add noise', two: data['addNoise'] ? 'True' : 'False', inner: true),

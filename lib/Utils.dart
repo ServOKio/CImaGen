@@ -259,12 +259,13 @@ List<dynamic> parseComfUIParameters(String rawData){
     }
     // Find best
     // 1. With max correct nodes
-    List<dynamic> test = fi.where((el) => ['SDXL Quick Empty Latent (WLSH)', 'EmptyLatentImage'].contains(el[0]['type']) && el[el.length-1]['type'] == 'SaveImage').toList(growable: false);
+    List<dynamic> test = fi.where((el) => ['SDXL Quick Empty Latent (WLSH)', 'EmptyLatentImage', 'LoadImage'].contains(el[0]['type']) && el[el.length-1]['type'] == 'SaveImage').toList(growable: false);
     test.sort((a, b) => a.length > b.length ? 0 : 1);
     if(test.isNotEmpty){
       best = test[0];
     } else {
-      print(fi);
+      print('pizda');
+      print(jsonEncode(fi));
     }
     return best;
   }
@@ -277,7 +278,11 @@ List<dynamic> getImageLine(dynamic el, dynamic data){
       'type': 'SaveImage',
       'path': el['inputs']['filename_prefix']
     });
-    findNext(data[el['inputs']['images'][0]], data, history);
+    if(el['inputs']['images'] != null){
+      findNext(data[el['inputs']['images'][0]], data, history);
+    } else {
+      suddenEnd(history, el);
+    }
   }
   return history;
 }
@@ -286,36 +291,28 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
   var inp = el['inputs'];
   switch (el['class_type']) {
     case 'UltimateSDUpscale':
-      history.add(fillMap(data, inp, 'image', 'UltimateSDUpscale'));
-      findNext(data[inp['image'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'image', nodeName: 'UltimateSDUpscale');
       break;
     case 'VAEDecodeTiled':
-      history.add(fillMap(data, inp, 'samples', 'VAEDecodeTiled'));
-      findNext(data[inp['samples'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'samples', nodeName: 'VAEDecodeTiled');
       break;
     case 'KSampler':
-      history.add(fillMap(data, inp, 'latent_image', 'KSampler'));
-      findNext(data[inp['latent_image'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'KSampler');
       break;
     case 'VAEEncodeTiled':
-      history.add(fillMap(data, inp, 'pixels', 'VAEEncodeTiled'));
-      findNext(data[inp['pixels'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'pixels', nodeName: 'VAEEncodeTiled');
       break;
     case 'VAEDecode':
-      history.add(fillMap(data, inp, 'samples', 'VAEDecode'));
-      findNext(data[inp['samples'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'samples', nodeName: 'VAEDecode');
       break;
     case 'SamplerCustomAdvanced':
-      history.add(fillMap(data, inp, 'latent_image', 'SamplerCustomAdvanced'));
-      findNext(data[inp['latent_image'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'SamplerCustomAdvanced');
       break;
     case 'NNLatentUpscale':
-      history.add(fillMap(data, inp, 'latent', 'NNLatentUpscale'));
-      findNext(data[inp['latent'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'latent', nodeName: 'NNLatentUpscale');
       break;
     case 'SamplerCustom':
-      history.add(fillMap(data, inp, 'latent_image', 'SamplerCustom'));
-      findNext(data[inp['latent_image'][0]], data, history);
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'SamplerCustom');
       break;
     //starters
     case 'EmptyLatentImage':
@@ -323,6 +320,9 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
       break;
     case 'SDXL Quick Empty Latent (WLSH)':
       history.add(fillMap(data, inp, '', 'SDXL Quick Empty Latent (WLSH)'));
+      break;
+    case 'LoadImage':
+      history.add(fillMap(data, inp, '', 'LoadImage'));
       break;
     // other
     case 'FaceDetailer':
@@ -336,6 +336,24 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
         'data': inp
       });
   }
+}
+
+void nextOrEnd(dynamic el, dynamic data, List<dynamic> history, {required String nextKey, required String nodeName}){
+  var inp = el['inputs'];
+  if(inp[nextKey] != null){
+    history.add(fillMap(data, inp, nextKey, nodeName));
+    findNext(data[inp[nextKey][0]], data, history);
+  } else {
+    suddenEnd(history, el);
+  }
+}
+
+void suddenEnd(dynamic history, dynamic el){
+  history.add({
+    'type': 'sudden_end',
+    'classType': el['class_type'],
+    'data': el['inputs']
+  });
 }
 
 Map<String, dynamic> fillMap(data, input, key, action){
