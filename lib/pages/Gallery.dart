@@ -50,96 +50,115 @@ class Gallery extends StatefulWidget{
 
 class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   String currentKey = 'null';
-  int _t2iSelected = 0;
-  int _i2iSelected = 0;
+
+  final List<RenderEngine> _tabs = [
+    RenderEngine.txt2img,
+    RenderEngine.img2img,
+    // RenderEngine.extra - fuck...
+  ];
+
+  Map<int, ScrollController> _scrollControllers = {};
+  Map<int, Future<List<Folder>>> _lists = {};
+  Map<int, int> _selected = {};
 
   bool sr = false;
 
   SelectedModel model = SelectedModel();
-
-  late Future<List<Folder>> txt2imgList;
-  final ScrollController _scrollControllerOne = ScrollController();
-
-  late Future<List<Folder>> img2imgList;
-  final ScrollController _scrollControllerTwo = ScrollController();
 
   dynamic imagesList;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: _tabs.length, vsync: this);
     var go = context.read<ImageManager>().getter.loaded;
     if (!go) {
       sr = true;
     } else {
-      go = context.read<ImageManager>().getter.webuiPaths['outdir_txt2img-images'] != null;
-      if(go){
-        txt2imgList = _loadMenu(RenderEngine.txt2img);
-        txt2imgList.then((value){
-          if(mounted && value.isNotEmpty) {
-            Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.txt2img, value[0].name);
-            _imagesList.then((listRes){
-              if(listRes.isEmpty){
-                context.read<ImageManager>().getter.indexFolder(RenderEngine.txt2img, value[0].name).then((stream){
-                  setState(() {
-                    imagesList = stream;
-                  });
-                });
-              } else {
-                setState(() {
-                  imagesList = _imagesList;
-                });
-              }
-            });
-          }
+      for(RenderEngine re in _tabs){
+        // Scroll
+        _scrollControllers[re.index] = ScrollController();
+        _scrollControllers[re.index]?.addListener(() {
 
         });
-        go = context.read<ImageManager>().getter.webuiPaths['outdir_img2img-images'] != null;
-        if (go) {
-          img2imgList = _loadMenu(RenderEngine.img2img);
-        }
+        // Lists
+        _lists[re.index] = _loadMenu(re);
+        // Selected
+        _selected[re.index] = 0;
       }
-
-      _scrollControllerOne.addListener(onScrollOne);
-      _scrollControllerTwo.addListener(onScrollTwo);
+      _lists[_tabs[0].index]?.then((value){
+        if(mounted && value.isNotEmpty) {
+          Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(_tabs[0], value[0].name);
+          _imagesList.then((listRes){
+            if(listRes.isEmpty){
+              context.read<ImageManager>().getter.indexFolder(_tabs[0], value[0].name).then((stream){
+                setState(() {
+                  imagesList = stream;
+                });
+              });
+            } else {
+              setState(() {
+                imagesList = _imagesList;
+              });
+            }
+          });
+        }
+      });
+      //go = context.read<ImageManager>().getter.webuiPaths['outdir_txt2img-images'] != null;
+      // if(go){
+      //   txt2imgList = _loadMenu(RenderEngine.txt2img);
+      //   txt2imgList.then((value){
+      //     if(mounted && value.isNotEmpty) {
+      //       Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.txt2img, value[0].name);
+      //       _imagesList.then((listRes){
+      //         if(listRes.isEmpty){
+      //           context.read<ImageManager>().getter.indexFolder(RenderEngine.txt2img, value[0].name).then((stream){
+      //             setState(() {
+      //               imagesList = stream;
+      //             });
+      //           });
+      //         } else {
+      //           setState(() {
+      //             imagesList = _imagesList;
+      //           });
+      //         }
+      //       });
+      //     }
+      //
+      //   });
+      //   go = context.read<ImageManager>().getter.webuiPaths['outdir_img2img-images'] != null;
+      //   if (go) {
+      //     img2imgList = _loadMenu(RenderEngine.img2img);
+      //   }
+      // }
     }
   }
 
-  void onScrollOne(){
-    print(_scrollControllerOne.position.pixels);
-  }
-
-  void onScrollTwo(){
-    print(_scrollControllerTwo.position.pixels);
-  }
 
   @override
   void dispose(){
     super.dispose();
-    _scrollControllerOne.removeListener(onScrollOne);
-    _scrollControllerTwo.removeListener(onScrollTwo);
+    for(RenderEngine re in _tabs){
+      // Scroll
+      _scrollControllers[re.index]?.dispose();
+    }
   }
 
-  void changeTab(int type, int index) {
+  void changeTab(RenderEngine re, int index) {
+    _selected[re.index] = index;
     setState(() {
-      if(type == 0){
-        _t2iSelected = index;
-      } else {
-        _i2iSelected = index;
-      }
-      currentKey = '$type:$index';
+      currentKey = '${re.index}:$index';
     });
 
 
-    [txt2imgList, img2imgList][type].then((listValue) {
+    _lists[re.index]?.then((listValue) {
       Folder f = listValue[index];
-      imagesList = context.read<ImageManager>().getter.getFolderFiles(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
+      imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
       // imagesList = context.read<SQLite>().getImagesByParent(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
       imagesList?.then((value) {
-        bool force = value.length-1 == index;
+        bool force = listValue.length-1 == index;
         if(value.isEmpty || force) {
-          context.read<ImageManager>().getter.indexFolder(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name).then((stream){
+          context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
             setState(() {
               imagesList = stream;
             });
@@ -156,20 +175,15 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
       width: 200,
       child: Column(
         children: [
-          TabBar.secondary(
+          TabBar(
             controller: _tabController,
-            tabs: const <Widget>[
-              Tab(text: 'txt2img'),
-              Tab(text: 'img2img'),
-            ],
+            tabs: _tabs.map<Widget>((tab)=>Tab(text: renderEngineToString(tab))).toList(),
+            isScrollable: false
           ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: <Widget>[
-                _fBuilder(0),
-                _fBuilder(1)
-              ],
+              children: _tabs.map<Widget>((tab)=>_fBuilder(tab)).toList()
             )
           )
         ],
@@ -177,14 +191,14 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
     );
   }
 
-  Widget _fBuilder(int type){
+  Widget _fBuilder(RenderEngine re){
     return FutureBuilder(
-        future: type == 0 ? txt2imgList : img2imgList,
+        future: _lists[re.index],
         builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
           Widget c;
           if (snapshot.hasData) {
             c = ListView.separated(
-              controller: _scrollControllerOne,
+              controller: _scrollControllers[re.index],
               separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
               itemCount: snapshot.data.length,
               itemBuilder: (context, index) {
@@ -244,10 +258,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                             ),
                           )
                       ));
-                      goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeTab(type, index)))));
+                      goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeTab(re, index)))));
                       goto.add(AnimatedPositioned(
                         top: 100 / 2 - 42 / 2,
-                        right: (type == 0 ? _t2iSelected : _i2iSelected) == index ? 0 : -12,
+                        right: _selected[re.index] == index ? 0 : -12,
                         duration: const Duration(seconds: 1),
                         curve: Curves.ease,
                         child: Container(
@@ -769,6 +783,18 @@ class PreviewImage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            imageMeta.re == RenderEngine.inpaint ? Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                  decoration: BoxDecoration(
+                                      borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                      color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                  ),
+                                  child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                ),
+                              ],
+                            ) : const SizedBox.shrink(),
                             imageMeta.generationParams!.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
                               children: [
                                 Container(

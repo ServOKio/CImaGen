@@ -193,10 +193,20 @@ class ParseJob {
           _controller.add(finished);
           NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
             if(doI){
-              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false);
+              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+                _doneTotal++;
+                _isDone();
+              });
+            } else {
+              _doneTotal++;
+              _isDone();
             }
           });
+        } else {
+          _doneTotal++;
+          _isDone();
         }
+      } else {
         _doneTotal++;
         _isDone();
       }
@@ -205,6 +215,9 @@ class ParseJob {
 
   void _isDone(){
     if(isDone){
+      if (kDebugMode) {
+        print('done with $_jobID');
+      }
       _controller.close();
     }
   }
@@ -1178,13 +1191,13 @@ String checkpointTypeToString(CheckpointType ct){
 
 enum RenderEngine{
   unknown,
-  txt2img,
-  img2img,
-  inpaint,
-  txt2imgGrid,
-  img2imgGrid,
-  extra,
-  comfUI
+  txt2img, // 1
+  img2img, // 2
+  inpaint, // 3
+  txt2imgGrid, // 4
+  img2imgGrid, // 5
+  extra, // 6
+  comfUI // 7
 }
 
 enum Software {

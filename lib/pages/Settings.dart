@@ -83,6 +83,7 @@ class _SettingsState extends State<Settings>{
         dataMap = {
           'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
           'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
+          'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
           'Without meta': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
         };
       })

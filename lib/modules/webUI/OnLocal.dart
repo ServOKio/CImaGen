@@ -40,18 +40,18 @@ class OnLocal implements AbMain {
       final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
       _config = await json.decode(response);
       // paths
-      String ei = p.join(_webui_root, _config['outdir_extras_samples']);
       String i2ig = p.join(_webui_root, _config['outdir_img2img_grids']);
       String i2i = p.join(_webui_root, _config['outdir_img2img_samples']);
       String t2ig = p.join(_webui_root, _config['outdir_txt2img_grids']);
       String t2i = p.join(_webui_root, _config['outdir_txt2img_samples']);
+      String ei = p.join(_webui_root, _config['outdir_extras_samples']);
 
       _webuiPaths.addAll({
-        'outdir_extras-images': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
         'outdir_img2img-grids': Directory(i2ig).existsSync() ? i2ig : _config['outdir_img2img_grids'],
         'outdir_img2img-images': Directory(i2i).existsSync() ? i2i : _config['outdir_img2img_samples'],
         'outdir_txt2img-grids': Directory(t2ig).existsSync() ? t2ig : _config['outdir_txt2img_grids'],
         'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
+        'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
       });
       loaded = true;
 
@@ -61,8 +61,8 @@ class OnLocal implements AbMain {
   }
 
   @override
-  Future<List<ImageMeta>> getFolderFiles(RenderEngine renderEngine, String sub) {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(renderEngine, sub);
+  Future<List<ImageMeta>> getFolderFiles(RenderEngine re, String sub) {
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(re == RenderEngine.img2img ? [RenderEngine.img2img, RenderEngine.inpaint] : re, sub);
   }
 
   Map<RenderEngine, String> ke = {

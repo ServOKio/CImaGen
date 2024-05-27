@@ -111,7 +111,7 @@ class SQLite with ChangeNotifier{
               if (kDebugMode) print('Sending ${send.length}...');
               for (var e in send) {
                 if(e.type == JobType.insert){
-                  batch.insert(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.fail);
+                  batch.insert(e.to, e.obj);
                 }
               }
 
@@ -173,10 +173,12 @@ class SQLite with ChangeNotifier{
   }
 
   Future<bool> shouldUpdate(String path, {String? host}) async {
+    List<Object> args = [genPathHash(path)];
+    if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.query(
       'images',
-      where: 'pathHash = ? AND host = ?',
-      whereArgs: [genPathHash(path), host],
+      where: 'pathHash = ? AND ${host == null ? 'host IS NULL' : 'host = ?'}',
+      whereArgs: args,
     );
     return maps.isEmpty;
   }
@@ -191,7 +193,6 @@ class SQLite with ChangeNotifier{
     );
     //print(genHash(type, parentName, imageMeta.imageParams.fileName));
     if (maps.isNotEmpty) {
-      //print(maps.length);
     } else {
       //Insert
       if(use){
@@ -348,11 +349,11 @@ class SQLite with ChangeNotifier{
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
-  Future<List<ImageMeta>> getImagesByParent(RenderEngine type, String parent) async {
+  Future<List<ImageMeta>> getImagesByParent(dynamic type, String parent) async {
     if (kDebugMode) {
-      print('$type ${type.index} $parent');
+      print('$type ${type.runtimeType} $parent');
     }
-    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type = ? AND images.parent = ? ORDER by datemodified ASC', [type.index, parent]);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ORDER by datemodified ASC', type.runtimeType == RenderEngine ? [type.index, parent] : [parent]);
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
@@ -555,23 +556,24 @@ class SQLite with ChangeNotifier{
 
   // System
   Future<Map<String, int>> getTablesInfo() async {
-    final List<Map<String, dynamic>> maps = await database.rawQuery(
-        'SELECT'
-          '(SELECT COUNT(keyup) FROM images) as totalImages,'
-          '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
-          '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
-          '(SELECT SUM(filesize) FROM images WHERe type = 1) as txt2imgSumSize,'
-          '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
-          '(SELECT SUM(filesize) FROM images WHERe type = 2) as img2imgSumSize'
-    );
+      final List<Map<String, dynamic>> maps = await database.rawQuery(
+          'SELECT'
+              '(SELECT COUNT(keyup) FROM images) as totalImages,'
+              '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
+              '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
+              '(SELECT SUM(filesize) FROM images WHERe type = 1) as txt2imgSumSize,'
+              '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
+              '(SELECT SUM(filesize) FROM images WHERE type = 2) as img2imgSumSize,'
+              '(SELECT COUNT(keyup) FROM images WHERE type = 3) as inpaintCount,'
+              '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize'
+      );
 
-    Map<String, int> finalMe = {};
-    maps.first.forEach((key, value) {
-      finalMe[key] = value == null ? 0 : value as int;
-    });
-    return finalMe;
-  }
-
+      Map<String, int> finalMe = {};
+      maps.first.forEach((key, value) {
+        finalMe[key] = value == null ? 0 : value as int;
+      });
+      return finalMe;
+    }
 }
 
 // ImageParams imageParamsFromJson(String data) {
