@@ -27,3 +27,4 @@ doc/api/
 .flutter-plugins-dependencies
 /.idea
 inno.iss
+/android/.idea

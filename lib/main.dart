@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/GitHub.dart';
@@ -12,6 +13,7 @@ import 'package:cimagen/utils/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +28,8 @@ import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+import 'package:path/path.dart' as p;
 
 import 'components/AppBar.dart';
 import 'components/NotesSection.dart';
@@ -159,6 +163,9 @@ class Main extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
+  static const platform = MethodChannel('app.channel.shared.data');
+  String dataShared = 'No data';
+
   late PageController _pageViewController;
   int _currentPageIndex = 0; // 3
   bool permissionRequired = false;
@@ -174,6 +181,43 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       initialPage: _currentPageIndex
     );
     initMe();
+  }
+
+  Future<void> getSharedText() async {
+    if(Platform.isAndroid){
+      var sharedData = await platform.invokeMethod('getSharedText');
+      if (sharedData != null) {
+        showDialog<String>(
+          context: context,
+          builder: (BuildContext context) => const AlertDialog(
+              content: LinearProgressIndicator()
+          ),
+        );
+        if(isImageUrl(sharedData)){
+          // blyat
+          Uri parse = Uri.parse(sharedData);
+          final String e = p.extension(parse.path);
+          ImageMeta im = ImageMeta(
+              host: Uri(
+                  host: parse.host,
+                  port: parse.port
+              ).toString(),
+              re: RenderEngine.unknown,
+              fileTypeExtension: e.replaceFirst('.', ''),
+              fullNetworkPath: sharedData,
+          );
+
+          try{
+            await im.parseNetworkImage();
+            await im.makeThumbnail();
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
+          } catch (e){
+            print(e);
+          }
+        }
+      }
+    }
   }
 
   Future<void> initMe() async {
@@ -201,8 +245,13 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     }
   }
 
+  void onDone(){
+    getSharedText();
+  }
+
   void next(){
     context.read<ConfigManager>().init().then((v){
+      onDone();
       context.read<SQLite>().init().then((v){
         context.read<ImageManager>().init(context);
         context.read<SaveManager>().init(context);

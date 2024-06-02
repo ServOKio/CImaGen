@@ -250,7 +250,6 @@ class RowList extends StatefulWidget{
 
 class _RowListState extends State<RowList> {
 
-  double height = 150;
   bool compareWithExtra = false;
 
   @override
@@ -289,6 +288,8 @@ class _RowListState extends State<RowList> {
   Widget build(BuildContext context) {
     ImageMeta? meta = widget.rowData.main;
     ImageMeta? metaExtra = widget.rowData.extraMain;
+    final screenHeight = MediaQuery.of(context).size.height;
+    double height = 512 * 0.7;
     return Padding(
       padding: meta != null ? const EdgeInsets.only(top: 20) : const EdgeInsets.only(bottom: 0),
       child: Row(
@@ -396,36 +397,36 @@ class _RowListState extends State<RowList> {
               ) : const SizedBox.shrink(),
             ],
           ),
-          Expanded(child: SizedBox(
-            height: height,
-            child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.rowData.images2.length,
-                itemBuilder: (BuildContext context, int index) {
-                  return Container(
-                      height: height,
-                      color: Colors.green,
-                      child: Stack(
-                        children: [
-                          Image.file(File(widget.rowData.images2[index].fullPath)),
-                          Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: compareWithExtra || (index == 0 && widget.rowData.images2.length > 1) ? findDifference(compareWithExtra ? widget.rowData.extraMain : widget.rowData.images2[index-1], widget.rowData.images2[index]).map((ent){
-                                    return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
-                                  }).toList() : [
-                                    const TagBox(text: 'first')
-                                  ]
-                              )
-                          )
-                        ],
-                      )
-                  );
-                }
-            ),
-          ))
+          // Expanded(child: SizedBox(
+          //   height: height,
+          //   child: ListView.builder(
+          //       scrollDirection: Axis.horizontal,
+          //       itemCount: widget.rowData.images2.length,
+          //       itemBuilder: (BuildContext context, int index) {
+          //         return Container(
+          //             height: height,
+          //             color: Colors.green,
+          //             child: Stack(
+          //               children: [
+          //                 Image.file(File(widget.rowData.images2[index].fullPath)),
+          //                 Padding(
+          //                     padding: const EdgeInsets.all(5),
+          //                     child: Column(
+          //                         mainAxisAlignment: MainAxisAlignment.start,
+          //                         crossAxisAlignment: CrossAxisAlignment.start,
+          //                         children: compareWithExtra || (index == 0 && widget.rowData.images2.length > 1) ? findDifference(compareWithExtra ? widget.rowData.extraMain : widget.rowData.images2[index-1], widget.rowData.images2[index]).map((ent){
+          //                           return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
+          //                         }).toList() : [
+          //                           const TagBox(text: 'first')
+          //                         ]
+          //                     )
+          //                 )
+          //               ],
+          //             )
+          //         );
+          //       }
+          //   ),
+          // ))
         ],
       ),
     );

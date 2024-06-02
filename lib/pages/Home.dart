@@ -10,11 +10,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:gap/gap.dart';
 
-import 'package:desktop_drop/desktop_drop.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../Utils.dart';
 import '../components/CustomMasonryView.dart';
@@ -43,7 +43,7 @@ class _HomeState extends State<Home> {
 
   final ScrollController _scrollController = ScrollController();
 
-  Future<void> readDragged(XFile file) async {
+  Future<void> readDragged(dynamic file) async {
     if(isImage(file)){
       try{
         ImageMeta? im = await parseImage(RenderEngine.unknown, file.path);
@@ -169,6 +169,34 @@ class _HomeState extends State<Home> {
     );
   }
 
+  DropOperation _onDropOver(DropOverEvent event) {
+    setState(() {
+      _isDragOver = true;
+    });
+    return event.session.allowedOperations.firstOrNull ?? DropOperation.none;
+  }
+
+  Future<void> _onPerformDrop(PerformDropEvent event) async {
+    for(var item in event.session.items){
+      final reader = item.dataReader!;
+      if (reader.canProvide(Formats.fileUri)) {
+        reader.getValue(Formats.fileUri, (value) => readDragged(File(Uri.parse(value!.path).toFilePath(windows: Platform.isWindows))));
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+  }
+
+  void _onDropLeave(DropEvent event) {
+    setState(() {
+      _isDragOver = false;
+    });
+  }
+
+  bool _isDragOver = false;
+
   Widget _buildMenu(){
     return Container(
         color: Theme.of(context).colorScheme.background,
@@ -201,24 +229,34 @@ class _HomeState extends State<Home> {
                       readDragged(img);
                     }
                   },
-                  child: DropTarget(
-                      onDragDone: (detail) async {
-                        for(XFile file in detail.files) {
-                          await readDragged(file);
-                        }
-                      },
-                      onDragEntered: (detail) {
-                        setState(() {
-                          _dragging = true;
-                        });
-                      },
-                      onDragExited: (detail) {
-                        setState(() {
-                          _dragging = false;
-                        });
-                      },
-                      child: selectBlock()
-                  ),
+                  child: DropRegion(
+                    formats: const [
+                      ...Formats.standardFormats,
+                    ],
+                    hitTestBehavior: HitTestBehavior.opaque,
+                    onDropOver: _onDropOver,
+                    onPerformDrop: _onPerformDrop,
+                    onDropLeave: _onDropLeave,
+                    child: selectBlock(),
+                  )
+                  // DropTarget(
+                  //     onDragDone: (detail) async {
+                  //       for(XFile file in detail.files) {
+                  //         await readDragged(file);
+                  //       }
+                  //     },
+                  //     onDragEntered: (detail) {
+                  //       setState(() {
+                  //         _dragging = true;
+                  //       });
+                  //     },
+                  //     onDragExited: (detail) {
+                  //       setState(() {
+                  //         _dragging = false;
+                  //       });
+                  //     },
+                  //     child: selectBlock()
+                  // ),
                 )
             )
           ],
@@ -238,7 +276,7 @@ class _HomeState extends State<Home> {
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: Container(
-              color: _dragging ? Colors.blue.withOpacity(0.4) : Theme.of(context).scaffoldBackgroundColor,
+              color: _isDragOver ? Colors.blue.withOpacity(0.4) : Theme.of(context).scaffoldBackgroundColor,
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

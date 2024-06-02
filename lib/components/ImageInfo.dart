@@ -10,8 +10,8 @@ import '../Utils.dart';
 import '../modules/ICCProfiles.dart';
 
 class MyImageInfo extends StatefulWidget {
-  ImageMeta data;
-  MyImageInfo(this.data, { Key? key }): super(key: key);
+  final ImageMeta data;
+  const MyImageInfo(this.data, { Key? key }): super(key: key);
 
   @override
   State<MyImageInfo> createState() => _MyImageInfoState();
@@ -47,7 +47,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
     }
 
     int bitsPerChannel = byImageLib ? (im.specific?['bitsPerChannel'] ?? 0) : im.specific?['bitDepth'] ?? 0;
-    String? colorType = byImageLib ? numChannelsToString(im.specific?['numChannels']) : im.specific?['colorType'] != null ? getColorType(im.specific?['colorType']) : null;
+    String? colorType = im.specific?['numChannels'] != null ? numChannelsToString(im.specific?['numChannels']) : im.specific?['colorType'] != null ? getColorType(im.specific?['colorType']) : null;
     NumberFormat f = NumberFormat("0.####");
     return SafeArea(
       child: Column(
@@ -80,10 +80,10 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Gap(6),
                                 Column(
                                   children: [
-                                    InfoBox(one: 'Date modified', two: im.dateModified.toIso8601String() ?? '', inner: true, withGap: false),
+                                    im.dateModified != null ? InfoBox(one: 'Date modified', two: im.dateModified!.toIso8601String(), inner: true, withGap: false) : const SizedBox.shrink(),
                                     InfoBox(one: 'File size', two: readableFileSize(im.fileSize ?? 0), inner: true),
                                     InfoBox(one: 'File name', two: im.fileName ?? '', inner: true),
-                                    im.size != null ? InfoBox(one: 'Size', two: '${im!.size.toString()} (${aspectRatioFromSize(im.size!)})', inner: true) : SizedBox.shrink(),
+                                    im.size != null ? InfoBox(one: 'Size', two: '${im!.size.toString()} (${aspectRatioFromSize(im.size!)})', inner: true) : const SizedBox.shrink(),
                                     InfoBox(one: 'Path', two: im.fullPath ?? '', inner: true),
                                   ],
                                 )
@@ -570,6 +570,15 @@ List<Widget> getForType(dynamic data){
       return [
         InfoBox(one: 'Image', two:  data['image'], inner: true),
       ];
+    case 'VHS_LoadVideo':
+      return [
+        InfoBox(one: 'Video', two: data['video'], inner: true),
+        InfoBox(one: 'Force rate', two: data['forceRate'].toString(), inner: true),
+        InfoBox(one: 'Force size', two: data['forceSize'], inner: true),
+        InfoBox(one: 'Frame load cap', two: data['frameLoadCap'].toString(), inner: true),
+        InfoBox(one: 'Skip first frames', two: data['skipFirstFrames'].toString(), inner: true),
+        InfoBox(one: 'Select Every Nth', two: data['selectEveryNth'].toString(), inner: true),
+      ];
     case 'SamplerCustom':
       return [
         InfoBox(one: 'Add noise', two: data['addNoise'] ? 'True' : 'False', inner: true),
@@ -633,13 +642,13 @@ List<Widget> getForType(dynamic data){
                             alignment: Alignment.centerRight,
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
-                              child: SelectableText(data['model'].first, style: const TextStyle(fontSize: 13)),
+                              child: SelectableText(data['model'].runtimeType == String ? data['model'] : data['model'].first, style: const TextStyle(fontSize: 13)),
                             ),
                           ),
                         )
                       ],
                     ),
-                    ...data['model'].sublist(1).map<Widget>((el)=>Row( // This shit killed four hours of my life.
+                    ...data['model'].runtimeType == String ? [] : data['model'].sublist(1).map<Widget>((el)=>Row(
                       children: [
                         const SelectableText('Lora', style: TextStyle(fontSize: 12, color: Colors.white70)),
                         const Gap(6),
@@ -698,6 +707,16 @@ List<Widget> getForType(dynamic data){
       return [
         InfoBox(one: 'Tile size', two:  data['tileSize'].toString(), inner: true),
         InfoBox(one: 'VAE', two:  data['vae'], inner: true)
+      ];
+    case 'VAEEncode':
+      return [
+        InfoBox(one: 'VAE', two:  data['vae'], inner: true)
+      ];
+    case 'ImageScale':
+      return [
+        InfoBox(one: 'Upscale method', two:  data['upscaleMethod'], inner: true),
+        InfoBox(one: 'Width and height', two:  '${data['width']}x${data['height']}', inner: true),
+        InfoBox(one: 'Crop', two:  data['crop'].toString(), inner: true),
       ];
     case 'UltimateSDUpscale':
       return [

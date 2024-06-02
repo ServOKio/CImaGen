@@ -27,6 +27,7 @@ class SQLite with ChangeNotifier{
   late Timer timer;
 
   Future<void> init() async {
+    int dbVersion = 1;
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -42,7 +43,6 @@ class SQLite with ChangeNotifier{
     database = await openDatabase(
       dbPath.path,
       onOpen: (db) async {
-
         await db.execute(
           'CREATE TABLE IF NOT EXISTS images('
             'keyup VARCHAR(256) PRIMARY KEY,'
@@ -128,9 +128,15 @@ class SQLite with ChangeNotifier{
           }
         });
       },
-      onCreate: (db, version) {
+      onCreate: (db, version) async {
       },
-      version: 1,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // switch (newVersion) {
+        //   case 2:
+        //   default:
+        // }
+      },
+      version: dbVersion,
     );
 
     dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
@@ -140,6 +146,7 @@ class SQLite with ChangeNotifier{
         db.execute(
           'CREATE TABLE IF NOT EXISTS favorites('
             'pathHash VARCHAR(256) PRIMARY KEY,'
+            'host VARCHAR(256),'
             'fullPath TEXT NOT NULL,'
             'fileName TEXT NOT NULL,'
             'parent TEXT NOT NULL'
@@ -168,7 +175,15 @@ class SQLite with ChangeNotifier{
           ')'
         );
       },
-      version: 1,
+      onUpgrade: (db, oldVersion, newVersion) async {
+        switch (newVersion) {
+          case 2:
+            await db.execute('ALTER TABLE favorites ADD host VARCHAR(256)');
+            break;
+          default:
+        }
+      },
+      version: dbVersion,
     );
   }
 
@@ -437,7 +452,7 @@ class SQLite with ChangeNotifier{
     return maps.map((e) => e['fullPath'] as String).toList();
   }
 
-  Future<void> updateFavorite(String pa, bool isFavorite) async {
+  Future<void> updateFavorite(String pa, bool isFavorite, {String? host}) async {
     pa = path.normalize(pa);
     String ph = genPathHash(pa);
 
@@ -448,6 +463,7 @@ class SQLite with ChangeNotifier{
         'parent': path.basename(File(pa).parent.path),
         'fileName': path.basename(pa)
       };
+      if(host != null) values[host] = host;
       constDatabase.insert(
         'favorites',
         values,
@@ -456,7 +472,7 @@ class SQLite with ChangeNotifier{
     } else {
       constDatabase.delete(
         'favorites',
-        where: 'pathHash = ?',
+        where: 'pathHash = ? AND host = ?',
         whereArgs: [ph]
       );
     }
@@ -565,7 +581,9 @@ class SQLite with ChangeNotifier{
               '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
               '(SELECT SUM(filesize) FROM images WHERE type = 2) as img2imgSumSize,'
               '(SELECT COUNT(keyup) FROM images WHERE type = 3) as inpaintCount,'
-              '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize'
+              '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize,'
+              '(SELECT COUNT(keyup) FROM images WHERE type = 7) as comfuiCount,'
+              '(SELECT SUM(filesize) FROM images WHERE type = 7) as comfuiSumSize'
       );
 
       Map<String, int> finalMe = {};

@@ -9,6 +9,7 @@ import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
@@ -48,7 +49,7 @@ class Gallery extends StatefulWidget{
   State<Gallery> createState() => _GalleryState();
 }
 
-class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
+class _GalleryState extends State<Gallery> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   String currentKey = 'null';
 
   final List<RenderEngine> _tabs = [
@@ -197,87 +198,118 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
         builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
           Widget c;
           if (snapshot.hasData) {
-            c = ListView.separated(
-              controller: _scrollControllers[re.index],
-              separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
-              itemCount: snapshot.data.length,
-              itemBuilder: (context, index) {
-                List<FolderFile> files = [];
+            c = AnimationLimiter(
+              child: ListView.separated(
+                controller: _scrollControllers[re.index],
+                separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
+                itemCount: snapshot.data.length,
+                itemBuilder: (context, index) {
+                  List<FolderFile> files = [];
 
-                if(snapshot.data[index].files.length <= 4){
-                  files = snapshot.data[index].files;
-                } else {
-                  for (var i = 0; i < 4; i++) {
-                    files.add(snapshot.data[index].files[i]);
+                  if(snapshot.data[index].files.length <= 4){
+                    files = snapshot.data[index].files;
+                  } else {
+                    for (var i = 0; i < 4; i++) {
+                      files.add(snapshot.data[index].files[i]);
+                    }
                   }
-                }
 
-                return Container(
-                  height: 100,
-                  color: Colors.black,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      int i = -1;
-                      List<Widget> goto = files.map<Widget>((ent){
-                        i++;
-                        return Positioned(
-                          height: 100,
-                          width: constraints.biggest.width / files.length,
-                          top: 0,
-                          left: ((constraints.biggest.width / files.length) * i).toDouble(),
-                          child: ent.isLocal ? Image.file(File(ent.fullPath), fit: BoxFit.cover) : Image.network(ent.thumbnail ?? ent.fullPath, fit: BoxFit.cover),
-                        );
-                      }).toList();
-                      goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                      goto.add(Positioned(
-                          bottom: 0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                Container(
-                                    decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.3),
-                                        border: Border.all(
-                                          color: Colors.black.withOpacity(0.5),
-                                        ),
-                                        borderRadius: const BorderRadius.all(Radius.circular(20))
-                                    ),
-                                    padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.image, color: Colors.white70, size: 12),
-                                        const Gap(2),
-                                        Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
-                                      ],
-                                    )
-                                )
-                              ],
-                            ),
-                          )
-                      ));
-                      goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeTab(re, index)))));
-                      goto.add(AnimatedPositioned(
-                        top: 100 / 2 - 42 / 2,
-                        right: _selected[re.index] == index ? 0 : -12,
-                        duration: const Duration(seconds: 1),
-                        curve: Curves.ease,
+                  return AnimationConfiguration.staggeredList(
+                    position: index,
+                    duration: const Duration(milliseconds: 375),
+                    child: SlideAnimation(
+                      verticalOffset: 50.0,
+                      child: FadeInAnimation(
                         child: Container(
-                          width: 12,
-                          height: 42,
-                          decoration: const BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                          height: 100,
+                          color: Colors.black,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              int i = -1;
+                              List<Widget> goto = files.map<Widget>((ent){
+                                i++;
+                                return Positioned(
+                                  height: 100,
+                                  width: constraints.biggest.width / files.length,
+                                  top: 0,
+                                  left: ((constraints.biggest.width / files.length) * i).toDouble(),
+                                  child: ent.isLocal ? Image.file(
+                                    File(ent.fullPath),
+                                    gaplessPlayback: true,
+                                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                      if (wasSynchronouslyLoaded) {
+                                        return child;
+                                      } else {
+                                        return AnimatedOpacity(
+                                          opacity: frame == null ? 0 : 1,
+                                          duration: const Duration(milliseconds: 200),
+                                          curve: Curves.easeOut,
+                                          child: child,
+                                        );
+                                      }
+                                    },
+                                    cacheHeight: 100,
+                                    fit: BoxFit.cover,
+                                  ) : Image.network(
+                                      ent.thumbnail ?? ent.fullPath,
+                                      fit: BoxFit.cover
+                                  ),
+                                );
+                              }).toList();
+                              goto.add(Container(color: Colors.black.withOpacity(0.35)));
+                              goto.add(Positioned(
+                                  bottom: 0,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                                        Container(
+                                            decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.3),
+                                                border: Border.all(
+                                                  color: Colors.black.withOpacity(0.5),
+                                                ),
+                                                borderRadius: const BorderRadius.all(Radius.circular(20))
+                                            ),
+                                            padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.image, color: Colors.white70, size: 12),
+                                                const Gap(2),
+                                                Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
+                                              ],
+                                            )
+                                        )
+                                      ],
+                                    ),
+                                  )
+                              ));
+                              goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeTab(re, index)))));
+                              goto.add(AnimatedPositioned(
+                                top: 100 / 2 - 42 / 2,
+                                right: _selected[re.index] == index ? 0 : -12,
+                                duration: const Duration(seconds: 1),
+                                curve: Curves.ease,
+                                child: Container(
+                                  width: 12,
+                                  height: 42,
+                                  decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                                  ),
+                                ),
+                              ));
+                              return Stack(clipBehavior: Clip.none, children: goto);
+                            },
                           ),
                         ),
-                      ));
-                      return Stack(clipBehavior: Clip.none, children: goto);
-                    },
-                  ),
-                );
-              },
+                      ),
+                    ),
+                  );
+                },
+              )
             );
           } else if (snapshot.hasError) {
             c = Column(
@@ -360,13 +392,14 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
   Widget _buildMainSection(){
     return MouseRegion(
         onHover: _updateLocation,
-        child: imagesList == null ? const InProcess() : imagesList.runtimeType.toString() == 'Future<List<ImageMeta>>' ? FutureBuilder(
+        child: imagesList.runtimeType.toString() == 'Future<List<ImageMeta>>' ? FutureBuilder(
             key: Key(currentKey),
             future: imagesList,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
               Widget children;
               if (snapshot.hasData) {
                 children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                    physics: const BouncingScrollPhysics(),
                     itemCount: snapshot.data.length,
                     mainAxisSpacing: 5,
                     crossAxisSpacing: 5,
@@ -430,8 +463,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                   )
                 );
               }
-              return children;
-            }) : StreamBuilder<List<ImageMeta>>(
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 500),
+                child: children,
+              );
+            }) : imagesList.runtimeType.toString() == '_ControllerStream<List<ImageMeta>>' ? StreamBuilder<List<ImageMeta>>(
               stream: imagesList,
               builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
                 Widget children;
@@ -479,6 +515,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                       );
                     case ConnectionState.active:
                       children = MasonryGridView.count(
+                          physics: const BouncingScrollPhysics(),
                           itemCount: snapshot.data!.length,
                           mainAxisSpacing: 5,
                           crossAxisSpacing: 5,
@@ -505,6 +542,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                       );
                     case ConnectionState.done:
                       children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                          physics: const BouncingScrollPhysics(),
                           itemCount: snapshot.data!.length,
                           mainAxisSpacing: 5,
                           crossAxisSpacing: 5,
@@ -533,6 +571,16 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
                 }
                 return children;
           },
+        ) : Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SelectableText('Loading...'),
+                Gap(8),
+                LinearProgressIndicator()
+              ],
+            )
         )
     );
   }
@@ -545,6 +593,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin {
         ),
       );
   }
+
+  @override
+  bool get wantKeepAlive => false;
 }
 
 class PreviewImage extends StatelessWidget {

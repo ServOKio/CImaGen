@@ -924,12 +924,12 @@ class ImageMeta {
   RenderEngine re;
   String? mine;
   final String fileTypeExtension;
-  final DateTime dateModified;
-  final int fileSize;
+  DateTime? dateModified;
+  int? fileSize;
   String fileName = '';
   ImageSize? size;
   String pathHash = '';
-  String fullPath;
+  dynamic fullPath;
   String? fullNetworkPath;
   String? tempFilePath;
   GenerationParams? generationParams;
@@ -946,25 +946,32 @@ class ImageMeta {
     required this.re,
     this.mine,
     required this.fileTypeExtension,
-    required this.fileSize,
-    required this.dateModified,
+    this.fileSize,
+    this.dateModified,
     this.size,
     this.specific,
-    required this.fullPath,
+    this.fullPath,
     this.fullNetworkPath,
     this.generationParams,
     this.thumbnail,
     this.networkThumbnail,
     this.other,
   }){
-    final String parentFolder = p.basename(File(fullPath).parent.path);
-    fileName = p.basename(fullPath);
-    pathHash = genPathHash(fullPath);
-    keyup = genHash(re, parentFolder, fileName, host: host);
+    if(fullPath != null){
+      final String parentFolder = p.basename(File(fullPath!).parent.path);
+      fileName = p.basename(fullPath!);
+      pathHash = genPathHash(fullPath!);
+      keyup = genHash(re, parentFolder, fileName, host: host);
+    } else {
+      Uri uri = Uri.parse(fullNetworkPath!);
+      fileName = p.basename(uri.path);
+      pathHash = genPathHash(uri.path);
+      keyup = genHash(re, 'undefined', fileName, host: host);
+    }
   }
 
   Future<Map<String, dynamic>> toMap() async {
-    final String parentFolder = p.basename(File(fullPath).parent.path);
+    final String parentFolder = p.basename(File(fullPath!).parent.path);
     if(thumbnail == null && isLocal){
       await makeThumbnail();
     }
@@ -978,7 +985,7 @@ class ImageMeta {
       'pathHash': pathHash,
       'fullPath': fullPath,
 
-      'dateModified': dateModified.toIso8601String(),
+      'dateModified': dateModified?.toIso8601String(),
 
       'mine': mine,
       'fileTypeExtension': fileTypeExtension,
@@ -996,7 +1003,7 @@ class ImageMeta {
   }
 
   ImageKey getKey(){
-    final String parentFolder = p.basename(File(fullPath).parent.path);
+    final String parentFolder = p.basename(File(fullPath!).parent.path);
     return ImageKey(type: re, parent: parentFolder, fileName: fileName, host: host);
   }
 
@@ -1005,17 +1012,17 @@ class ImageMeta {
       img.Image? data;
       switch (mine?.split('/').last) {
         case 'png':
-          data = await compute(img.decodePngFile, fullPath);
+          data = await compute(img.decodePngFile, fullPath as String);
           break;
         case 'jpg':
         case 'jpeg':
-          data = await compute(img.decodeJpgFile, fullPath);
+          data = await compute(img.decodeJpgFile, fullPath as String);
           break;
         case 'gif':
-          data = await compute(img.decodeGifFile, fullPath);
+          data = await compute(img.decodeGifFile, fullPath as String);
           break;
         case 'webp':
-          data = await compute(img.decodeWebPFile, fullPath);
+          data = await compute(img.decodeWebPFile, fullPath as String);
           break;
       }
       thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
@@ -1027,12 +1034,15 @@ class ImageMeta {
       // Download to temp
       String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
       String pa = p.join(appTempDir, '$keyup-$fileName');
+      fullPath = pa;
       File f = File(pa);
       if(!f.existsSync()){
-        http.Response res = await http.get(Uri.parse(fullNetworkPath!));
+        String clean = cleanUpUrl(fullNetworkPath!);
+        http.Response res = await http.get(Uri.parse(clean));
         if(res.statusCode == 200){
           f.writeAsBytes(res.bodyBytes);
           tempFilePath = pa;
+          fileSize = f.statSync().size;
         }
       } else {
         tempFilePath = pa;
@@ -1085,7 +1095,7 @@ class ImageMeta {
 
     fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Image Info\n';
     if(mine != null) fi += '${prefix}Mine type: ${tb(mine!)}\n';
-    fi += '${prefix}File size: ${tb(readableFileSize(fileSize))}\n';
+    fi += '${prefix}File size: ${tb(readableFileSize(fileSize ?? 0))}\n';
     if(size != null) fi += '${prefix}Size: ${tb('${size.toString()} (${aspectRatioFromSize(size!)})')}\n';
     fi += '\n';
 

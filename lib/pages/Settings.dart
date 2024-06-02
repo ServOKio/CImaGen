@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cimagen/pages/sub/DBExtra.dart';
 import 'package:cimagen/pages/sub/GitHubCommits.dart';
@@ -84,6 +85,7 @@ class _SettingsState extends State<Settings>{
           'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
           'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
           'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
+          'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
           'Without meta': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
         };
       })
@@ -291,76 +293,123 @@ class DBChart extends AbstractSettingsTile{
     required this.dataMap,
   });
 
-  List<List<Color>> colorList = [
+  List<List<List<Color>>> colorList = [
     [],                       // 0
-    [const Color(0xffffffff)], // 1
     [
-      const Color(0xffe20000),
-      const Color(0xff03ce6c)
+      [
+        const Color(0xffffffff),
+        increaseColorLightness(const Color(0xffffffff), 0.2)
+      ]
+    ], // 1
+    [
+      [
+        const Color(0xffe20000),
+        increaseColorLightness(const Color(0xffe20000), 0.2)
+      ],
+      [
+        const Color(0xff03ce6c),
+        increaseColorLightness(const Color(0xff03ce6c), 0.2)
+      ]
     ], // 2
     [
-      const Color(0xff6407f6),
-      const Color(0xff01e5fc),
-      const Color(0xff1df400)
+      [
+        const Color(0xff6407f6),
+        increaseColorLightness(const Color(0xff6407f6), 0.2)
+      ],
+      [
+        const Color(0xff01e5fc),
+        increaseColorLightness(const Color(0xff01e5fc), 0.2)
+      ],
+      [
+        const Color(0xff1df400),
+        increaseColorLightness(const Color(0xff1df400), 0.2)
+      ]
     ], // 3
     [
-      const Color(0xff197bf7),
-      const Color(0xff000146),
-      const Color(0xffe00081),
-      const Color(0xfff8e71a)
+      [
+        const Color(0xff197bf7),
+        increaseColorLightness(const Color(0xff197bf7), 0.2),
+      ],
+      [
+        const Color(0xff000146),
+        increaseColorLightness(const Color(0xff000146), 0.2)
+      ],
+      [
+        const Color(0xffe00081),
+        increaseColorLightness(const Color(0xffe00081), 0.2)
+      ],
+      [
+        const Color(0xfff8e71a),
+        increaseColorLightness(const Color(0xfff8e71a), 0.2)
+      ]
     ], // 4
     [
-      const Color(0xff26f8b8),
-      const Color(0xffcbc20a),
-      const Color(0xfffc8c0e),
-      const Color(0xffd63d50),
-      const Color(0xff2800ff)
+      [
+        const Color(0xff26f8b8),
+        increaseColorHue(const Color(0xff26f8b8), -15)
+      ],
+      [
+        const Color(0xffcbc20a),
+        increaseColorHue(const Color(0xffcbc20a), -15)
+      ],
+      [
+        const Color(0xfffc8c0e),
+        increaseColorHue(const Color(0xfffc8c0e), -15)
+      ],
+      [
+        const Color(0xffd63d50),
+        increaseColorHue(const Color(0xffd63d50), -15)
+      ],
+      [
+        const Color(0xff2800ff),
+        increaseColorHue(const Color(0xff2800ff), -15)
+      ]
     ], // 5
-    [ // TODO
-      const Color(0xff26f8b8),
-      const Color(0xffcbc20a),
-      const Color(0xfffc8c0e),
-      const Color(0xffd63d50),
-      const Color(0xff2800ff),
-      const Color(0xffd63d50),
-      const Color(0xff2800ff)
-    ], // 6
-    [ // TODO
-      const Color(0xff26f8b8),
-      const Color(0xffcbc20a),
-      const Color(0xfffc8c0e),
-      const Color(0xffd63d50),
-      const Color(0xff2800ff),
-      const Color(0xffd63d50),
-      const Color(0xff2800ff)
-    ], // 7
-    [
-      const Color(0xffe56a02),
-      const Color(0xfffedf00),
-      const Color(0xff54fca6),
-      const Color(0xff13e4e8),
-      const Color(0xff0271fc),
-      const Color(0xff5f0073),
-      const Color(0xff8c0241),
-      const Color(0xffba301f),
-    ] // 8
+    // [ // TODO
+    //   const Color(0xff26f8b8),
+    //   const Color(0xffcbc20a),
+    //   const Color(0xfffc8c0e),
+    //   const Color(0xffd63d50),
+    //   const Color(0xff2800ff),
+    //   const Color(0xffd63d50),
+    //   const Color(0xff2800ff)
+    // ], // 6
+    // [ // TODO
+    //   const Color(0xff26f8b8),
+    //   const Color(0xffcbc20a),
+    //   const Color(0xfffc8c0e),
+    //   const Color(0xffd63d50),
+    //   const Color(0xff2800ff),
+    //   const Color(0xffd63d50),
+    //   const Color(0xff2800ff)
+    // ], // 7
+    // [
+    //   const Color(0xffe56a02),
+    //   const Color(0xfffedf00),
+    //   const Color(0xff54fca6),
+    //   const Color(0xff13e4e8),
+    //   const Color(0xff0271fc),
+    //   const Color(0xff5f0073),
+    //   const Color(0xff8c0241),
+    //   const Color(0xffba301f),
+    // ] // 8
   ];
 
   @override
   Widget build(BuildContext context) {
     return dataMap.isNotEmpty ? PieChart(
       dataMap: dataMap,
-      animationDuration: const Duration(milliseconds: 800),
-      chartLegendSpacing: 40,
+      animationDuration: const Duration(milliseconds: 1000),
+      chartLegendSpacing: 80,
       chartRadius: 200,
-      colorList: colorList[dataMap.keys.length],
+      gradientList: colorList[dataMap.keys.length],
       initialAngleInDegree: 0,
       chartType: ChartType.ring,
       ringStrokeWidth: 18,
       centerText: dataMap.values.reduce((a, b) => a + b).round().toString(),
       legendOptions: const LegendOptions(
-        showLegendsInRow: true,
-        legendPosition: LegendPosition.bottom,
+        showLegendsInRow: false,
+        legendPosition: LegendPosition.right,
         showLegends: true,
         legendShape: BoxShape.circle,
         legendTextStyle: TextStyle(
@@ -376,4 +425,17 @@ class DBChart extends AbstractSettingsTile{
       ),
     ) : const LinearProgressIndicator();
   }
+}
+
+Color changeColorLightness(Color color, double lightness) => HSLColor.fromColor(color).withLightness(lightness).toColor();
+Color changeColorHue(Color color, double hue) => HSLColor.fromColor(color).withHue(hue).toColor();
+Color increaseColorHue(Color color, double increment) {
+  var hslColor = HSLColor.fromColor(color);
+  var newValue = min(max(hslColor.hue + increment, 0.0), 360.0);
+  return hslColor.withHue(newValue).toColor();
+}
+Color increaseColorLightness(Color color, double increment) {
+  var hslColor = HSLColor.fromColor(color);
+  var newValue = min(max(hslColor.lightness + increment, 0.0), 1.0);
+  return hslColor.withLightness(newValue).toColor();
 }

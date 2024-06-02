@@ -259,7 +259,7 @@ List<dynamic> parseComfUIParameters(String rawData){
     }
     // Find best
     // 1. With max correct nodes
-    List<dynamic> test = fi.where((el) => ['SDXL Quick Empty Latent (WLSH)', 'EmptyLatentImage', 'LoadImage'].contains(el[0]['type']) && el[el.length-1]['type'] == 'SaveImage').toList(growable: false);
+    List<dynamic> test = fi.where((el) => ['SDXL Quick Empty Latent (WLSH)', 'EmptyLatentImage', 'LoadImage', 'VHS_LoadVideo'].contains(el[0]['type']) && el[el.length-1]['type'] == 'SaveImage').toList(growable: false);
     test.sort((a, b) => a.length > b.length ? 0 : 1);
     if(test.isNotEmpty){
       best = test[0];
@@ -305,6 +305,9 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
     case 'VAEDecode':
       nextOrEnd(el, data, history, nextKey: 'samples', nodeName: 'VAEDecode');
       break;
+    case 'VAEEncode':
+      nextOrEnd(el, data, history, nextKey: 'pixels', nodeName: 'VAEEncode');
+      break;
     case 'SamplerCustomAdvanced':
       nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'SamplerCustomAdvanced');
       break;
@@ -313,6 +316,9 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
       break;
     case 'SamplerCustom':
       nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'SamplerCustom');
+      break;
+    case 'ImageScale':
+      nextOrEnd(el, data, history, nextKey: 'image', nodeName: 'ImageScale');
       break;
     //starters
     case 'EmptyLatentImage':
@@ -323,6 +329,9 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
       break;
     case 'LoadImage':
       history.add(fillMap(data, inp, '', 'LoadImage'));
+      break;
+    case 'VHS_LoadVideo':
+      history.add(fillMap(data, inp, '', 'VHS_LoadVideo'));
       break;
     // other
     case 'FaceDetailer':
@@ -576,6 +585,52 @@ String genPathHash(String path){
 bool isImage(dynamic file){
   final String e = p.extension(file.path);
   return ['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''));
+}
+
+List<String> _image_types = [
+  'jpg',
+  'jpeg',
+  'jfif',
+  'pjpeg',
+  'pjp',
+  'png',
+  'svg',
+  'gif',
+  'apng',
+  'webp',
+  'avif'
+];
+
+bool isImageUrl(String url){
+  Uri uri = Uri.parse(url);
+  String extension = p.extension(uri.path).toLowerCase();
+  if (extension.isEmpty) {
+    return false;
+  }
+  extension = extension.split('.').last;
+  if (_image_types.contains(extension)) {
+    return true;
+  }
+  return false;
+}
+
+String cleanUpUrl(String url){
+  Uri parse = Uri.parse(url);
+  Map<String, String> params = {};
+  parse.queryParameters.forEach((key, value) {
+    params[key] = value;
+  });
+  if(['media.discordapp.net', 'cdn.discordapp.com'].contains(parse.host)){
+    params.removeWhere((key, value) => ['format', 'quality', 'width', 'height'].contains(key));
+  }
+  Uri newUri = Uri(
+    host: parse.host,
+    port: parse.port,
+    scheme: parse.scheme,
+    path: parse.path,
+    queryParameters: params
+  );
+  return newUri.toString();
 }
 
 String readableFileSize(int size, {bool base1024 = true}) {
