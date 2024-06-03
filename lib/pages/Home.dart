@@ -43,22 +43,26 @@ class _HomeState extends State<Home> {
 
   final ScrollController _scrollController = ScrollController();
 
+  void pushToHistory(ImageMeta im){
+    _readHistory.add(im);
+    setState(() {
+      c = c+1;
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          curve: Curves.easeOut,
+          duration: const Duration(milliseconds: 150),
+        );
+      });
+    });
+  }
+
   Future<void> readDragged(dynamic file) async {
     if(isImage(file)){
       try{
         ImageMeta? im = await parseImage(RenderEngine.unknown, file.path);
         if(im != null){
-          _readHistory.add(im);
-          setState(() {
-            c = c+1;
-            Future.delayed(const Duration(milliseconds: 100), () {
-              _scrollController.animateTo(
-                _scrollController.position.maxScrollExtent,
-                curve: Curves.easeOut,
-                duration: const Duration(milliseconds: 150),
-              );
-            });
-          });
+          pushToHistory(im);
         }
       } catch(e, s){
         print("Exception $e");
@@ -289,7 +293,30 @@ class _HomeState extends State<Home> {
                     const Gap(8),
                     Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: TextStyle(fontWeight: FontWeight.w500)),
                     Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop1),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: TextStyle(fontWeight: FontWeight.w500)),
+                    TextField(
+                      onSubmitted: (value) async {
+                        ImageMeta? im = await parseUrlImage(value);
+                        if(im != null){
+                          pushToHistory(im);
+                        }
+                      },
+                      textInputAction: TextInputAction.done,
+                      textAlign: TextAlign.center,
+                      decoration: InputDecoration(
+                        alignLabelWithHint: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        label: Center(
+                          child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                        ),
+                        focusedBorder: UnderlineInputBorder( //<-- SEE HERE
+                          borderSide: BorderSide(
+                              width: 1, color: Theme.of(context).colorScheme.primary
+                          ),
+                        )
+                      ),
+                    ),
+                    // Text(, style: TextStyle(fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),

@@ -27,7 +27,7 @@ class SQLite with ChangeNotifier{
   late Timer timer;
 
   Future<void> init() async {
-    int dbVersion = 1;
+    int dbVersion = 2;
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;

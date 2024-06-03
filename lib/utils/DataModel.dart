@@ -60,7 +60,6 @@ class ComparisonBlock {
   }
 
   void moveTestToMain(){
-    if(secondCache == null) return;
     firstSelected = secondSelected;
     firstCache = secondCache;
     firstImageSize = secondImageSize;

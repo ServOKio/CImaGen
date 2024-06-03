@@ -480,7 +480,7 @@ class _ImageListStateStateful extends State<ImageList>{
                       label: imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like',
                       icon: imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline,
                       onSelected: () {
-                        imageManager.toogleFavorite(im.fullPath);
+                        imageManager.toogleFavorite(im.fullPath, host: im.host);
                       },
                     ),
                     const MenuDivider(),

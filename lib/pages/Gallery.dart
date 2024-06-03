@@ -157,7 +157,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
       // imagesList = context.read<SQLite>().getImagesByParent(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
       imagesList?.then((value) {
-        bool force = listValue.length-1 == index;
+        bool force = false; //listValue.length-1 == index;
         if(value.isEmpty || force) {
           context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
             setState(() {
@@ -569,9 +569,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                       );
                   }
                 }
-                return children;
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  child: children,
+                );
           },
-        ) : Padding(
+        ) : const Padding(
             padding: EdgeInsets.only(top: 16),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -634,7 +637,7 @@ class PreviewImage extends StatelessWidget {
               label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',
               icon: imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline,
               onSelected: () {
-                imageManager.toogleFavorite(imageMeta.fullPath);
+                imageManager.toogleFavorite(imageMeta.fullPath, host: imageMeta.host);
               },
             ),
             const MenuDivider(),

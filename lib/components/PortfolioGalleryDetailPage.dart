@@ -98,7 +98,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
               imageManager.favoritePaths.contains(widget.images[_currentIndex].fullPath) ? Icons.star : Icons.star_outline,
             ),
             onPressed: (){
-              imageManager.toogleFavorite(widget.images[_currentIndex].fullPath);
+              imageManager.toogleFavorite(widget.images[_currentIndex].fullPath, host: widget.images[_currentIndex].host);
             }
         ),
         const Gap(6),

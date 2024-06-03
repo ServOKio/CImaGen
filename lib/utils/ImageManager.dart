@@ -103,7 +103,7 @@ class ImageManager extends ChangeNotifier {
       }
     }
 
-    bool? doI = await NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
+    NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
       if(doI){
         ImageMeta? value = await parseImage(re, imagePath);
         updateLastJob(imagePath);
@@ -114,7 +114,7 @@ class ImageManager extends ChangeNotifier {
               DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
               if(d != null){
                 d.comparisonBlock.moveTestToMain();
-                d.comparisonBlock.changeSelected(re.index, value);
+                d.comparisonBlock.changeSelected(1, value);
                 d.comparisonBlock.addImage(value);
               }
             });
@@ -124,8 +124,8 @@ class ImageManager extends ChangeNotifier {
     });
   }
 
-  Future<void> toogleFavorite(String path) async {
-    NavigationService.navigatorKey.currentContext?.read<SQLite>().updateFavorite(path, !_favoritePaths.contains(path)).then((value) {
+  Future<void> toogleFavorite(String path, {String? host}) async {
+    NavigationService.navigatorKey.currentContext?.read<SQLite>().updateFavorite(path, !_favoritePaths.contains(path), host: host).then((value) {
       if(_favoritePaths.contains(path)){
         _favoritePaths.remove(path);
       } else {
@@ -804,6 +804,32 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
   }
 }
 
+Future<ImageMeta?> parseUrlImage(String imagePath) async {
+  if(isImageUrl(imagePath)){
+
+    Uri parse = Uri.parse(imagePath);
+    final String e = p.extension(parse.path);
+    ImageMeta im = ImageMeta(
+      host: Uri(
+          host: parse.host,
+          port: parse.port
+      ).toString(),
+      re: RenderEngine.unknown,
+      fileTypeExtension: e.replaceFirst('.', ''),
+      fullNetworkPath: imagePath,
+    );
+
+    try{
+      await im.parseNetworkImage();
+      await im.makeThumbnail();
+      return im;
+    } catch (e){
+      print(e);
+    }
+  }
+  return null;
+}
+
 class ImageKey{
   String keyup = '';
   final RenderEngine type;
@@ -1008,21 +1034,22 @@ class ImageMeta {
   }
 
   Future<void> makeThumbnail() async {
-    if(thumbnail == null && isLocal) {
+    if(thumbnail == null) {
+      String url = isLocal ? fullPath : tempFilePath;
       img.Image? data;
       switch (mine?.split('/').last) {
         case 'png':
-          data = await compute(img.decodePngFile, fullPath as String);
+          data = await compute(img.decodePngFile, url);
           break;
         case 'jpg':
         case 'jpeg':
-          data = await compute(img.decodeJpgFile, fullPath as String);
+          data = await compute(img.decodeJpgFile, url);
           break;
         case 'gif':
-          data = await compute(img.decodeGifFile, fullPath as String);
+          data = await compute(img.decodeGifFile, url);
           break;
         case 'webp':
-          data = await compute(img.decodeWebPFile, fullPath as String);
+          data = await compute(img.decodeWebPFile, url);
           break;
       }
       thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;

@@ -57,7 +57,7 @@ class _ImageViewState extends State<ImageView> {
         label: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? 'UnLike': 'Like',
         icon: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? Icons.star : Icons.star_outline,
         onSelected: () {
-          imageManager.toogleFavorite(widget.imageMeta!.fullPath);
+          imageManager.toogleFavorite(widget.imageMeta!.fullPath, host: widget.imageMeta!.host);
         },
       ),
       const MenuDivider(),
