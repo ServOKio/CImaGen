@@ -331,13 +331,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 60,
-                  height: 60,
+                  width: 100,
+                  height: 100,
                   child: CircularProgressIndicator(),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(top: 16),
-                  child: Text('Awaiting result...'),
                 ),
               ],
             );
