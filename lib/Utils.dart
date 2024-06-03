@@ -1,34 +1,108 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:crypto/crypto.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:ffi';
+
+import 'package:ffi/ffi.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:math' as math;
+import 'package:win32/win32.dart';
+
+import 'main.dart';
 
 class ConfigManager with ChangeNotifier {
-  //init
-  Map<String, dynamic> _json = <String, dynamic>{};
   int _count = 0;
 
   //Getter
   int get count => _count;
-  Map<String, dynamic> get config => _json;
+
+  String _tempDir = './temp';
+  String get tempDir => _tempDir;
+
+  bool _isNull = false;
+  bool get isNull => _isNull;
 
   Future<void> init() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String sd_webui_folter = (prefs.getString('sd_webui_folter') ?? '');
-    if(sd_webui_folter != ''){
-      final String response = File(sd_webui_folter+'/config.json').readAsStringSync();
-      final data = await json.decode(response);
-      _json = data;
+    updateCacheLocation();
+    if(Platform.isWindows){
+      _isNull = (getUserName() == 'aandr' && getComputerName().toLowerCase() == 'workhorse') || (getUserName() == 'TurboBox' && getComputerName() == 'TurboBox');
     }
+  }
+
+  Future<String> updateCacheLocation() async {
+    String? customCacheDir = prefs!.getString('custom_cache_dir');
+    Directory tDir;
+    if(customCacheDir != null){
+      tDir = Directory(customCacheDir);
+    } else {
+      Directory appTempDir = await getTemporaryDirectory();
+      tDir = Directory(p.join(appTempDir.path, 'cImagen'));
+    }
+
+    if(!tDir.existsSync()){
+      tDir.createSync(recursive: true);
+    }
+    _tempDir = tDir.path;
+    return _tempDir;
   }
 
   void increment() {
     _count++;
   }
+}
+
+String getUserName() {
+  const usernameLength = 256;
+  final pcbBuffer = calloc<DWORD>()..value = usernameLength + 1;
+  final lpBuffer = wsalloc(usernameLength + 1);
+
+  try {
+    final result = GetUserName(lpBuffer, pcbBuffer);
+    if (result != 0) {
+      return lpBuffer.toDartString();
+    } else {
+      throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
+    }
+  } finally {
+    free(pcbBuffer);
+    free(lpBuffer);
+  }
+}
+
+String getComputerName() {
+  final nameLength = calloc<DWORD>();
+  String name;
+
+  GetComputerNameEx(COMPUTER_NAME_FORMAT.ComputerNameDnsFullyQualified, nullptr, nameLength);
+
+  final namePtr = wsalloc(nameLength.value);
+
+  try {
+    final result = GetComputerNameEx(
+        COMPUTER_NAME_FORMAT.ComputerNameDnsFullyQualified,
+        namePtr,
+        nameLength);
+
+    if (result != 0) {
+      name = namePtr.toDartString();
+    } else {
+      throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
+    }
+  } finally {
+    free(namePtr);
+    free(nameLength);
+  }
+  return name;
 }
 
 Color getColor(int index){
@@ -44,55 +118,326 @@ Color getColor(int index){
   return c[index % c.length];
 }
 
+const _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
+Random _rnd = Random();
+String getRandomString(int length) => String.fromCharCodes(Iterable.generate(length, (_) => _chars.codeUnitAt(_rnd.nextInt(_chars.length))));
+
+int getRandomInt(int min, int max) {
+  return min + _rnd.nextInt(max - min);
+}
+
 // FS
 Future<Uint8List> readAsBytesSync(String path) async {
   return File(path).readAsBytesSync();
 }
 
-GenerationParams? parseSDParameters(String text){
-  Map<String, Object> gp = <String, Object>{};
+// TODO Rewrite this stupid shit
+GenerationParams? parseSDParameters(String rawData){
+  try{
+    RegExp ex = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)');
 
-  // Positive
-  RegExp posReg = RegExp(r'\b ([\s\S]*?)(?=\nNegative prompt\b)');
-  String? posMatch = posReg.firstMatch(text)?.group(1)?.trim();
-  // Negative
-  RegExp negReg = RegExp(r'\bNegative prompt: ([\s\S]*?)(?=\nSteps: \b)');
-  String? negMatch = negReg.firstMatch(text)?.group(1)?.trim();
-  // Generation params
-  RegExp regExp = RegExp(r'(Steps[\s\S].*)');
-  String? genMatch = regExp.firstMatch(text)?.group(1)?.trim();
+    Map<String, Object> gp = <String, Object>{};
 
-  if(posMatch != null && negMatch != null && genMatch != null){
-    Iterable<RegExpMatch> matches = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)').allMatches(genMatch);
+    // Generation params
+    List<String> lines = rawData.trim().split("\n");
+
+    bool doneWithPrompt = false;
+    bool doneWithNegative = false;
+    bool doneWithGenerationParams = false;
+    bool doneWithPositiveTemplate = false;
+    bool doneWithNegativeTemplate = false;
+
+    String positivePromt = '';
+    String negativePromt = '';
+
+    String generationParams = '';
+
+    String positiveTemplate = '';
+    String negativeTemplate = '';
+
+    for(String line in lines){
+      line = line.trim();
+      if(line.startsWith('Negative prompt:')){
+        doneWithPrompt = true;
+        line = line.substring(16+1, line.length).trim();
+      }
+      if(line.startsWith('Steps:')){
+        doneWithPrompt = true;
+        doneWithNegative = true;
+        line = line.trim();
+      }
+      if(doneWithPrompt){
+        if(line.startsWith('Template:')){
+          doneWithNegative = true;
+          doneWithGenerationParams = true;
+          line = line.substring(9+1, line.length).trim();
+        }
+        if(!doneWithNegative){
+          negativePromt += (negativePromt == "" ? '' : "\n") + line;
+        } else {
+          if(line.startsWith('Template:')){
+            doneWithGenerationParams = true;
+            line = line.substring(9+1, line.length).trim();
+          }
+          if(!doneWithGenerationParams){
+            generationParams += (generationParams == "" ? '' : "\n") + line;
+          } else {
+            if(line.startsWith('Negative Template:')){
+              doneWithPositiveTemplate = true;
+              line = line.substring(18+1, line.length).trim();
+            }
+            if(!doneWithPositiveTemplate){
+              positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
+            } else {
+              negativeTemplate += (negativeTemplate == "" ? '' : "\n") + line;
+            }
+          }
+        }
+      } else {
+        positivePromt += (positivePromt == "" ? '' : "\n") + line;
+      }
+    }
+
+    Iterable<RegExpMatch> matches = ex.allMatches(generationParams);
+
     for (final m in matches) {
       try{
         gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
       } on RangeError catch(e){
         print(e.message);
         print(e.stackTrace);
-        print(genMatch);
       }
     }
 
-    return GenerationParams(
-      positive: posMatch,
-      negative: negMatch,
-      steps: int.parse(gp['steps'] as String),
-      sampler: gp['sampler'] as String,
-      cfgScale: double.parse(gp['cfg_scale'] as String),
-      seed: int.parse(gp['seed'] as String),
-      size: sizeFromString(gp['size'] as String),
-      modelHash: gp['model_hash'] as String,
-      model: gp['model'] as String,
-      denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
-      rng: gp['rng'] != null ? gp['rng'] as String : null,
-      hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
-      hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
-      version: gp['version'] as String,
-      full: text
+    bool isRefiner = gp['refiner'] != null;
+    bool isUNET = gp['unet'] != null;
+
+    Object? model = gp[isRefiner ? 'refiner' : isUNET ? 'unet' : 'model'];
+
+    GenerationParams gpF = GenerationParams(
+        positive: positivePromt,
+        negative: negativePromt,
+        steps: int.parse(gp['steps'] as String),
+        sampler: gp['sampler'] as String,
+        cfgScale: double.parse(gp['cfg_scale'] as String),
+        seed: int.parse(gp['seed'] as String),
+        size: sizeFromString(gp['size'] as String),
+        checkpointType: isRefiner ? CheckpointType.refiner : isUNET ? CheckpointType.unet : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
+        checkpoint: model != null ? model as String : null,
+        checkpointHash: gp['model_hash'] != null ? gp['model_hash'] as String : null,
+        denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
+        rng: gp['rng'] != null ? gp['rng'] as String : null,
+        hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
+        hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
+        hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
+        version: gp['version']  != null ? gp['version'] as String : null,
+        all: gp,
+        rawData: rawData
     );
-  } else {
+    return gpF;
+  } catch(e){
     return null;
+  }
+}
+
+List<dynamic> parseComfUIParameters(String rawData){
+  var myData = jsonDecode(rawData);
+  if(myData['nodes'] != null){
+    // Vanilla ComfUI
+    // TODO: Страшная штука, курить много
+    return [];
+  } else {
+    List<dynamic> fi = [];
+    List<dynamic> best = [];
+    for (String key in myData.keys){
+      dynamic d = myData[key];
+      String classType = d['class_type'];
+
+      if(['SaveImage'].contains(classType)){
+        fi.add(List.from(getImageLine(d, myData).reversed));
+      }
+    }
+    // Find best
+    // 1. With max correct nodes
+    List<dynamic> test = fi.where((el) => ['SDXL Quick Empty Latent (WLSH)', 'EmptyLatentImage', 'LoadImage', 'VHS_LoadVideo'].contains(el[0]['type']) && el[el.length-1]['type'] == 'SaveImage').toList(growable: false);
+    test.sort((a, b) => a.length > b.length ? 0 : 1);
+    if(test.isNotEmpty){
+      best = test[0];
+    } else {
+      print('pizda');
+      print(jsonEncode(fi));
+    }
+    return best;
+  }
+}
+
+List<dynamic> getImageLine(dynamic el, dynamic data){
+  List<dynamic> history = [];
+  if(el['class_type'] == 'SaveImage'){
+    history.add({
+      'type': 'SaveImage',
+      'path': el['inputs']['filename_prefix']
+    });
+    if(el['inputs']['images'] != null){
+      findNext(data[el['inputs']['images'][0]], data, history);
+    } else {
+      suddenEnd(history, el);
+    }
+  }
+  return history;
+}
+
+void findNext(dynamic el, dynamic data, List<dynamic> history){
+  var inp = el['inputs'];
+  switch (el['class_type']) {
+    case 'UltimateSDUpscale':
+      nextOrEnd(el, data, history, nextKey: 'image', nodeName: 'UltimateSDUpscale');
+      break;
+    case 'VAEDecodeTiled':
+      nextOrEnd(el, data, history, nextKey: 'samples', nodeName: 'VAEDecodeTiled');
+      break;
+    case 'KSampler':
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'KSampler');
+      break;
+    case 'VAEEncodeTiled':
+      nextOrEnd(el, data, history, nextKey: 'pixels', nodeName: 'VAEEncodeTiled');
+      break;
+    case 'VAEDecode':
+      nextOrEnd(el, data, history, nextKey: 'samples', nodeName: 'VAEDecode');
+      break;
+    case 'VAEEncode':
+      nextOrEnd(el, data, history, nextKey: 'pixels', nodeName: 'VAEEncode');
+      break;
+    case 'SamplerCustomAdvanced':
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'SamplerCustomAdvanced');
+      break;
+    case 'NNLatentUpscale':
+      nextOrEnd(el, data, history, nextKey: 'latent', nodeName: 'NNLatentUpscale');
+      break;
+    case 'SamplerCustom':
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'SamplerCustom');
+      break;
+    case 'ImageScale':
+      nextOrEnd(el, data, history, nextKey: 'image', nodeName: 'ImageScale');
+      break;
+    //starters
+    case 'EmptyLatentImage':
+      history.add(fillMap(data, inp, '', 'EmptyLatentImage'));
+      break;
+    case 'SDXL Quick Empty Latent (WLSH)':
+      history.add(fillMap(data, inp, '', 'SDXL Quick Empty Latent (WLSH)'));
+      break;
+    case 'LoadImage':
+      history.add(fillMap(data, inp, '', 'LoadImage'));
+      break;
+    case 'VHS_LoadVideo':
+      history.add(fillMap(data, inp, '', 'VHS_LoadVideo'));
+      break;
+    // other
+    case 'FaceDetailer':
+      history.add(fillMap(data, inp, '', 'FaceDetailer'));
+      findNext(data[inp['image'][0]], data, history);
+      break;
+    default:
+      history.add({
+        'type': 'next_not_found',
+        'classType': el['class_type'],
+        'data': inp
+      });
+  }
+}
+
+void nextOrEnd(dynamic el, dynamic data, List<dynamic> history, {required String nextKey, required String nodeName}){
+  var inp = el['inputs'];
+  if(inp[nextKey] != null){
+    history.add(fillMap(data, inp, nextKey, nodeName));
+    findNext(data[inp[nextKey][0]], data, history);
+  } else {
+    suddenEnd(history, el);
+  }
+}
+
+void suddenEnd(dynamic history, dynamic el){
+  history.add({
+    'type': 'sudden_end',
+    'classType': el['class_type'],
+    'data': el['inputs']
+  });
+}
+
+Map<String, dynamic> fillMap(data, input, key, action){
+  var temp = {'type': action};
+  for(String _key in input.keys){
+    if(_key == key) continue;
+    temp[normalizeKey(_key)] = vilkaIliJopa(data, input[_key]);
+  }
+  return temp;
+}
+
+String normalizeKey(String key){
+  List<String> kw = key.split('');
+  kw.asMap().forEach((i, e) {
+    kw[i] = i-1 == -1 ? e : kw[i-1] == '_' ? e.toUpperCase(): e;
+  });
+  return kw.where((e) => e != '_').join('');
+}
+
+dynamic vilkaIliJopa(dynamic data, dynamic check){ // dynamic vilka Ili Jopa - ;D
+  if(check == null) return null;
+  if((check.runtimeType == List<dynamic>) && check.length == 2 && check[0].runtimeType == String){
+    return findEnd(data[check[0]], data);
+  } else {
+    return check;
+  }
+}
+
+dynamic findEnd(dynamic node, dynamic data){
+  var inp = node['inputs'];
+  switch (node['class_type']) {
+    case 'CLIPTextEncode':
+      return inp['text'];
+    case 'Text Multiline':
+      return inp['text'];
+    case 'CLIPTextEncodeSDXL':
+      return findEnd(data[inp['text_g'][0]], data);
+    case 'Simple String Combine (WLSH)':
+      // https://comfy.icu/node/Simple-String-Combine-WLSH
+      String addition = vilkaIliJopa(data, inp['addition']);
+      String main = vilkaIliJopa(data, inp['input_string']);
+      String separator = inp['separator'] == 'comma' ? ',' : inp['separator'] == 'space' ? ' ' : inp['separator'] == 'newline' ? '\n' : '';
+      return inp['placement'] == 'before' ? '$main$separator$addition' : '$addition$separator$main';
+    case 'CheckpointLoaderSimple':
+      return inp['ckpt_name'];
+    case 'VAELoader':
+      return inp['vae_name'];
+    case 'UpscaleModelLoader':
+      return inp['model_name'];
+    case 'LoraLoader':
+      List<String> fi = [inp['lora_name']];
+      loraStack(fi, data[inp['model'][0]], data);
+      return List.from(fi.reversed);
+    case 'SAMLoader':
+      return {
+        'modelName': inp['model_name'],
+        'deviceMode': inp['device_mode']
+      };
+    default:
+      return node['class_type'];
+  }
+}
+
+void loraStack(List<String> fi, dynamic node, dynamic data){
+  var inp = node['inputs'];
+  switch (node['class_type']) {
+    case 'LoraLoader':
+      fi.add('${inp['lora_name']}:${inp['strength_model']}');
+      loraStack(fi, data[inp['model'][0]], data);
+      break;
+    case 'CheckpointLoaderSimple':
+      fi.add(inp['ckpt_name']);
+      break;
+    default:
+      fi.add('IDK: ${node['class_type']}');
   }
 }
 
@@ -135,16 +480,19 @@ class GenerationParams {
   final String sampler;
   final double cfgScale;
   final int seed;
-  final Size size;
-  final String modelHash;
-  final String model;
+  final ImageSize size;
+  final CheckpointType checkpointType;
+  final String? checkpoint;
+  final String? checkpointHash;
   final double? denoisingStrength;
   final String? rng;
   final String? hiresSampler;
+  final String? hiresUpscaler;
   final double? hiresUpscale;
   final Map<String, String>? tiHashes;
-  final String version;
-  final String? full;
+  final String? version;
+  final String? rawData;
+  final Map<String, dynamic>? all;
 
   const GenerationParams({
     required this.positive,
@@ -154,15 +502,18 @@ class GenerationParams {
     required this.cfgScale,
     required this.seed,
     required this.size,
-    required this.modelHash,
-    required this.model,
+    required this.checkpointType,
+    required this.checkpoint,
+    required this.checkpointHash,
     this.denoisingStrength,
     this.rng,
     this.hiresSampler,
+    this.hiresUpscaler,
     this.hiresUpscale,
     this.tiHashes,
     required this.version,
-    this.full
+    this.rawData,
+    this.all
   });
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
@@ -174,8 +525,9 @@ class GenerationParams {
       'cfgScale': cfgScale,
 
       'seed': seed,
-      'modelHash': modelHash,
-      'model': model,
+      'checkpointType': checkpointType.index,
+      'checkpoint': checkpoint,
+      'checkpointHash': checkpointHash,
       'version': version,
     };
 
@@ -185,12 +537,14 @@ class GenerationParams {
       //forDB
       f['sizeW'] = size.width;
       f['sizeH'] = size.height;
-      if(full != null) f['full'] = full;
+      if(rawData != null) f['rawData'] = rawData;
       if(key != null){
         f['keyup'] = key.keyup;
         f['type'] = key.type.index;
         f['parent'] = key.parent;
-        f['name'] = key.name;
+        f['fileName'] = key.fileName;
+        f['isLocal'] = key.host == null ? 1 : 0;
+        f['host'] = key.host;
       } else {
         throw Exception('Пошёл нахуй');
       }
@@ -199,6 +553,7 @@ class GenerationParams {
     if (denoisingStrength != null) f['denoisingStrength'] = denoisingStrength;
     if (rng != null) f['rng'] = rng;
     if (hiresSampler != null) f['hiresSampler'] = hiresSampler;
+    if (hiresUpscaler != null) f['hiresUpscaler'] = hiresUpscaler;
     if (hiresUpscale != null) f['hiresUpscale'] = hiresUpscale;
     if (tiHashes != null) f['tiHashes'] = tiHashes;
 
@@ -216,31 +571,9 @@ class GenerationParams {
   }
 }
 
-Size sizeFromString(String s){
+ImageSize sizeFromString(String s){
   final List<String> ar = s.split('x');
-  return Size(width: int.parse(ar[0]), height: int.parse(ar[1]));
-}
-
-class Size {
-  final int width;
-  final int height;
-
-  const Size({
-    required this.width,
-    required this.height
-  });
-
-  String toString(){
-    return '${width}x$height';
-  }
-
-  int totalPixels(){
-    return width*height;
-  }
-
-  double aspectRatio(){
-    return width / height;
-  }
+  return ImageSize(width: int.parse(ar[0]), height: int.parse(ar[1]));
 }
 
 String genPathHash(String path){
@@ -248,3 +581,192 @@ String genPathHash(String path){
   String hash = sha256.convert(bytes).toString();
   return hash;
 }
+
+bool isImage(dynamic file){
+  final String e = p.extension(file.path);
+  return ['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''));
+}
+
+List<String> _image_types = [
+  'jpg',
+  'jpeg',
+  'jfif',
+  'pjpeg',
+  'pjp',
+  'png',
+  'svg',
+  'gif',
+  'apng',
+  'webp',
+  'avif'
+];
+
+bool isImageUrl(String url){
+  Uri uri = Uri.parse(url);
+  String extension = p.extension(uri.path).toLowerCase();
+  if (extension.isEmpty) {
+    return false;
+  }
+  extension = extension.split('.').last;
+  if (_image_types.contains(extension)) {
+    return true;
+  }
+  return false;
+}
+
+String cleanUpUrl(String url){
+  Uri parse = Uri.parse(url);
+  Map<String, String> params = {};
+  parse.queryParameters.forEach((key, value) {
+    params[key] = value;
+  });
+  if(['media.discordapp.net', 'cdn.discordapp.com'].contains(parse.host)){
+    params.removeWhere((key, value) => ['format', 'quality', 'width', 'height'].contains(key));
+  }
+  Uri newUri = Uri(
+    host: parse.host,
+    port: parse.port,
+    scheme: parse.scheme,
+    path: parse.path,
+    queryParameters: params
+  );
+  return newUri.toString();
+}
+
+String readableFileSize(int size, {bool base1024 = true}) {
+  final base = base1024 ? 1024 : 1000;
+  if (size <= 0) return "0";
+  final units = ["B", "kB", "MB", "GB", "TB"];
+  int digitGroups = (log(size) / log(base)).round();
+  return "${NumberFormat("#,##0.#").format(size / pow(base, digitGroups))}${units[digitGroups]}";
+}
+
+bool isRaw(dynamic image) => image.runtimeType != ImageMeta;
+
+
+String aspectRatioFromSize(ImageSize size) => aspectRatio(size.width, size.height);
+String aspectRatio(int width, int height){
+  int r = _gcd(width, height);
+  return '${(width/r).round()}:${(height/r).round()}';
+}
+
+int _gcd(int a, int b) {
+  return b == 0 ? a : _gcd(b, a%b);
+}
+
+dynamic readMetadataFromSafetensors(String path) async {
+  RandomAccessFile file = await File(path).open(mode: FileMode.read);
+  var main = await file.read(8);
+  int metadataLen = bytesToInteger(main);
+  var jsonStart = await file.read(2);
+  if(!(metadataLen > 2 && ['{"', "{'"].contains(utf8.decode(jsonStart)))){
+    return null;
+  } else {
+    var jsonData = jsonStart + await file.read(metadataLen - 2);
+    return utf8.decode(jsonData);
+  }
+}
+
+int bytesToInteger(List<int> bytes) {
+  int value = 0;
+  for (var i = 0, length = bytes.length; i < length; i++) {
+    value += bytes[i] * pow(256, i).toInt();
+  }
+  return value;
+}
+
+Future<void> showInExplorer(String file) async {
+  if(Platform.isWindows){
+    Process.run('explorer.exe ', [ '/select,', file]);
+  } else {
+    final Uri launchUri = Uri(
+      scheme: 'file',
+      path: file,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      launchUrl(launchUri);
+    }
+  }
+}
+
+Future<bool> isJson(String text) async {
+  try{
+    await json.decode(text);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+Color getRandomColor(){
+  return Color((math.Random().nextDouble() * 0xFFFFFF).toInt()).withOpacity(1.0);
+}
+
+Color fromHex(String hexString) {
+  final buffer = StringBuffer();
+  if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+  buffer.write(hexString.replaceFirst('#', ''));
+  return Color(int.parse(buffer.toString(), radix: 16));
+}
+
+List<int> _daysInMonth365 = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+bool isValidDate(int year, int month, int day) {
+  if (year < 1 || year > 9999 || month < 0 || month > 11) return false;
+
+  int daysInMonth = _daysInMonth365[month];
+  if (month == 1) {
+    bool isLeapYear = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    if (isLeapYear) daysInMonth++;
+  }
+  return day >= 1 && day <= daysInMonth;
+}
+
+bool isValidTime(int hours, int minutes, int seconds) {
+  return hours >= 0 && hours < 24
+      && minutes >= 0 && minutes < 60
+      && seconds >= 0 && seconds < 60;
+}
+
+bool isHDR(String profileName){
+  return ['ITUR_2100_PQ_FULL'].contains(profileName);
+}
+
+bool get isOnDesktopAndWeb {
+  if (kIsWeb) {
+    return true;
+  }
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.linux:
+    case TargetPlatform.windows:
+      return true;
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.fuchsia:
+      return false;
+  }
+}
+
+Future<String> getDeviceInfo() async {
+  String f = '';
+
+  DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+  if(Platform.isWindows){
+    WindowsDeviceInfo info = await deviceInfo.windowsInfo;
+    f += 'Build Lab: ${info.buildLab}\n';
+    f += 'Build Lab Ex: ${info.buildLabEx}\n';
+    f += 'Build Number: ${info.buildNumber}\n';
+    f += 'Computer Name: ${info.computerName}\n';
+    f += 'CSD Version: ${info.csdVersion}\n';
+    f += 'Device ID: ${info.deviceId}\n';
+    f += 'Display Version: ${info.displayVersion}\n';
+    f += 'Edition ID: ${info.editionId}\n';
+    f += 'Registered Owner: ${info.registeredOwner}\n';
+    f += 'Release ID: ${info.releaseId}\n';
+    f += 'User Name: ${info.userName}\n';
+  }
+  return f;
+}
+
+// https://e621.net/db_export/

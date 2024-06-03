@@ -1,346 +1,402 @@
-import 'dart:ui';
+import 'dart:io';
 
+import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/pages/sub/ImageView.dart';
+import 'package:cimagen/utils/AppBarController.dart';
+import 'package:cimagen/utils/DataModel.dart';
+import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
+import 'package:cimagen/utils/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/pages/Comparison.dart';
 import 'package:cimagen/pages/Gallery.dart';
 import 'package:cimagen/pages/Home.dart';
-import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:system_theme/system_theme.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+
+import 'package:path/path.dart' as p;
 
 import 'components/AppBar.dart';
+import 'components/NotesSection.dart';
+import 'l10n/all_locales.dart';
 
-void main() {
-  //runApp(Test());
-  runApp(MyApp());
+GitHub? githubAPI;
+AppBarController? appBarController;
+NotificationManager? notificationManager;
+SharedPreferences? prefs;
+
+Future<void> main() async {
+  bool debug = false;
+  if(debug) {
+    runApp(Test());
+  } else {
+    WidgetsFlutterBinding.ensureInitialized();
+    await SystemTheme.accentColor.load();
+    if (Platform.isWindows) {
+      await windowManager.ensureInitialized();
+      WindowManager.instance.setMinimumSize(const Size(450, 450));
+    }
+    runApp(MyApp());
+  }
 }
 
 class Test extends StatelessWidget {
+  const Test({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text("Demo Project"),
-        ),
         body: const Center(child: Text("Hello World!!!")),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.call),
+              label: 'Calls',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.camera),
+              label: 'Camera',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat),
+              label: 'Chats',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// class MyAppTheme {
-//
-//   bool isDark = true;
-//
-//   MyAppTheme({required this.isDark});
-//
-//   Color newsBlock = Color(0xff333333);
-//   Color themeMainColor = Colors.red;
-//   Color themeTimeStamp = Colors.grey;
-//   Color newsBlockTitleSub = Color(0xffD5D5D5);
-//   Color link = Color(0xffBBDDEE);
-//   Color pagesButtons = Colors.red;
-//   Color pagesButtonsPressed = const Color(0x77f44336);
-//
-//   void init(){
-//     newsBlock = isDark ? Color(0xff333333) : Color(0xff5C72CB);
-//     themeMainColor = isDark ? const Color(0xff725cff) : Color(0xff93d0ea);
-//     themeTimeStamp = isDark ? Colors.grey : Colors.white70;
-//     newsBlockTitleSub = Color(0xffD5D5D5);
-//     link = Color(0xffBBDDEE);
-//     pagesButtons = isDark ? const Color(0xff725cff) : Color(0xff445fca);
-//     pagesButtonsPressed = isDark ? const Color(0x77f44336) : Color(0xff667ddb);
-//   }
-//
-//   /// Default constructor
-//
-//   ThemeData get themeData {
-//     /// Create a TextTheme and ColorScheme, that we can use to generate ThemeData
-//     TextTheme txtTheme = (ThemeData.dark()).textTheme;
-//     ColorScheme colorScheme = ColorScheme(
-//       // Decide how you want to apply your own custom them, to the MaterialApp
-//         brightness: Brightness.dark,
-//         primary: const Color(0xff725cff),
-//         onPrimary: const Color(0xffc0eeff),
-//
-//         secondary: const Color(0xff6a6798), //dont
-//         onSecondary: const Color(0xffeeeaff),//dont
-//
-//         background: const Color(0xff1A1A1A),
-//         onBackground: const Color(0xff725cff),
-//
-//         surface: isDark ? const Color(0xFF222222): const Color(0xFF31469b),
-//         onSurface: const Color(0xffe2dbff),
-//
-//         error: Colors.red,
-//         onError: Colors.white
-//     );
-//
-//     /// Now that we have ColorScheme and TextTheme, we can create the ThemeData
-//     ThemeData t = ThemeData.from(
-//         textTheme: txtTheme,
-//         colorScheme: colorScheme
-//     ).copyWith(
-//       primaryColor: isDark ? const Color(0xFF222222) : const Color(0xFF31469b),
-//       scaffoldBackgroundColor: isDark ?
-//       const Color(0xFF191919) :
-//       const Color(0xFF788BD6),
-//       highlightColor: const Color(0xFF3D3D3D),
-//     );
-//
-//     return t;
-//   }
-// }
-//
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+
+  MyApp({super.key}) {
+    initAsync();
+    appBarController = AppBarController();
+    notificationManager = NotificationManager();
+    notificationManager?.init();
+  }
+
+  Future<void> initAsync() async {
+    prefs = await SharedPreferences.getInstance();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider(create: (_) => DataModel()),
         ChangeNotifierProvider(create: (_) => ConfigManager()),
-        Provider<SQLite>(create: (_) => SQLite()),
-        Provider<ImageManager>(create: (_) => ImageManager()),
-        ChangeNotifierProvider(create: (_) => ThemeManager(darkTheme)),
+        ChangeNotifierProvider(create: (_) => SQLite()),
+        ChangeNotifierProvider(create: (_) => ImageManager()),
+        ChangeNotifierProvider(create: (_) => ThemeManager()),
+        ChangeNotifierProvider(create: (_) => SaveManager()),
       ],
       child: BetterFeedback(
-        child: WTF()
+          theme: FeedbackThemeData(
+            background: Colors.black,
+            bottomSheetDescriptionStyle: const TextStyle(color: Colors.white),
+            bottomSheetTextInputStyle: const TextStyle(color: Colors.white),
+            feedbackSheetColor: Colors.grey[900]!,
+            drawColors: [
+              Colors.red,
+              Colors.green,
+              Colors.blue,
+              Colors.yellow,
+            ],
+          ),
+          child: WTF()
       )
     );
   }
 }
 
 class WTF extends StatelessWidget{
+  const WTF({super.key});
+
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
     return MaterialApp(
-       navigatorKey: NavigationService.navigatorKey,
-       debugShowCheckedModeBanner: true,
-       theme: theme.getTheme,
-       darkTheme: theme.getTheme,
-       themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
-       home: Main()
-   );
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: AllLocale.all,
+      locale: Provider.of<LocaleProvider>(context).locale,
+
+      navigatorKey: NavigationService.navigatorKey,
+      debugShowCheckedModeBanner: true,
+      theme: theme.getTheme,
+      darkTheme: theme.getTheme,
+      themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
+      home: const Main()
+    );
   }
 
 }
 
 class Main extends StatefulWidget {
+  const Main({super.key});
 
   @override
   _MyHomePageState createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<Main> {
-  int _selectedIndex = 1;
+class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
+  static const platform = MethodChannel('app.channel.shared.data');
+  String dataShared = 'No data';
+
+  late PageController _pageViewController;
+  int _currentPageIndex = 0; // 3
+  bool permissionRequired = false;
+
   bool loaded = false;
+  bool hasError = false;
+  String? error;
 
   @override
   void initState() {
     super.initState();
-    context.read<ConfigManager>().init().then((v) => context.read<SQLite>().init().then((v){
-      loaded = true;
-      context.read<ImageManager>().init(context);
-    }));
+    _pageViewController = PageController(
+      initialPage: _currentPageIndex
+    );
+    initMe();
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
+  Future<void> getSharedText() async {
+    if(Platform.isAndroid){
+      var sharedData = await platform.invokeMethod('getSharedText');
+      if (sharedData != null) {
+        showDialog<String>(
+          context: context,
+          builder: (BuildContext context) => const AlertDialog(
+              content: LinearProgressIndicator()
+          ),
+        );
+        if(isImageUrl(sharedData)){
+          // blyat
+          Uri parse = Uri.parse(sharedData);
+          final String e = p.extension(parse.path);
+          ImageMeta im = ImageMeta(
+              host: Uri(
+                  host: parse.host,
+                  port: parse.port
+              ).toString(),
+              re: RenderEngine.unknown,
+              fileTypeExtension: e.replaceFirst('.', ''),
+              fullNetworkPath: sharedData,
+          );
+
+          try{
+            await im.parseNetworkImage();
+            await im.makeThumbnail();
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
+          } catch (e){
+            print(e);
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> initMe() async {
+    githubAPI = GitHub();
+    if(Platform.isAndroid){
+      if (await Permission.storage.request().isGranted) {
+        if (await Permission.manageExternalStorage.request().isGranted) {
+          next();
+        } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
+          await openAppSettings();
+        } else if (await Permission.manageExternalStorage.request().isDenied) {
+          setState(() {
+            permissionRequired = true;
+          });
+        }
+      } else if (await Permission.storage.request().isPermanentlyDenied) {
+        await openAppSettings();
+      } else if (await Permission.storage.request().isDenied) {
+        setState(() {
+          permissionRequired = true;
+        });
+      }
+    } else {
+      next();
+    }
+  }
+
+  void onDone(){
+    getSharedText();
+  }
+
+  void next(){
+    context.read<ConfigManager>().init().then((v){
+      onDone();
+      context.read<SQLite>().init().then((v){
+        context.read<ImageManager>().init(context);
+        context.read<SaveManager>().init(context);
+        setState(() {
+          loaded = true;
+        });
+      }).catchError((e){
+        if (kDebugMode) print(e);
+        error = 'Database loading error\n$e';
+        setState(() {
+          hasError = true;
+        });
+      });
+    }).catchError((e){
+      if (kDebugMode) print(e);
+      error = 'The configuration cannot be loaded';
+      setState(() {
+        hasError = true;
+      });
     });
+
+    context.read<DataModel>().jumpToTab = _updateCurrentPageIndex;
   }
 
-  // void _showModalBottomSheet(BuildContext context) {
-  //   showModalBottomSheet(
-  //     context: context,
-  //     isScrollControlled: true,
-  //     shape: const RoundedRectangleBorder(
-  //         borderRadius: BorderRadius.vertical(
-  //           top: Radius.circular(30),
-  //         )
-  //     ),
-  //     builder: (context) => DraggableScrollableSheet(
-  //         initialChildSize: 0.4,
-  //         maxChildSize: 0.9,
-  //         minChildSize: 0.32,
-  //         expand: false,
-  //         builder: (context, scrollController) {
-  //           return SingleChildScrollView(
-  //             controller: scrollController,
-  //             child: const SignInOptionsScreen(),
-  //           );
-  //         }
-  //     ),
-  //   );
-  // }
+  @override
+  void dispose() {
+    super.dispose();
+    _pageViewController.dispose();
+  }
+
+  void _showModalBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(30),
+          )
+      ),
+      builder: (context) => const NotesSection(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
 
-    List<Widget> widgetOptions = <Widget>[
-      Home(),
-      Gallery(),
-      Timeline(),
-      Comparison(),
-      P404(),
-      P404(),
-      Settings()
-    ];
-
-
     return Scaffold(
-      drawer: Drawer(
-        // Add a ListView to the drawer. This ensures the user can scroll
-        // through the options in the drawer if there isn't enough vertical
-        // space to fit everything.
-        child: ListView(
-          // Important: Remove any padding from the ListView.
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.black,
-              ),
-              child: Text('Drawer Header'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.all_inbox),
-              title: const Text('Home'),
-              selected: _selectedIndex == 0,
-              onTap: () {
-                // Update the state of the app
-                _onItemTapped(0);
-                // Then close the drawer
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              selected: _selectedIndex == 1,
-              onTap: () {
-                // Update the state of the app
-                _onItemTapped(1);
-                // Then close the drawer
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-      endDrawer: Theme(
-          data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
-          child: Drawer(
-              child: Container(
-                  child: Stack(
-                      children: [
-                        Column(
-                            children: <Widget>[
-                              Container(child: Center(child: Text('gdfg', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)))),
-                              Padding(padding: EdgeInsets.all(7),child: Column(children: [
-                                Text('All content posted is responsibility of its respective poster and neither the site nor its staff shall be held responsible or liable in any way shape or form.', style: TextStyle(fontSize: 10)),
-                                Text('Please be aware that this kind of fetish artwork is NOT copyrightable in the hosting country and there for its copyright may not be upheld.', style: TextStyle(fontSize: 10)),
-                                Text('We are NOT obligated to remove content under the Digital Millennium Copyright Act.', style: TextStyle(fontSize: 10))
-                              ])),
-                              Padding(padding: EdgeInsets.only(left: 7, right: 7, bottom: 7), child: Text('Contact us by by phone toll-free! 1-844-FOX-BUTT (369-2888)', style: TextStyle(fontSize: 10)))
-                            ]
-                        )
-                      ]
-
-                  )
-              )
-          )
-      ),
       appBar: CAppBar(),
-      body: loaded ? widgetOptions.asMap().containsKey(_selectedIndex) ? widgetOptions[_selectedIndex] : P404() : const Center(child: CircularProgressIndicator(),),
+      body: PageView(
+        physics: const NeverScrollableScrollPhysics(),
+        controller: _pageViewController,
+        children: <Widget>[
+          loaded ? const Home() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Gallery() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Timeline() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? const Comparison() : LoadingState(loaded: loaded, errorMessage: error),
+          // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+          // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+          const Settings()
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed:(){
-          //_showModalBottomSheet(context);
-          theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
+          _showModalBottomSheet(context);
+          //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
         },
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        tooltip: 'Notes',
+        child: const Icon(Icons.note),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.all_inbox),
+      bottomNavigationBar: NavigationBar(
+        height: 70,
+        backgroundColor: Theme.of(context).colorScheme.background,
+        indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+        surfaceTintColor: Colors.transparent,
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+        selectedIndex: _currentPageIndex,
+        onDestinationSelected: (int index) {
+          _updateCurrentPageIndex(index);
+        },
+        destinations: const <Widget>[
+          NavigationDestination(
+            icon: Icon(Icons.inbox),
+            selectedIcon: Icon(Icons.all_inbox),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.auto_awesome_mosaic),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_mosaic_outlined),
+            selectedIcon: Icon(Icons.auto_awesome_mosaic),
             label: 'Gallery',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_tree_sharp),
+          NavigationDestination(
+            icon: Icon(Icons.account_tree_outlined),
+            selectedIcon: Icon(Icons.account_tree_sharp),
             label: 'Render History',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_to_photos),
+          NavigationDestination(
+            icon: Icon(Icons.add_to_photos_outlined),
+            selectedIcon: Icon(Icons.add_to_photos),
             label: 'Comparison',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.border_all_sharp),
-            label: 'Grid rebuild',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.amp_stories),
-            label: 'Maybe',
-          ),
-          BottomNavigationBarItem(
+          // NavigationDestination(
+          //   icon: Icon(Icons.border_all_sharp),
+          //   label: 'Grid rebuild',
+          // ),
+          // NavigationDestination(
+          //   icon: Icon(Icons.amp_stories),
+          //   label: 'Maybe',
+          // ),
+          NavigationDestination(
             icon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-        onTap: _onItemTapped,
       ),
+    );
+  }
+
+  void _updateCurrentPageIndex(int index) {
+    setState(() {
+      _currentPageIndex = index;
+    });
+    _pageViewController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
     );
   }
 }
 
-class SignInOptionsScreen extends StatelessWidget {
-  const SignInOptionsScreen({Key? key}) : super(key: key);
+class LoadingState extends StatelessWidget{
+  bool loaded;
+  String? errorMessage;
+  LoadingState({super.key, required this.loaded, this.errorMessage});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: AlignmentDirectional.topCenter,
-      clipBehavior: Clip.none,
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Positioned(
-          top: -15,
-          child: Container(
-            width: 60,
-            height: 7,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(5),
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const Column(children: [
-          Center(
-            child: Text(
-              'OR',
-              style: TextStyle(fontSize: 18),
-            ),
-          ),
-        ])
+        const Icon(Icons.error),
+        const Gap(4),
+        const Text('Oops, there seems to be a error'),
+        SelectableText(errorMessage ?? 'Error wtf')
       ],
     );
   }

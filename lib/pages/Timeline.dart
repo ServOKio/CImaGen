@@ -6,6 +6,7 @@ import 'package:cimagen/components/TimeLineLine.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../utils/DataModel.dart';
 import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
@@ -27,101 +28,102 @@ class _TimelineState extends State<Timeline> {
   @override
   void initState() {
     super.initState();
-    var go = context.read<ConfigManager>().config['outdir_txt2img_samples'];
-    if(go == null){
+    var go = context.read<ImageManager>().getter.loaded;
+    if(!go){
       sr = true;
     } else {
-      context.read<SQLite>().getPossibleTimelineProjects().then((value) => {
-        context.read<SQLite>().getImagesBySeed(
-            // value[0].seed
-            13029120
-        ).then((v2) {
-          ImageRow row = ImageRow();
-          v2.forEach((image) {
-            if(debug){
-              row.addExtraMain(image);
-              rows.add(row);
-              row = ImageRow();
-              return;
-            }
-            if(image.re == RenderEngine.txt2img){
-              bool isHiRes = image.imageParams.generationParams?.denoisingStrength != null;
+      final dataModel = Provider.of<DataModel>(context, listen: false);
+      context.read<SQLite>().getImagesBySeed(
+          dataModel.timelineBlock.getSeed
+      ).then((v2) {
+        ImageRow row = ImageRow();
+        for (var image in v2) {
+          if(debug){
+            row.addExtraMain(image);
+            rows.add(row);
+            row = ImageRow();
+            continue;
+          }
+          if(image.re == RenderEngine.txt2img){
+            bool isHiRes = image.generationParams?.denoisingStrength != null;
 
-              if(row.hasMain()){ //Если есть главная
-                // ok
-                if(row.hasExtraMain()){ //Если есть хайрес
-                  //ну и похуй, скипаем
-                  rows.add(row);
-                  row = ImageRow();
-                  if(isHiRes){ //Если хайрес
-                    row.addExtraMain(image);
-                  } else row.addMain(image);
-                } else { // если нет хайреса
-                  if(isHiRes){ //Если хайрес
-                    if(!isIdenticalPromt(row.main, image)){ //если промты разные у рава и хая
-                      rows.add(row);
-                      row = ImageRow();
-                    }
-                    row.addExtraMain(image);
-                  } else { //если нет - дальше
-                    rows.add(row);
-                    row = ImageRow();
-                    row.addMain(image);
-                  }
-                }
-              } else { //Если нет главной
-                if(isHiRes){ //Если хайрес - дебик с pnginfo (бля сука)
-                  if(row.hasSecond()){ //Если там уже есть что-то дальше т.е. тупо лежит img2img
-                    rows.add(row);
-                    row = ImageRow();
-                  } else if(row.hasExtraMain()){
+            if(row.hasMain()){ //Если есть главная
+              // ok
+              if(row.hasExtraMain()){ //Если есть хайрес
+                //ну и похуй, скипаем
+                rows.add(row);
+                row = ImageRow();
+                if(isHiRes){ //Если хайрес
+                  row.addExtraMain(image);
+                } else row.addMain(image);
+              } else { // если нет хайреса
+                if(isHiRes){ //Если хайрес
+                  if(!isIdenticalPromt(row.main, image)){ //если промты разные у рава и хая
                     rows.add(row);
                     row = ImageRow();
                   }
                   row.addExtraMain(image);
-                } else { //Если не хайрес
-                  if(row.hasExtraMain()){ //Если уже есть hires куда ещё пихать
-                    rows.add(row);
-                    row = ImageRow();
-                    row.addMain(image);
-                  } else { //Если есть куда пихать
-                    if(row.hasSecond()){
-                      rows.add(row);
-                      row = ImageRow();
-                    }
-                    row.addMain(image);
-                  }
+                } else { //если нет - дальше
+                  rows.add(row);
+                  row = ImageRow();
+                  row.addMain(image);
                 }
               }
-            } else if(image.re == RenderEngine.img2img){
-              if(row.hasMain() && row.hasExtraMain()){ // Есть оба
-                // Бля, а вот тут боль - при сохранение, допустим картинка отрендерилась, можно написать хуйню и оно сохранит в хуйней, а не с тем что рендерило
-                bool shit = false;
-
-                if(!isIdenticalPromt(row.extraMain, image)) shit = true;
-                if(row.extraMain != null && row.extraMain?.size.aspectRatio() != image.size.aspectRatio()) shit = true;
-                if(shit){ //Получается онли img2img
+            } else { //Если нет главной
+              if(isHiRes){ //Если хайрес - дебик с pnginfo (бля сука)
+                if(row.hasSecond()){ //Если там уже есть что-то дальше т.е. тупо лежит img2img
+                  rows.add(row);
+                  row = ImageRow();
+                } else if(row.hasExtraMain()){
                   rows.add(row);
                   row = ImageRow();
                 }
-                row.addSecond(image);
-              } else {
-                if(row.hasMain() && !row.hasExtraMain()){ //Есть основное, но нет хайреса
-                  // Кидаем в новое
+                row.addExtraMain(image);
+              } else { //Если не хайрес
+                if(row.hasExtraMain()){ //Если уже есть hires куда ещё пихать
                   rows.add(row);
                   row = ImageRow();
-                  row.addSecond(image);
-                } else if(!row.hasMain() && row.hasExtraMain()){ // Нет основного, но есть хайрес
-                  //Продолжаем
-                  row.addSecond(image);
+                  row.addMain(image);
+                } else { //Если есть куда пихать
+                  if(row.hasSecond()){
+                    rows.add(row);
+                    row = ImageRow();
+                  }
+                  row.addMain(image);
                 }
               }
             }
-          });
+          } else if(image.re == RenderEngine.img2img){
+            if(row.hasMain() && row.hasExtraMain()){// Есть оба
+              // Бля, а вот тут боль - при сохранение, допустим картинка отрендерилась, можно написать хуйню и оно сохранит в хуйней, а не с тем что рендерило
+              bool shit = false;
+
+              if(!isIdenticalPromt(row.extraMain, image)) shit = true;
+              // TODO потом
+              // if(row.extraMain != null && row.extraMain?.size.aspectRatio() != image.size.aspectRatio()) shit = true;
+              if(shit){ //Получается онли img2img
+                rows.add(row);
+                row = ImageRow();
+              }
+              row.addSecond(image);
+            } else {
+              if(row.hasMain() && !row.hasExtraMain()){ //Есть основное, но нет хайреса
+                // Кидаем в новое
+                rows.add(row);
+                row = ImageRow();
+                row.addSecond(image);
+              } else if(!row.hasMain() && row.hasExtraMain()){ // Нет основного, но есть хайрес
+                //Продолжаем
+                row.addSecond(image);
+              }
+            }
+          }
+        }
+        if(mounted) {
           setState(() {
-            loaded = true;
-          });
-        })
+          loaded = true;
+        });
+        }
       });
     }
     //load();
@@ -129,10 +131,8 @@ class _TimelineState extends State<Timeline> {
 
   @override
   Widget build(BuildContext context) {
-    return sr ? const Expanded(
-      child: Center(
-        child: SetupRequired(webui: true, comfyui: false),
-      ),
+    return sr ? const Center(
+      child: SetupRequired(webui: true, comfyui: false),
     ) : Row(
         children: <Widget>[
           _buildNavigationRail(),
@@ -175,14 +175,14 @@ class _TimelineState extends State<Timeline> {
 bool isIdenticalPromt(ImageMeta? one, ImageMeta? two){
   if(one == null || two == null) return false;
   return
-    one.imageParams.generationParams?.positive == two.imageParams.generationParams?.positive &&
-        one.imageParams.generationParams?.negative == two.imageParams.generationParams?.negative;
+    one.generationParams?.positive == two.generationParams?.positive &&
+        one.generationParams?.negative == two.generationParams?.negative;
 }
 
 List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   List<Difference> d = [];
-  GenerationParams? o = one?.imageParams.generationParams;
-  GenerationParams? t = two.imageParams.generationParams;
+  GenerationParams? o = one?.generationParams;
+  GenerationParams? t = two.generationParams;
   if(o == null || t == null) return d;
 
   // final String positive;
@@ -199,21 +199,27 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   if(o.seed != t.seed) d.add(Difference(key: 'seed', oldValue: o.seed.toString(), newValue: t.seed.toString()));
   // final Size size;
   if(o.size.toString() != t.size.toString()) d.add(Difference(key: 'size', oldValue: o.size.toString(), newValue: t.size.toString()));
-  // final String modelHash;
-  if(o.modelHash != t.modelHash) d.add(Difference(key: 'modelHash', oldValue: o.modelHash, newValue: t.modelHash));
+  // final CheckpointType checkpointType;
+  if(o.checkpointType != t.checkpointType) d.add(Difference(key: 'checkpointType', oldValue: o.checkpointType.toString(), newValue: t.checkpointType.toString()));
   // final String model;
-  if(o.model != t.model) d.add(Difference(key: 'model', oldValue: o.model, newValue: t.model));
+  if(o.checkpoint != t.checkpoint) d.add(Difference(key: 'checkpoint', oldValue: o.checkpoint ?? '-', newValue: t.checkpoint ?? '-'));
+  // final String modelHash;
+  if(o.checkpointHash != t.checkpointHash) d.add(Difference(key: 'checkpointHash', oldValue: o.checkpointHash ?? '-', newValue: t.checkpointHash ?? '-'));
   // final double? denoisingStrength;
   if(o.denoisingStrength != t.denoisingStrength) d.add(Difference(key: 'denoisingStrength', oldValue: (o.denoisingStrength ?? '-').toString(), newValue: (t.denoisingStrength ?? '-').toString()));
   // final String? rng;
   if(o.rng != t.rng) d.add(Difference(key: 'rng', oldValue: o.rng ?? '-', newValue: t.rng ?? '-'));
   // final String? hiresSampler;
   if(o.hiresSampler != t.hiresSampler) d.add(Difference(key: 'hiresSampler', oldValue: o.hiresSampler ?? '-', newValue: t.hiresSampler ?? '-'));
+
+  if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
+
+  if(o.all?['hires_steps'] != t.all?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.all?['hires_steps'] ?? '-').toString(), newValue: (t.all?['hires_steps'] ?? '-').toString()));
   // final Map<String, String>? tiHashes;
   // final String version;
-  if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version, newValue: t.version));
+  if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
 
   return d;
 }
@@ -244,7 +250,6 @@ class RowList extends StatefulWidget{
 
 class _RowListState extends State<RowList> {
 
-  double height = 150;
   bool compareWithExtra = false;
 
   @override
@@ -283,6 +288,8 @@ class _RowListState extends State<RowList> {
   Widget build(BuildContext context) {
     ImageMeta? meta = widget.rowData.main;
     ImageMeta? metaExtra = widget.rowData.extraMain;
+    final screenHeight = MediaQuery.of(context).size.height;
+    double height = 512 * 0.7;
     return Padding(
       padding: meta != null ? const EdgeInsets.only(top: 20) : const EdgeInsets.only(bottom: 0),
       child: Row(
@@ -301,49 +308,48 @@ class _RowListState extends State<RowList> {
                 children: meta != null ? [
                   Text('Parameters', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 16)),
                   Container(width: 20, height: 2, color: Colors.deepPurple.shade400),
-                  InfoBox(one: 'S.Method', two: meta.imageParams.generationParams?.sampler ?? 'err'),
-                  InfoBox(one: 'S.Steps ', two: meta.imageParams.generationParams?.steps.toString() ?? 'err'),
-                  InfoBox(one: 'Size', two: meta.imageParams.generationParams?.size.toString() ?? 'err'),
-                  InfoBox(one: 'Seed', two: meta.imageParams.generationParams?.seed.toString() ?? 'err'),
+                  InfoBox(one: 'S.Method', two: meta.generationParams?.sampler ?? 'err'),
+                  InfoBox(one: 'S.Steps ', two: meta.generationParams?.steps.toString() ?? 'err'),
+                  InfoBox(one: 'Size', two: meta.generationParams?.size.toString() ?? 'err'),
+                  InfoBox(one: 'Seed', two: meta.generationParams?.seed.toString() ?? 'err'),
                 ] : [],
               ),
             ),
           ),
+          // TODO Fix
           Row(
             children: [
               SizedBox( // Основное
                 height: height,
                 child: meta != null ? Stack(
                   children: [
-                    Image.file(File(widget.rowData.main!.imageParams.path)),
+                    Image.file(File(widget.rowData.main!.fullPath)),
                     Padding(
                         padding: const EdgeInsets.all(5),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            meta.imageParams.generationParams != null ? TagBox(text: meta.imageParams.generationParams!.denoisingStrength != null ? 'Hi-Res' : 'Raw') : const SizedBox.shrink(),
-                            meta.imageParams.generationParams != null && meta.imageParams.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.imageParams.generationParams!.sampler)) : const SizedBox.shrink()
+                            meta.generationParams != null ? TagBox(text: meta.generationParams!.denoisingStrength != null ? 'Hi-Res' : 'Raw') : const SizedBox.shrink(),
+                            meta.generationParams != null && meta.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.generationParams!.sampler)) : const SizedBox.shrink()
                           ],
                         )
                     )
                   ],
                 ) : metaExtra != null && (findFirstMain(widget.rows, widget.index) != null && isIdenticalPromt(findFirstMain(widget.rows, widget.index)!.main, metaExtra)) ? AspectRatio(
-                  aspectRatio: metaExtra.size.aspectRatio(),
-                  child: Container(
-                    child: CustomPaint(
-                      painter: TimeLineLine(),
-                      child: Container(),
-                    ),
+                  aspectRatio: metaExtra.size!.aspectRatio(),
+                  child: CustomPaint(
+                    painter: TimeLineLine(),
+                    child: Container(),
                   ),
                 ) : widget.rowData.hasSecond() ? AspectRatio(
-                  aspectRatio: widget.rowData.images2[0].size.aspectRatio(),
+                  aspectRatio: widget.rowData.images2[0].size!.aspectRatio(),
                   child: Container(
                     height: height,
                     color: Colors.pink,
                   ),
                 ) : metaExtra != null ? AspectRatio(
-                  aspectRatio: metaExtra.size.aspectRatio(),
+                  aspectRatio: metaExtra.size!.aspectRatio(),
                   child: Container(
                     height: height,
                     color: Colors.indigoAccent,
@@ -359,23 +365,23 @@ class _RowListState extends State<RowList> {
                   color: Colors.orange,
                   child: metaExtra != null ? Stack(
                     children: [
-                      Image.file(File(widget.rowData.extraMain!.imageParams.path)),
+                      Image.file(File(widget.rowData.extraMain!.fullPath)),
                       Padding(
                           padding: const EdgeInsets.all(5),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.start,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              metaExtra.imageParams.generationParams != null ? TagBox(text: metaExtra.imageParams.generationParams!.denoisingStrength != null ? 'Hi-Res${metaExtra.imageParams.generationParams?.hiresSampler != null ? ' ${metaExtra.imageParams.generationParams!.hiresSampler}' : ' Lanczos'}${metaExtra.imageParams.generationParams?.hiresUpscale != null ? ' x${metaExtra.imageParams.generationParams!.hiresUpscale}' : ''}' : 'Raw') : const SizedBox.shrink(),
-                              metaExtra.imageParams.generationParams != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'W&H:${metaExtra.imageParams.generationParams!.size.toString()}')) : const SizedBox.shrink(),
-                              metaExtra.imageParams.generationParams != null && metaExtra.imageParams.generationParams!.denoisingStrength != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'Ds:${metaExtra.imageParams.generationParams!.denoisingStrength}')) : const SizedBox.shrink()
+                              metaExtra.generationParams != null ? TagBox(text: metaExtra.generationParams!.denoisingStrength != null ? 'Hi-Res${metaExtra.generationParams?.hiresSampler != null ? ' ${metaExtra.generationParams!.hiresSampler}' : ' Lanczos'}${metaExtra.generationParams?.hiresUpscale != null ? ' x${metaExtra.generationParams!.hiresUpscale}' : ''}' : 'Raw') : const SizedBox.shrink(),
+                              metaExtra.generationParams != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'W&H:${metaExtra.generationParams!.size.toString()}')) : const SizedBox.shrink(),
+                              metaExtra.generationParams != null && metaExtra.generationParams!.denoisingStrength != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: 'Ds:${metaExtra.generationParams!.denoisingStrength}')) : const SizedBox.shrink()
                             ],
                           )
                       )
                     ],
                   ) : const Text('none')
               ) : meta != null && widget.rowData.hasSecond() ? AspectRatio(
-                aspectRatio: meta.size.aspectRatio(),
+                aspectRatio: meta.size!.aspectRatio(),
                 child: Container(
                   color: Colors.blue,
                   child: const Text('fdf'),
@@ -383,7 +389,7 @@ class _RowListState extends State<RowList> {
               ) : widget.rowData.hasSecond() ? SizedBox(
                 height: height,
                 child: AspectRatio(
-                  aspectRatio: widget.rowData.images2[0].size.aspectRatio(),
+                  aspectRatio: widget.rowData.images2[0].size!.aspectRatio(),
                   child: Container(
                     color: Colors.cyanAccent,
                   ),
@@ -391,36 +397,36 @@ class _RowListState extends State<RowList> {
               ) : const SizedBox.shrink(),
             ],
           ),
-          Expanded(child: SizedBox(
-            height: height,
-            child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: widget.rowData.images2.length,
-                itemBuilder: (BuildContext context, int index) {
-                  return Container(
-                      height: height,
-                      color: Colors.green,
-                      child: Stack(
-                        children: [
-                          Image.file(File(widget.rowData.images2[index].imageParams.path)),
-                          Padding(
-                              padding: const EdgeInsets.all(5),
-                              child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: compareWithExtra || (index == 0 && widget.rowData.images2.length > 1) ? findDifference(compareWithExtra ? widget.rowData.extraMain : widget.rowData.images2[index-1], widget.rowData.images2[index]).map((ent){
-                                    return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
-                                  }).toList() : [
-                                    const TagBox(text: 'first')
-                                  ]
-                              )
-                          )
-                        ],
-                      )
-                  );
-                }
-            ),
-          ))
+          // Expanded(child: SizedBox(
+          //   height: height,
+          //   child: ListView.builder(
+          //       scrollDirection: Axis.horizontal,
+          //       itemCount: widget.rowData.images2.length,
+          //       itemBuilder: (BuildContext context, int index) {
+          //         return Container(
+          //             height: height,
+          //             color: Colors.green,
+          //             child: Stack(
+          //               children: [
+          //                 Image.file(File(widget.rowData.images2[index].fullPath)),
+          //                 Padding(
+          //                     padding: const EdgeInsets.all(5),
+          //                     child: Column(
+          //                         mainAxisAlignment: MainAxisAlignment.start,
+          //                         crossAxisAlignment: CrossAxisAlignment.start,
+          //                         children: compareWithExtra || (index == 0 && widget.rowData.images2.length > 1) ? findDifference(compareWithExtra ? widget.rowData.extraMain : widget.rowData.images2[index-1], widget.rowData.images2[index]).map((ent){
+          //                           return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
+          //                         }).toList() : [
+          //                           const TagBox(text: 'first')
+          //                         ]
+          //                     )
+          //                 )
+          //               ],
+          //             )
+          //         );
+          //       }
+          //   ),
+          // ))
         ],
       ),
     );

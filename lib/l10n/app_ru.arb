@@ -1,0 +1,18 @@
+{
+  "appbarSearch": "Поиск...",
+
+  "home_reader_dialog_title": "Произошла ошибка",
+  "home_reader_dialog_error_prefix": "Ошибка:",
+  "home_reader_dialog_error_description": "Если эта ошибка будет повторяться, просто напишите нам в телеграме или дискорде",
+  "home_reader_dialog_error_buttons_ok": "Ок",
+
+  "home_reader_form_select_file_mobile0": "Выбери файл",
+  "home_reader_form_select_file_desktop0": "Перетащите",
+  "home_reader_form_select_file_desktop1": "или",
+  "home_reader_form_select_file_desktop2": "Укажите ссылку",
+
+  "home_main_categories_start_title": "Давайте начнем с...",
+  "home_main_categories_start_description": "Внутри категорий вы можете создавать идеи, проекты, заметки для них и многое другое",
+  "home_main_categories_buttons_create": "Создать",
+  "home_main_categories_block_fast_preview": "Предпросмотр"
+}
