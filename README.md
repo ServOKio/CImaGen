@@ -23,6 +23,16 @@ Initially, I just needed some simple application to get exif data from an image 
 
 At the moment, a gallery, a comparison of images and their parameters, a render history and a settings page are available.
 
+### Gallery
+An ordinary gallery. You can:
+1. View images lol
+2. View the actual size of the image, its parameters, and more, including generation parameters
+3. Select multiple images to be sent later for comparison
+4. Immediately see the type of image, its upscale (if any) and more
+5. Working with a remote panel - If your friend has an "sd-webui-infinite-image-browsing" extension, you can view and work with images in the same way as if it were locally on your computer
+
+![image](preview/gallery.gif)
+
 ### Comparison
 Comparison allows you to select several images and compare them with each other. It can be very useful to find the best combination of promt, sampler and hires-upscaler. You have:
 1. The histogram. We don't know why lol, but maybe it will be useful to someone, for example, when adjusting the color in ComfUI
