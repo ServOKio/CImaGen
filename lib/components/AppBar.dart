@@ -147,10 +147,9 @@ class _CustomAppBarState extends State<CAppBar>{
                     onPressed: () {
                       BetterFeedback.of(context).show((feedback) async {
                         final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
-
-                        // ignore: deprecated_member_use
-                        await Share.shareFiles(
-                          [screenshotFilePath],
+                        
+                        await Share.shareXFiles(
+                          [XFile(screenshotFilePath)],
                           text: feedback.text,
                         );
                       },
