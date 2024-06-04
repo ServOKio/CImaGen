@@ -104,6 +104,13 @@ class _SettingsState extends State<Settings>{
             tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
             settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
           ),
+          darkTheme: SettingsThemeData(
+              leadingIconsColor: Theme.of(context).colorScheme.primary,
+              settingsListBackground: Theme.of(context).scaffoldBackgroundColor,
+              titleTextColor: Theme.of(context).colorScheme.primary,
+              tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
+          ),
           brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
           shrinkWrap: true,
           platform: DevicePlatform.fuchsia,
