@@ -773,7 +773,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     var reader = BufferReader(data: fileBytes);
     reader.setOffset(12);
     while (true) {
-      final header = reader.getRange(reader.offset, 8);
+      List<int> header = [];
+      try{
+        header = reader.getRange(reader.offset, 8);
+      } on RangeError catch(e){
+        throw Exception('Stop using webp it\'s such a pain. We are not ready to read it yet');
+      }
       if (header.isEmpty) {
         print("No EXIF information found");
         break;
@@ -876,8 +881,9 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
       await im.parseNetworkImage();
       await im.makeThumbnail();
       return im;
-    } catch (e){
+    } catch (e, stacktrace){
       print(e);
+      print(stacktrace);
     }
   }
   return null;
@@ -1144,7 +1150,7 @@ class ImageMeta {
           specific = im.specific;
           mine = im.mine;
           re = im.re;
-          final String parentFolder = p.basename(File(fullPath!).parent.path);
+          final String parentFolder = p.basename(File(fullPath ?? tempFilePath).parent.path);
           keyup = genHash(re, parentFolder, fileName, host: host);
         }
       }
@@ -1334,6 +1340,41 @@ String softwareToString(Software re){
     Software.tensorArt: 'TensorArt',
     Software.photoScape: 'PhotoScape'
   }[re] ?? 'Unknown*';
+}
+
+String humanizeSamplerName(String name, {bool showOriginal = true}){ // https://github.com/comfyanonymous/ComfyUI/blob/cb8d0ebccc93d3df6e00da1a57718a86d3dde300/comfy/samplers.py#L507C19-L509C116
+  return '${{
+    'euler': 'Euler',
+    'euler_ancestral': 'Euler A',
+    'heun': 'Heun',
+    'heunpp2': 'Heun++2',
+    'dpm_2': 'DPM 2',
+    'dpm_2_ancestral': 'DPM 2 A',
+    'lms': 'LMS',
+    'dpm_fast': 'DPM Fast',
+    'dpm_adaptive': 'DPM Adaptive',
+    'dpmpp_2s_ancestral': 'DPM++ 2S A',
+    'dpmpp_sde': 'DPM++ SDE',
+    'dpmpp_sde_gpu' : 'DPM++ SDE GPU',
+    'dpmpp_2m': 'DPM++ 2M',
+    'dpmpp_2m_sde': 'DPM++ 2M SDE',
+    'dpmpp_2m_sde_gpu': 'DPM++ 2M SDE GPU',
+    'dpmpp_3m_sde': 'DPM++ 3M SDE',
+    'dpmpp_3m_sde_gpu': 'DPM++ 3M SDE GPU',
+    'ddpm': 'DDPM',
+    'lcm': 'LCM'
+  }[name] ?? 'Unknown*'} ($name)';
+}
+
+String humanizeSchedulerName(String name, {bool showOriginal = true}){
+  return '${{
+    'simple': 'Simple',
+    'normal': 'Normal',
+    'karras': 'Karras',
+    'exponential': 'Exponential',
+    'sgm_uniform': 'SGM Uniform',
+    'ddim_uniform': 'DDIM Uniform'
+  }[name] ?? 'Unknown*'} ($name)';
 }
 
 class ImageSize {

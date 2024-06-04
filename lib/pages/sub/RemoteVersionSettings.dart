@@ -107,9 +107,11 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
         });
       }
     }).catchError((e){
-      setState(() {
+      if(mounted) {
+        setState(() {
         remoteInfo = 'Error: $e';
       });
+      }
     });
   }
 

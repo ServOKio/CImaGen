@@ -18,6 +18,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../Utils.dart';
 import '../components/CustomMasonryView.dart';
+import '../components/ImageInfo.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
 import '../utils/DataModel.dart';
@@ -293,29 +294,32 @@ class _HomeState extends State<Home> {
                     const Gap(8),
                     Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: TextStyle(fontWeight: FontWeight.w500)),
                     Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop1),
-                    TextField(
-                      onSubmitted: (value) async {
-                        ImageMeta? im = await parseUrlImage(value);
-                        if(im != null){
-                          pushToHistory(im);
-                        }
-                      },
-                      textInputAction: TextInputAction.done,
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        alignLabelWithHint: true,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        label: Center(
-                          child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: TextField(
+                        onSubmitted: (value) async {
+                          ImageMeta? im = await parseUrlImage(value);
+                          if(im != null){
+                            pushToHistory(im);
+                          }
+                        },
+                        textInputAction: TextInputAction.done,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                            alignLabelWithHint: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            label: Center(
+                              child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                            ),
+                            focusedBorder: UnderlineInputBorder( //<-- SEE HERE
+                              borderSide: BorderSide(
+                                  width: 1, color: Theme.of(context).colorScheme.primary
+                              ),
+                            )
                         ),
-                        focusedBorder: UnderlineInputBorder( //<-- SEE HERE
-                          borderSide: BorderSide(
-                              width: 1, color: Theme.of(context).colorScheme.primary
-                          ),
-                        )
                       ),
-                    ),
+                    )
                     // Text(, style: TextStyle(fontWeight: FontWeight.w500)),
                   ],
                 ),
@@ -757,7 +761,15 @@ class FileInfoPreview extends StatelessWidget{
                   )
                 ],
               ),
+              const Gap(7),
               hasICC ? (im.specific?['iccProfileName'] != null) ? InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true) : InfoBox(one: 'Color profile', two: pn) : const SizedBox.shrink(),
+              im.generationParams?.checkpoint != null ? InfoBox(one: 'Checkpoint', two: im.generationParams?.checkpoint, inner: true) : const SizedBox.shrink(),
+              im.generationParams?.sampler != null ? InfoBox(one: 'Sampler', two: im.generationParams?.sampler, inner: true) : const SizedBox.shrink(),
+              im.specific?['comfUINodes'] != null ? ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: InfoBox(one: 'Node Count', two: im.specific!['comfUINodes'].length.toString()),
+                children: withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>Text(el['type'], style: TextStyle(fontSize: 12))).toList(), element: const Icon(Icons.arrow_downward, size: 10,)),
+              ) : const SizedBox.shrink(),
               const Gap(7),
               Row(
                 children: [

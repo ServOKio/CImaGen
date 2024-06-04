@@ -163,7 +163,7 @@ class _ImageViewState extends State<ImageView> {
                   print(value);
                 },
                 child: Image.file(
-                  File(widget.imageMeta!.fullPath),
+                  File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath),
                   gaplessPlayback: true,
                   frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                     if (wasSynchronouslyLoaded) {

@@ -302,6 +302,12 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
     case 'KSampler':
       nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'KSampler');
       break;
+    case 'KSamplerAdvanced':
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'KSamplerAdvanced');
+      break;
+    case 'KSampler_A1111':
+      nextOrEnd(el, data, history, nextKey: 'latent_image', nodeName: 'KSampler_A1111');
+      break;
     case 'VAEEncodeTiled':
       nextOrEnd(el, data, history, nextKey: 'pixels', nodeName: 'VAEEncodeTiled');
       break;
@@ -402,7 +408,11 @@ dynamic findEnd(dynamic node, dynamic data){
     case 'Text Multiline':
       return inp['text'];
     case 'CLIPTextEncodeSDXL':
-      return findEnd(data[inp['text_g'][0]], data);
+      return inp['text_g'].runtimeType == String ? inp['text_g'] : findEnd(data[inp['text_g'][0]], data);
+    case 'CLIPTextEncodeSDXLRefiner':
+      return inp['text'].runtimeType == String ? inp['text'] : findEnd(data[inp['text'][0]], data);
+    case 'BNK_CLIPTextEncodeAdvanced':
+      return inp['text'];
     case 'Simple String Combine (WLSH)':
       // https://comfy.icu/node/Simple-String-Combine-WLSH
       String addition = vilkaIliJopa(data, inp['addition']);
@@ -415,6 +425,10 @@ dynamic findEnd(dynamic node, dynamic data){
       return inp['vae_name'];
     case 'UpscaleModelLoader':
       return inp['model_name'];
+    case 'LoraTagLoader':
+      List<String> fi = [inp['text']];
+      loraStack(fi, data[inp['model'][0]], data);
+      return List.from(fi.reversed);
     case 'LoraLoader':
       List<String> fi = [inp['lora_name']];
       loraStack(fi, data[inp['model'][0]], data);
@@ -437,6 +451,9 @@ void loraStack(List<String> fi, dynamic node, dynamic data){
       loraStack(fi, data[inp['model'][0]], data);
       break;
     case 'CheckpointLoaderSimple':
+      fi.add(inp['ckpt_name']);
+      break;
+    case 'ECHOCheckpointLoaderSimple':
       fi.add(inp['ckpt_name']);
       break;
     default:
