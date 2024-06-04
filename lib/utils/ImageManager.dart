@@ -141,7 +141,7 @@ class ParseJob {
   int _jobID = -1;
   int get jobID => _jobID;
 
-  List<String> _cache = [];
+  List<dynamic> _cache = [];
   List<ImageMeta> _done = [];
   int _doneTotal = 0;
 
@@ -154,22 +154,23 @@ class ParseJob {
 
   var rng = Random();
 
-  Future<int> putAndGetJobID(RenderEngine? re, List<String> imagePaths, {String? host}) async {
-    print('get ${imagePaths.length}');
-    _cache.addAll(imagePaths);
+  Future<int> putAndGetJobID(RenderEngine? re, List<dynamic> rawImages, {String? host, Uri? remote}) async {
+    print('get ${rawImages.length}');
+    _cache.addAll(rawImages);
+
     _jobID = getRandomInt(1000, 100000);
     // Main
     _controller = StreamController<List<ImageMeta>>();
 
-    _parse(re, host);
+    _parse(re, host, remote);
     return _jobID;
 
   }
 
-  Future<void> _parse(RenderEngine? re, String? host) async {
-    for(String path in _cache){
+  Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
+    for(dynamic raw in _cache){
       bool yes = true;
-      path = p.normalize(path);
+      String path = p.normalize(raw.runtimeType == String ? raw : raw['fullpath']);
       // Check file type
       final String e = p.extension(path);
       if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
@@ -182,29 +183,81 @@ class ParseJob {
       for(String d in ['mask', 'before']){
         if(b.contains(d)) {
           yes = false;
-          _doneTotal++;
-          _isDone();
         }
       }
       if(yes){
-        ImageMeta? value = await parseImage(re ?? RenderEngine.unknown, path);
-        if(value != null){
-          _done.add(value);
-          _controller.add(finished);
-          NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
-            if(doI){
-              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+        if(host == null){
+          ImageMeta? value = await parseImage(re ?? RenderEngine.unknown, path);
+          if(value != null){
+            _done.add(value);
+            _controller.add(finished);
+            NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
+              if(doI){
+                NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+                  _doneTotal++;
+                  _isDone();
+                });
+              } else {
                 _doneTotal++;
                 _isDone();
-              });
-            } else {
-              _doneTotal++;
-              _isDone();
-            }
-          });
+              }
+            });
+          } else {
+            _doneTotal++;
+            _isDone();
+          }
         } else {
-          _doneTotal++;
-          _isDone();
+            Uri thumb = Uri(
+                scheme: remote!.scheme,
+                host: remote.host,
+                port: remote.port,
+                path: '/infinite_image_browsing/image-thumbnail',
+                queryParameters: {
+                  'path': path,
+                  'size': '512x512',
+                  't': raw['date']
+                }
+            );
+            Uri full = Uri(
+                scheme: remote.scheme,
+                host: remote.host,
+                port: remote.port,
+                path: '/infinite_image_browsing/file',
+                queryParameters: {
+                  'path': path,
+                  't': raw['date']
+                }
+            );
+
+            ImageMeta im = ImageMeta(
+                host: Uri(
+                    host: remote.host,
+                    port: remote.port
+                ).toString(),
+                re: RenderEngine.unknown,
+                fileTypeExtension: e.replaceFirst('.', ''),
+                fileSize: raw['bytes'],
+                dateModified: DateTime.parse(raw['date']),
+                fullPath: raw['fullpath'],
+                fullNetworkPath: full.toString(),
+                networkThumbnail: thumb.toString()
+            );
+
+            await im.parseNetworkImage();
+            await im.makeThumbnail();
+            _done.add(im);
+            _controller.add(finished);
+            NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
+              if(doI){
+                NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+                  _doneTotal++;
+                  _isDone();
+                });
+              } else {
+                _doneTotal++;
+                _isDone();
+              }
+            });
         }
       } else {
         _doneTotal++;
@@ -524,12 +577,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         fileTypeExtension: e,
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
-        size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : ImageSize(width: 500, height: 500),
+        size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : const ImageSize(width: 500, height: 500),
         specific: specific,
         generationParams: gp,
         other: pngEx
     );
-    await i.makeThumbnail();
+    await i.makeThumbnail(fileBytes: fileBytes);
     return i;
     // print(text);
   } else if(['jpg', 'jpeg'].contains(e)){
@@ -708,7 +761,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: jpgEx
     );
-    if(error == null ) await i.makeThumbnail();
+    if(error == null ) await i.makeThumbnail(fileBytes: fileBytes);
     return i;
   } else if(['webp'].contains(e)) {
     Map<String, dynamic> specific = {};
@@ -778,7 +831,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: webpEx
     );
-    await i.makeThumbnail();
+    await i.makeThumbnail(fileBytes: fileBytes);
     return i;
   } else if(['gif'].contains(e)) {
     Map<String, dynamic> specific = {};
@@ -797,7 +850,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: gifEx
     );
-    await i.makeThumbnail();
+    await i.makeThumbnail(fileBytes: fileBytes);
     return i;
   } else {
     return null;
@@ -987,7 +1040,11 @@ class ImageMeta {
       final String parentFolder = p.basename(File(fullPath!).parent.path);
       fileName = p.basename(fullPath!);
       pathHash = genPathHash(fullPath!);
+      if(fileName == '00122-1529096123.png'){
+        print('${re.index.toString()} $parentFolder $fileName $host');
+      }
       keyup = genHash(re, parentFolder, fileName, host: host);
+      if(fileName == '00122-1529096123.png') print(keyup); // 8ba3838ee099363a5642c316fb5034deec3575b3f2cd170efaa445f25d49cb54
     } else {
       Uri uri = Uri.parse(fullNetworkPath!);
       fileName = p.basename(uri.path);
@@ -1033,24 +1090,28 @@ class ImageMeta {
     return ImageKey(type: re, parent: parentFolder, fileName: fileName, host: host);
   }
 
-  Future<void> makeThumbnail() async {
+  Future<void> makeThumbnail({Uint8List? fileBytes}) async {
     if(thumbnail == null) {
       String url = isLocal ? fullPath : tempFilePath;
       img.Image? data;
-      switch (mine?.split('/').last) {
-        case 'png':
-          data = await compute(img.decodePngFile, url);
-          break;
-        case 'jpg':
-        case 'jpeg':
-          data = await compute(img.decodeJpgFile, url);
-          break;
-        case 'gif':
-          data = await compute(img.decodeGifFile, url);
-          break;
-        case 'webp':
-          data = await compute(img.decodeWebPFile, url);
-          break;
+      if(fileBytes != null){
+        data = await compute(img.decodeImage, fileBytes);
+      } else {
+        switch (mine?.split('/').last) {
+          case 'png':
+            data = await compute(img.decodePngFile, url);
+            break;
+          case 'jpg':
+          case 'jpeg':
+            data = await compute(img.decodeJpgFile, url);
+            break;
+          case 'gif':
+            data = await compute(img.decodeGifFile, url);
+            break;
+          case 'webp':
+            data = await compute(img.decodeWebPFile, url);
+            break;
+        }
       }
       thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
     }
@@ -1061,7 +1122,6 @@ class ImageMeta {
       // Download to temp
       String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
       String pa = p.join(appTempDir, '$keyup-$fileName');
-      fullPath = pa;
       File f = File(pa);
       if(!f.existsSync()){
         String clean = cleanUpUrl(fullNetworkPath!);
@@ -1084,6 +1144,8 @@ class ImageMeta {
           specific = im.specific;
           mine = im.mine;
           re = im.re;
+          final String parentFolder = p.basename(File(fullPath!).parent.path);
+          keyup = genHash(re, parentFolder, fileName, host: host);
         }
       }
     }

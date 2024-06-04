@@ -209,9 +209,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   if(snapshot.data[index].files.length <= 4){
                     files = snapshot.data[index].files;
                   } else {
-                    for (var i = 0; i < 4; i++) {
-                      files.add(snapshot.data[index].files[i]);
-                    }
+                    int l = snapshot.data[index].files.length;
+                    // 123 = 100
+                    //  ?  = 33
+                    files.add(snapshot.data[index].files[0]);
+                    files.add(snapshot.data[index].files[(l*33/100).round()]);
+                    files.add(snapshot.data[index].files[(l*66/100).round()]);
+                    files.add(snapshot.data[index].files[snapshot.data[index].files.length - 1]);
                   }
 
                   return AnimationConfiguration.staggeredList(
@@ -278,7 +282,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                                               children: [
                                                 const Icon(Icons.image, color: Colors.white70, size: 12),
                                                 const Gap(2),
-                                                Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white))
+                                                Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
                                               ],
                                             )
                                         )
@@ -753,7 +757,7 @@ class PreviewImage extends StatelessWidget {
                           scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
                           duration: const Duration(milliseconds: 200),
                           curve: Curves.ease,
-                          child: imageMeta.isLocal && imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
+                          child: imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
                             base64Decode(imageMeta.thumbnail ?? ''),
                             filterQuality: FilterQuality.low,
                             gaplessPlayback: dontBlink,

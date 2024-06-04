@@ -718,6 +718,10 @@ List<Widget> getForType(dynamic data){
         InfoBox(one: 'Width and height', two:  '${data['width']}x${data['height']}', inner: true),
         InfoBox(one: 'Crop', two:  data['crop'].toString(), inner: true),
       ];
+    case 'ImageUpscaleWithModel':
+      return [
+        InfoBox(one: 'Upscale model', two:  data['upscaleModel'], inner: true)
+      ];
     case 'UltimateSDUpscale':
       return [
         InfoBox(one: 'Upscale by', two: data['upscaleBy'].toString(), inner: true),

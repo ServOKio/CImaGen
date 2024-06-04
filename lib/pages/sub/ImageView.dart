@@ -162,7 +162,20 @@ class _ImageViewState extends State<ImageView> {
                 onItemSelected: (value) {
                   print(value);
                 },
-                child: Image.file(File(widget.imageMeta!.fullPath)),
+                child: Image.file(
+                  File(widget.imageMeta!.fullPath),
+                  gaplessPlayback: true,
+                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                    if (wasSynchronouslyLoaded) {
+                      return child;
+                    } else {
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: frame == null ? const CircularProgressIndicator() : child,
+                      );
+                    }
+                  },
+                ),
             )
         ),
       ),

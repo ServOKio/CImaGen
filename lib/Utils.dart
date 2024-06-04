@@ -293,6 +293,9 @@ void findNext(dynamic el, dynamic data, List<dynamic> history){
     case 'UltimateSDUpscale':
       nextOrEnd(el, data, history, nextKey: 'image', nodeName: 'UltimateSDUpscale');
       break;
+    case 'ImageUpscaleWithModel':
+      nextOrEnd(el, data, history, nextKey: 'image', nodeName: 'ImageUpscaleWithModel');
+      break;
     case 'VAEDecodeTiled':
       nextOrEnd(el, data, history, nextKey: 'samples', nodeName: 'VAEDecodeTiled');
       break;

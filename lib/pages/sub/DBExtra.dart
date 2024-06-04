@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:settings_ui/settings_ui.dart';
 
+import '../../utils/ImageManager.dart';
 import '../../utils/SQLite.dart';
 
 class DBExtra extends StatefulWidget{
@@ -16,6 +17,7 @@ class DBExtra extends StatefulWidget{
 class _DBExtraState extends State<DBExtra>{
   @override
   Widget build(BuildContext context) {
+    print(genHash(RenderEngine.txt2img, '2023-09-20', '00122-1529096123.png', host: '//foxwebui.ddns.net:7860')); //RenderEngine.txt2img RenderEngine 2023-09-20 //foxwebui.ddns.net:7860
     return Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
@@ -121,6 +123,33 @@ class _DBExtraState extends State<DBExtra>{
                     ),
                     SettingsTile(
                       leading: Icon(Icons.delete),
+                      title: const Text('Delete network data'),
+                      description: const Text('DELETE FROM images WHERE host NOT NULL\nDELETE FROM generation_params  WHERE host NOT NULL'),
+                      onPressed: (context){
+                        showDialog<String>(
+                          context: context,
+                          builder: (BuildContext context) => AlertDialog(
+                            icon: const Icon(Icons.warning_amber_outlined),
+                            title: const Text('Are you sure you want to delete this?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => context.read<SQLite>().rawRun([
+                                  'DELETE FROM images WHERE host NOT NULL',
+                                  'DELETE FROM generation_params  WHERE host NOT NULL'
+                                ]).then((value) => Navigator.pop(context, 'Ok')),
+                                child: const Text('Okay'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, 'Cancel'),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    SettingsTile(
+                      leading: Icon(Icons.delete, color: Colors.red),
                       title: const Text('Drop all tables for images'),
                       description: const Text('DROP TABLE images\nDROP TABLE generation_params'),
                       onPressed: (context){

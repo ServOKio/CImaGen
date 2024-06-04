@@ -364,13 +364,19 @@ class SQLite with ChangeNotifier{
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
-  Future<List<ImageMeta>> getImagesByParent(dynamic type, String parent) async {
+  Future<List<ImageMeta>> getImagesByParent(dynamic type, String parent, {String? host}) async {
     if (kDebugMode) {
-      print('$type ${type.runtimeType} $parent');
+      print('$type ${type.runtimeType} $parent ${host ?? 'null'}');
     }
-    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * from images join generation_params on images.keyup=generation_params.keyup where images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ORDER by datemodified ASC', type.runtimeType == RenderEngine ? [type.index, parent] : [parent]);
+    List<dynamic> args = [];
+    if(type.runtimeType == RenderEngine) args.add(type.index);
+    args.add(parent);
+    if(host != null) args.add(host);
+    print(host);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : ''}ORDER by datemodified ASC', args);
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
+      print(d);
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
       return ImageMeta(
         re: RenderEngine.values[d['type'] as int],

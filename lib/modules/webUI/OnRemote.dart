@@ -6,11 +6,18 @@ import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
+
+import '../../utils/NavigationService.dart';
+import '../../utils/SQLite.dart';
 
 // Required "Infinite image browsing" addon
 class OnRemote implements AbMain{
   @override
   bool loaded = false;
+
+  String _host = '-';
+  String _remoteAddress = '';
 
   void findError(){
 
@@ -22,10 +29,17 @@ class OnRemote implements AbMain{
   @override
   Map<String, String> get webuiPaths => _webuiPaths;
 
+  Map<int, ParseJob> _jobs = {};
+
   @override
   Future<void> init() async {
     if(prefs!.containsKey('sd_remote_webui_address')){
-      Uri parse = Uri.parse(prefs!.getString('sd_remote_webui_address') ?? '');
+      _remoteAddress = prefs!.getString('sd_remote_webui_address')!;
+      Uri parse = Uri.parse(_remoteAddress);
+      _host = Uri(
+          host: parse.host,
+          port: parse.port
+      ).toString();
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,
@@ -58,7 +72,7 @@ class OnRemote implements AbMain{
   Future<List<Folder>> getFolders(RenderEngine renderEngine) async {
     // http://gg:7860/infinite_image_browsing/files?folder_path=Z:%2Fstable-diffusion-webui%2Foutputs%2Ftxt2img-images
     List<Folder> list = [];
-    Uri parse = Uri.parse(prefs!.getString('sd_remote_webui_address') ?? '');
+    Uri parse = Uri.parse(_remoteAddress);
     Uri base = Uri(
         scheme: parse.scheme,
         host: parse.host,
@@ -110,65 +124,7 @@ class OnRemote implements AbMain{
 
   @override
   Future<List<ImageMeta>> getFolderFiles(RenderEngine renderEngine, String sub) async{
-    List<ImageMeta> list = [];
-    Uri parse = Uri.parse(prefs!.getString('sd_remote_webui_address') ?? '');
-    Uri base = Uri(
-        scheme: parse.scheme,
-        host: parse.host,
-        port: parse.port,
-        path: '/infinite_image_browsing/files',
-        queryParameters: {'folder_path': p.join(_webuiPaths[ke[renderEngine]]!, sub)}
-    );
-    var res = await http.Client().get(base);
-    if(res.statusCode == 200){
-      var folderFilesRaw = await json.decode(res.body)['files'].where((e) => ['.png', 'jpg', '.jpeg', '.gif', '.webp'].contains(p.extension(e['name']))).toList();
-      for (var i = 0; i < folderFilesRaw.length; i++) {
-        var f = folderFilesRaw[i];
-        Uri thumb = Uri(
-            scheme: parse.scheme,
-            host: parse.host,
-            port: parse.port,
-            path: '/infinite_image_browsing/image-thumbnail',
-            queryParameters: {
-              'path': f['fullpath'],
-              'size': '512x512',
-              't': f['date']
-            }
-        );
-        Uri full = Uri(
-            scheme: parse.scheme,
-            host: parse.host,
-            port: parse.port,
-            path: '/infinite_image_browsing/file',
-            queryParameters: {
-              'path': f['fullpath'],
-              't': f['date']
-            }
-        );
-
-        final String e = p.extension(f['fullpath']);
-
-        ImageMeta im = ImageMeta(
-            host: Uri(
-                host: parse.host,
-                port: parse.port
-            ).toString(),
-            re: RenderEngine.unknown,
-            fileTypeExtension: e.replaceFirst('.', ''),
-            fileSize: f['bytes'],
-            dateModified: DateTime.parse(f['date']),
-            fullPath: f['fullpath'],
-            fullNetworkPath: full.toString(),
-            networkThumbnail: thumb.toString()
-        );
-
-        await im.parseNetworkImage();
-        list.add(im);
-      }
-    } else {
-      print('idi naxyi ${res.statusCode}');
-    }
-    return list;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(renderEngine == RenderEngine.img2img ? [RenderEngine.img2img, RenderEngine.inpaint] : renderEngine, sub, host: _host);
   }
 
   Map<RenderEngine, String> ke = {
@@ -185,8 +141,75 @@ class OnRemote implements AbMain{
   }
 
   @override
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) {
-    // TODO: implement indexFolder
-    throw UnimplementedError();
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async {
+    Uri parse = Uri.parse(_remoteAddress);
+    Uri base = Uri(
+        scheme: parse.scheme,
+        host: parse.host,
+        port: parse.port,
+        path: '/infinite_image_browsing/files',
+        queryParameters: {'folder_path': p.join(_webuiPaths[ke[renderEngine]]!, sub)}
+    );
+    var res = await http.Client().get(base);
+    if(res.statusCode == 200){
+      var folderFilesRaw = await json.decode(res.body)['files'].where((e) => ['.png', 'jpg', '.jpeg', '.gif', '.webp'].contains(p.extension(e['name']))).toList();
+      ParseJob job = ParseJob();
+      int jobID = await job.putAndGetJobID(renderEngine, folderFilesRaw, host: _host, remote: parse);
+      _jobs[jobID] = job;
+
+      // Return job id
+      return job.controller.stream;
+      // for (var i = 0; i < folderFilesRaw.length; i++) {
+      //   var f = folderFilesRaw[i];
+      //   Uri thumb = Uri(
+      //       scheme: parse.scheme,
+      //       host: parse.host,
+      //       port: parse.port,
+      //       path: '/infinite_image_browsing/image-thumbnail',
+      //       queryParameters: {
+      //         'path': f['fullpath'],
+      //         'size': '512x512',
+      //         't': f['date']
+      //       }
+      //   );
+      //   Uri full = Uri(
+      //       scheme: parse.scheme,
+      //       host: parse.host,
+      //       port: parse.port,
+      //       path: '/infinite_image_browsing/file',
+      //       queryParameters: {
+      //         'path': f['fullpath'],
+      //         't': f['date']
+      //       }
+      //   );
+      //
+      //   final String e = p.extension(f['fullpath']);
+      //
+      //   ImageMeta im = ImageMeta(
+      //       host: Uri(
+      //           host: parse.host,
+      //           port: parse.port
+      //       ).toString(),
+      //       re: RenderEngine.unknown,
+      //       fileTypeExtension: e.replaceFirst('.', ''),
+      //       fileSize: f['bytes'],
+      //       dateModified: DateTime.parse(f['date']),
+      //       fullPath: f['fullpath'],
+      //       fullNetworkPath: full.toString(),
+      //       networkThumbnail: thumb.toString()
+      //   );
+      //
+      //   await im.parseNetworkImage();
+      //   list.add(im);
+      //}
+    } else {
+      late final StreamController<List<ImageMeta>> controller;
+      controller = StreamController<List<ImageMeta>>(
+        onListen: () async {
+          await controller.close();
+        },
+      );
+      return controller.stream;
+    }
   }
 }

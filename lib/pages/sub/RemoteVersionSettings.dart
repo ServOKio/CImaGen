@@ -149,6 +149,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                             _use_remote_version = v;
                           });
                           prefs.setBool('use_remote_version', v);
+                          if(v && _sd_remote_webui_address.isNotEmpty) checkRemoteStatus();
                           context.read<ImageManager>().changeGetter(v ? 1 : 0);
                         },
                         initialValue: _use_remote_version,
