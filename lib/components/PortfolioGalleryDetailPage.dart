@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../utils/ImageManager.dart';
+import '../utils/ThemeManager.dart';
 
 class PortfolioGalleryDetailPage extends StatefulWidget {
 
@@ -77,6 +78,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   @override
   Widget build(BuildContext context) {
     final imageManager = Provider.of<ImageManager>(context);
+    final theme = Provider.of<ThemeManager>(context);
     AppBar appBar = AppBar(
       backgroundColor: Colors.black,
       title: Text(widget.images[_currentIndex].fileName),
@@ -189,16 +191,19 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                               decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.5))
                           )
                       ),
-                      SingleChildScrollView(
-                        child: Container(
-                            padding: const EdgeInsets.all(6),
-                            child: [
-                              const Center(child: CircularProgressIndicator()),
-                              im != null ? MyImageInfo(im!) : const Text('None'),
-                              const Text('Error')
-                            ][gpState]
-                        ),
-                      )
+                     Theme(
+                        data: theme.getTheme,
+                        child: SingleChildScrollView(
+                          child: Container(
+                              padding: const EdgeInsets.all(6),
+                              child: [
+                                const Center(child: CircularProgressIndicator()),
+                                im != null ? MyImageInfo(im!) : const Text('None'),
+                                const Text('Error')
+                              ][gpState]
+                          ),
+                        )
+                     )
                     ]
                 )
             )
