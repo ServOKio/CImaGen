@@ -83,7 +83,6 @@ class OnRemote implements AbMain{
     var res = await http.Client().get(base).timeout(const Duration(seconds: 5));
     if(res.statusCode == 200){
       List<dynamic> files = await json.decode(res.body)['files'];
-      print(files.length);
       for (var i = 0; i < files.length; i++) {
         var f = files[i];
         //Read Folder

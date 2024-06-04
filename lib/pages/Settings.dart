@@ -404,11 +404,12 @@ class DBChart extends AbstractSettingsTile{
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
     return dataMap.isNotEmpty ? PieChart(
       dataMap: dataMap,
       animationDuration: const Duration(milliseconds: 1000),
-      chartLegendSpacing: 80,
-      chartRadius: 200,
+      chartLegendSpacing: screenWidth > 1280 ? 80 : 60,
+      chartRadius: screenWidth > 1280 ? 200 : 140,
       gradientList: colorList[dataMap.keys.length],
       initialAngleInDegree: 0,
       chartType: ChartType.ring,

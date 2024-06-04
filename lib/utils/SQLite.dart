@@ -176,6 +176,7 @@ class SQLite with ChangeNotifier{
         );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        if(oldVersion == 0) return;
         switch (newVersion) {
           case 2:
             await db.execute('ALTER TABLE favorites ADD host VARCHAR(256)');

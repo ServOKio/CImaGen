@@ -278,7 +278,7 @@ class ParseJob {
 
 final listEqual = const ListEquality().equals;
 Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
-  bool debug = false;
+  bool debug = true;
 
   GenerationParams? gp;
 
@@ -1046,11 +1046,7 @@ class ImageMeta {
       final String parentFolder = p.basename(File(fullPath!).parent.path);
       fileName = p.basename(fullPath!);
       pathHash = genPathHash(fullPath!);
-      if(fileName == '00122-1529096123.png'){
-        print('${re.index.toString()} $parentFolder $fileName $host');
-      }
       keyup = genHash(re, parentFolder, fileName, host: host);
-      if(fileName == '00122-1529096123.png') print(keyup); // 8ba3838ee099363a5642c316fb5034deec3575b3f2cd170efaa445f25d49cb54
     } else {
       Uri uri = Uri.parse(fullNetworkPath!);
       fileName = p.basename(uri.path);
@@ -1133,7 +1129,7 @@ class ImageMeta {
         String clean = cleanUpUrl(fullNetworkPath!);
         http.Response res = await http.get(Uri.parse(clean));
         if(res.statusCode == 200){
-          f.writeAsBytes(res.bodyBytes);
+          await f.writeAsBytes(res.bodyBytes);
           tempFilePath = pa;
           fileSize = f.statSync().size;
         }
@@ -1145,7 +1141,7 @@ class ImageMeta {
         ImageMeta? im = await parseImage(RenderEngine.unknown, pa);
         if(im != null){
           size = im.size;
-          generationParams = im.generationParams;
+          generationParams = im.generationParams;CImaGen ▌A utility for working with chaos
           other = im.other;
           specific = im.specific;
           mine = im.mine;
