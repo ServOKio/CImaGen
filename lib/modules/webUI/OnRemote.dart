@@ -158,49 +158,6 @@ class OnRemote implements AbMain{
 
       // Return job id
       return job.controller.stream;
-      // for (var i = 0; i < folderFilesRaw.length; i++) {
-      //   var f = folderFilesRaw[i];
-      //   Uri thumb = Uri(
-      //       scheme: parse.scheme,
-      //       host: parse.host,
-      //       port: parse.port,
-      //       path: '/infinite_image_browsing/image-thumbnail',
-      //       queryParameters: {
-      //         'path': f['fullpath'],
-      //         'size': '512x512',
-      //         't': f['date']
-      //       }
-      //   );
-      //   Uri full = Uri(
-      //       scheme: parse.scheme,
-      //       host: parse.host,
-      //       port: parse.port,
-      //       path: '/infinite_image_browsing/file',
-      //       queryParameters: {
-      //         'path': f['fullpath'],
-      //         't': f['date']
-      //       }
-      //   );
-      //
-      //   final String e = p.extension(f['fullpath']);
-      //
-      //   ImageMeta im = ImageMeta(
-      //       host: Uri(
-      //           host: parse.host,
-      //           port: parse.port
-      //       ).toString(),
-      //       re: RenderEngine.unknown,
-      //       fileTypeExtension: e.replaceFirst('.', ''),
-      //       fileSize: f['bytes'],
-      //       dateModified: DateTime.parse(f['date']),
-      //       fullPath: f['fullpath'],
-      //       fullNetworkPath: full.toString(),
-      //       networkThumbnail: thumb.toString()
-      //   );
-      //
-      //   await im.parseNetworkImage();
-      //   list.add(im);
-      //}
     } else {
       late final StreamController<List<ImageMeta>> controller;
       controller = StreamController<List<ImageMeta>>(

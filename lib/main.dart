@@ -299,6 +299,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
+    
+    bool debug = false;
 
     return Scaffold(
       appBar: CAppBar(),
@@ -306,7 +308,11 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         physics: const NeverScrollableScrollPhysics(),
         controller: _pageViewController,
         children: <Widget>[
-          loaded ? const Home() : LoadingState(loaded: loaded, errorMessage: error),
+          loaded ? debug ? Column(
+            children: [
+              Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
+            ],
+          ) : const Home() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? const Gallery() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? const Timeline() : LoadingState(loaded: loaded, errorMessage: error),
           loaded ? const Comparison() : LoadingState(loaded: loaded, errorMessage: error),

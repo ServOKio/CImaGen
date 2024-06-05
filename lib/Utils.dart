@@ -789,4 +789,8 @@ Future<String> getDeviceInfo() async {
   return f;
 }
 
+String normalizePath(String path){
+  return path.replaceAll('\\', '/');
+}
+
 // https://e621.net/db_export/

@@ -79,7 +79,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
         path: '/internal/sysinfo',
         queryParameters: {'attachment': 'false'}
     );
-    http.Client().get(base).timeout(const Duration(seconds: 5)).then((res) async {
+    http.Client().get(base).then((res) async {
       _has_connection = true;
       if(res.statusCode == 200){
         //print(res.body);

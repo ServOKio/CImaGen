@@ -170,7 +170,7 @@ class ParseJob {
   Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
     for(dynamic raw in _cache){
       bool yes = true;
-      String path = p.normalize(raw.runtimeType == String ? raw : raw['fullpath']);
+      String path = normalizePath(p.normalize(raw.runtimeType == String ? raw : raw['fullpath']));
       // Check file type
       final String e = p.extension(path);
       if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
@@ -278,7 +278,7 @@ class ParseJob {
 
 final listEqual = const ListEquality().equals;
 Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
-  bool debug = true;
+  bool debug = false;
 
   GenerationParams? gp;
 
@@ -992,12 +992,6 @@ String getCompression(int type){
   }[type] ?? 'Unknown';
 }
 
-// final String fullPath;
-// final String? fullNetworkPath;
-// bool isLocal = true;
-// String? thumbnail;
-// String? thumbnailNetwork;
-
 class ImageMeta {
   // Main
   String keyup = '';
@@ -1047,6 +1041,7 @@ class ImageMeta {
       fileName = p.basename(fullPath!);
       pathHash = genPathHash(fullPath!);
       keyup = genHash(re, parentFolder, fileName, host: host);
+      // print('$fileName $fullPath');
     } else {
       Uri uri = Uri.parse(fullNetworkPath!);
       fileName = p.basename(uri.path);
