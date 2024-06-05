@@ -14,6 +14,7 @@ import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:intl/intl.dart';
 import 'package:xml/xml.dart';
 
 import '../Utils.dart';
@@ -992,6 +993,8 @@ String getCompression(int type){
   }[type] ?? 'Unknown';
 }
 
+final DateFormat dateFormatter = DateFormat('yyyy-MM-dd HH:mm:ss.mmm');
+
 class ImageMeta {
   // Main
   String keyup = '';
@@ -1047,6 +1050,33 @@ class ImageMeta {
       fileName = p.basename(uri.path);
       pathHash = genPathHash(uri.path);
       keyup = genHash(re, 'undefined', fileName, host: host);
+    }
+
+    if(fullNetworkPath == null && host != null && dateModified != null){
+      Uri parse = Uri.parse(host!);
+      Uri thumb = Uri(
+          scheme: 'http',
+          host: parse.host,
+          port: parse.port,
+          path: '/infinite_image_browsing/image-thumbnail',
+          queryParameters: {
+            'path': fullPath,
+            'size': '512x512',
+            't': dateFormatter.format(dateModified!)
+          }
+      );
+      Uri full = Uri(
+          scheme: 'http',
+          host: parse.host,
+          port: parse.port,
+          path: '/infinite_image_browsing/file',
+          queryParameters: {
+            'path': fullPath,
+            't': dateFormatter.format(dateModified!)
+          }
+      );
+      fullNetworkPath = full.toString();
+      networkThumbnail = thumb.toString();
     }
   }
 
@@ -1126,7 +1156,9 @@ class ImageMeta {
         if(res.statusCode == 200){
           await f.writeAsBytes(res.bodyBytes);
           tempFilePath = pa;
-          fileSize = f.statSync().size;
+          FileStat stat = f.statSync();
+          fileSize = stat.size;
+          dateModified ??= stat.modified;
         }
       } else {
         tempFilePath = pa;

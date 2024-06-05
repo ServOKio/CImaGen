@@ -19,6 +19,7 @@ import 'package:shimmer/shimmer.dart';
 import '../components/PortfolioGalleryDetailPage.dart';
 import '../modules/webUI/AbMain.dart';
 import '../utils/NavigationService.dart';
+import '../utils/ThemeManager.dart';
 
 Future<List<Folder>> _loadMenu(RenderEngine re) async {
   return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(re);
@@ -360,6 +361,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final theme = Provider.of<ThemeManager>(context, listen: false);
     const breakpoint = 600.0;
     return ChangeNotifierProvider(
       create: (context) => model,
@@ -381,7 +383,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           child: SizedBox(
             width: 200,
             child: Drawer(
-            child: _buildNavigationRail(),
+              child: Theme(
+                data: theme.getTheme,
+                child: _buildNavigationRail()
+              ),
             ),
           ),
         )
@@ -870,7 +875,7 @@ class PreviewImage extends StatelessWidget {
                       // Positioned(
                       //     top: 4,
                       //     left: 4,
-                      //     child: Container(width: 10, height: 10, color: imageMeta.size == null ? Colors.redAccent : Colors.greenAccent)
+                      //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
                       // )
                     ],
                   )

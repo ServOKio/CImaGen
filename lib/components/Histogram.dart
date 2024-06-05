@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -74,8 +76,12 @@ class _HistogramState extends State<Histogram> {
     if(false){
       data = await img.decodePngFile(imagePath);
     } else {
-      final Uint8List bytes = await compute(readAsBytesSync, imagePath);
-      data = await compute(img.decodeImage, bytes);
+      try {
+        final Uint8List bytes = await compute(readAsBytesSync, imagePath);
+        data = await compute(img.decodeImage, bytes);
+      } on PathNotFoundException catch (e){
+        throw 'We\'ll fix it later.';
+      }
     }
     return data;
   }

@@ -298,8 +298,6 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeManager>(context);
-    
     bool debug = false;
 
     return Scaffold(
