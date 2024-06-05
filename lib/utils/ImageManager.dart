@@ -238,7 +238,7 @@ class ParseJob {
                 fileTypeExtension: e.replaceFirst('.', ''),
                 fileSize: raw['bytes'],
                 dateModified: DateTime.parse(raw['date']),
-                fullPath: raw['fullpath'],
+                fullPath: path,
                 fullNetworkPath: full.toString(),
                 networkThumbnail: thumb.toString()
             );
