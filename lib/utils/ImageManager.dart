@@ -1141,7 +1141,7 @@ class ImageMeta {
         ImageMeta? im = await parseImage(RenderEngine.unknown, pa);
         if(im != null){
           size = im.size;
-          generationParams = im.generationParams;CImaGen ▌A utility for working with chaos
+          generationParams = im.generationParams;
           other = im.other;
           specific = im.specific;
           mine = im.mine;
