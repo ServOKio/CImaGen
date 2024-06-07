@@ -89,6 +89,12 @@ class _SettingsState extends State<Settings>{
           'Without meta': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
         };
       })
+    }).onError((error, stackTrace) => {
+      setState(() {
+        dataMap = {
+          'all': 0
+        };
+      })
     });
   }
 

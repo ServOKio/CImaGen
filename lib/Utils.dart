@@ -785,6 +785,30 @@ Future<String> getDeviceInfo() async {
     f += 'Registered Owner: ${info.registeredOwner}\n';
     f += 'Release ID: ${info.releaseId}\n';
     f += 'User Name: ${info.userName}\n';
+  } else if(Platform.isAndroid){
+    AndroidDeviceInfo info = await deviceInfo.androidInfo;
+    f += 'Host: ${info.host}\n';
+    f += 'Model: ${info.model}\n';
+    if(info.version.baseOS != null) f += 'Version base OS: ${info.version.baseOS}\n';
+    f += 'Version codename: ${info.version.codename}\n';
+    f += 'Version incremental: ${info.version.incremental}\n';
+    if(info.version.previewSdkInt != null) f += 'Version incremental: ${info.version.previewSdkInt}\n';
+    f += 'Version release: ${info.version.release}\n';
+    f += 'Version sdkInt: ${info.version.sdkInt}\n';
+    if(info.version.securityPatch != null) f += 'Version security patch: ${info.version.securityPatch}\n';
+    f += 'Type: ${info.type}\n';
+    f += 'ID: ${info.id}\n';
+    f += 'Device: ${info.device}\n';
+    f += 'Board: ${info.board}\n';
+    f += 'Bootloader: ${info.bootloader}\n';
+    f += 'Display: ${info.display}\n';
+    f += 'Fingerprint: ${info.fingerprint}\n';
+    f += 'Hardware: ${info.hardware}\n';
+    f += 'isLowRamDevice: ${info.isLowRamDevice}\n';
+    f += 'isPhysicalDevice: ${info.isPhysicalDevice}\n';
+    f += 'Manufacturer: ${info.manufacturer}\n';
+    f += 'Product: ${info.product}\n';
+    f += 'Serial number: ${false ? info.serialNumber : '***'}\n';
   }
   return f;
 }

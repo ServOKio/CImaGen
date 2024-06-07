@@ -11,6 +11,7 @@ import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:cimagen/utils/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -223,22 +224,34 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   Future<void> initMe() async {
     githubAPI = GitHub();
     if(Platform.isAndroid){
-      if (await Permission.storage.request().isGranted) {
-        if (await Permission.manageExternalStorage.request().isGranted) {
+      bool permissionStatus;
+      DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+      AndroidDeviceInfo info = await deviceInfo.androidInfo;
+
+      if (info.version.sdkInt > 32) {
+        permissionStatus = await Permission.photos.request().isGranted;
+        if(permissionStatus){
+          next();
+        } else if (await Permission.photos.request().isPermanentlyDenied) {
+          await openAppSettings();
+        } else if (await Permission.photos.request().isDenied) {
+          setState(() {
+            error = 'The application does not have rights to read and write media files';
+            permissionRequired = true;
+          });
+        }
+      } else {
+        permissionStatus = await Permission.storage.request().isGranted;
+        if(permissionStatus){
           next();
         } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
           await openAppSettings();
         } else if (await Permission.manageExternalStorage.request().isDenied) {
           setState(() {
+            error = 'The application does not have rights to read and write files';
             permissionRequired = true;
           });
         }
-      } else if (await Permission.storage.request().isPermanentlyDenied) {
-        await openAppSettings();
-      } else if (await Permission.storage.request().isDenied) {
-        setState(() {
-          permissionRequired = true;
-        });
       }
     } else {
       next();
@@ -394,14 +407,17 @@ class LoadingState extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.error),
-        const Gap(4),
-        const Text('Oops, there seems to be a error'),
-        SelectableText(errorMessage ?? 'Error wtf')
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 30),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 50, color: Colors.redAccent),
+          const Gap(4),
+          const Text('Oops, I think we have a problem...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text(errorMessage ?? 'Unknown error', style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+        ],
+      ),
     );
   }
 }

@@ -373,7 +373,7 @@ class SQLite with ChangeNotifier{
     if(type.runtimeType == RenderEngine) args.add(type.index);
     args.add(parent);
     if(host != null) args.add(host);
-    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : ''}ORDER by datemodified ASC', args);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host ISNULL '}ORDER by datemodified ASC', args);
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
@@ -477,8 +477,8 @@ class SQLite with ChangeNotifier{
     } else {
       constDatabase.delete(
         'favorites',
-        where: 'pathHash = ? AND host = ?',
-        whereArgs: [ph]
+        where: 'pathHash = ? AND host = ${host == null ? 'ISNULL' : '?'}',
+        whereArgs: host != null ? [ph] : null
       );
     }
   }
