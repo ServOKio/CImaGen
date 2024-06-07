@@ -82,9 +82,9 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                   children: [
                                     im.dateModified != null ? InfoBox(one: 'Date modified', two: im.dateModified!.toIso8601String(), inner: true, withGap: false) : const SizedBox.shrink(),
                                     InfoBox(one: 'File size', two: readableFileSize(im.fileSize ?? 0), inner: true),
-                                    InfoBox(one: 'File name', two: im.fileName ?? '', inner: true),
-                                    im.size != null ? InfoBox(one: 'Size', two: '${im!.size.toString()} (${aspectRatioFromSize(im.size!)})', inner: true) : const SizedBox.shrink(),
-                                    InfoBox(one: 'Path', two: im.fullPath ?? '', inner: true),
+                                    InfoBox(one: 'File name', two: im.fileName ?? '', inner: true),*-
+                                    im.size != null ? InfoBox(one: 'Size', two: '${im.size.toString()} (${aspectRatioFromSize(im.size!)})', inner: true) : const SizedBox.shrink(),
+                                    im.fullPath != null ? InfoBox(one: 'Path', two: im.fullPath, inner: true) : const SizedBox.shrink(),
                                   ],
                                 )
                               ],

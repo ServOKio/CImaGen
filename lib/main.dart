@@ -160,7 +160,7 @@ class Main extends StatefulWidget {
   const Main({super.key});
 
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  State<Main> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
@@ -187,7 +187,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   Future<void> getSharedText() async {
     if(Platform.isAndroid){
       var sharedData = await platform.invokeMethod('getSharedText');
-      if (sharedData != null) {
+      if (mounted && sharedData != null) {
         showDialog<String>(
           context: context,
           builder: (BuildContext context) => const AlertDialog(
@@ -211,10 +211,13 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           try{
             await im.parseNetworkImage();
             await im.makeThumbnail();
+            if(!mounted) return;
             Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
           } catch (e){
-            print(e);
+            if (kDebugMode) {
+              print(e);
+            }
           }
         }
       }
@@ -401,9 +404,9 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 }
 
 class LoadingState extends StatelessWidget{
-  bool loaded;
-  String? errorMessage;
-  LoadingState({super.key, required this.loaded, this.errorMessage});
+  final bool loaded;
+  final String? errorMessage;
+  const LoadingState({super.key, required this.loaded, this.errorMessage});
 
   @override
   Widget build(BuildContext context) {

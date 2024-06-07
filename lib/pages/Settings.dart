@@ -6,7 +6,9 @@ import 'package:cimagen/pages/sub/GitHubCommits.dart';
 import 'package:cimagen/pages/sub/RemoteVersionSettings.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:external_path/external_path.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pie_chart/pie_chart.dart';
@@ -172,13 +174,31 @@ class _SettingsState extends State<Settings>{
                   leading: Icon(Icons.restart_alt),
                   title: Text('Restore the default cache location'),
                   onPressed: (context) async {
-                    SharedPreferences prefs = await SharedPreferences.getInstance();
-                    prefs.remove('custom_cache_dir');
-                    context.read<ConfigManager>().updateCacheLocation().then((value){
-                      setState(() {
-                        _custom_cache_dir = value;
-                      });
-                    });
+                    showDialog<String>(
+                      context: context,
+                      builder: (BuildContext context) => AlertDialog(
+                        icon: const Icon(Icons.warning_amber_outlined),
+                        title: const Text('Are you serious?'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () async {
+                              SharedPreferences prefs = await SharedPreferences.getInstance();
+                              prefs.remove('custom_cache_dir');
+                              context.read<ConfigManager>().updateCacheLocation().then((value){
+                                setState(() {
+                                  _custom_cache_dir = value;
+                                });
+                              });
+                            },
+                            child: const Text('Okay'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, 'Cancel'),
+                            child: const Text('Cancel'),
+                          ),
+                        ],
+                      ),
+                    );
                   },
                 ),
                 SettingsTile.navigation(
@@ -203,7 +223,8 @@ class _SettingsState extends State<Settings>{
             ),
             SettingsSection(
               title: Text('UI & UX'),
-              tiles: <SettingsTile>[
+              tiles:[
+                AppTheme(),
                 SettingsTile.switchTile(
                   leading: Icon(Icons.fullscreen),
                   title: const Text('Full-screen mode when viewing images'),
@@ -215,6 +236,7 @@ class _SettingsState extends State<Settings>{
                     prefs!.setBool('imageview_use_fullscreen', v);
                   }, initialValue: _imageview_use_fullscreen,
                 ),
+
               ],
             ),
             SettingsSection(
@@ -298,15 +320,105 @@ class _SettingsState extends State<Settings>{
   }
 }
 
+class AppTheme extends AbstractSettingsTile{
+  @override
+  Widget build(BuildContext context) {
+    double size = 200;
+    double aspectRatio = 16/9;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Row(
+        children: [
+          Column(
+            children: [
+              Container(
+                  width: size,
+                  child: AspectRatio(
+                    aspectRatio: aspectRatio,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(7)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 14
+                            )
+                          ],
+                          color: Color(0xFF131517)
+                      ),
+                    ),
+                  ),
+                ),
+                const Gap(8),
+                const Text('Dark')
+            ],
+          ),
+          const Gap(14),
+          Column(
+            children: [
+              Container(
+                  width: size,
+                  child: AspectRatio(
+                    aspectRatio: aspectRatio,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.all(Radius.circular(7)),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 14
+                          )
+                        ],
+                        color: Color(0xFFf5f5f5)
+                      ),
+                    ),
+                  ),
+                ),
+                const Gap(8),
+                const Text('Light')
+            ],
+          ),
+          const Gap(14),
+          Column(
+            children: [
+              Container(
+                width: size,
+                child: AspectRatio(
+                  aspectRatio: aspectRatio,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.all(Radius.circular(7)),
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 14
+                          )
+                        ],
+                        color: Color(0xFFf5f5f5)
+                    ),
+                  ),
+                ),
+              ),
+              const Gap(8),
+              const Text('System')
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+}
+
 class DBChart extends AbstractSettingsTile{
-  Map<String, double> dataMap = {};
+  final Map<String, double> dataMap;
 
   DBChart({
     super.key,
     required this.dataMap,
   });
 
-  List<List<List<Color>>> colorList = [
+  final List<List<List<Color>>> colorList = [
     [],                       // 0
     [
       [

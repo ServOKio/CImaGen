@@ -36,7 +36,15 @@ class ThemeManager extends ChangeNotifier {
       ),
     );
 
-    lightTheme = ThemeData.light();
+    lightTheme = ThemeData.from(
+        textTheme: (ThemeData.light()).textTheme,
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: f,
+            brightness: Brightness.light
+        )
+    ).copyWith(
+      scaffoldBackgroundColor: const Color(0xFFf5f5f5),
+    );
 
     _themeData = darkTheme;
   }
