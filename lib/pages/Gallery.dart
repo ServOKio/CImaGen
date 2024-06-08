@@ -668,6 +668,17 @@ class PreviewImage extends StatelessWidget {
                     dataModel.jumpToTab(3);
                   },
                 ),
+                MenuItem(
+                  label: 'View only favorite',
+                  value: 'comparison_view_favorite',
+                  icon: Icons.compare,
+                  onSelected: () {
+                    if(sp.selectedCo == 0){
+                      dataModel.comparisonBlock.addAllImages(imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)).toList());
+                    }
+                    dataModel.jumpToTab(3);
+                  },
+                ),
                 const MenuDivider(),
                 MenuItem(
                   label: 'As main',

@@ -653,12 +653,27 @@ String cleanUpUrl(String url){
   return newUri.toString();
 }
 
-String readableFileSize(int size, {bool base1024 = true}) {
-  final base = base1024 ? 1024 : 1000;
-  if (size <= 0) return "0";
-  final units = ["B", "kB", "MB", "GB", "TB"];
-  int digitGroups = (log(size) / log(base)).round();
-  return "${NumberFormat("#,##0.#").format(size / pow(base, digitGroups))}${units[digitGroups]}";
+String readableFileSize(int size, {int round = 2, bool base1024 = true}) {
+  const List<String> affixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+
+  num divider = base1024 ? 1024 : 1000;
+
+  num runningDivider = divider;
+  num runningPreviousDivider = 0;
+  int affix = 0;
+
+  while (size >= runningDivider && affix < affixes.length - 1) {
+    runningPreviousDivider = runningDivider;
+    runningDivider *= divider;
+    affix++;
+  }
+
+  String result = (runningPreviousDivider == 0 ? size : size / runningPreviousDivider).toStringAsFixed(round);
+
+  //Check if the result ends with .00000 (depending on how many decimals) and remove it if found.
+  if (result.endsWith("0" * round)) result = result.substring(0, result.length - round - 1);
+
+  return "$result ${affixes[affix]}";
 }
 
 bool isRaw(dynamic image) => image.runtimeType != ImageMeta;
