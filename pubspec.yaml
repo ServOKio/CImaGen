@@ -30,7 +30,7 @@ dependencies:
   gap: ^3.0.1
   system_theme: ^2.3.1
   flutter_context_menu: ^0.2.0
-  image: ^4.1.7
+  image: ^4.2.0
   dotted_border: ^2.1.0 #fucking flutter
   collection: ^1.18.0
   animated_text_kit: ^4.2.2

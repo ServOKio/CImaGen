@@ -769,53 +769,84 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     Map<String, dynamic> webpEx = {};
 
     final originalImage = img.decodeWebP(fileBytes);
-
-    // Fuuuuuck... it's u again...
-    var reader = BufferReader(data: fileBytes);
-    reader.setOffset(12);
-    while (true) {
-      List<int> header = [];
+    if(originalImage!.exif.exifIfd.hasUserComment){
+      String fi = utf8.decode(Uint8List.fromList(originalImage.exif.exifIfd[0x9286]!.toData().toList().where((e) => e != 0).toList(growable: false).cast()));
       try{
-        header = reader.getRange(reader.offset, 8);
-      } on RangeError catch(e){
-        throw Exception('Stop using webp it\'s such a pain. We are not ready to read it yet');
-      }
-      if (header.isEmpty) {
-        print("No EXIF information found");
-        break;
-      } else if (header.length < 8) {
-        print("Invalid RIFF encoding");
-        break;
-      }
-
-      final tag = String.fromCharCodes(header.sublist(0, 4));
-      final length = Int8List.fromList(header.sublist(4, 8)).buffer.asByteData().getInt32(0, Endian.little);
-      print('$tag $length');
-
-      // According to exiftool's RIFF documentation, WebP uses "EXIF" as tag
-      // name while other RIFF-based files tend to use "Exif".
-      if (tag == "EXIF") {
-        // Look for Exif\x00\x00, and skip it if present. The WebP implementation
-        // in Exiv2 also handles a \xFF\x01\xFF\xE1\x00\x00 prefix, but with no
-        // explanation or test file present, so we ignore that for now.
-        List<int> exifHeader = reader.getRange(reader.offset, 6);
-        if (!listEqual(exifHeader, Uint8List.fromList('Exif\x00\x00'.codeUnits))) {
-          reader.setOffset(reader.offset - exifHeader.length);
+        for (var e in ['ASCII', 'UNICODE', 'JIS', '']) {
+          if(fi.substring(0, 8).contains(e)){
+            fi = fi.substring(e.length, fi.length);
+            break;
+          }
         }
-        final offset = reader.offset;
-        final endian = reader.endianOfByte(reader.getByte(reader.offset));
-        //ReadParams(endian: endian, offset: offset);
-        print('exif fosdofosidfiuasdbfiarws');
-        break;
+        webpEx['EXIF UserComment'] = fi;
+      } on RangeError catch (e) {
+        print('RangeError');
+        print(imagePath);
+        print(e);
       }
 
-      // Skip forward to the next box.
-      reader.setOffset(reader.offset + length + header.length);
+      if(webpEx['EXIF UserComment'] != null && (webpEx['EXIF UserComment'] as String).trim().isNotEmpty){
+        gp = parseSDParameters(webpEx['EXIF UserComment']);
+
+        if(gp != null){
+          if(gp.all?['mask_blur'] != null){
+            re = RenderEngine.inpaint;
+          } else if(gp.all?['denoising_strength'] != null && gp.all?['hires_upscale'] == null){
+            re = RenderEngine.img2img;
+          }
+        }
+      }
+
+      //clean
+      webpEx.remove('EXIF UserComment');
     }
+
+    // // Fuuuuuck... it's u again...
+    // var reader = BufferReader(data: fileBytes);
+    // reader.setOffset(12);
+    // while (true) {
+    //   List<int> header = [];
+    //   try{
+    //     header = reader.getRange(reader.offset, 8);
+    //   } on RangeError catch(e){
+    //     throw Exception('Stop using webp it\'s such a pain. We are not ready to read it yet');
+    //   }
+    //   if (header.isEmpty) {
+    //     print("No EXIF information found");
+    //     break;
+    //   } else if (header.length < 8) {
+    //     print("Invalid RIFF encoding");
+    //     break;
+    //   }
+    //
+    //   final tag = String.fromCharCodes(header.sublist(0, 4));
+    //   final length = Int8List.fromList(header.sublist(4, 8)).buffer.asByteData().getInt32(0, Endian.little);
+    //   print('$tag $length');
+    //
+    //   // According to exiftool's RIFF documentation, WebP uses "EXIF" as tag
+    //   // name while other RIFF-based files tend to use "Exif".
+    //   if (tag == "EXIF") {
+    //     // Look for Exif\x00\x00, and skip it if present. The WebP implementation
+    //     // in Exiv2 also handles a \xFF\x01\xFF\xE1\x00\x00 prefix, but with no
+    //     // explanation or test file present, so we ignore that for now.
+    //     List<int> exifHeader = reader.getRange(reader.offset, 6);
+    //     if (!listEqual(exifHeader, Uint8List.fromList('Exif\x00\x00'.codeUnits))) {
+    //       reader.setOffset(reader.offset - exifHeader.length);
+    //     }
+    //     final offset = reader.offset;
+    //     final endian = reader.endianOfByte(reader.getByte(reader.offset));
+    //     //ReadParams(endian: endian, offset: offset);
+    //     print('exif fosdofosidfiuasdbfiarws');
+    //     break;
+    //   }
+    //
+    //   // Skip forward to the next box.
+    //   reader.setOffset(reader.offset + length + header.length);
+    // }
 
 
     specific.addAll({
-      'bitsPerChannel': originalImage!.bitsPerChannel,
+      'bitsPerChannel': originalImage.bitsPerChannel,
       'rowStride': originalImage.rowStride,
       'numChannels': originalImage.numChannels,
       'isLdrFormat': originalImage.isLdrFormat,

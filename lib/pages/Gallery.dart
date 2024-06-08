@@ -16,7 +16,9 @@ import 'package:provider/provider.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../components/CustomActionButton.dart';
 import '../components/PortfolioGalleryDetailPage.dart';
+import '../main.dart';
 import '../modules/webUI/AbMain.dart';
 import '../utils/NavigationService.dart';
 import '../utils/ThemeManager.dart';
@@ -134,6 +136,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       //   }
       // }
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.setActions([
+        CustomActionButton(icon: Icons.info, tooltip: 'Database info', onPress: (){
+
+        }, getter: () => true),
+      ]);
+    });
   }
 
 
@@ -144,6 +153,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       // Scroll
       _scrollControllers[re.index]?.dispose();
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.resetActions();
+    });
   }
 
   void changeTab(RenderEngine re, int index) {

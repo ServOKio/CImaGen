@@ -637,12 +637,13 @@ bool isImageUrl(String url){
 String cleanUpUrl(String url){
   Uri parse = Uri.parse(url);
   Map<String, String> params = {};
-  parse.queryParameters.forEach((key, value) {
-    params[key] = value;
-  });
+  parse.queryParameters.forEach((key, value) => params[key] = value);
   if(['media.discordapp.net', 'cdn.discordapp.com'].contains(parse.host)){
     params.removeWhere((key, value) => ['format', 'quality', 'width', 'height'].contains(key));
   }
+  params.removeWhere((key, value) => [
+    'ysclid', // yandex metric
+  ].contains(key));
   Uri newUri = Uri(
     host: parse.host,
     port: parse.port,
@@ -670,7 +671,6 @@ String readableFileSize(int size, {int round = 2, bool base1024 = true}) {
 
   String result = (runningPreviousDivider == 0 ? size : size / runningPreviousDivider).toStringAsFixed(round);
 
-  //Check if the result ends with .00000 (depending on how many decimals) and remove it if found.
   if (result.endsWith("0" * round)) result = result.substring(0, result.length - round - 1);
 
   return "$result ${affixes[affix]}";
