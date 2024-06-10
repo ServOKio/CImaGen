@@ -16,7 +16,7 @@ dependencies:
   convert: ^3.1.1
   settings_ui: ^2.0.2
   file_picker: ^8.0.3
-  photo_view: ^0.14.0
+  photo_view: ^0.15.0
   carousel_slider: ^4.2.1
   cupertino_icons: ^1.0.2
   sqflite: ^2.3.2
