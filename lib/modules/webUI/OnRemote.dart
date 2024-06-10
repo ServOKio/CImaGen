@@ -46,26 +46,29 @@ class OnRemote implements AbMain{
           port: parse.port,
           path: '/infinite_image_browsing/global_setting',
       );
-      http.Response res = await http.Client().get(base);
-      if(res.statusCode == 200){
-        var data = await json.decode(res.body);
-        _sd_root = data['sd_cwd'];
+      http.Client().get(base).then((res) async {
+        if(res.statusCode == 200){
+          var data = await json.decode(res.body);
+          _sd_root = data['sd_cwd'];
 
-        _webuiPaths.addAll({
-          'outdir_extras-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_extras_samples'])),
-          'outdir_img2img-grids': p.normalize(p.join(_sd_root, data['global_setting']['outdir_img2img_grids'])),
-          'outdir_img2img-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_img2img_samples'])),
-          'outdir_txt2img-grids': p.normalize(p.join(_sd_root, data['global_setting']['outdir_txt2img_grids'])),
-          'outdir_txt2img-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_txt2img_samples'])),
-          'outdir_save': p.normalize(p.join(_sd_root, data['global_setting']['outdir_save'])),
-          'outdir_init': p.normalize(p.join(_sd_root, data['global_setting']['outdir_init_images']))
-        });
-        loaded = true;
-      } else {
-        print('idi naxyi ${res.statusCode}');
-      }
+          _webuiPaths.addAll({
+            'outdir_extras-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_extras_samples'])),
+            'outdir_img2img-grids': p.normalize(p.join(_sd_root, data['global_setting']['outdir_img2img_grids'])),
+            'outdir_img2img-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_img2img_samples'])),
+            'outdir_txt2img-grids': p.normalize(p.join(_sd_root, data['global_setting']['outdir_txt2img_grids'])),
+            'outdir_txt2img-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_txt2img_samples'])),
+            'outdir_save': p.normalize(p.join(_sd_root, data['global_setting']['outdir_save'])),
+            'outdir_init': p.normalize(p.join(_sd_root, data['global_setting']['outdir_init_images']))
+          });
+          loaded = true;
+        } else {
+          print('idi naxyi ${res.statusCode}');
+        }
+        if(!loaded) findError();
+      }).catchError((e) {
+        findError();
+      });
     }
-    if(!loaded) findError();
   }
 
   @override

@@ -1400,6 +1400,7 @@ String humanizeSamplerName(String name, {bool showOriginal = true}){ // https://
   return '${{
     'euler': 'Euler',
     'euler_ancestral': 'Euler A',
+    'k_euler_a': 'Euler A Karras',
     'heun': 'Heun',
     'heunpp2': 'Heun++2',
     'dpm_2': 'DPM 2',

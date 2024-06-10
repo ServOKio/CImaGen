@@ -96,45 +96,20 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           _imagesList.then((listRes){
             if(listRes.isEmpty){
               context.read<ImageManager>().getter.indexFolder(_tabs[0], value[0].name).then((stream){
-                setState(() {
+                if(mounted) {
+                  setState(() {
                   imagesList = stream;
                 });
+                }
               });
-            } else {
-              setState(() {
+            } else if(mounted) {
+                setState(() {
                 imagesList = _imagesList;
               });
             }
           });
         }
       });
-      //go = context.read<ImageManager>().getter.webuiPaths['outdir_txt2img-images'] != null;
-      // if(go){
-      //   txt2imgList = _loadMenu(RenderEngine.txt2img);
-      //   txt2imgList.then((value){
-      //     if(mounted && value.isNotEmpty) {
-      //       Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.txt2img, value[0].name);
-      //       _imagesList.then((listRes){
-      //         if(listRes.isEmpty){
-      //           context.read<ImageManager>().getter.indexFolder(RenderEngine.txt2img, value[0].name).then((stream){
-      //             setState(() {
-      //               imagesList = stream;
-      //             });
-      //           });
-      //         } else {
-      //           setState(() {
-      //             imagesList = _imagesList;
-      //           });
-      //         }
-      //       });
-      //     }
-      //
-      //   });
-      //   go = context.read<ImageManager>().getter.webuiPaths['outdir_img2img-images'] != null;
-      //   if (go) {
-      //     img2imgList = _loadMenu(RenderEngine.img2img);
-      //   }
-      // }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
@@ -168,7 +143,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     _lists[re.index]?.then((listValue) {
       Folder f = listValue[index];
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
-      // imagesList = context.read<SQLite>().getImagesByParent(type == 0 ? RenderEngine.txt2img : RenderEngine.img2img, f.name);
       imagesList?.then((value) {
         bool force = false; //listValue.length-1 == index;
         if(value.isEmpty || force) {
