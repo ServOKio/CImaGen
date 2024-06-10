@@ -7,6 +7,9 @@ import 'package:path/path.dart' as p;
 abstract class AbMain {
   bool loaded = false;
 
+  String? _host;
+  String? get host => _host;
+
   Map<String, String> _webuiPaths = {};
   Map<String, String> get webuiPaths => _webuiPaths;
 

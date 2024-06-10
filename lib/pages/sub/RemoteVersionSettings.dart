@@ -11,14 +11,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 class RemoteVersionSettings extends StatefulWidget{
-  const RemoteVersionSettings({ Key? key }): super(key: key);
+  const RemoteVersionSettings({ super.key });
 
   @override
-  _RemoteVersionSettingsState createState() => _RemoteVersionSettingsState();
+  State<RemoteVersionSettings> createState() => _RemoteVersionSettingsState();
 }
 
 class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
   bool _use_remote_version = false;
+  String _useMethod = 'remote';
+  List<String> _methods = ['root', 'output', 'remote'];
 
   String _sd_remote_webui_folder = '';
   String _sd_remote_webui_outputs_folder = '';
@@ -43,6 +45,9 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
     prefs = await SharedPreferences.getInstance();
     setState(() {
       _use_remote_version = prefs.getBool('use_remote_version') ?? false;
+      _useMethod = prefs.getString('remote_version_method') ?? 'remote';
+
+      _sd_remote_webui_folder = prefs.getString('sd_remote_webui_folder') ?? '';
       _sd_remote_webui_outputs_folder = prefs.getString('sd_remote_webui_outputs_folder') ?? '';
 
       _sd_remote_webui_address = prefs.getString('sd_remote_webui_address') ?? '';
@@ -143,8 +148,8 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     tiles: <SettingsTile>[
                       SettingsTile.switchTile(
                         enabled: _sd_remote_webui_address.isNotEmpty,
-                        leading: Icon(Icons.network_check_rounded),
-                        title: Text('Use the remote version'),
+                        leading: const Icon(Icons.network_check_rounded),
+                        title: const Text('Use the remote version'),
                         description: Text('${_sd_remote_webui_address.isNotEmpty ? '✓' : '✗'} - Specify the address of the panel'),
                         onToggle: (v) {
                           setState(() {
@@ -152,9 +157,60 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                           });
                           prefs.setBool('use_remote_version', v);
                           if(v && _sd_remote_webui_address.isNotEmpty) checkRemoteStatus();
-                          context.read<ImageManager>().changeGetter(v ? 1 : 0);
+                          context.read<ImageManager>().switchGetterAuto();
                         },
                         initialValue: _use_remote_version,
+                      ),
+                      SettingsTile.navigation(
+                        leading: const Icon(Icons.settings_input_svideo),
+                        title: const Text('The application will use the method:'),
+                        value: DropdownButton(
+                          focusColor: Colors.transparent,
+                          underline: const SizedBox.shrink(),
+                          value: _useMethod,
+                          itemHeight: 50,
+                          items: const [
+                            DropdownMenuItem<String>(
+                              value: 'root',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Network root', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Maximum functionality', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: 'output',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Network output', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Only view and manage images', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            ),
+                            DropdownMenuItem<String>(
+                              value: 'remote',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Remote Panel', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Full functionality, but several addons are required', style: TextStyle(color: Colors.grey)),
+                                ],
+                              ),
+                            )
+                          ],
+                          onChanged: (String? value) {
+                            if(value != null){
+                              prefs.setString('remote_version_method', value);
+                              setState(() {
+                                _useMethod = value;
+                              });
+                              context.read<ImageManager>().switchGetterAuto();
+                            }
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -162,7 +218,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     title: const Text('WebUI'),
                     tiles: <SettingsTile>[
                       SettingsTile.navigation(
-                        leading: Icon(Icons.settings_system_daydream),
+                        leading: const Icon(Icons.settings_system_daydream),
                         title: const Text('Root path'),
                         value: Text('The main folder is where they are .bat files, .json configs and more${_sd_remote_webui_folder.isNotEmpty ? '\n\nNow: '+_sd_remote_webui_folder : ''}'),
                         onPressed: (context) async {
@@ -176,7 +232,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                         },
                       ),
                       SettingsTile.navigation(
-                        leading: Icon(Icons.system_update_tv_rounded),
+                        leading: const Icon(Icons.system_update_tv_rounded),
                         title: const Text('outputs folder'),
                         value: Text('If you do not have access to the root folder, specify the folder where the images are saved (extras-images, img2img-grids, img2img-images and more)${_sd_remote_webui_outputs_folder.isNotEmpty ? '\n\nNow: '+_sd_remote_webui_outputs_folder : ''}'),
                         onPressed: (context) async {
@@ -203,7 +259,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                         ),
                       ),
                       SettingsTile.navigation(
-                        leading: Icon(Icons.web),
+                        leading: const Icon(Icons.web),
                         title: const Text('Web panel address'),
                         value: Text('The address that you use in the browser, for example: http://192.168.1.5:7860${_sd_remote_webui_address.isNotEmpty ? '\n\nNow: '+_sd_remote_webui_address : ''}'),
                         onPressed: (context) async {
@@ -262,7 +318,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     title: const Text('Utils'),
                     tiles: <SettingsTile>[
                       SettingsTile.navigation(
-                        leading: Icon(Icons.checklist),
+                        leading: const Icon(Icons.checklist),
                         title: const Text('Check the status'),
                         value: Text(remoteInfo.isNotEmpty ? remoteInfo : 'Get information about the remote interface'),
                         onPressed: (context) async {

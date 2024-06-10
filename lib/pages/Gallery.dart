@@ -21,7 +21,9 @@ import '../components/PortfolioGalleryDetailPage.dart';
 import '../main.dart';
 import '../modules/webUI/AbMain.dart';
 import '../utils/NavigationService.dart';
+import '../utils/SQLite.dart';
 import '../utils/ThemeManager.dart';
+import 'Settings.dart';
 
 Future<List<Folder>> _loadMenu(RenderEngine re) async {
   return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(re);
@@ -74,6 +76,44 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.setActions([
+        CustomActionButton(icon: Icons.info, tooltip: 'Database info', onPress: (){
+          context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value){
+            Map<String, double> dataMap = {
+              'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
+              'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
+              'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
+              'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
+              'Without meta': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
+            };
+            showDialog<String>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                title: const Text('Database info'),
+                content: SizedBox(
+                  width: MediaQuery.of(context).size.width - 30,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DBChart(dataMap: dataMap),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'OK'),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }).onError((error, stackTrace){
+
+          });
+        }, getter: () => true),
+      ]);
+    });
     _tabController = TabController(length: _tabs.length, vsync: this);
     var go = context.read<ImageManager>().getter.loaded;
     if (!go) {
@@ -111,13 +151,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         }
       });
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appBarController!.setActions([
-        CustomActionButton(icon: Icons.info, tooltip: 'Database info', onPress: (){
-
-        }, getter: () => true),
-      ]);
-    });
   }
 
 

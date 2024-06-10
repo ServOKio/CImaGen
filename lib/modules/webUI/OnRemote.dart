@@ -17,6 +17,9 @@ class OnRemote implements AbMain{
   bool loaded = false;
 
   String _host = '-';
+  @override
+  String? get host => _host;
+
   String _remoteAddress = '';
 
   void findError(){

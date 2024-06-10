@@ -27,6 +27,7 @@ import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
 import 'package:http/http.dart' as http;
 
 import '../modules/ICCProfiles.dart';
+import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
 import 'NavigationService.dart';
 
@@ -64,7 +65,7 @@ class ImageManager extends ChangeNotifier {
   AbMain get getter => _getter;
 
   void init(BuildContext context){
-    changeGetter(prefs?.getBool('use_remote_version') ?? false ? 1 : 0, exit: false);
+    switchGetterAuto();
 
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
 
@@ -76,15 +77,37 @@ class ImageManager extends ChangeNotifier {
     xxx.addAll(tmp);
   }
 
+  void switchGetterAuto(){
+    if(prefs?.getBool('use_remote_version') ?? false){
+      String useMethod = prefs?.getString('remote_version_method') ?? 'remote';
+      switch (useMethod) {
+        case 'root':
+          changeGetter(2, exit: false);
+        case 'output':
+          changeGetter(2, exit: false);
+        default: // remote
+          changeGetter(1, exit: false);
+      }
+    } else {
+      changeGetter(0, exit: false);
+    }
+
+  }
+
   /// Changing [AbMain]
   ///
   /// * 1 - [OnRemote]
+  /// * 2 - [OnNetworkLocation]
   /// * default - [OnLocal]
   Future<void> changeGetter(int type, {bool exit = true}) async {
+    print('Channge getter to $type:$exit');
     switch (type) {
       case 1:
         if(exit) _getter.exit();
         _getter = OnRemote()..init();
+      case 2:
+        if(exit) _getter.exit();
+        _getter = OnNetworkLocation()..init();
       default:
         if(exit) _getter.exit();
         _getter = OnLocal()..init();

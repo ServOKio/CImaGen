@@ -12,7 +12,7 @@ import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
 import 'AbMain.dart';
 
-class OnLocal implements AbMain {
+class OnNetworkLocation implements AbMain {
   @override
   bool loaded = false;
 
@@ -37,29 +37,37 @@ class OnLocal implements AbMain {
 
   @override
   Future<void> init() async {
-    String sdWebuiFolder = prefs!.getString('sd_webui_folder') ?? '';
-    if(sdWebuiFolder.isNotEmpty){
-      _webui_root = sdWebuiFolder;
-      final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
-      _config = await json.decode(response);
-      // paths
-      String i2ig = p.join(_webui_root, _config['outdir_img2img_grids']);
-      String i2i = p.join(_webui_root, _config['outdir_img2img_samples']);
-      String t2ig = p.join(_webui_root, _config['outdir_txt2img_grids']);
-      String t2i = p.join(_webui_root, _config['outdir_txt2img_samples']);
-      String ei = p.join(_webui_root, _config['outdir_extras_samples']);
+    // 'root', 'output', 'remote'
+    String useMethod = prefs?.getString('remote_version_method') ?? 'remote';
+    if(useMethod == 'root'){
+      String sdWebuiFolder = prefs!.getString('sd_remote_webui_folder') ?? '';
+      if(sdWebuiFolder.isNotEmpty){
+        _webui_root = sdWebuiFolder;
+        final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
+        _config = await json.decode(response);
+        // paths
+        String i2ig = p.join(_webui_root, _config['outdir_img2img_grids']);
+        String i2i = p.join(_webui_root, _config['outdir_img2img_samples']);
+        String t2ig = p.join(_webui_root, _config['outdir_txt2img_grids']);
+        String t2i = p.join(_webui_root, _config['outdir_txt2img_samples']);
+        String ei = p.join(_webui_root, _config['outdir_extras_samples']);
 
-      _webuiPaths.addAll({
-        'outdir_img2img-grids': Directory(i2ig).existsSync() ? i2ig : _config['outdir_img2img_grids'],
-        'outdir_img2img-images': Directory(i2i).existsSync() ? i2i : _config['outdir_img2img_samples'],
-        'outdir_txt2img-grids': Directory(t2ig).existsSync() ? t2ig : _config['outdir_txt2img_grids'],
-        'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
-        'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
-      });
-      loaded = true;
+        _webuiPaths.addAll({
+          'outdir_img2img-grids': Directory(i2ig).existsSync() ? i2ig : _config['outdir_img2img_grids'],
+          'outdir_img2img-images': Directory(i2i).existsSync() ? i2i : _config['outdir_img2img_samples'],
+          'outdir_txt2img-grids': Directory(t2ig).existsSync() ? t2ig : _config['outdir_txt2img_grids'],
+          'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
+          'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
+        });
+        loaded = true;
 
-      if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
-      if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
+        if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
+        if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
+      } else {
+        print('emply');
+      }
+    } else {
+      print('use $useMethod');
     }
   }
 
@@ -85,13 +93,13 @@ class OnLocal implements AbMain {
 
     for(FileSystemEntity ent in fe){
       f.add(Folder(
-        index: ind,
-        path: ent.path,
-        name: p.basename(ent.path),
-        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-            fullPath: p.normalize(ent.path),
-            isLocal: true
-        )).toList()
+          index: ind,
+          path: ent.path,
+          name: p.basename(ent.path),
+          files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
+              fullPath: p.normalize(ent.path),
+              isLocal: true
+          )).toList()
       ));
       ind++;
     }

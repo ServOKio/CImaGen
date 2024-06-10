@@ -178,9 +178,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   @override
   void initState() {
     super.initState();
-    _pageViewController = PageController(
-      initialPage: _currentPageIndex
-    );
+    _pageViewController = PageController(initialPage: _currentPageIndex);
     initMe();
   }
 

@@ -576,25 +576,23 @@ class SQLite with ChangeNotifier{
   }
 
   // System
-  Future<Map<String, int>> getTablesInfo() async {
-      final List<Map<String, dynamic>> maps = await database.rawQuery(
-          'SELECT'
-              '(SELECT COUNT(keyup) FROM images) as totalImages,'
-              '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
-              '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
-              '(SELECT SUM(filesize) FROM images WHERe type = 1) as txt2imgSumSize,'
-              '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
-              '(SELECT SUM(filesize) FROM images WHERE type = 2) as img2imgSumSize,'
-              '(SELECT COUNT(keyup) FROM images WHERE type = 3) as inpaintCount,'
-              '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize,'
-              '(SELECT COUNT(keyup) FROM images WHERE type = 7) as comfuiCount,'
-              '(SELECT SUM(filesize) FROM images WHERE type = 7) as comfuiSumSize'
-      );
+  Future<Map<String, int>> getTablesInfo({String? host}) async {
+      String q = 'SELECT'
+          '(SELECT COUNT(keyup) FROM images) as totalImages,'
+          '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
+          '(SELECT SUM(filesize) FROM images WHERe type = 1) as txt2imgSumSize,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
+          '(SELECT SUM(filesize) FROM images WHERE type = 2) as img2imgSumSize,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 3) as inpaintCount,'
+          '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 7) as comfuiCount,'
+          '(SELECT SUM(filesize) FROM images WHERE type = 7) as comfuiSumSize';
+      host != null ? ' WHERE host = "$host"' : ' WHERE host IS NULL'; // TODO Stupid man thing
+      final List<Map<String, dynamic>> maps = await database.rawQuery(q);
 
       Map<String, int> finalMe = {};
-      maps.first.forEach((key, value) {
-        finalMe[key] = value == null ? 0 : value as int;
-      });
+      maps.first.forEach((key, value) => finalMe[key] = value == null ? 0 : value as int);
       return finalMe;
     }
 }
