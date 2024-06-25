@@ -288,14 +288,14 @@ class _HomeState extends State<Home> {
                   children: Platform.isAndroid || Platform.isIOS ? [
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_mobile0, style: TextStyle(fontWeight: FontWeight.w500)),
+                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_mobile0, style: const TextStyle(fontWeight: FontWeight.w500)),
                   ] :[
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: TextStyle(fontWeight: FontWeight.w500)),
+                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: const TextStyle(fontWeight: FontWeight.w500)),
                     Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop1),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: TextField(
                         onSubmitted: (value) async {
                           ImageMeta? im = await parseUrlImage(value);
@@ -310,9 +310,9 @@ class _HomeState extends State<Home> {
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
                             label: Center(
-                              child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                              child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
                             ),
-                            focusedBorder: UnderlineInputBorder( //<-- SEE HERE
+                            focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(
                                   width: 1, color: Theme.of(context).colorScheme.primary
                               ),
@@ -375,118 +375,120 @@ class _HomeState extends State<Home> {
             ],
           ),
           const Gap(8),
-          FutureBuilder(
-              future: context.read<SQLite>().getCategories(),
-              builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                Widget children;
-                if (snapshot.hasData) {
-                  children = snapshot.data.length == 0 ? Expanded(
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.create_new_folder, size: 50, color: Colors.white),
-                          const Gap(4),
-                          Text(AppLocalizations.of(context)!.home_main_categories_start_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                          Text(AppLocalizations.of(context)!.home_main_categories_start_description, style: const TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    )
-                  ) : SingleChildScrollView(
-                    child: CustomMasonryView(
-                      itemRadius: 14,
-                      itemPadding: 4,
-                      listOfItem: snapshot.data,
-                      numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
-                      itemBuilder: (ii) {
-                        return AspectRatio(aspectRatio: 16/9, child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: const Color(0xFF2d2f32),
-                              width: 2,
-                            ),
-                            gradient: RadialGradient(
-                              colors: [ii.item.color, Colors.black],
-                              stops: const [0, 1],
-                              center: Alignment.topCenter,
-                              focalRadius: 2,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black, spreadRadius: 3),
+          Expanded(
+            child: FutureBuilder(
+                future: context.read<SQLite>().getCategories(),
+                builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+                  Widget children;
+                  if (snapshot.hasData) {
+                    children = snapshot.data.length == 0 ? Expanded(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.create_new_folder, size: 50, color: Colors.white),
+                              const Gap(4),
+                              Text(AppLocalizations.of(context)!.home_main_categories_start_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                              Text(AppLocalizations.of(context)!.home_main_categories_start_description, style: const TextStyle(color: Colors.grey)),
                             ],
                           ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Stack(
-                                  alignment: Alignment.bottomRight,
-                                  children: [
-                                    Icon(ii.item.icon, color: ii.item.color, size: 205),
-                                    Icon(ii.item.icon, color: Colors.black, size: 200),
-                                  ],
-                                ),
+                        )
+                    ) : SingleChildScrollView(
+                      child: CustomMasonryView(
+                        itemRadius: 14,
+                        itemPadding: 4,
+                        listOfItem: snapshot.data,
+                        numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
+                        itemBuilder: (ii) {
+                          return AspectRatio(aspectRatio: 16/9, child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFF2d2f32),
+                                width: 2,
                               ),
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(21),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                              gradient: RadialGradient(
+                                colors: [ii.item.color, Colors.black],
+                                stops: const [0, 1],
+                                center: Alignment.topCenter,
+                                focalRadius: 2,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black, spreadRadius: 3),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Stack(
+                                    alignment: Alignment.bottomRight,
                                     children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(4),
-                                          color: ii.item.color.withOpacity(0.3),
-                                          boxShadow: const [
-                                            BoxShadow(color: Colors.black, spreadRadius: 3),
-                                          ],
-                                        ),
-                                        padding: const EdgeInsets.all(4),
-                                        child: Center(
-                                          child: Icon(ii.item.icon, color: ii.item.color, size: 21),
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(ii.item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 21)),
-                                      ii.item.description != null ? Text(ii.item.description, style: const TextStyle(color: Colors.grey, fontSize: 14)) : const SizedBox.shrink(),
-                                      const Spacer(),
-                                      Row(
-                                        children: [
-                                          TextButton(
-                                            onPressed: () {},
-                                            child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
-                                          ),
-                                        ],
-                                      )
+                                      Icon(ii.item.icon, color: ii.item.color, size: 205),
+                                      Icon(ii.item.icon, color: Colors.black, size: 200),
                                     ],
                                   ),
                                 ),
-                              )
-                            ],
-                          ),
-                        ));
-                      },
-                    ),
-                  );
-                } else if (snapshot.hasError) {
-                  children = const Text('error');
-                } else {
-                  children = const Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Text('Awaiting result...'),
-                  );
+                                Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(21),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(4),
+                                            color: ii.item.color.withOpacity(0.3),
+                                            boxShadow: const [
+                                              BoxShadow(color: Colors.black, spreadRadius: 3),
+                                            ],
+                                          ),
+                                          padding: const EdgeInsets.all(4),
+                                          child: Center(
+                                            child: Icon(ii.item.icon, color: ii.item.color, size: 21),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Text(ii.item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 21)),
+                                        ii.item.description != null ? Text(ii.item.description, style: const TextStyle(color: Colors.grey, fontSize: 14)) : const SizedBox.shrink(),
+                                        const Spacer(),
+                                        Row(
+                                          children: [
+                                            TextButton(
+                                              onPressed: () {},
+                                              child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
+                                            ),
+                                          ],
+                                        )
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              ],
+                            ),
+                          ));
+                        },
+                      ),
+                    );
+                  } else if (snapshot.hasError) {
+                    children = const Text('error');
+                  } else {
+                    children = const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text('Awaiting result...'),
+                    );
+                  }
+                  return children;
                 }
-                return children;
-              }
+            ),
           )
         ],
       ),
@@ -509,20 +511,20 @@ class _HomeState extends State<Home> {
             onPressed: () async {
               // notificationManager?.show(title: 'Hello');
               // return;
-              TextEditingController _title = TextEditingController();
-              TextEditingController _description = TextEditingController();
+              TextEditingController title = TextEditingController();
+              TextEditingController description = TextEditingController();
 
-              final _formKey = GlobalKey<FormState>();
+              final formKey = GlobalKey<FormState>();
               await showDialog<void>(
                   context: context,
                   builder: (context) => AlertDialog(
                     content: Form(
-                      key: _formKey,
+                      key: formKey,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           TextFormField(
-                            controller: _title,
+                            controller: title,
                             validator: (text) {
                               if (text == null || text.isEmpty || text.trim().isEmpty) {
                                 return 'Text is empty';
@@ -538,7 +540,7 @@ class _HomeState extends State<Home> {
                             ),
                           ),
                           TextFormField(
-                            controller: _description,
+                            controller: description,
                             decoration: const InputDecoration(
                               icon: Icon(Icons.textsms),
                               hintText: 'Description of what\'s here',
@@ -549,10 +551,10 @@ class _HomeState extends State<Home> {
                           ElevatedButton(
                             child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create),
                             onPressed: () {
-                              if (_formKey.currentState!.validate()) {
+                              if (formKey.currentState!.validate()) {
                                 context.read<SQLite>().createCategory(
-                                    title: _title.text.trim(),
-                                    description: _description.text.trim()
+                                    title: title.text.trim(),
+                                    description: description.text.trim()
                                 ).then((category){
                                   context.read<SaveManager>().addCategory(category);
                                   Navigator.pop(context, 'Ok');
@@ -754,7 +756,7 @@ class FileInfoPreview extends StatelessWidget{
                         Text(im!.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                         InfoBox(one: 'RE', two: renderEngineToString(im.re)),
                         im.error == null ? InfoBox(one: 'Size', two: im.size.toString()) : const SizedBox.shrink(),
-                        im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
+                        im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType'].index])) : const SizedBox.shrink(),
                         im.generationParams?.version != null ? InfoBox(one: 'Version', two: im.generationParams?.version ?? 'error') : const SizedBox.shrink(),
                       ],
                     ),

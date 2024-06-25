@@ -11,13 +11,14 @@ import 'package:ffi/ffi.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:math' as math;
 import 'package:win32/win32.dart';
+import 'dart:math' as math;
+import 'package:fast_csv/fast_csv_ex.dart' as fast_csv_ex;
+import 'package:path/path.dart' as p;
 
+import 'components/PromtAnalyzer.dart';
 import 'main.dart';
 
 class ConfigManager with ChangeNotifier {
@@ -58,6 +59,67 @@ class ConfigManager with ChangeNotifier {
 
   void increment() {
     _count++;
+  }
+}
+
+class DataManager with ChangeNotifier {
+  bool loaded = false;
+  int _count = 0;
+
+  //Getter
+  int get count => _count;
+
+  Map<String, TagInfo> _e621Tags = {};
+  Map<String, TagInfo> get e621Tags => _e621Tags;
+
+  Future<void> init() async {
+    loadE621Tags();
+  }
+
+  Future<void> loadE621Tags() async {
+    Directory dD = await getApplicationDocumentsDirectory();
+    dynamic csvPath = Directory(p.join(dD.path, 'CImaGen', 'csv'));
+    if (!csvPath.existsSync()) {
+      await csvPath.create(recursive: true);
+    }
+    csvPath = File(p.join(dD.path, 'CImaGen', 'csv', 'e621-tags.csv'));
+    if (csvPath.existsSync()) {
+      print('ok');
+      File(csvPath.path).readAsString().then((value){
+        final data = fast_csv_ex.parse(value);
+        data.skip(1).forEach((e) {
+          _e621Tags[e[1]] = TagInfo(id: int.parse(e[0]), name: e[1], category: int.parse(e[2]), count: int.parse(e[3]));
+        });
+        loaded = true;
+        print('done');
+        notifyListeners();
+      });
+    } else {
+      print('no');
+    }
+  }
+
+  void increment() {
+    _count++;
+  }
+}
+
+class TagInfo {
+  final int id;
+  final String name;
+  final int category;
+  final int count;
+
+  const TagInfo({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.count
+  });
+
+  @override
+  String toString(){
+    return '$name: cat:$category(${categoryToString(category)}) cou:$count';
   }
 }
 
@@ -512,9 +574,9 @@ class GenerationParams {
   final Map<String, String>? tiHashes;
   final String? version;
   final String? rawData;
-  final Map<String, dynamic>? all;
+  Map<String, dynamic>? all;
 
-  const GenerationParams({
+  GenerationParams({
     required this.positive,
     required this.negative,
     required this.steps,
@@ -534,7 +596,14 @@ class GenerationParams {
     required this.version,
     this.rawData,
     this.all
-  });
+  }){
+    if(rawData != null){
+      GenerationParams? p = parseSDParameters(rawData!);
+      if(p != null){
+        all = p.all;
+      }
+    }
+  }
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
     Map<String, dynamic> f = {
@@ -604,7 +673,7 @@ String genPathHash(String path){
 
 bool isImage(dynamic file){
   final String e = p.extension(file.path);
-  return ['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''));
+  return ['png', 'jpg', 'webp', 'jpeg', 'psd'].contains(e.replaceFirst('.', ''));
 }
 
 List<String> _image_types = [
@@ -624,13 +693,14 @@ List<String> _image_types = [
 bool isImageUrl(String url){
   Uri uri = Uri.parse(url);
   String extension = p.extension(uri.path).toLowerCase();
-  if (extension.isEmpty) {
-    return false;
+  if (extension.isNotEmpty) {
+    extension = extension.split('.').last;
+    if (_image_types.contains(extension)) {
+      return true;
+    }
   }
-  extension = extension.split('.').last;
-  if (_image_types.contains(extension)) {
-    return true;
-  }
+  
+  if(uri.queryParameters.containsKey('format') && ['png', 'webp', 'jpeg', 'jpg', 'gif'].contains(uri.queryParameters['format'])) return true;
   return false;
 }
 
@@ -638,8 +708,16 @@ String cleanUpUrl(String url){
   Uri parse = Uri.parse(url);
   Map<String, String> params = {};
   parse.queryParameters.forEach((key, value) => params[key] = value);
+  // Discord
   if(['media.discordapp.net', 'cdn.discordapp.com'].contains(parse.host)){
     params.removeWhere((key, value) => ['format', 'quality', 'width', 'height'].contains(key));
+  }
+  // Twitter aka X
+  if(['pbs.twimg.com'].contains(parse.host)){
+    if(params.containsKey('format')){
+      params['format'] = 'png';
+      params['name'] = '4096x4096';
+    }
   }
   params.removeWhere((key, value) => [
     'ysclid', // yandex metric

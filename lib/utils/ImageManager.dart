@@ -192,6 +192,7 @@ class ParseJob {
   }
 
   Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
+    if(_cache.isEmpty) return _isDone();
     for(dynamic raw in _cache){
       bool yes = true;
       String path = normalizePath(p.normalize(raw.runtimeType == String ? raw : raw['fullpath']));
@@ -893,7 +894,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     );
     await i.makeThumbnail(fileBytes: fileBytes);
     return i;
-  } else if(['gif'].contains(e)) {
+  } else if('gif' == e) {
     Map<String, dynamic> specific = {};
     Map<String, dynamic> gifEx = {};
 
@@ -912,7 +913,32 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     );
     await i.makeThumbnail(fileBytes: fileBytes);
     return i;
+  } else if('vnd.adobe.photoshop' == e) {
+    Map<String, dynamic> specific = {};
+    Map<String, dynamic> psdEx = {};
+
+    final originalImage = img.decodePsd(fileBytes);
+
+    psdEx['softwareType'] = Software.photoshop;
+
+    ImageMeta i = ImageMeta(
+        fullPath: p.normalize(imagePath),
+        re: re,
+        mine: mine,
+        fileTypeExtension: e,
+        fileSize: fileStat.size,
+        dateModified: fileStat.modified,
+        size: ImageSize(width: originalImage!.width, height: originalImage.height),
+        specific: specific,
+        generationParams: gp,
+        other: psdEx
+    );
+    await i.makeThumbnail(fileBytes: fileBytes);
+    return i;
   } else {
+    if (kDebugMode) {
+      print('parseImage - not supported format: $e');
+    }
     return null;
   }
 }
@@ -932,14 +958,9 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
       fullNetworkPath: imagePath,
     );
 
-    try{
-      await im.parseNetworkImage();
-      await im.makeThumbnail();
-      return im;
-    } catch (e, stacktrace){
-      print(e);
-      print(stacktrace);
-    }
+    await im.parseNetworkImage();
+    await im.makeThumbnail();
+    return im;
   }
   return null;
 }
@@ -1213,6 +1234,8 @@ class ImageMeta {
           FileStat stat = f.statSync();
           fileSize = stat.size;
           dateModified ??= stat.modified;
+        } else {
+          throw Exception('The answer is not 200');
         }
       } else {
         tempFilePath = pa;

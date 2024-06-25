@@ -48,6 +48,8 @@ class Comparison extends StatefulWidget{
 class _ComparisonState extends State<Comparison> {
   GlobalKey stickyKey = GlobalKey();
 
+  bool _snowJpeg = true;
+
   @override
   void initState(){
     super.initState();
@@ -62,8 +64,10 @@ class _ComparisonState extends State<Comparison> {
             getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
         ),
         CustomActionButton(icon: Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
-
-        }, getter: () => false),
+          setState((){
+            _snowJpeg = !_snowJpeg;
+          });
+        }, getter: () => _snowJpeg),
         CustomActionButton(icon: Icons.image_search, tooltip: 'Show the difference', onPress: (){
 
         }, getter: () => false)
@@ -82,13 +86,13 @@ class _ComparisonState extends State<Comparison> {
   @override
   Widget build(BuildContext context) {
     final dataModel = Provider.of<DataModel>(context);
-    bool most = dataModel.comparisonBlock.getImages.where((e) => e.size.width < e.size.height).length > dataModel.comparisonBlock.getImages.length;
+    bool most = dataModel.comparisonBlock.getImages.where((e) => e.size!.width < e.size!.height).length > dataModel.comparisonBlock.getImages.length;
     bool isScreenWide = most;
     return Scaffold(
       body: Flex(
         direction: isScreenWide ? Axis.horizontal : Axis.vertical,
         children: [
-          ImageList(images: dataModel.comparisonBlock.getImages),
+          ImageList(images: dataModel.comparisonBlock.getImages, showJpeg: _snowJpeg),
           const MainBlock()
         ],
       ),
@@ -421,9 +425,10 @@ class GetInfoOrShit extends StatelessWidget {
 }
 
 class ImageList extends StatefulWidget {
-  final List<dynamic> images;
+  final List<ImageMeta> images;
+  final bool showJpeg;
 
-  const ImageList({ Key? key, required this.images }): super(key: key);
+  const ImageList({ super.key, required this.images, required this.showJpeg});
 
   @override
   State<ImageList> createState() => _ImageListStateStateful();
@@ -436,8 +441,9 @@ class _ImageListStateStateful extends State<ImageList>{
 
   @override
   Widget build(BuildContext ctx){
-    bool most = widget.images.where((e) => e.size.width < e.size.height).length > widget.images.length;
+    bool most = widget.images.where((e) => e.size!.width < e.size!.height).length > widget.images.length;
     bool isScreenWide = most;// MediaQuery.sizeOf(context).width >= maxSize;
+    List<ImageMeta> fi = widget.showJpeg ? widget.images :  widget.images.where((e) => e.fileTypeExtension != 'jpeg').toList(growable: false);
     return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         height: !isScreenWide ? 156 : null,
@@ -445,11 +451,11 @@ class _ImageListStateStateful extends State<ImageList>{
         child: ScrollConfiguration(
             behavior: MyCustomScrollBehavior(),
             child: ListView.builder(
-                itemCount: widget.images.length,
+                itemCount: fi.length,
                 scrollDirection: isScreenWide ? Axis.vertical : Axis.horizontal,
                 controller: controller,
                 itemBuilder: (context, index) {
-                  ImageMeta im = widget.images.elementAt(index);
+                  ImageMeta im = fi.elementAt(index);
                   final imageManager = Provider.of<ImageManager>(context);
                   final dataModel = Provider.of<DataModel>(context, listen: false);
                   final entries = <ContextMenuEntry>[
@@ -581,7 +587,20 @@ class _ImageListStateStateful extends State<ImageList>{
                                               Text(im.generationParams!.size.toString(), style: const TextStyle(fontSize: 10, color: Colors.white))
                                             ],
                                           ) : const SizedBox.shrink(),
-                                          Text(im.fileName.split('-').first, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                          Row(
+                                            children: [
+                                              Text(im.fileName.split('-').first, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                              const Gap(4),
+                                              im.fileTypeExtension == 'jpeg' ? Container(
+                                                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                                decoration: BoxDecoration(
+                                                    borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                    color: const Color(0xff08272b).withOpacity(0.7)
+                                                ),
+                                                child: const Text('JPEG', style: TextStyle(color: Color(0xffd4ecdf), fontSize: 10)),
+                                              ) : const SizedBox.shrink()
+                                            ],
+                                          ),
                                           //im.generationParams != null ? Text((im.generationParams!.seed).toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink()
                                           //{steps: 35, sampler: DPM adaptive, cfg_scale: 7, seed: 1624605927, size: 2567x1454, model_hash: a679b318bd, model: 0.7(bb95FurryMix_v100) + 0.3(crosskemonoFurryModel_crosskemono25), denoising_strength: 0.35, rng: NV, ti_hashes: "easynegative, version: 1.7.0}
                                         ],

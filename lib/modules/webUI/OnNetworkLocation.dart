@@ -59,6 +59,7 @@ class OnNetworkLocation implements AbMain {
           'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
           'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
         });
+
         loaded = true;
 
         if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);

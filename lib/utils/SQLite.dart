@@ -34,11 +34,11 @@ class SQLite with ChangeNotifier{
     }
 
     Directory dD = await getApplicationDocumentsDirectory();
-    Directory dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases'));
+    dynamic dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases'));
     if (!await dbPath.exists()) {
       await dbPath.create(recursive: true);
     }
-    dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'images_database.db'));
+    dbPath = File(path.join(dD.path, 'CImaGen', 'databases', 'images_database.db'));
 
     database = await openDatabase(
       dbPath.path,
@@ -139,7 +139,7 @@ class SQLite with ChangeNotifier{
       version: dbVersion,
     );
 
-    dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
+    dbPath = File(path.join(dD.path, 'CImaGen', 'databases', 'const_database.db'));
     constDatabase = await openDatabase(
       dbPath.path,
       onOpen: (db){

@@ -5,10 +5,10 @@ import 'package:provider/provider.dart';
 import '../utils/SQLite.dart';
 
 class NotesSection extends StatefulWidget{
-  const NotesSection({ Key? key }): super(key: key);
+  const NotesSection({super.key});
 
   @override
-  _NotesSectionState createState() => _NotesSectionState();
+  State<NotesSection> createState() => _NotesSectionState();
 }
 
 class _NotesSectionState extends State<NotesSection> {

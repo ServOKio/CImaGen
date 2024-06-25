@@ -19,6 +19,7 @@ import 'package:shimmer/shimmer.dart';
 import '../components/CustomActionButton.dart';
 import '../components/PortfolioGalleryDetailPage.dart';
 import '../main.dart';
+import '../modules/CustomMenuItem.dart';
 import '../modules/webUI/AbMain.dart';
 import '../utils/NavigationService.dart';
 import '../utils/SQLite.dart';
@@ -178,13 +179,20 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
       imagesList?.then((value) {
         bool force = false; //listValue.length-1 == index;
-        if(value.isEmpty || force) {
-          context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
+        // if(value.isEmpty || force) {
+        //   context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
+        //     setState(() {
+        //       imagesList = stream;
+        //     });
+        //   });
+        // }
+        context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
+          if(value.isEmpty || force){
             setState(() {
               imagesList = stream;
             });
-          });
-        }
+          }
+        });
       });
     });
   }
@@ -422,31 +430,31 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
               Widget children;
               if (snapshot.hasData) {
-                children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : MasonryGridView.count(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: snapshot.data.length,
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 5,
-                    crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
-                    itemBuilder: (context, index) {
-                      var it = snapshot.data[index];
-                      return PreviewImage(
-                        key: Key(it.keyup),
-                        imagesList: snapshot.data,
-                        imageMeta: it,
-                        selectedModel: model,
-                        index: index,
-                        onImageTap: () {
-                          Navigator.push(
-                              context,
-                              _createGalleryDetailRoute(
-                                  snapshot.data,
-                                  index
-                              )
-                          );
-                        },
-                      );
-                   }
+                children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : AlignedGridView.count(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: snapshot.data.length,
+                  mainAxisSpacing: 5,
+                  crossAxisSpacing: 5,
+                  crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
+                  itemBuilder: (context, index) {
+                    var it = snapshot.data[index];
+                    return PreviewImage(
+                      key: Key(it.keyup),
+                      imagesList: snapshot.data,
+                      imageMeta: it,
+                      selectedModel: model,
+                      index: index,
+                      onImageTap: () {
+                        Navigator.push(
+                          context,
+                          _createGalleryDetailRoute(
+                            snapshot.data,
+                            index
+                          )
+                        );
+                      },
+                    );
+                 }
                 );
               } else if (snapshot.hasError) {
                 children = Padding(
@@ -538,7 +546,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                           )
                       );
                     case ConnectionState.active:
-                      children = MasonryGridView.count(
+                      children = AlignedGridView.count(
                           physics: const BouncingScrollPhysics(),
                           itemCount: snapshot.data!.length,
                           mainAxisSpacing: 5,
@@ -565,7 +573,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                           }
                       );
                     case ConnectionState.done:
-                      children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : MasonryGridView.count(
+                      children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : AlignedGridView.count(
                           physics: const BouncingScrollPhysics(),
                           itemCount: snapshot.data!.length,
                           mainAxisSpacing: 5,
@@ -628,13 +636,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 class PreviewImage extends StatelessWidget {
   final ImageMeta imageMeta;
   final SelectedModel selectedModel;
-  final List<dynamic> imagesList;
+  final List<ImageMeta> imagesList;
   final VoidCallback onImageTap;
-  int? index = -1;
+  final int index;
 
   final bool dontBlink = true;
 
-  PreviewImage({ Key? key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, this.index}): super(key: key);
+  const PreviewImage({ super.key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, this.index = -1});
 
   @override
   Widget build(BuildContext context) {
@@ -642,8 +650,9 @@ class PreviewImage extends StatelessWidget {
         builder: (context, sp, child) {
           final imageManager = Provider.of<ImageManager>(context);
           final dataModel = Provider.of<DataModel>(context, listen: false);
+
           final entries = <ContextMenuEntry>[
-            MenuItem(
+            if(!sp.hasSelected) MenuItem(
               label: 'Select',
               icon: Icons.add_circle_outline,
               onSelected: () {
@@ -752,8 +761,36 @@ class PreviewImage extends StatelessWidget {
                 showInExplorer(imageMeta.fullPath);
               },
             ),
+            if(sp.hasSelected) CustomMenuItem(
+              label: 'Delete selected',
+              value: 'delete_selected',
+              icon: Icons.delete,
+              iconColor: Colors.redAccent,
+              onSelected: () {
+                showDialog<String>(
+                  context: context,
+                  builder: (BuildContext context) => AlertDialog(
+                    icon: const Icon(Icons.warning),
+                    iconColor: Colors.redAccent,
+                    title: const Text('Are you serious ?'),
+                    content: Text('This action will delete ${sp.totalSelected} images permanently'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, 'cancel'),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: (){
+                          Navigator.pop(context, 'ok');
+                        },
+                        child: const Text('Okay'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
           ];
-
           final contextMenu = ContextMenu(
             entries: entries,
             padding: const EdgeInsets.all(8.0),
@@ -782,132 +819,135 @@ class PreviewImage extends StatelessWidget {
               },
               child: ContextMenuRegion(
                   contextMenu: contextMenu,
-                  onItemSelected: (value) {
-                    print(value);
-                  },
-                  child: Stack(
-                    alignment: Alignment.topRight,
-                    children: [
-                      AnimatedScale(
-                          scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.ease,
-                          child: imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
-                            base64Decode(imageMeta.thumbnail ?? ''),
-                            filterQuality: FilterQuality.low,
-                            gaplessPlayback: dontBlink,
-                          )) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
-                            imageUrl: imageMeta.networkThumbnail!,
-                            imageBuilder: (context, imageProvider) {
-                              return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
-                            },
-                            progressIndicatorBuilder: (context, url, downloadProgress) => Shimmer.fromColors(
-                              baseColor: Colors.transparent,
-                              highlightColor: Colors.white30,
-                              child: AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height),
-                            ),
-                            errorWidget: (context, url, error) => Padding(padding: const EdgeInsets.all(8), child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error, color: Colors.white, size: 28),
-                                const Text('Error', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                const Gap(8),
-                                SelectableText(error.toString(), style: const TextStyle(color: Colors.grey))
-                              ],
-                            )),
-                          ) : const Text('No preview ?')
-                      ),
-                      AnimatedScale(
-                        scale: imageManager
-                            .favoritePaths
-                            .contains(imageMeta.fullPath)
-                            ? 1
-                            : 0,
-                        duration: const Duration(
-                            milliseconds: 200),
-                        curve: Curves.ease,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black
-                                .withOpacity(0.5),
-                            shape: BoxShape.circle,
-                          ),
-                          padding:
-                          const EdgeInsets.all(
-                              4),
-                          margin:
-                          const EdgeInsets.only(
-                              top: 4, right: 4),
-                          child: Icon(Icons.star,
-                              size: 16,
-                              color:
-                              Theme.of(context)
-                                  .colorScheme
-                                  .onSecondary),
-                        ),
-                      ),
-                      AnimatedScale(
-                        scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup)
-                            ? 1
-                            : 0 : 0,
-                        duration: const Duration(
-                            milliseconds: 200),
-                        curve: Curves.ease,
-                        child: Container(
-                            decoration:
-                            BoxDecoration(
-                              color:
-                              Theme.of(context)
-                                  .colorScheme
-                                  .secondary,
-                              shape:
-                              BoxShape.circle,
-                            ),
-                            child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
-                        ),
-                      ),
-                      imageMeta.generationParams != null ? Positioned(
-                        bottom: 4,
-                        left: 4,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  child: AspectRatio(
+                    aspectRatio: imageMeta.size!.width / imageMeta.size!.height,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                        child: Stack(
+                          alignment: Alignment.topRight,
                           children: [
-                            imageMeta.re == RenderEngine.inpaint ? Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                  decoration: BoxDecoration(
-                                      borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                      color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                            AnimatedScale(
+                                scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.ease,
+                                child: imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
+                                  base64Decode(imageMeta.thumbnail ?? ''),
+                                  filterQuality: FilterQuality.low,
+                                  gaplessPlayback: dontBlink,
+                                )) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
+                                  imageUrl: imageMeta.networkThumbnail!,
+                                  imageBuilder: (context, imageProvider) {
+                                    return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
+                                  },
+                                  progressIndicatorBuilder: (context, url, downloadProgress) => Shimmer.fromColors(
+                                    baseColor: Colors.transparent,
+                                    highlightColor: Colors.white30,
+                                    child: AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height),
                                   ),
-                                  child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                  errorWidget: (context, url, error) => Padding(padding: const EdgeInsets.all(8), child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.error, color: Colors.white, size: 28),
+                                      const Text('Error', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      const Gap(8),
+                                      SelectableText(error.toString(), style: const TextStyle(color: Colors.grey))
+                                    ],
+                                  )),
+                                ) : const Text('No preview ?')
+                            ),
+                            AnimatedScale(
+                              scale: imageManager
+                                  .favoritePaths
+                                  .contains(imageMeta.fullPath)
+                                  ? 1
+                                  : 0,
+                              duration: const Duration(
+                                  milliseconds: 200),
+                              curve: Curves.ease,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black
+                                      .withOpacity(0.5),
+                                  shape: BoxShape.circle,
                                 ),
-                              ],
-                            ) : const SizedBox.shrink(),
-                            imageMeta.generationParams!.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                  decoration: BoxDecoration(
-                                      borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                      color: const Color(0xff5f55a6).withOpacity(0.7)
+                                padding:
+                                const EdgeInsets.all(
+                                    4),
+                                margin:
+                                const EdgeInsets.only(
+                                    top: 4, right: 4),
+                                child: Icon(Icons.star,
+                                    size: 16,
+                                    color:
+                                    Theme.of(context)
+                                        .colorScheme
+                                        .onSecondary),
+                              ),
+                            ),
+                            AnimatedScale(
+                              scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup)
+                                  ? 1
+                                  : 0 : 0,
+                              duration: const Duration(
+                                  milliseconds: 200),
+                              curve: Curves.ease,
+                              child: Container(
+                                  decoration:
+                                  BoxDecoration(
+                                    color:
+                                    Theme.of(context)
+                                        .colorScheme
+                                        .secondary,
+                                    shape:
+                                    BoxShape.circle,
                                   ),
-                                  child: const Text('Hi-Res', style: TextStyle(color: Color(
-                                      0xffc8c4f5), fontSize: 8)),
-                                ),
-                                const Gap(3),
-                                Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
-                              ],
+                                  child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
+                              ),
+                            ),
+                            imageMeta.generationParams != null ? Positioned(
+                                bottom: 4,
+                                left: 4,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    imageMeta.re == RenderEngine.inpaint ? Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                          decoration: BoxDecoration(
+                                              borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                              color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                          ),
+                                          child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                        ),
+                                      ],
+                                    ) : const SizedBox.shrink(),
+                                    imageMeta.generationParams!.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                          decoration: BoxDecoration(
+                                              borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                              color: const Color(0xff5f55a6).withOpacity(0.7)
+                                          ),
+                                          child: const Text('Hi-Res', style: TextStyle(color: Color(
+                                              0xffc8c4f5), fontSize: 8)),
+                                        ),
+                                        const Gap(3),
+                                        Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
+                                      ],
+                                    ) : const SizedBox.shrink(),
+                                  ],
+                                )
                             ) : const SizedBox.shrink(),
+                            // Positioned(
+                            //     top: 4,
+                            //     left: 4,
+                            //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
+                            // )
                           ],
                         )
-                      ) : const SizedBox.shrink(),
-                      // Positioned(
-                      //     top: 4,
-                      //     left: 4,
-                      //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
-                      // )
-                    ],
+                    )
                   )
               )
           );
@@ -956,13 +996,20 @@ class EmplyFolderPlaceholder extends StatelessWidget{
     bool isNull = context.read<ConfigManager>().isNull;
     return LayoutBuilder(builder: (context, constraints) {
       return Container(
-        color: Color(0xffe5e5e5),
+        color: const Color(0xffe5e5e5),
         child: Center(
           child: Container(
             height: constraints.maxHeight / 2,
             color: Colors.white,
             child: Stack(
               children: [
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  left: constraints.maxWidth / 2,
+                  bottom: 0,
+                  child: Icon(Icons.folder_copy, color: Color(0xffd87034), size: constraints.maxHeight / 3),
+                ),
                 Positioned(
                   top: 0,
                   left: 0,
@@ -1042,6 +1089,8 @@ class SelectedModel extends ChangeNotifier {
   List<String> get selected => _selectedKeyUp;
 
   int get totalSelected => _selectedKeyUp.length;
+
+  bool get hasSelected => _selectedKeyUp.isNotEmpty;
 
   void add(String keyup) {
     if (_selectedKeyUp.contains(keyup)) return;

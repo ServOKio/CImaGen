@@ -10,8 +10,8 @@ import 'package:http/http.dart' as http;
 import '../../main.dart';
 
 class MiniSD extends StatefulWidget{
-  ImageMeta? imageMeta;
-  MiniSD({ Key? key, this.imageMeta}): super(key: key);
+  final ImageMeta? imageMeta;
+  const MiniSD({ super.key, this.imageMeta});
 
   @override
   State<MiniSD> createState() => _MiniSDState();

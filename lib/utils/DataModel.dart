@@ -39,11 +39,11 @@ class ComparisonBlock {
     notify = f;
   }
 
-  List<dynamic> _images = [];
+  List<ImageMeta> _images = [];
 
-  List<dynamic> get getImages => _images;
+  List<ImageMeta> get getImages => _images;
 
-  void addAllImages(List<dynamic> images){
+  void addAllImages(List<ImageMeta> images){
     _images = images;
     notify();
   }

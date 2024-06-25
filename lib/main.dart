@@ -105,6 +105,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => DataModel()),
         ChangeNotifierProvider(create: (_) => ConfigManager()),
+        ChangeNotifierProvider(create: (_) => DataManager()),
         ChangeNotifierProvider(create: (_) => SQLite()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager()),
@@ -265,6 +266,11 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   void next(){
     context.read<ConfigManager>().init().then((v){
+      context.read<DataManager>().init().then((v){
+
+      }).catchError((e){
+        if (kDebugMode) print(e);
+      });
       onDone();
       context.read<SQLite>().init().then((v){
         context.read<ImageManager>().init(context);

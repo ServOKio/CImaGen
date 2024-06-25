@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:cimagen/components/Histogram.dart';
+import 'package:cimagen/components/PromtAnalyzer.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -270,6 +271,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                   children: [
                     InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType), withGap: false),
                     InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
+                    gp.all?['vae'] != null ? InfoBox(one: 'VAE', two: gp.all?['vae']+(gp.all?['vae_hash'] != null ? ' (${gp.all?['vae_hash']})' : '')) : const SizedBox.shrink(),
                     const Gap(6),
                     Container(
                         decoration: const BoxDecoration(
@@ -443,7 +445,16 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                           );
                         },
                         child: const Text("Copy G.P.", style: TextStyle(fontSize: 12))
-                    )
+                    ),
+                    const Gap(8),
+                    ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size.zero, // Set this
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                        ),
+                        onPressed: ()=> Navigator.push(context, MaterialPageRoute(builder: (context) => PromtAnalyzer(generationParams: gp!))),
+                        child: const Text("Analyze promt", style: TextStyle(fontSize: 12))
+                    ),
                   ],
                 ),
                 gp.rawData != null ? ExpansionTile(

@@ -82,7 +82,7 @@ class _SettingsState extends State<Settings>{
     });
 
     context.read<SQLite>().getTablesInfo().then((value) => {
-      setState(() {
+      if(mounted)setState(() {
         dataMap = {
           'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
           'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
@@ -92,7 +92,7 @@ class _SettingsState extends State<Settings>{
         };
       })
     }).onError((error, stackTrace) => {
-      setState(() {
+      if(mounted) setState(() {
         dataMap = {
           'all': 0
         };
