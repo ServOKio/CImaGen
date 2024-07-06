@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -15,6 +16,9 @@ import '../../utils/SQLite.dart';
 class OnRemote implements AbMain{
   @override
   bool loaded = false;
+  String? error;
+  @override
+  bool get hasError => error != null;
 
   String _host = '-';
   @override
@@ -65,7 +69,10 @@ class OnRemote implements AbMain{
           });
           loaded = true;
         } else {
-          print('idi naxyi ${res.statusCode}');
+          if (kDebugMode) {
+            print('idi naxyi ${res.statusCode}');
+          }
+          error = 'The host returned an invalid response: 404';
         }
         if(!loaded) findError();
       }).catchError((e) {

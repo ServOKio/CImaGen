@@ -133,7 +133,7 @@ class _TimelineState extends State<Timeline> {
 
   @override
   Widget build(BuildContext context) {
-    return sr ? const Center(
+    return sr ? Center(
       child: SetupRequired(webui: true, comfyui: false),
     ) : Row(
         children: <Widget>[

@@ -15,6 +15,10 @@ import 'AbMain.dart';
 class OnNetworkLocation implements AbMain {
   @override
   bool loaded = false;
+  @override
+  String? error;
+  @override
+  bool get hasError => error != null;
 
   // Config
   Map<String, dynamic> _config = <String, dynamic>{};

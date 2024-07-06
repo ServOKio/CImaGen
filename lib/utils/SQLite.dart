@@ -27,7 +27,7 @@ class SQLite with ChangeNotifier{
   late Timer timer;
 
   Future<void> init() async {
-    int dbVersion = 4;
+    int dbVersion = 3;
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -624,7 +624,7 @@ class SQLite with ChangeNotifier{
 
   // System
   Future<void> fixDB() async {
-    final List<Map<String, dynamic>> maps = await database.query(
+    List<Map<String, dynamic>> maps = await database.query(
         'images',
         columns: ['fullPath', 'keyup']
     );
@@ -635,6 +635,24 @@ class SQLite with ChangeNotifier{
         'pathHash': genPathHash(normalizePath(record['fullPath']))
       }, where: 'keyup = ?', whereArgs: [record['keyup']]);
     }
+    await batch.commit(noResult: false, continueOnError: false);
+
+    maps = await database.query(
+        'generation_params',
+        columns: ['rawData', 'keyup'],
+        where: 'params IS NULL AND rawData IS NOT NULL'
+    );
+    batch = database.batch();
+    if (kDebugMode) print('Updating ${maps.length} records...');
+    for (var record in maps) {
+      GenerationParams? gp = parseSDParameters(record['rawData']);
+      if(gp != null && gp.params != null) {
+        batch.update('generation_params', {
+        'params': jsonEncode(gp.params)
+      }, where: 'keyup = ?', whereArgs: [record['keyup']]);
+      }
+    }
+    if (kDebugMode) print('Done parsing ${maps.length} records, updating...');
     await batch.commit(noResult: false, continueOnError: false);
   }
 }

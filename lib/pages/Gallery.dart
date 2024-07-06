@@ -297,7 +297,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                                         );
                                       }
                                     },
-                                    cacheHeight: 100,
+                                    // cacheWidth: files.length == 4 ? 100 : (constraints.biggest.width / files.length).round(),
                                     fit: BoxFit.cover,
                                   ) : Image.network(
                                       ent.thumbnail ?? ent.fullPath,
@@ -411,7 +411,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     return ChangeNotifierProvider(
       create: (context) => model,
       child:  sr
-        ? const Center(child: SetupRequired(webui: true, comfyui: false))
+        ? Center(child: SetupRequired(webui: true, comfyui: false, error: context.read<ImageManager>().getter.error))
         : screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
           _buildNavigationRail(),
           Expanded(

@@ -16,6 +16,10 @@ import 'AbMain.dart';
 class OnLocal implements AbMain {
   @override
   bool loaded = false;
+  @override
+  String? error;
+  @override
+  bool get hasError => error != null;
 
   // Config
   Map<String, dynamic> _config = <String, dynamic>{};

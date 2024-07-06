@@ -262,7 +262,18 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
       }
     }
 
-    Iterable<RegExpMatch> matches = ex.allMatches(lines.last);
+    // print('positivePromt');
+    // print(positivePromt);
+    // print('negativePromt');
+    // print(negativePromt);
+    // print('generationParams');
+    // print(generationParams);
+    // print('positiveTemplate');
+    // print(positiveTemplate);
+    // print('negativeTemplate');
+    // print(negativeTemplate);
+
+    Iterable<RegExpMatch> matches = ex.allMatches(generationParams);
 
     for (final m in matches) {
       try{
@@ -301,7 +312,9 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
         rawData: rawData
     );
     return gpF;
-  } catch(e){
+  } catch(e, s){
+    print(e);
+    print(s);
     return null;
   }
 }

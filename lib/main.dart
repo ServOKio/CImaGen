@@ -124,7 +124,7 @@ class MyApp extends StatelessWidget {
               Colors.yellow,
             ],
           ),
-          child: WTF()
+          child: const WTF()
       )
     );
   }

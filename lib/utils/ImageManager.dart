@@ -566,7 +566,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
                   checkpoint: pngEx['source'],
                   checkpointHash: null,
                   version: null,
-                  rawData: jsonEncode(data)
+                  rawData: jsonEncode(data),
+                  params: data
               );
             }
           } else if(pngEx['software'] == 'Adobe ImageReady') {

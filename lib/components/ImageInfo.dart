@@ -8,6 +8,7 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 
 import '../Utils.dart';
+import '../main.dart';
 import '../modules/ICCProfiles.dart';
 
 class MyImageInfo extends StatefulWidget {
@@ -474,6 +475,25 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                             style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
                         )
                     ),
+                    if(prefs!.getBool('debug') ?? false) ElevatedButton(child: const Text('Parse'), onPressed: (){
+                      GenerationParams? gpP = parseSDParameters(gp?.rawData ?? '');
+                      if(gpP != null){
+
+                      } else {
+                        showDialog<String>(
+                          context: context,
+                          builder: (BuildContext context) => AlertDialog(
+                            content: Text('parseSDParameters returned null'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, 'ok'),
+                                child: const Text('ok'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    })
                   ],
                 ) : const SizedBox.shrink(),
               ],

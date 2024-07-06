@@ -4,8 +4,9 @@ import 'package:gap/gap.dart';
 class SetupRequired extends StatefulWidget{
   final bool webui;
   final bool comfyui;
+  String? error;
 
-  const SetupRequired({Key? key, required this.webui, required this.comfyui}) : super(key: key);
+  SetupRequired({super.key, required this.webui, required this.comfyui, this.error});
 
   @override
   State<SetupRequired> createState() => _SetupRequiredState();
@@ -57,7 +58,7 @@ class _SetupRequiredState extends State<SetupRequired> with TickerProviderStateM
           ],
         ),
         const Gap(4),
-        const Text('Configuration required', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        Text(widget.error != null ? 'Oops, there seems to be a error' : 'Configuration required', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         const Text('To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
         widget.webui ? const Text('WebUI folder', style: TextStyle(color: Colors.grey)) : const SizedBox.shrink(),
         widget.comfyui ? const Text('ComfyUI folder') : const SizedBox.shrink(),

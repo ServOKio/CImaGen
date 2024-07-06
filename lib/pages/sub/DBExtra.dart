@@ -166,7 +166,23 @@ class _DBExtraState extends State<DBExtra>{
                             content: LinearProgressIndicator(),
                           ),
                         );
-                        context.read<SQLite>().fixDB().then((value) => Navigator.pop(context, 'ok'));
+                        context.read<SQLite>().fixDB().then((value) => Navigator.pop(context, 'ok')).catchError((e) {
+                          Navigator.pop(context, 'error');
+                          showDialog<String>(
+                            context: context,
+                            builder: (BuildContext context) => AlertDialog(
+                              icon: const Icon(Icons.error),
+                              title: const Text('an error has occurred'),
+                              content: SelectableText(e.toString()),
+                              actions: <Widget>[
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, 'ok'),
+                                  child: const Text('Okay'),
+                                ),
+                              ],
+                            ),
+                          );
+                        });
                       },
                     ),
                     SettingsTile(
