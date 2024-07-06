@@ -222,7 +222,7 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
         line = line.trim();
         if(line.startsWith('Negative prompt:')){
           doneWithPrompt = true;
-          line = line.substring(16+1, line.length).trim();
+          line = line.length != 16 ? line.substring(16+1, line.length).trim() : '';
         }
         if(line.startsWith('Steps:')){
           doneWithPrompt = true;
@@ -233,21 +233,21 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
           if(line.startsWith('Template:')){
             doneWithNegative = true;
             doneWithGenerationParams = true;
-            line = line.substring(9+1, line.length).trim();
+            line = line.length != 9 ? line.substring(9+1, line.length).trim() : '';
           }
           if(!doneWithNegative){
             negativePromt += (negativePromt == "" ? '' : "\n") + line;
           } else {
             if(line.startsWith('Template:')){
               doneWithGenerationParams = true;
-              line = line.substring(9+1, line.length).trim();
+              line = line.length != 9 ? line.substring(9+1, line.length).trim() : '';
             }
             if(!doneWithGenerationParams){
               generationParams += (generationParams == "" ? '' : "\n") + line;
             } else {
               if(line.startsWith('Negative Template:')){
                 doneWithPositiveTemplate = true;
-                line = line.substring(18+1, line.length).trim();
+                line = line.length != 18 ? line.substring(18+1, line.length).trim() : '';
               }
               if(!doneWithPositiveTemplate){
                 positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
@@ -315,6 +315,7 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
   } catch(e, s){
     print(e);
     print(s);
+    print(rawData);
     return null;
   }
 }
