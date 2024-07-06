@@ -12,7 +12,7 @@ import '../modules/ICCProfiles.dart';
 
 class MyImageInfo extends StatefulWidget {
   final ImageMeta data;
-  const MyImageInfo(this.data, { Key? key }): super(key: key);
+  const MyImageInfo(this.data, {super.key});
 
   @override
   State<MyImageInfo> createState() => _MyImageInfoState();
@@ -20,6 +20,7 @@ class MyImageInfo extends StatefulWidget {
 
 
 class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin {
+
   @override
   Widget build(BuildContext context) {
     ImageMeta im = widget.data;
@@ -271,7 +272,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                   children: [
                     InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType), withGap: false),
                     InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
-                    gp.all?['vae'] != null ? InfoBox(one: 'VAE', two: gp.all?['vae']+(gp.all?['vae_hash'] != null ? ' (${gp.all?['vae_hash']})' : '')) : const SizedBox.shrink(),
+                    gp.params?['vae'] != null ? InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : '')) : const SizedBox.shrink(),
                     const Gap(6),
                     Container(
                         decoration: const BoxDecoration(
@@ -1063,8 +1064,8 @@ List<Widget> getForType(dynamic data){
                     Row( // This shit killed four hours of my life.
                       children: [
                         const SelectableText('Model', style: TextStyle(fontSize: 12, color: Colors.white70)),
-                        const Gap(6),
-                        Expanded(
+                        if(data['model'].runtimeType != String) const Gap(6),
+                        if(data['model'].runtimeType != String) Expanded(
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: SingleChildScrollView(
@@ -1078,7 +1079,7 @@ List<Widget> getForType(dynamic data){
                     const SelectableText('Lora', style: TextStyle(fontSize: 12, color: Colors.white70)),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: SelectableText(data['model'].sublist(1).join('\n'), style: const TextStyle(fontSize: 13)),
+                      child: SelectableText(data['model'].runtimeType != String ? data['model'].sublist(1).join('\n') : data['model'], style: const TextStyle(fontSize: 13)),
                     )
                   ],
                 )
@@ -1099,7 +1100,7 @@ List<Widget> getForType(dynamic data){
                     const SelectableText('Clip', style: TextStyle(fontSize: 12, color: Colors.white70)),
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
-                      child: SelectableText(data['clip'].join('\n'), style: const TextStyle(fontSize: 13)),
+                      child: SelectableText(data['clip'].runtimeType != String ? data['clip'].join('\n') : data['clip'], style: const TextStyle(fontSize: 13)),
                     )
                   ],
                 )
@@ -1133,8 +1134,8 @@ List<Widget> getForType(dynamic data){
         ) : const SizedBox.shrink(),
         InfoBox(one: 'VAE', two: data['vae'], inner: true),
         InfoBox(one: 'BBox detector', two: data['bboxDetector'], inner: true),
-        InfoBox(one: 'Sam model name', two: data['samModelOpt']['modelName'], inner: true),
-        InfoBox(one: 'Sam model device mode', two: data['samModelOpt']['deviceMode'], inner: true),
+        if(data['samModelOpt'] != null) InfoBox(one: 'Sam model name', two: data['samModelOpt']['modelName'], inner: true),
+        if(data['samModelOpt'] != null) InfoBox(one: 'Sam model device mode', two: data['samModelOpt']['deviceMode'], inner: true),
         InfoBox(one: 'Segm detector opt', two: data['segmDetectorOpt'], inner: true),
       ];
     case 'SaveImage':

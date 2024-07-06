@@ -4,18 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:image/image.dart' as img;
-import 'package:mime/mime.dart';
-import 'package:path/path.dart';
-import 'package:path/path.dart' as p;
 
 import '../Utils.dart';
 
 class Histogram extends StatefulWidget {
   final String path;
-  const Histogram({Key? key, required this.path}) : super(key: key);
+  const Histogram({super.key, required this.path});
 
   @override
-  _HistogramState createState() => _HistogramState();
+  State<Histogram> createState() => _HistogramState();
 }
 
 class _HistogramState extends State<Histogram> {
@@ -80,7 +77,7 @@ class _HistogramState extends State<Histogram> {
         final Uint8List bytes = await compute(readAsBytesSync, imagePath);
         data = await compute(img.decodeImage, bytes);
       } on PathNotFoundException catch (e){
-        throw 'We\'ll fix it later.';
+        throw 'We\'ll fix it later.'; // TODO
       }
     }
     return data;
@@ -97,7 +94,7 @@ class _HistogramState extends State<Histogram> {
             Widget children;
             if (snapshot.hasData) {
               if(debug){
-                return Text('done');
+                return const Text('done');
               }
               List<Line> lines = [];
               double boxHeight = constraints.maxHeight;

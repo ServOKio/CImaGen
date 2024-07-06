@@ -27,7 +27,7 @@ class SQLite with ChangeNotifier{
   late Timer timer;
 
   Future<void> init() async {
-    int dbVersion = 2;
+    int dbVersion = 4;
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -87,6 +87,8 @@ class SQLite with ChangeNotifier{
             'checkpointType INTEGER,'
             'checkpoint VARCHAR(256),'
             'checkpointHash VARCHAR(128),'
+            'vae VARCHAR(256),'
+            'vaeHash VARCHAR(128),'
             'denoisingStrength DOUBLE,'
             'rng VARCHAR(16),'
             'hiresSampler VARCHAR(128),'
@@ -94,6 +96,7 @@ class SQLite with ChangeNotifier{
             'hiresUpscale DOUBLE,'
             'tiHashes TEXT,'
             'version VARCHAR(16),'
+            'params TEXT,'
             'rawData TEXT'
           ')',
         );
@@ -131,10 +134,17 @@ class SQLite with ChangeNotifier{
       onCreate: (db, version) async {
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // switch (newVersion) {
-        //   case 2:
-        //   default:
-        // }
+        if(oldVersion == 0) return;
+        switch (newVersion) {
+          case 3:
+            Batch batch = db.batch();
+            batch.rawQuery('ALTER TABLE generation_params ADD vae VARCHAR(128)');
+            batch.rawQuery('ALTER TABLE generation_params ADD vaeHash VARCHAR(128)');
+            batch.rawQuery('ALTER TABLE generation_params ADD params TEXT');
+            await batch.commit(noResult: false, continueOnError: false);
+            break;
+          default:
+        }
       },
       version: dbVersion,
     );
@@ -232,19 +242,19 @@ class SQLite with ChangeNotifier{
       } else {
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: await imageMeta.toMap()));
         if(imageMeta.generationParams != null) {
-          toBatchOne.add(
-              Job(
-                  to: 'generation_params',
-                  type: JobType.insert,
-                  obj: imageMeta.generationParams!.toMap(
-                      forDB: true,
-                      key: imageMeta.getKey(),
-                      amply: {
-                        'pathHash': genPathHash(imageMeta.fullPath)
-                      }
-                  )
-              )
-          );
+            toBatchOne.add(
+                Job(
+                    to: 'generation_params',
+                    type: JobType.insert,
+                    obj: imageMeta.generationParams!.toMap(
+                        forDB: true,
+                        key: imageMeta.getKey(),
+                        amply: {
+                          'pathHash': genPathHash(imageMeta.fullPath)
+                        }
+                    )
+                )
+            );
         }
       }
     }
@@ -256,6 +266,10 @@ class SQLite with ChangeNotifier{
       batch.rawQuery(q);
     }
     await batch.apply();
+  }
+
+  Future<List<Map<String, dynamic>>> rawRunResult(String que) async {
+    return await database.rawQuery(que);
   }
 
   Future<void> rawRunConst(List<String> que) async {
@@ -312,12 +326,15 @@ class SQLite with ChangeNotifier{
               checkpointType: CheckpointType.values[d['checkpointType'] as int],
               checkpoint: d['checkpoint'] as String,
               checkpointHash: d['checkpointHash'] as String,
+              vae: d['vae'] != null ? d['vae'] as String : null,
+              vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
               denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
               rng: d['rng'] != null ? d['rng'] as String : null,
               hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
               hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
               hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
               version: d['version'] as String,
+              params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
               rawData: d['rawData']
           )
       );
@@ -351,12 +368,15 @@ class SQLite with ChangeNotifier{
               checkpointType: CheckpointType.values[d['checkpointType'] as int],
               checkpoint: d['checkpoint'] as String,
               checkpointHash: d['checkpointHash'] as String,
+              vae: d['vae'] != null ? d['vae'] as String : null,
+              vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
               denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
               rng: d['rng'] != null ? d['rng'] as String : null,
               hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
               hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
               hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
               version: d['version'] as String,
+              params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
               rawData: d['rawData']
           )
       );
@@ -367,7 +387,7 @@ class SQLite with ChangeNotifier{
 
   Future<List<ImageMeta>> getImagesByParent(dynamic type, String parent, {String? host}) async {
     if (kDebugMode) {
-      print('$type ${type.runtimeType} $parent ${host ?? 'null'}');
+      print('getImagesByParent: $type ${type.runtimeType} $parent ${host ?? 'null'}');
     }
     List<dynamic> args = [];
     if(type.runtimeType == RenderEngine) args.add(type.index);
@@ -399,12 +419,15 @@ class SQLite with ChangeNotifier{
             checkpointType: CheckpointType.values[d['checkpointType'] as int],
             checkpoint: d['checkpoint'] as String,
             checkpointHash: d['checkpointHash'] as String,
+            vae: d['vae'] != null ? d['vae'] as String : null,
+            vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
             denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
             rng: d['rng'] != null ? d['rng'] as String : null,
             hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
             hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
             hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
             version: d['version'] as String,
+            params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
             rawData: d['rawData']
         )
       );
@@ -437,12 +460,15 @@ class SQLite with ChangeNotifier{
         checkpointType: CheckpointType.values[d['checkpointType'] as int],
         checkpoint: d['checkpoint'] as String,
         checkpointHash: d['checkpointHash'] as String,
+        vae: d['vae'] != null ? d['vae'] as String : null,
+        vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
         denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
         rng: d['rng'] != null ? d['rng'] as String : null,
         hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
         hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
         hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
         version: d['version'] as String,
+        params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
         rawData: d['rawData']
       );
     });
@@ -594,7 +620,23 @@ class SQLite with ChangeNotifier{
       Map<String, int> finalMe = {};
       maps.first.forEach((key, value) => finalMe[key] = value == null ? 0 : value as int);
       return finalMe;
+  }
+
+  // System
+  Future<void> fixDB() async {
+    final List<Map<String, dynamic>> maps = await database.query(
+        'images',
+        columns: ['fullPath', 'keyup']
+    );
+    Batch batch = database.batch();
+    if (kDebugMode) print('Updating ${maps.length} records...');
+    for (var record in maps) {
+      batch.update('images', {
+        'pathHash': genPathHash(normalizePath(record['fullPath']))
+      }, where: 'keyup = ?', whereArgs: [record['keyup']]);
     }
+    await batch.commit(noResult: false, continueOnError: false);
+  }
 }
 
 // ImageParams imageParamsFromJson(String data) {

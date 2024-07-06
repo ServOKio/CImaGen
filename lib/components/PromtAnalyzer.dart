@@ -1,9 +1,11 @@
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_charts/flutter_charts.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
+import '../modules/Animations.dart';
 import '../utils/range.dart';
 
 class PromtAnalyzer extends StatefulWidget{
@@ -28,6 +30,8 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
   List<HMessage> negMessages = [];
 
   var posChart = [];
+
+  List<String> specialTags = ['score:0', 'score:1', 'score:2', 'score:3', 'score:4', 'score:5', 'score:6', 'score:7', 'score:8', 'score:9', 'rating:s', 'rating:q', 'rating:e'];
 
   @override
   void initState(){
@@ -58,7 +62,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
 
     var _tags = context.read<DataManager>().e621Tags;
 
-    String _text = (id == 0 ? positiveController.text : negativeController.text).replaceAll("\n", " ");
+    String _text = (id == 0 ? positiveController.text : negativeController.text).replaceAll('\n', ' ');
 
     Map<String, double> _tagsAndWeights = {};
 
@@ -105,7 +109,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
         for (int i = 0; i < parts.length; i++){
           var part = parts[i];
           if(i > 0){
-            res.add(["BREAK", -1]);
+            res.add(['BREAK', -1]);
           }
           res.add([part.trim(), 1.0]);
         }
@@ -121,7 +125,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
     }
 
     if(res.isEmpty){
-      res = [["", 1.0]];
+      res = [['', 1.0]];
     }
 
     int i = 0;
@@ -136,11 +140,19 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
     }
 
     // because fox ass
+    List<String> dubl = [];
     for (var element in res) {
       List<String> tags = (element[0] as String).split(',').map((e) => e.trim().toLowerCase().replaceAll(' ', '_'))
           .map((e) => e.replaceFirst('by_', '').replaceFirst('art_by_', ''))
-      .where((e) => e != '').toList(growable: false);
+          .where((e) => e != '')
+          .where((e) => !specialTags.contains(e))
+          .toList(growable: false);
       for(String tag in tags){
+        if(!dubl.contains(tag)){
+          dubl.add(tag);
+        } else {
+          (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.warn, text: 'Tag "$tag" has a duplicate'));
+        }
         _tagsAndWeights[tag] = element[1];
         if(!(tag.startsWith('<') && tag.endsWith('>'))){
           if(!_tags.containsKey(tag)){
@@ -201,7 +213,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
         painter: VerticalBarChartPainter(
           verticalBarChartContainer: VerticalBarChartTopContainer(
             chartData: ChartData(
-              dataRowsColors: [
+              dataRowsColors: const [
                 Colors.lightGreen
               ],
               dataRows: [
@@ -258,7 +270,10 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
     return Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
-            title: const Text('Promt analyzer'),
+            title: const ShowUp(
+              delay: 100,
+              child: Text('Promt analyzer', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+            ),
             backgroundColor: const Color(0xaa000000),
             elevation: 0,
             actions: []
@@ -293,6 +308,19 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
                                   isDense: true,
                                   border: InputBorder.none, hintText: '',
                                 ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.all(4.0),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                border: Border.all(color: Colors.green, width: 1),
+                                borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                              ),
+                              child: Text(
+                                cleanUpSDPromt(positiveController.text),
+                                style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
                               ),
                             ),
                             Container(

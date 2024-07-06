@@ -30,7 +30,10 @@ dependencies:
   gap: ^3.0.1
   system_theme: ^2.3.1
   flutter_context_menu: ^0.2.0
-  image: ^4.2.0
+  image:
+    git:
+      url: https://github.com/brendan-duncan/image
+      ref: main
   dotted_border: ^2.1.0 #fucking flutter
   collection: ^1.18.0
   animated_text_kit: ^4.2.2
@@ -73,12 +76,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
-  msix: ^3.16.7
+  #msix: ^3.16.7
   inno_bundle: ^0.5.0
 flutter:
   uses-material-design: true
   generate: true
-  assets:
+#  assets:
 #   - images/a_dot_ham.jpeg
 
   fonts:
@@ -117,14 +120,14 @@ flutter:
        - asset: fonts/OpenSans-ExtraBold.ttf
          weight: 800
 
-msix_config:
-  display_name: CImaGen
-  publisher_display_name: ServOKio
-  identity_name: net.servokio.cimagen
-  msix_version: 0.0.1.1
-  logo_path: preview/icon.png
-  languages: en-us, ru-RU
-  capabilities: internetClient
+#msix_config:
+#  display_name: CImaGen
+#  publisher_display_name: ServOKio
+#  identity_name: net.servokio.cimagen
+#  msix_version: 0.0.1.1
+#  logo_path: preview/icon.png
+#  languages: en-us, ru-RU
+#  capabilities: internetClient
 
 # dart run inno_bundle:build --release
 inno_bundle:

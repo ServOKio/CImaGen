@@ -130,7 +130,7 @@ class OnNetworkLocation implements AbMain {
   }
 
   @override
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async {
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
     // Read all files sizes and get hash
     Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
     List<FileSystemEntity> fe = await dirContents(di);

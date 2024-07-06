@@ -25,7 +25,7 @@ abstract class AbMain {
     return [];
   }
 
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async{
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async{
     // Read all files sizes and get hash
     late final StreamController<List<ImageMeta>> controller;
     controller = StreamController<List<ImageMeta>>(

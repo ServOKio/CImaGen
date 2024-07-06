@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
 import 'AbMain.dart';
@@ -121,10 +122,25 @@ class OnLocal implements AbMain {
   }
 
   @override
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async {
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
     // Read all files sizes and get hash
+    //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
     Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
-    List<FileSystemEntity> fe = await dirContents(di);
+    List<FileSystemEntity> fe = await dirContents(di); // Filter this shit
+    //print('total: ${fe.length}');
+
+    if(hashes != null && hashes.isNotEmpty){
+      // print(hashes.first);
+      // for(FileSystemEntity te in fe){
+      //   print(te.path);
+      //   print(normalizePath(p.normalize(te.path)));
+      //   print(genPathHash(normalizePath(p.normalize(te.path))));
+      // }
+      fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
+      if (kDebugMode) {
+        print('to send: ${fe.length}');
+      }
+    }
 
     ParseJob job = ParseJob();
     int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));

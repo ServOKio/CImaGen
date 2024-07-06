@@ -194,14 +194,14 @@ Future<Uint8List> readAsBytesSync(String path) async {
 }
 
 // TODO Rewrite this stupid shit
-GenerationParams? parseSDParameters(String rawData){
+GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
   try{
     RegExp ex = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)');
 
     Map<String, Object> gp = <String, Object>{};
 
     // Generation params
-    List<String> lines = rawData.trim().split("\n");
+    List<String> lines = rawData.trim().split('\n');
 
     bool doneWithPrompt = false;
     bool doneWithNegative = false;
@@ -217,54 +217,56 @@ GenerationParams? parseSDParameters(String rawData){
     String positiveTemplate = '';
     String negativeTemplate = '';
 
-    for(String line in lines){
-      line = line.trim();
-      if(line.startsWith('Negative prompt:')){
-        doneWithPrompt = true;
-        line = line.substring(16+1, line.length).trim();
-      }
-      if(line.startsWith('Steps:')){
-        doneWithPrompt = true;
-        doneWithNegative = true;
+    if(!onlyParams){
+      for(String line in lines){
         line = line.trim();
-      }
-      if(doneWithPrompt){
-        if(line.startsWith('Template:')){
-          doneWithNegative = true;
-          doneWithGenerationParams = true;
-          line = line.substring(9+1, line.length).trim();
+        if(line.startsWith('Negative prompt:')){
+          doneWithPrompt = true;
+          line = line.substring(16+1, line.length).trim();
         }
-        if(!doneWithNegative){
-          negativePromt += (negativePromt == "" ? '' : "\n") + line;
-        } else {
+        if(line.startsWith('Steps:')){
+          doneWithPrompt = true;
+          doneWithNegative = true;
+          line = line.trim();
+        }
+        if(doneWithPrompt){
           if(line.startsWith('Template:')){
+            doneWithNegative = true;
             doneWithGenerationParams = true;
             line = line.substring(9+1, line.length).trim();
           }
-          if(!doneWithGenerationParams){
-            generationParams += (generationParams == "" ? '' : "\n") + line;
+          if(!doneWithNegative){
+            negativePromt += (negativePromt == "" ? '' : "\n") + line;
           } else {
-            if(line.startsWith('Negative Template:')){
-              doneWithPositiveTemplate = true;
-              line = line.substring(18+1, line.length).trim();
+            if(line.startsWith('Template:')){
+              doneWithGenerationParams = true;
+              line = line.substring(9+1, line.length).trim();
             }
-            if(!doneWithPositiveTemplate){
-              positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
+            if(!doneWithGenerationParams){
+              generationParams += (generationParams == "" ? '' : "\n") + line;
             } else {
-              negativeTemplate += (negativeTemplate == "" ? '' : "\n") + line;
+              if(line.startsWith('Negative Template:')){
+                doneWithPositiveTemplate = true;
+                line = line.substring(18+1, line.length).trim();
+              }
+              if(!doneWithPositiveTemplate){
+                positiveTemplate += (positiveTemplate == "" ? '' : "\n") + line;
+              } else {
+                negativeTemplate += (negativeTemplate == "" ? '' : "\n") + line;
+              }
             }
           }
+        } else {
+          positivePromt += (positivePromt == "" ? '' : "\n") + line;
         }
-      } else {
-        positivePromt += (positivePromt == "" ? '' : "\n") + line;
       }
     }
 
-    Iterable<RegExpMatch> matches = ex.allMatches(generationParams);
+    Iterable<RegExpMatch> matches = ex.allMatches(lines.last);
 
     for (final m in matches) {
       try{
-        gp.putIfAbsent(m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_'), () => m[2] ?? 'null');
+        gp[m[1]!.toLowerCase().replaceAll(RegExp(r' '), '_')] = m[2] ?? 'null';
       } on RangeError catch(e){
         print(e.message);
         print(e.stackTrace);
@@ -287,13 +289,15 @@ GenerationParams? parseSDParameters(String rawData){
         checkpointType: isRefiner ? CheckpointType.refiner : isUNET ? CheckpointType.unet : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
         checkpoint: model != null ? model as String : null,
         checkpointHash: gp['model_hash'] != null ? gp['model_hash'] as String : null,
+        vae: gp['vae'] != null ? gp['vae'] as String : null,
+        vaeHash: gp['vae_hash'] != null ? gp['vae_hash'] as String : null,
         denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
         rng: gp['rng'] != null ? gp['rng'] as String : null,
         hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
         hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
         hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
         version: gp['version']  != null ? gp['version'] as String : null,
-        all: gp,
+        params: gp,
         rawData: rawData
     );
     return gpF;
@@ -566,6 +570,8 @@ class GenerationParams {
   final CheckpointType checkpointType;
   final String? checkpoint;
   final String? checkpointHash;
+  final String? vae;
+  final String? vaeHash;
   final double? denoisingStrength;
   final String? rng;
   final String? hiresSampler;
@@ -574,7 +580,7 @@ class GenerationParams {
   final Map<String, String>? tiHashes;
   final String? version;
   final String? rawData;
-  Map<String, dynamic>? all;
+  Map<String, dynamic>? params;
 
   GenerationParams({
     required this.positive,
@@ -587,6 +593,8 @@ class GenerationParams {
     required this.checkpointType,
     required this.checkpoint,
     required this.checkpointHash,
+    this.vae,
+    this.vaeHash,
     this.denoisingStrength,
     this.rng,
     this.hiresSampler,
@@ -595,14 +603,14 @@ class GenerationParams {
     this.tiHashes,
     required this.version,
     this.rawData,
-    this.all
+    this.params
   }){
-    if(rawData != null){
-      GenerationParams? p = parseSDParameters(rawData!);
-      if(p != null){
-        all = p.all;
-      }
-    }
+    // if(rawData != null){
+    //   GenerationParams? p = parseSDParameters(rawData!, onlyParams: true);
+    //   if(p != null){
+    //     params = p.params;
+    //   }
+    // }
   }
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
@@ -617,6 +625,8 @@ class GenerationParams {
       'checkpointType': checkpointType.index,
       'checkpoint': checkpoint,
       'checkpointHash': checkpointHash,
+      'vae': vae,
+      'vaeHash': vaeHash,
       'version': version,
     };
 
@@ -627,6 +637,7 @@ class GenerationParams {
       f['sizeW'] = size.width;
       f['sizeH'] = size.height;
       if(rawData != null) f['rawData'] = rawData;
+      if(params != null) f['params'] = jsonEncode(params);
       if(key != null){
         f['keyup'] = key.keyup;
         f['type'] = key.type.index;
@@ -907,7 +918,8 @@ Future<String> getDeviceInfo() async {
 }
 
 String normalizePath(String path){
-  return path.replaceAll('\\', '/');
+  bool isWindowsPath = path.startsWith('\\\\') || path[1] == ':';
+  return isWindowsPath ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/');
 }
 
 // https://e621.net/db_export/

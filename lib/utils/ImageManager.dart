@@ -178,13 +178,17 @@ class ParseJob {
 
   var rng = Random();
 
+  ParseJob(){
+    _controller = StreamController<List<ImageMeta>>();
+  }
+
   Future<int> putAndGetJobID(RenderEngine? re, List<dynamic> rawImages, {String? host, Uri? remote}) async {
-    print('get ${rawImages.length}');
+    if (kDebugMode) {
+      print('get ${rawImages.length}');
+    }
     _cache.addAll(rawImages);
 
     _jobID = getRandomInt(1000, 100000);
-    // Main
-    _controller = StreamController<List<ImageMeta>>();
 
     _parse(re, host, remote);
     return _jobID;
@@ -497,11 +501,11 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         }
 
         if(gp != null){
-          if(gp.all?['mask_blur'] != null){
+          if(gp.params?['mask_blur'] != null){
             re = RenderEngine.inpaint;
           } else if(pngEx['postprocessing'] != null){
             re = RenderEngine.extra;
-          } else if(gp.all?['denoising_strength'] != null && gp.all?['hires_upscale'] == null){
+          } else if(gp.params?['denoising_strength'] != null && gp.params?['hires_upscale'] == null){
             re = RenderEngine.img2img;
           }
         } else {
@@ -738,9 +742,9 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         gp = parseSDParameters(jpgEx['EXIF UserComment']);
 
         if(gp != null){
-          if(gp.all?['mask_blur'] != null){
+          if(gp.params?['mask_blur'] != null){
             re = RenderEngine.inpaint;
-          } else if(gp.all?['denoising_strength'] != null && gp.all?['hires_upscale'] == null){
+          } else if(gp.params?['denoising_strength'] != null && gp.params?['hires_upscale'] == null){
             re = RenderEngine.img2img;
           }
         }
@@ -813,9 +817,9 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         gp = parseSDParameters(webpEx['EXIF UserComment']);
 
         if(gp != null){
-          if(gp.all?['mask_blur'] != null){
+          if(gp.params?['mask_blur'] != null){
             re = RenderEngine.inpaint;
-          } else if(gp.all?['denoising_strength'] != null && gp.all?['hires_upscale'] == null){
+          } else if(gp.params?['denoising_strength'] != null && gp.params?['hires_upscale'] == null){
             re = RenderEngine.img2img;
           }
         }
@@ -1343,6 +1347,7 @@ class ImageMeta {
       fi += '```\n';
       fi += '${prefix}Checkpoint type: ${tb(checkpointTypeToString(generationParams!.checkpointType))}\n';
       fi += '${prefix}Checkpoint: ${tb('${generationParams!.checkpoint}${generationParams!.checkpointHash != null ? ' (${generationParams!.checkpointHash})' : ''}')}\n';
+      if(generationParams?.params?['vae'] != null) fi += '${prefix}VAE: ${generationParams?.params?['vae']+(generationParams?.params?['vae_hash'] != null ? ' (${generationParams?.params?['vae_hash']})' : '')}\n';
       fi += '$prefix**Sampling**\n';
       fi += '${prefix}Method: ${tb(generationParams!.sampler)}\n';
       fi += '${prefix}Steps: ${tb(generationParams!.steps.toString())}\n';
@@ -1546,4 +1551,14 @@ String genHash(RenderEngine re, String parent, String name, {String? host}){
   List<int> bytes = utf8.encode([host != null ? 'network' : 'local', host ?? 'null', re.index.toString(), parent, name].join());
   String hash = sha256.convert(bytes).toString();
   return hash;
+}
+
+String cleanUpSDPromt(String promt){
+  return promt
+      .trim()
+      .replaceFirst(RegExp(r',\s*$'), '')
+      .replaceAll('\n', '')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .replaceAll(RegExp(r',+'), ',')
+      .replaceAllMapped(RegExp(r'(?<!\\)[)\]]\s*(,)\s*\S'), (match) => '${match.group(0)?.replaceAll(' ', '').replaceFirst(match.group(1).toString(), '')}');
 }

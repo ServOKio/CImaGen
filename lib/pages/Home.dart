@@ -19,6 +19,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import '../Utils.dart';
 import '../components/CustomMasonryView.dart';
 import '../components/ImageInfo.dart';
+import '../modules/Animations.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
 import '../utils/DataModel.dart';
@@ -28,7 +29,7 @@ import '../utils/ThemeManager.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class Home extends StatefulWidget {
-  const Home({Key? key}) : super(key: key);
+  const Home({super.key});
 
   @override
   State<Home> createState() => _HomeState();
@@ -66,33 +67,37 @@ class _HomeState extends State<Home> {
           pushToHistory(im);
         }
       } catch(e, s){
-        print("Exception $e");
-        print(file.path);
-        print("StackTrace $s");
+        if (kDebugMode) {
+          print("Exception $e");
+          print(file.path);
+          print("StackTrace $s");
+        }
 
-        showDialog<String>(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            icon: const Icon(Icons.error),
-            iconColor: Colors.redAccent,
-            title: Text(AppLocalizations.of(context)!.home_reader_dialog_title),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText('${AppLocalizations.of(context)!.home_reader_dialog_error_prefix} $e'),
-                Text(AppLocalizations.of(context)!.home_reader_dialog_error_description),
-                SelectableText(file.path)
+        if(mounted) {
+          showDialog<String>(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              icon: const Icon(Icons.error),
+              iconColor: Colors.redAccent,
+              title: Text(AppLocalizations.of(context)!.home_reader_dialog_title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText('${AppLocalizations.of(context)!.home_reader_dialog_error_prefix} $e'),
+                  Text(AppLocalizations.of(context)!.home_reader_dialog_error_description),
+                  SelectableText(file.path)
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'ok'),
+                  child: Text(AppLocalizations.of(context)!.home_reader_dialog_error_buttons_ok),
+                ),
               ],
             ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'ok'),
-                child: Text(AppLocalizations.of(context)!.home_reader_dialog_error_buttons_ok),
-              ),
-            ],
-          ),
-        );
+          );
+        }
       }
     } else {
       final String e = p.extension(file.path);
@@ -337,39 +342,48 @@ class _HomeState extends State<Home> {
       child: Column(
         children: [
           const Gap(12),
-          Row(
-            children: [
-              Text('categories'.toUpperCase(), style: const TextStyle(color: Colors.grey)),
-              const Gap(6),
-              const Text('/', style: TextStyle(color: Colors.grey)),
-              const Gap(6),
-              Row(
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.all(Radius.circular(7)),
-                      color: Colors.red,
+          ShowUp(
+            delay: 50,
+            child: Row(
+              children: [
+                Text('categories'.toUpperCase(), style: const TextStyle(color: Colors.grey)),
+                const Gap(6),
+                const Text('/', style: TextStyle(color: Colors.grey)),
+                const Gap(6),
+                Row(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: const BoxDecoration(
+                        borderRadius: BorderRadius.all(Radius.circular(7)),
+                        color: Colors.red,
+                      ),
                     ),
-                  ),
-                  const Gap(4),
-                  Text('all'.toUpperCase())
-                ],
-              )
-            ],
+                    const Gap(4),
+                    Text('all'.toUpperCase())
+                  ],
+                )
+              ],
+            ),
           ),
           const Gap(8),
           screenWidth <= breakpoint ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              const ShowUp(
+                delay: 200,
+                child: Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              ),
               const Gap(4),
               _topButtons(withSpacer: screenWidth <= breakpoint)
             ],
           ) : Row(
             children: [
-              const Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              const ShowUp(
+                delay: 200,
+                child: Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              ),
               const Spacer(),
               _topButtons()
             ],
@@ -576,10 +590,10 @@ class _HomeState extends State<Home> {
 }
 
 class FileInfoPreview extends StatelessWidget{
-  int type = -1;
-  dynamic data;
+  final int type;
+  final dynamic data;
 
-  FileInfoPreview({
+  const FileInfoPreview({
     super.key,
     required this.type,
     required this.data
@@ -692,9 +706,6 @@ class FileInfoPreview extends StatelessWidget{
                 children: [
                   type == 1 ? ContextMenuRegion(
                     contextMenu: contextMenu,
-                    onItemSelected: (value) {
-                      print(value);
-                    },
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(7.0),
                       child: Stack(
@@ -756,7 +767,7 @@ class FileInfoPreview extends StatelessWidget{
                         Text(im!.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                         InfoBox(one: 'RE', two: renderEngineToString(im.re)),
                         im.error == null ? InfoBox(one: 'Size', two: im.size.toString()) : const SizedBox.shrink(),
-                        im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType'].index])) : const SizedBox.shrink(),
+                        im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
                         im.generationParams?.version != null ? InfoBox(one: 'Version', two: im.generationParams?.version ?? 'error') : const SizedBox.shrink(),
                       ],
                     ),
@@ -784,7 +795,7 @@ class FileInfoPreview extends StatelessWidget{
                         Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
                       },
                       child: const Text("View data", style: TextStyle(fontSize: 12))
-                  ) : SizedBox.shrink(),
+                  ) : const SizedBox.shrink(),
                 ],
               )
             ],

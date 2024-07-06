@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/SetupRequired.dart';
 import 'package:cimagen/components/TimeLineLine.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -174,12 +176,24 @@ class _TimelineState extends State<Timeline> {
 
 bool isIdenticalPromt(ImageMeta? one, ImageMeta? two){
   if(one == null || two == null) return false;
-  return
-    one.generationParams?.positive == two.generationParams?.positive &&
-        one.generationParams?.negative == two.generationParams?.negative;
+  return one.generationParams?.positive == two.generationParams?.positive && one.generationParams?.negative == two.generationParams?.negative;
 }
 
-List<Difference> findDifference(ImageMeta? one, ImageMeta two){
+String getGenerationHash(ImageMeta im, {String? except}){
+  if(im.generationParams == null) return '-';
+  String f = '';
+  if(except != 'checkpoint' && im.generationParams?.checkpoint != null) f+= im.generationParams!.checkpoint!;
+  if(except != 'positive') f+= im.generationParams!.positive;
+  if(except != 'negative') f+= im.generationParams!.negative;
+  if(except != 'cfgScale') f+= im.generationParams!.cfgScale.toString();
+  if(except != 'seed') f+= im.generationParams!.seed.toString();
+  if(except != 'size') f+= im.generationParams!.size.toString();
+  if(except != 'rng' && im.generationParams?.rng != null) f+= im.generationParams!.rng.toString();
+  if(except != 'version' && im.generationParams?.version != null) f+= im.generationParams!.version.toString();
+  return f;
+}
+
+List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   List<Difference> d = [];
   GenerationParams? o = one?.generationParams;
   GenerationParams? t = two.generationParams;
@@ -216,7 +230,7 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
 
-  if(o.all?['hires_steps'] != t.all?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.all?['hires_steps'] ?? '-').toString(), newValue: (t.all?['hires_steps'] ?? '-').toString()));
+  if(o.params?['hires_steps'] != t.params?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.params?['hires_steps'] ?? '-').toString(), newValue: (t.params?['hires_steps'] ?? '-').toString()));
   // final Map<String, String>? tiHashes;
   // final String version;
   if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
@@ -224,6 +238,9 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   return d;
 }
 
+String getDifferencesHash(List<Difference> list){
+  return list.isEmpty ? '-' : sha256.convert(utf8.encode(list.map((e) => e.key).join('-'))).toString();
+}
 
 class Difference {
   final String key;

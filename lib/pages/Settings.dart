@@ -6,7 +6,6 @@ import 'package:cimagen/pages/sub/GitHubCommits.dart';
 import 'package:cimagen/pages/sub/RemoteVersionSettings.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:external_path/external_path.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -26,10 +25,10 @@ import '../modules/webUI/OnLocal.dart';
 import '../utils/SQLite.dart';
 
 class Settings extends StatefulWidget{
-  const Settings({ Key? key }): super(key: key);
+  const Settings({ super.key });
 
   @override
-  _SettingsState createState() => _SettingsState();
+  State<Settings> createState() => _SettingsState();
 }
 
 class _SettingsState extends State<Settings>{
@@ -39,6 +38,7 @@ class _SettingsState extends State<Settings>{
 
   bool _debug = false;
   bool _imageview_use_fullscreen = false;
+  bool _gallery_display_id = false;
 
   String _custom_cache_dir = '-';
 
@@ -74,6 +74,7 @@ class _SettingsState extends State<Settings>{
       _use_remote_version = prefs!.getBool('use_remote_version') ?? false;
       _debug = prefs!.getBool('debug') ?? false;
       _imageview_use_fullscreen = (prefs!.getBool('imageview_use_fullscreen') ?? false);
+      _gallery_display_id = (prefs!.getBool('gallery_display_id') ?? false);
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
@@ -226,7 +227,7 @@ class _SettingsState extends State<Settings>{
               tiles:[
                 AppTheme(),
                 SettingsTile.switchTile(
-                  leading: Icon(Icons.fullscreen),
+                  leading: const Icon(Icons.fullscreen),
                   title: const Text('Full-screen mode when viewing images'),
                   description: Text('When viewing images, the upper control frame will be completely removed'),
                   onToggle: (v) {
@@ -236,7 +237,17 @@ class _SettingsState extends State<Settings>{
                     prefs!.setBool('imageview_use_fullscreen', v);
                   }, initialValue: _imageview_use_fullscreen,
                 ),
-
+                SettingsTile.switchTile(
+                  leading: const Icon(Icons.numbers),
+                  title: Text('Display image ID in gallery'),
+                  description: Text('This will help determine the sequence of images if they are all the same size'),
+                  onToggle: (v) {
+                    setState(() {
+                      _gallery_display_id = v;
+                    });
+                    prefs!.setBool('gallery_display_id', v);
+                  }, initialValue: _gallery_display_id,
+                ),
               ],
             ),
             SettingsSection(

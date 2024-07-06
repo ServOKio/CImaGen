@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cimagen/components/SetupRequired.dart';
+import 'package:cimagen/pages/Timeline.dart' as timeline;
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -49,7 +50,7 @@ Future<List<String>> dirDirs(String path) async { //Cringe
 }
 
 class Gallery extends StatefulWidget{
-  const Gallery({ Key? key }): super(key: key);
+  const Gallery({ super.key });
 
   @override
   State<Gallery> createState() => _GalleryState();
@@ -58,6 +59,7 @@ class Gallery extends StatefulWidget{
 class _GalleryState extends State<Gallery> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   String currentKey = 'null';
 
+  late final TabController _tabController;
   final List<RenderEngine> _tabs = [
     RenderEngine.txt2img,
     RenderEngine.img2img,
@@ -111,6 +113,29 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
             );
           }).onError((error, stackTrace){
 
+          });
+        }, getter: () => true),
+        CustomActionButton(icon: Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
+          _lists[_tabs[_tabController.index].index]?.then((listValue) {
+            print('ok');
+            Folder f = listValue[_selected[_tabs[_tabController.index].index]!];
+            showDialog<String>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                title: const Text('Best for XYZ', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+                content: SizedBox(
+                  width: MediaQuery.of(context).size.width - 30 > MediaQuery.of(context).size.height - 30 ? MediaQuery.of(context).size.height - 30 : MediaQuery.of(context).size.width - 30,
+                  height: MediaQuery.of(context).size.height - 30,
+                  child: XYZPlotForHiRes(_tabs[_tabController.index], f.name),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'OK'),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
           });
         }, getter: () => true),
       ]);
@@ -177,16 +202,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     _lists[re.index]?.then((listValue) {
       Folder f = listValue[index];
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
-      imagesList?.then((value) {
+      imagesList?.then((List<ImageMeta> value) {
+        print('ok');
         bool force = false; //listValue.length-1 == index;
-        // if(value.isEmpty || force) {
-        //   context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
-        //     setState(() {
-        //       imagesList = stream;
-        //     });
-        //   });
-        // }
-        context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name).then((stream){
+        context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((stream){
           if(value.isEmpty || force){
             setState(() {
               imagesList = stream;
@@ -196,8 +215,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       });
     });
   }
-
-  late final TabController _tabController;
 
   Widget _buildNavigationRail() {
     return SizedBox(
@@ -387,6 +404,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final theme = Provider.of<ThemeManager>(context, listen: false);
     const breakpoint = 600.0;
@@ -620,17 +638,103 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     );
   }
 
-  MaterialPageRoute _createGalleryDetailRoute(List<dynamic> images, int currentIndex) {
-      return MaterialPageRoute(
-        builder: (context) => PortfolioGalleryDetailPage(
-          images: images,
-          currentIndex: currentIndex,
-        ),
-      );
+  @override
+  bool get wantKeepAlive => false;
+}
+
+MaterialPageRoute _createGalleryDetailRoute(List<dynamic> images, int currentIndex) {
+  return MaterialPageRoute(
+    builder: (context) => PortfolioGalleryDetailPage(
+      images: images,
+      currentIndex: currentIndex,
+    ),
+  );
+}
+
+class XYZPlotForHiRes extends StatefulWidget{
+  final RenderEngine renderEngine;
+  final String folder;
+
+  const XYZPlotForHiRes(this.renderEngine, this.folder, { super.key });
+
+  @override
+  State<XYZPlotForHiRes> createState() => _XYZPlotForHiResState();
+}
+
+class _XYZPlotForHiResState extends State<XYZPlotForHiRes> {
+  bool loaded = false;
+  List<ImageMeta> images = [];
+
+  Map<String, List<ImageMeta>> hashes = {};
+
+  @override
+  void initState(){
+    super.initState();
+    get();
+  }
+
+  void get(){
+    context.read<ImageManager>().getter.getFolderFiles(widget.renderEngine, widget.folder).then((List<ImageMeta> value) {
+      for (var i = 0; i < value.length-1; i++) {
+        List<timeline.Difference> d = timeline.findDifference(value[i], value[i+1]);
+        //print('${d.length} ${d.length == 1 ? d.first.key : '-'}');
+        if(d.length == 1){
+          String hash = timeline.getGenerationHash(value[i+1], except: d.first.key);
+          if(hashes.containsKey(hash)){
+            hashes[hash]!.add(value[i+1]);
+          } else {
+            hashes[hash] = [value[i], value[i+1]];
+          }
+        }
+      }
+      setState(() {
+        loaded = true;
+        images = value;
+      });
+    });
   }
 
   @override
-  bool get wantKeepAlive => false;
+  Widget build(BuildContext context) {
+    final imageManager = Provider.of<ImageManager>(context);
+    return loaded ? ListView.separated(
+      separatorBuilder: (BuildContext context, int index){
+        return const Divider(height: 17, color: Colors.red,);
+      },
+      itemCount: hashes.keys.length,
+      itemBuilder: (BuildContext context, int index) {
+        List<ImageMeta> l = hashes[hashes.keys.toList(growable: false)[index]]!;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 250,
+              height: 250,
+              child: GridView.count(
+                crossAxisSpacing: 3,
+                mainAxisSpacing: 3,
+                crossAxisCount: 2,
+                children: l.map((e) => GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                        context,
+                        _createGalleryDetailRoute(
+                            [e],
+                            0
+                        )
+                    );
+                  },
+                  child: ImageWidget(e),
+                )).toList(),
+              ),
+            ),
+            const Gap(8),
+            Expanded(child: SelectableText(l.where((e) => imageManager.favoritePaths.contains(e.fullPath)).map((e) => e.generationParams?.seed ?? '-').join(',')))
+          ],
+        );
+      },
+    ) : const CircularProgressIndicator();
+  }
 }
 
 class PreviewImage extends StatelessWidget {
@@ -646,9 +750,9 @@ class PreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageManager = Provider.of<ImageManager>(context);
     return Consumer<SelectedModel>(
         builder: (context, sp, child) {
-          final imageManager = Provider.of<ImageManager>(context);
           final dataModel = Provider.of<DataModel>(context, listen: false);
 
           final entries = <ContextMenuEntry>[
@@ -830,30 +934,7 @@ class PreviewImage extends StatelessWidget {
                                 scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
                                 duration: const Duration(milliseconds: 200),
                                 curve: Curves.ease,
-                                child: imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
-                                  base64Decode(imageMeta.thumbnail ?? ''),
-                                  filterQuality: FilterQuality.low,
-                                  gaplessPlayback: dontBlink,
-                                )) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
-                                  imageUrl: imageMeta.networkThumbnail!,
-                                  imageBuilder: (context, imageProvider) {
-                                    return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
-                                  },
-                                  progressIndicatorBuilder: (context, url, downloadProgress) => Shimmer.fromColors(
-                                    baseColor: Colors.transparent,
-                                    highlightColor: Colors.white30,
-                                    child: AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height),
-                                  ),
-                                  errorWidget: (context, url, error) => Padding(padding: const EdgeInsets.all(8), child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.error, color: Colors.white, size: 28),
-                                      const Text('Error', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                      const Gap(8),
-                                      SelectableText(error.toString(), style: const TextStyle(color: Colors.grey))
-                                    ],
-                                  )),
-                                ) : const Text('No preview ?')
+                                child: ImageWidget(imageMeta, dontBlink: dontBlink)
                             ),
                             AnimatedScale(
                               scale: imageManager
@@ -904,25 +985,29 @@ class PreviewImage extends StatelessWidget {
                                   child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
                               ),
                             ),
-                            imageMeta.generationParams != null ? Positioned(
+                            Positioned(
                                 bottom: 4,
                                 left: 4,
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    imageMeta.re == RenderEngine.inpaint ? Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                          decoration: BoxDecoration(
-                                              borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                              color: const Color(0xFF5fa9b5).withOpacity(0.7)
-                                          ),
-                                          child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                        ),
-                                      ],
+                                    Container(
+                                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                      decoration: BoxDecoration(
+                                          borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                          color: Colors.grey.withOpacity(0.7)
+                                      ),
+                                      child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                    ),
+                                    imageMeta.re == RenderEngine.inpaint ? Container(
+                                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                      decoration: BoxDecoration(
+                                          borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                          color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                      ),
+                                      child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                     ) : const SizedBox.shrink(),
-                                    imageMeta.generationParams!.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
+                                    imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
@@ -939,7 +1024,7 @@ class PreviewImage extends StatelessWidget {
                                     ) : const SizedBox.shrink(),
                                   ],
                                 )
-                            ) : const SizedBox.shrink(),
+                            ),
                             // Positioned(
                             //     top: 4,
                             //     left: 4,
@@ -953,6 +1038,41 @@ class PreviewImage extends StatelessWidget {
           );
         }
     );
+  }
+}
+
+class ImageWidget extends StatelessWidget{
+  final ImageMeta imageMeta;
+  final bool dontBlink;
+
+  const ImageWidget(this.imageMeta, {this.dontBlink = true, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
+      base64Decode(imageMeta.thumbnail ?? ''),
+      filterQuality: FilterQuality.low,
+      gaplessPlayback: dontBlink,
+    )) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
+      imageUrl: imageMeta.networkThumbnail!,
+      imageBuilder: (context, imageProvider) {
+        return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
+      },
+      progressIndicatorBuilder: (context, url, downloadProgress) => Shimmer.fromColors(
+        baseColor: Colors.transparent,
+        highlightColor: Colors.white30,
+        child: AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height),
+      ),
+      errorWidget: (context, url, error) => Padding(padding: const EdgeInsets.all(8), child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error, color: Colors.white, size: 28),
+          const Text('Error', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const Gap(8),
+          SelectableText(error.toString(), style: const TextStyle(color: Colors.grey))
+        ],
+      )),
+    ) : const Text('No preview ?');
   }
 
 }

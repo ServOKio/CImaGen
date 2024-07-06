@@ -146,7 +146,7 @@ class OnRemote implements AbMain{
   }
 
   @override
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async {
+  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
     Uri parse = Uri.parse(_remoteAddress);
     Uri base = Uri(
         scheme: parse.scheme,

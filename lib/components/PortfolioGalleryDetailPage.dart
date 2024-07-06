@@ -220,7 +220,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     return Stack(
       children: <Widget>[
         _buildPhotoViewGallery(backCall), //Ебало
-        _buildIndicator() //Дно
+        if(widget.images.length > 1) _buildIndicator() //Дно
       ],
     );
   }

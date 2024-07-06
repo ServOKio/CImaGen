@@ -1,27 +1,31 @@
 import 'package:cimagen/utils/ThemeManager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:settings_ui/settings_ui.dart';
 
+import '../../modules/Animations.dart';
 import '../../utils/ImageManager.dart';
 import '../../utils/SQLite.dart';
 
 class DBExtra extends StatefulWidget{
-  const DBExtra({ Key? key }): super(key: key);
+  const DBExtra({super.key});
 
   @override
-  _DBExtraState createState() => _DBExtraState();
+  State<DBExtra> createState() => _DBExtraState();
 }
 
 class _DBExtraState extends State<DBExtra>{
   @override
   Widget build(BuildContext context) {
-    print(genHash(RenderEngine.txt2img, '2023-09-20', '00122-1529096123.png', host: '//foxwebui.ddns.net:7860')); //RenderEngine.txt2img RenderEngine 2023-09-20 //foxwebui.ddns.net:7860
     return Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
-            title: const Text('db requests'),
+            title: const ShowUp(
+              delay: 100,
+              child: Text('DB requests', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+            ),
             backgroundColor: const Color(0xaa000000),
             elevation: 0,
         ),
@@ -122,7 +126,7 @@ class _DBExtraState extends State<DBExtra>{
                       },
                     ),
                     SettingsTile(
-                      leading: Icon(Icons.delete),
+                      leading: const Icon(Icons.delete),
                       title: const Text('Delete network data'),
                       description: const Text('DELETE FROM images WHERE host NOT NULL\nDELETE FROM generation_params  WHERE host NOT NULL'),
                       onPressed: (context){
@@ -149,7 +153,24 @@ class _DBExtraState extends State<DBExtra>{
                       },
                     ),
                     SettingsTile(
-                      leading: Icon(Icons.delete, color: Colors.red),
+                      leading: const Icon(Icons.upgrade, color: Colors.yellow),
+                      title: const Text('Update db to version 3'),
+                      description: const Text('Parse rawData and put result to params column\nSELECT * FROM generation_params WHERE params IS NULL AND rawData IS NOT NULL;\n...\nUPDATE generation_params SET vae = ?, vaeHash = ?, params = ? WHERE keyup = ? and host = ?'),
+                      onPressed: (context){
+                        showDialog<String>(
+                          barrierDismissible: false,
+                          context: context,
+                          builder: (BuildContext context) => const AlertDialog(
+                            icon: Icon(Icons.warning_amber_outlined, color: Colors.orange),
+                            title: Text('Don\'t touch anything. As soon as everything is completed, this window will close automatically.'),
+                            content: LinearProgressIndicator(),
+                          ),
+                        );
+                        context.read<SQLite>().fixDB().then((value) => Navigator.pop(context, 'ok'));
+                      },
+                    ),
+                    SettingsTile(
+                      leading: const Icon(Icons.delete, color: Colors.red),
                       title: const Text('Drop all tables for images'),
                       description: const Text('DROP TABLE images\nDROP TABLE generation_params'),
                       onPressed: (context){
@@ -163,11 +184,11 @@ class _DBExtraState extends State<DBExtra>{
                                 onPressed: () => context.read<SQLite>().rawRun([
                                   'DROP TABLE images',
                                   'DROP TABLE generation_params'
-                                ]).then((value) => Navigator.pop(context, 'Ok')),
+                                ]).then((value) => Navigator.pop(context, 'ok')),
                                 child: const Text('Okay'),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.pop(context, 'Cancel'),
+                                onPressed: () => Navigator.pop(context, 'cancel'),
                                 child: const Text('Cancel'),
                               ),
                             ],
