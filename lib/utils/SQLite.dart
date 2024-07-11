@@ -135,13 +135,16 @@ class SQLite with ChangeNotifier{
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if(oldVersion == 0) return;
+        if (kDebugMode) {
+          print('old: $oldVersion, new: $newVersion');
+        }
         switch (newVersion) {
           case 3:
             Batch batch = db.batch();
             batch.rawQuery('ALTER TABLE generation_params ADD vae VARCHAR(128)');
             batch.rawQuery('ALTER TABLE generation_params ADD vaeHash VARCHAR(128)');
             batch.rawQuery('ALTER TABLE generation_params ADD params TEXT');
-            await batch.commit(noResult: false, continueOnError: false);
+            await batch.commit(noResult: true, continueOnError: true);
             break;
           default:
         }
@@ -187,6 +190,9 @@ class SQLite with ChangeNotifier{
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if(oldVersion == 0) return;
+        if (kDebugMode) {
+          print('old: $oldVersion, new: $newVersion');
+        }
         switch (newVersion) {
           case 2:
             await db.execute('ALTER TABLE favorites ADD host VARCHAR(256)');
