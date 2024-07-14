@@ -63,6 +63,14 @@ class ConfigManager with ChangeNotifier {
 }
 
 class DataManager with ChangeNotifier {
+  String? error;
+  bool get hasError => error != null;
+
+  void updateError(String? message){
+    error = message;
+    notifyListeners();
+  }
+
   bool loaded = false;
   int _count = 0;
 
@@ -91,11 +99,9 @@ class DataManager with ChangeNotifier {
           _e621Tags[e[1]] = TagInfo(id: int.parse(e[0]), name: e[1], category: int.parse(e[2]), count: int.parse(e[3]));
         });
         loaded = true;
-        print('done');
         notifyListeners();
       });
     } else {
-      print('no');
     }
   }
 

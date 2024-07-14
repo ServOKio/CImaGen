@@ -159,9 +159,6 @@ class _ImageViewState extends State<ImageView> {
         child: Center(
             child: ContextMenuRegion(
                 contextMenu: contextMenu,
-                onItemSelected: (value) {
-                  print(value);
-                },
                 child: Image.file(
                   File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath),
                   gaplessPlayback: true,

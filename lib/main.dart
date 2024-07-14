@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
@@ -16,7 +17,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
 import 'package:cimagen/Utils.dart';
@@ -33,12 +33,15 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:path/path.dart' as p;
 
 import 'components/AppBar.dart';
+import 'components/LoadingState.dart';
 import 'components/NotesSection.dart';
 import 'l10n/all_locales.dart';
+import 'modules/AudioController.dart';
 
 GitHub? githubAPI;
 AppBarController? appBarController;
 NotificationManager? notificationManager;
+AudioController? audioController;
 SharedPreferences? prefs;
 
 Future<void> main() async {
@@ -165,6 +168,7 @@ class Main extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
+
   static const platform = MethodChannel('app.channel.shared.data');
   String dataShared = 'No data';
 
@@ -225,6 +229,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   Future<void> initMe() async {
     githubAPI = GitHub();
+    audioController = AudioController();
     if(Platform.isAndroid){
       bool permissionStatus;
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -267,7 +272,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   void next(){
     context.read<ConfigManager>().init().then((v){
       context.read<DataManager>().init().then((v){
-
+        // audioController!.player.play(AssetSource('audio/okay.wav'));
       }).catchError((e){
         if (kDebugMode) print(e);
       });
@@ -322,21 +327,33 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
     return Scaffold(
       appBar: CAppBar(),
-      body: PageView(
-        physics: const NeverScrollableScrollPhysics(),
-        controller: _pageViewController,
-        children: <Widget>[
-          loaded ? debug ? Column(
-            children: [
-              Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
+      body: Stack(
+        children: [
+          PageView(
+            physics: const NeverScrollableScrollPhysics(),
+            controller: _pageViewController,
+            children: <Widget>[
+              loaded ? debug ? Column(
+                children: [
+                  Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
+                ],
+              ) : const Home() : LoadingState(loaded: loaded, error: error),
+              loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
+              loaded ? const Timeline() : LoadingState(loaded: loaded, error: error),
+              loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
+              // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+              // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+              const Settings()
             ],
-          ) : const Home() : LoadingState(loaded: loaded, errorMessage: error),
-          loaded ? const Gallery() : LoadingState(loaded: loaded, errorMessage: error),
-          loaded ? const Timeline() : LoadingState(loaded: loaded, errorMessage: error),
-          loaded ? const Comparison() : LoadingState(loaded: loaded, errorMessage: error),
-          // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-          // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-          const Settings()
+          ),
+          Positioned(
+            bottom: 14,
+            right: 120,
+            child: ChangeNotifierProvider(
+              create: (context) => notificationManager,
+              child:  Consumer<NotificationManager>(builder: (context, manager, child) => Column(crossAxisAlignment: CrossAxisAlignment.end, children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()))
+            )
+          )
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -403,28 +420,6 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       index,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
-    );
-  }
-}
-
-class LoadingState extends StatelessWidget{
-  final bool loaded;
-  final String? errorMessage;
-  const LoadingState({super.key, required this.loaded, this.errorMessage});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 30),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 50, color: Colors.redAccent),
-          const Gap(4),
-          const Text('Oops, I think we have a problem...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          Text(errorMessage ?? 'Unknown error', style: const TextStyle(color: Colors.grey), textAlign: TextAlign.center),
-        ],
-      ),
     );
   }
 }

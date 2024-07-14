@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/Utils.dart';
-import 'package:cimagen/components/SetupRequired.dart';
+import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/components/TimeLineLine.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
@@ -134,7 +134,7 @@ class _TimelineState extends State<Timeline> {
   @override
   Widget build(BuildContext context) {
     return sr ? Center(
-      child: SetupRequired(webui: true, comfyui: false),
+      child: LoadingState(loaded: !sr, error: context.read<DataManager>().error),
     ) : Row(
         children: <Widget>[
           _buildNavigationRail(),

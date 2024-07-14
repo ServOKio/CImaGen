@@ -12,7 +12,7 @@ import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
 import 'AbMain.dart';
 
-class OnNetworkLocation implements AbMain {
+class OnNetworkLocation extends ChangeNotifier implements AbMain {
   @override
   bool loaded = false;
   @override
@@ -143,6 +143,7 @@ class OnNetworkLocation implements AbMain {
     int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));
     _jobs[jobID] = job;
 
+    job.run();
     // Return job id
     return job.controller.stream;
   }

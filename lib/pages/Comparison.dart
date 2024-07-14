@@ -519,9 +519,6 @@ class _ImageListStateStateful extends State<ImageList>{
                   bool b = isMain && isTest;
                   return ContextMenuRegion(
                       contextMenu: contextMenu,
-                      onItemSelected: (value) {
-                        print(value);
-                      },
                       child: Container(
                           margin: const EdgeInsets.all(3),
                           decoration: BoxDecoration(

@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cimagen/components/SetupRequired.dart';
+import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/pages/Timeline.dart' as timeline;
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -117,7 +118,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         }, getter: () => true),
         CustomActionButton(icon: Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
           _lists[_tabs[_tabController.index].index]?.then((listValue) {
-            print('ok');
             Folder f = listValue[_selected[_tabs[_tabController.index].index]!];
             showDialog<String>(
               context: context,
@@ -203,7 +203,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       Folder f = listValue[index];
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
       imagesList?.then((List<ImageMeta> value) {
-        print('ok');
         bool force = false; //listValue.length-1 == index;
         context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((stream){
           if(value.isEmpty || force){
@@ -410,8 +409,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     const breakpoint = 600.0;
     return ChangeNotifierProvider(
       create: (context) => model,
-      child:  sr
-        ? Center(child: SetupRequired(webui: true, comfyui: false, error: context.read<ImageManager>().getter.error))
+      child: sr
+        ? Center(child: LoadingState(loaded: !sr, error: context.read<DataManager>().error))
         : screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
           _buildNavigationRail(),
           Expanded(
@@ -865,6 +864,23 @@ class PreviewImage extends StatelessWidget {
                 showInExplorer(imageMeta.fullPath);
               },
             ),
+            MenuItem.submenu(
+              label: 'Copy...',
+              icon: Icons.copy,
+              items: [
+                if(imageMeta.generationParams?.seed != null)MenuItem(
+                  label: 'Seed',
+                  value: 'seed',
+                  icon: Icons.abc,
+                  onSelected: () async {
+                    String seed = imageMeta.generationParams!.seed.toString();
+                    Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Seed $seed copied'),
+                    )));
+                  },
+                ),
+              ],
+            ),
             if(sp.hasSelected) CustomMenuItem(
               label: 'Delete selected',
               value: 'delete_selected',
@@ -878,6 +894,35 @@ class PreviewImage extends StatelessWidget {
                     iconColor: Colors.redAccent,
                     title: const Text('Are you serious ?'),
                     content: Text('This action will delete ${sp.totalSelected} images permanently'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, 'cancel'),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: (){
+                          Navigator.pop(context, 'ok');
+                        },
+                        child: const Text('Okay'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            CustomMenuItem(
+              label: 'Delete',
+              value: 'delete',
+              icon: Icons.delete,
+              iconColor: Colors.redAccent,
+              onSelected: () {
+                showDialog<String>(
+                  context: context,
+                  builder: (BuildContext context) => AlertDialog(
+                    icon: const Icon(Icons.warning),
+                    iconColor: Colors.redAccent,
+                    title: const Text('Are you serious ?'),
+                    content: Text('This action will delete this image'),
                     actions: <Widget>[
                       TextButton(
                         onPressed: () => Navigator.pop(context, 'cancel'),

@@ -90,7 +90,6 @@ class ImageManager extends ChangeNotifier {
     } else {
       changeGetter(0, exit: false);
     }
-
   }
 
   /// Changing [AbMain]
@@ -161,6 +160,9 @@ class ImageManager extends ChangeNotifier {
 }
 
 class ParseJob {
+  Function? _onDone;
+  Function? _onProcess;
+
   int _jobID = -1;
   int get jobID => _jobID;
 
@@ -181,17 +183,28 @@ class ParseJob {
     _controller = StreamController<List<ImageMeta>>();
   }
 
+  RenderEngine? re;
+  String? host;
+  Uri? remote;
+
   Future<int> putAndGetJobID(RenderEngine? re, List<dynamic> rawImages, {String? host, Uri? remote}) async {
+    this.re = re;
+    this.host = host;
+    this.remote = remote;
+
     if (kDebugMode) {
-      print('get ${rawImages.length}');
+      print('IM:putAndGetJobID: get ${rawImages.length}');
     }
     _cache.addAll(rawImages);
 
     _jobID = getRandomInt(1000, 100000);
-
-    _parse(re, host, remote);
     return _jobID;
+  }
 
+  void run({Null Function()? onDone, Null Function(int total, int current, String? thumbnail)? onProcess}) {
+    if(onDone != null) _onDone = onDone;
+    if(onProcess != null) _onProcess = onProcess;
+    _parse(re, host, remote);
   }
 
   Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
@@ -219,17 +232,21 @@ class ParseJob {
           if(value != null){
             _done.add(value);
             _controller.add(finished);
-            NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
-              if(doI){
-                NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
-                  _doneTotal++;
-                  _isDone();
-                });
-              } else {
-                _doneTotal++;
-                _isDone();
-              }
+            NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+              _doneTotal++;
+              _isDone();
             });
+            // NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
+            //   if(doI){
+            //     NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+            //       _doneTotal++;
+            //       _isDone();
+            //     });
+            //   } else {
+            //     _doneTotal++;
+            //     _isDone();
+            //   }
+            // });
           } else {
             _doneTotal++;
             _isDone();
@@ -271,21 +288,31 @@ class ParseJob {
                 networkThumbnail: thumb.toString()
             );
 
-            await im.parseNetworkImage();
-            await im.makeThumbnail();
-            _done.add(im);
-            _controller.add(finished);
-            NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
-              if(doI){
-                NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
-                  _doneTotal++;
-                  _isDone();
-                });
-              } else {
+            try {
+              await im.parseNetworkImage();
+              await im.makeThumbnail();
+
+              _done.add(im);
+              _controller.add(finished);
+              // NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
+              //   if(doI){
+              //     NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+              //       _doneTotal++;
+              //       _isDone();
+              //     });
+              //   } else {
+              //     _doneTotal++;
+              //     _isDone();
+              //   }
+              // });
+              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
                 _doneTotal++;
                 _isDone();
-              }
-            });
+              });
+            } catch (e, t){
+              _doneTotal++;
+              _isDone();
+            }
         }
       } else {
         _doneTotal++;
@@ -295,11 +322,13 @@ class ParseJob {
   }
 
   void _isDone(){
+    if(_onProcess != null) _onProcess!(_cache.length, _doneTotal, _done.isNotEmpty ? _done.last.thumbnail : null);
     if(isDone){
       if (kDebugMode) {
         print('done with $_jobID');
       }
       _controller.close();
+      if(_onDone != null) _onDone!();
     }
   }
 }

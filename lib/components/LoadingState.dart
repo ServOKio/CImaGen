@@ -1,20 +1,29 @@
+import 'package:cimagen/Utils.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:provider/provider.dart';
 
-class SetupRequired extends StatefulWidget{
-  final bool webui;
-  final bool comfyui;
-  String? error;
+import '../utils/ImageManager.dart';
 
-  SetupRequired({super.key, required this.webui, required this.comfyui, this.error});
+class LoadingState extends StatefulWidget{
+  final bool loaded;
+  final String? error;
+
+  const LoadingState({
+    super.key,
+    required this.loaded,
+    this.error
+  });
 
   @override
-  State<SetupRequired> createState() => _SetupRequiredState();
+  State<LoadingState> createState() => _LoadingStateState();
 }
 
-class _SetupRequiredState extends State<SetupRequired> with TickerProviderStateMixin{
+class _LoadingStateState extends State<LoadingState> with TickerProviderStateMixin{
   late final AnimationController _repeatController;
   late final Animation<double> _animation;
+
+  int test = 0;
 
   @override
   void initState() {
@@ -35,6 +44,7 @@ class _SetupRequiredState extends State<SetupRequired> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final dataManager = Provider.of<DataManager>(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -58,10 +68,17 @@ class _SetupRequiredState extends State<SetupRequired> with TickerProviderStateM
           ],
         ),
         const Gap(4),
-        Text(widget.error != null ? 'Oops, there seems to be a error' : 'Configuration required', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const Text('To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
-        widget.webui ? const Text('WebUI folder', style: TextStyle(color: Colors.grey)) : const SizedBox.shrink(),
-        widget.comfyui ? const Text('ComfyUI folder') : const SizedBox.shrink(),
+        Text(dataManager.error != null ? 'Oops, there seems to be a error' : 'Configuration required', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        Text(dataManager.error != null ? dataManager.error! : 'To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
+        // widget.webui ? const Text('WebUI folder', style: TextStyle(color: Colors.grey)) : const SizedBox.shrink(),
+        // widget.comfyui ? const Text('ComfyUI folder') : const SizedBox.shrink(),
+        const Gap(7),
+        MaterialButton(onPressed: (){
+          setState(() {
+            test = test + 1;
+          });
+          print(context.read<DataManager>().error);
+        }, child: Text('Retry'))
       ],
     );
   }

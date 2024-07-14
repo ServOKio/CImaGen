@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -13,13 +14,15 @@ import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
 import 'AbMain.dart';
 
-class OnLocal implements AbMain {
+class OnLocal extends ChangeNotifier implements AbMain{
   @override
   bool loaded = false;
   @override
   String? error;
   @override
   bool get hasError => error != null;
+
+  List<String> inProcess = [];
 
   // Config
   Map<String, dynamic> _config = <String, dynamic>{};
@@ -62,6 +65,7 @@ class OnLocal implements AbMain {
         'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
       });
       loaded = true;
+      notifyListeners();
 
       if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
       if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
@@ -127,6 +131,7 @@ class OnLocal implements AbMain {
 
   @override
   Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
+    print('indexFolder: ${renderEngine.name} $sub ${hashes?.length ?? 'null'}');
     // Read all files sizes and get hash
     //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
     Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
@@ -146,8 +151,46 @@ class OnLocal implements AbMain {
       }
     }
 
+    if(fe.isNotEmpty){
+      if(inProcess.contains(sub)){
+        fe = [];
+      } else {
+        inProcess.add(sub);
+      }
+    }
+
     ParseJob job = ParseJob();
     int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));
+
+    int notID = -1;
+    if(fe.isNotEmpty) {
+      notID = notificationManager!.show(
+        title: 'Indexing $sub',
+        description: 'We are processing ${fe.length} images, please wait',
+        content: Container(
+          margin: const EdgeInsets.only(top: 7),
+          width: 100,
+          child: const LinearProgressIndicator(),
+        )
+      );
+    }
+    job.run(
+      onDone: (){
+        if(notID != -1) notificationManager!.close(notID);
+        if(fe.isNotEmpty) inProcess.remove(sub);
+      },
+      onProcess: (total, current, thumbnail) {
+        if(notID == -1) return;
+        notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
+        if(thumbnail != null) {
+          notificationManager!.update(notID, 'thumbnail', Image.memory(
+            base64Decode(thumbnail),
+            filterQuality: FilterQuality.low,
+            gaplessPlayback: true,
+          ));
+        }
+      }
+    );
     _jobs[jobID] = job;
 
     // Return job id

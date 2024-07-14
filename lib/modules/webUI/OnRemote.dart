@@ -5,20 +5,24 @@ import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
 
 // Required "Infinite image browsing" addon
-class OnRemote implements AbMain{
+class OnRemote extends ChangeNotifier implements AbMain{
   @override
   bool loaded = false;
   String? error;
   @override
   bool get hasError => error != null;
+
+  List<String> inProcess = [];
 
   String _host = '-';
   @override
@@ -53,7 +57,7 @@ class OnRemote implements AbMain{
           port: parse.port,
           path: '/infinite_image_browsing/global_setting',
       );
-      http.Client().get(base).then((res) async {
+      http.Client().get(base).timeout(const Duration(seconds: 5)).then((res) async {
         if(res.statusCode == 200){
           var data = await json.decode(res.body);
           _sd_root = data['sd_cwd'];
@@ -74,8 +78,11 @@ class OnRemote implements AbMain{
           }
           error = 'The host returned an invalid response: 404';
         }
+        notifyListeners();
         if(!loaded) findError();
       }).catchError((e) {
+        error = e;
+        notifyListeners();
         findError();
       });
     }
@@ -165,8 +172,54 @@ class OnRemote implements AbMain{
     var res = await http.Client().get(base);
     if(res.statusCode == 200){
       var folderFilesRaw = await json.decode(res.body)['files'].where((e) => ['.png', 'jpg', '.jpeg', '.gif', '.webp'].contains(p.extension(e['name']))).toList();
+      if(hashes != null && hashes.isNotEmpty){
+        folderFilesRaw = folderFilesRaw.where((e) => !hashes.contains(genPathHash(normalizePath(e['fullpath'])))).toList(growable: false);
+        if (kDebugMode) {
+          print('to send: ${folderFilesRaw.length}');
+        }
+      }
+
+      if(folderFilesRaw.isNotEmpty){
+        if(inProcess.contains(sub)){
+          folderFilesRaw = [];
+        } else {
+          inProcess.add(sub);
+        }
+      }
+
       ParseJob job = ParseJob();
       int jobID = await job.putAndGetJobID(renderEngine, folderFilesRaw, host: _host, remote: parse);
+
+      int notID = -1;
+      if(folderFilesRaw.isNotEmpty) {
+        notID = notificationManager!.show(
+            title: 'Indexing $sub',
+            description: 'We are processing ${folderFilesRaw.length} images, please wait',
+            content: Container(
+              margin: EdgeInsets.only(top: 7),
+              width: 100,
+              child: LinearProgressIndicator(),
+            )
+        );
+      }
+
+      job.run(
+          onDone: (){
+            if(notID != -1) notificationManager!.close(notID);
+            if(folderFilesRaw.isNotEmpty) inProcess.remove(sub);
+          },
+          onProcess: (total, current, thumbnail) {
+            if(notID == -1) return;
+            notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
+            if(thumbnail != null) {
+              notificationManager!.update(notID, 'thumbnail', Image.memory(
+                base64Decode(thumbnail),
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+              ));
+            }
+          }
+      );
       _jobs[jobID] = job;
 
       // Return job id

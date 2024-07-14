@@ -2,9 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
-abstract class AbMain {
+abstract class AbMain extends ChangeNotifier{
   bool loaded = false;
   String? error;
   bool get hasError => error != null;

@@ -438,9 +438,9 @@ class SQLite with ChangeNotifier{
         )
       );
     });
-    if (kDebugMode) {
-      print(fi.length);
-    }
+    // if (kDebugMode) {
+    //   print(fi.length);
+    // }
     return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
