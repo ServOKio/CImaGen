@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/modules/webUI/OnLocal.dart';
@@ -288,31 +289,54 @@ class ParseJob {
                 networkThumbnail: thumb.toString()
             );
 
-            try {
-              await im.parseNetworkImage();
-              await im.makeThumbnail();
+            int attempts = 0;
+            bool okay = false;
+            String? err;
+            while(attempts < 3 && okay != true){
+              try {
+                await im.parseNetworkImage();
+                await im.makeThumbnail();
 
-              _done.add(im);
-              _controller.add(finished);
-              // NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
-              //   if(doI){
-              //     NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
-              //       _doneTotal++;
-              //       _isDone();
-              //     });
-              //   } else {
-              //     _doneTotal++;
-              //     _isDone();
-              //   }
-              // });
-              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
-                _doneTotal++;
-                _isDone();
-              });
-            } catch (e, t){
-              _doneTotal++;
-              _isDone();
+                _done.add(im);
+                if(!_controller.isClosed) _controller.add(finished);
+                // NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
+                //   if(doI){
+                //     NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+                //       _doneTotal++;
+                //       _isDone();
+                //     });
+                //   } else {
+                //     _doneTotal++;
+                //     _isDone();
+                //   }
+                // });
+                okay = true;
+                NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+                  _doneTotal++;
+                  _isDone();
+                });
+              } catch (e, t){
+                err = e.toString();
+                if (kDebugMode) {
+                  print(t);
+                }
+                attempts++;
+                await Future.delayed(const Duration(seconds: 3));
+              }
             }
+            if(okay != true && attempts >= 3){
+              int notID = notificationManager!.show(
+                  thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+                  title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
+                  description: 'We were unable to process the image, 3 attempts were made\n$path\nError: $err'
+              );
+              audioController!.player.play(AssetSource('audio/error.wav'));
+              Future.delayed(const Duration(milliseconds: 10000), () {
+                notificationManager!.close(notID);
+              });
+            }
+            _doneTotal++;
+            _isDone();
         }
       } else {
         _doneTotal++;
@@ -952,7 +976,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
     final originalImage = img.decodePsd(fileBytes);
 
-    psdEx['softwareType'] = Software.photoshop;
+    psdEx['softwareType'] = Software.photoshop.index;
 
     ImageMeta i = ImageMeta(
         fullPath: p.normalize(imagePath),
@@ -1268,7 +1292,7 @@ class ImageMeta {
           fileSize = stat.size;
           dateModified ??= stat.modified;
         } else {
-          throw Exception('The answer is not 200');
+          throw Exception('The answer is not 200: ${res.statusCode}');
         }
       } else {
         tempFilePath = pa;

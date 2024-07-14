@@ -348,7 +348,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           ),
           Positioned(
             bottom: 14,
-            right: 120,
+            right: 90,
             child: ChangeNotifierProvider(
               create: (context) => notificationManager,
               child:  Consumer<NotificationManager>(builder: (context, manager, child) => Column(crossAxisAlignment: CrossAxisAlignment.end, children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()))

@@ -2,6 +2,7 @@ import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
@@ -24,12 +25,14 @@ class NotificationManager with ChangeNotifier {
 
   }
 
-  int show({required String title, String? description, Color color = Colors.red, Widget? content}){
+  int show({required String title, Widget? thumbnail, String? description, Color color = Colors.red, Widget? content}){
     int id = getRandomInt(10000, 50000);
-    _notifications[id] = NotificationObject(id: id, title: title, description: description, content: content);
+    _notifications[id] = NotificationObject(id: id, thumbnail: thumbnail, title: title, description: description, content: content);
     notifyListeners();
     audioController!.player.play(AssetSource('audio/open.wav'));
-    print('show with id:$id: $title');
+    if (kDebugMode) {
+      print('show with id:$id: $title');
+    }
     if(NavigationService.navigatorKey.currentContext != null){
       // BuildContext context = NavigationService.navigatorKey.currentContext!;
       //
@@ -322,7 +325,7 @@ class _NotificationWidgetState extends State<NotificationWidget> with TickerProv
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(notiData.title, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      if(notiData.description != null) Text(notiData.description!, style: const TextStyle(color: Colors.grey)),
+                      if(notiData.description != null) SelectableText(notiData.description!, style: const TextStyle(color: Colors.grey)),
                       if(notiData.content != null) notiData.content!,
                       // const Gap(21),
                       // Row(

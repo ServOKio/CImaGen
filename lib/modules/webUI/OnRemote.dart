@@ -81,7 +81,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         notifyListeners();
         if(!loaded) findError();
       }).catchError((e) {
-        error = e;
+        error = e.toString();
         notifyListeners();
         findError();
       });
@@ -196,9 +196,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
             title: 'Indexing $sub',
             description: 'We are processing ${folderFilesRaw.length} images, please wait',
             content: Container(
-              margin: EdgeInsets.only(top: 7),
+              margin: const EdgeInsets.only(top: 7),
               width: 100,
-              child: LinearProgressIndicator(),
+              child: const LinearProgressIndicator(),
             )
         );
       }
