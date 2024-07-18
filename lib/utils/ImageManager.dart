@@ -99,7 +99,7 @@ class ImageManager extends ChangeNotifier {
   /// * 2 - [OnNetworkLocation]
   /// * default - [OnLocal]
   Future<void> changeGetter(int type, {bool exit = true}) async {
-    print('Channge getter to $type:$exit');
+    print('Change getter to $type:$exit');
     switch (type) {
       case 1:
         if(exit) _getter.exit();

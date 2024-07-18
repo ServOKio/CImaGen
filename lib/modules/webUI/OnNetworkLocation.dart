@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -39,6 +41,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   List<StreamSubscription<FileSystemEvent>> watchList = [];
   Map<int, ParseJob> _jobs = {};
 
+  List<RenderEngine> useAddon = [];
+
   @override
   Future<void> init() async {
     // 'root', 'output', 'remote'
@@ -50,21 +54,46 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
         _config = await json.decode(response);
         // paths
-        String i2ig = p.join(_webui_root, _config['outdir_img2img_grids']);
-        String i2i = p.join(_webui_root, _config['outdir_img2img_samples']);
-        String t2ig = p.join(_webui_root, _config['outdir_txt2img_grids']);
-        String t2i = p.join(_webui_root, _config['outdir_txt2img_samples']);
-        String ei = p.join(_webui_root, _config['outdir_extras_samples']);
+        String i2igOut = p.join(_webui_root, _config['outdir_img2img_grids']);
+        String i2iOut = p.join(_webui_root, _config['outdir_img2img_samples']);
+        String t2igOut = p.join(_webui_root, _config['outdir_txt2img_grids']);
+        String t2iOut = p.join(_webui_root, _config['outdir_txt2img_samples']);
+        String eiOut = p.join(_webui_root, _config['outdir_extras_samples']);
+
+        bool i2igE = Directory(i2igOut).existsSync();
+        if(!i2igE) useAddon.add(RenderEngine.img2imgGrid);
+        bool i2iE = Directory(i2iOut).existsSync();
+        if(!i2iE) useAddon.add(RenderEngine.img2img);
+
+        bool t2igE = Directory(t2igOut).existsSync();
+        if(!t2igE) useAddon.add(RenderEngine.txt2imgGrid);
+        bool t2iE = Directory(t2iOut).existsSync();
+        if(!t2iE) useAddon.add(RenderEngine.txt2img);
+
+        bool eE = Directory(eiOut).existsSync();
+        if(!eE) useAddon.add(RenderEngine.extra);
 
         _webuiPaths.addAll({
-          'outdir_img2img-grids': Directory(i2ig).existsSync() ? i2ig : _config['outdir_img2img_grids'],
-          'outdir_img2img-images': Directory(i2i).existsSync() ? i2i : _config['outdir_img2img_samples'],
-          'outdir_txt2img-grids': Directory(t2ig).existsSync() ? t2ig : _config['outdir_txt2img_grids'],
-          'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
-          'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
+          // img2img
+          'outdir_img2img-grids': i2igE ? i2igOut : _config['outdir_img2img_grids'],
+          'outdir_img2img-images': i2iE ? i2iOut : _config['outdir_img2img_samples'],
+          //txt2img
+          'outdir_txt2img-grids': t2igE ? t2igOut : _config['outdir_txt2img_grids'],
+          'outdir_txt2img-images': t2iE ? t2iOut : _config['outdir_txt2img_samples'],
+          //extra
+          'outdir_extras_samples': eE ? eiOut : _config['outdir_extras_samples'],
         });
 
         loaded = true;
+
+        if(useAddon.isNotEmpty){
+          int notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.network_ping, color: Colors.blueAccent, size: 32),
+              title: 'Some access points have been changed',
+              description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} will be processed over the internet, not locally'
+          );
+          audioController!.player.play(AssetSource('audio/wrong.wav'));
+        }
 
         if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
         if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
