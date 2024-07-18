@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -31,7 +32,12 @@ class OnRemote extends ChangeNotifier implements AbMain{
   String _remoteAddress = '';
 
   void findError(){
-
+    int notID = notificationManager!.show(
+        thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+        title: 'Initialization problem',
+        description: '${error!.startsWith('TimeoutException') ? 'The host did not return the information within 10 seconds' : 'Unknown error'}\nError: $error'
+    );
+    audioController!.player.play(AssetSource('audio/error.wav'));
   }
 
   String _sd_root = '';
@@ -57,7 +63,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           port: parse.port,
           path: '/infinite_image_browsing/global_setting',
       );
-      http.Client().get(base).timeout(const Duration(seconds: 5)).then((res) async {
+      http.Client().get(base).timeout(const Duration(seconds: 10)).then((res) async {
         if(res.statusCode == 200){
           var data = await json.decode(res.body);
           _sd_root = data['sd_cwd'];
@@ -80,7 +86,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         }
         notifyListeners();
         if(!loaded) findError();
-      }).catchError((e) {
+      }).catchError((e, t) {
         error = e.toString();
         notifyListeners();
         findError();
