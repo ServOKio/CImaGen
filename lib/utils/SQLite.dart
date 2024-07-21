@@ -118,7 +118,7 @@ class SQLite with ChangeNotifier{
                 }
               }
 
-              await batch.commit(noResult: false, continueOnError: false);
+              await batch.commit(noResult: false, continueOnError: true);
               if (kDebugMode) print('Done');
               !use ? toBatchTwo.clear() : toBatchOne.clear();
               inProgress = false;
