@@ -119,9 +119,6 @@ class SQLite with ChangeNotifier{
               }
 
               List<Object?> res = await batch.commit(continueOnError: false);
-              for (var element in res) {
-                print(element);
-              }
               if (kDebugMode) print('Done');
               !use ? toBatchTwo.clear() : toBatchOne.clear();
               inProgress = false;

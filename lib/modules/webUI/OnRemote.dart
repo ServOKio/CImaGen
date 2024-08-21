@@ -63,6 +63,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           port: parse.port,
           path: '/infinite_image_browsing/global_setting',
       );
+      print(base.toString());
       http.Client().get(base).timeout(const Duration(seconds: 10)).then((res) async {
         if(res.statusCode == 200){
           var data = await json.decode(res.body);
@@ -89,6 +90,14 @@ class OnRemote extends ChangeNotifier implements AbMain{
       }).catchError((e, t) {
         error = e.toString();
         notifyListeners();
+
+        int notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
+            title: 'Error on OnRemote',
+            description: e.toString()
+        );
+        audioController!.player.play(AssetSource('audio/error.wav'));
+
         findError();
       });
     }
