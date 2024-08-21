@@ -106,7 +106,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
         path: '/infinite_image_browsing/files',
         queryParameters: {'folder_path': _webuiPaths[ke[renderEngine]]}
     );
-    var res = await http.Client().get(base).timeout(const Duration(seconds: 5));
+    print(base.toString());
+    var res = await http.Client().get(base).timeout(const Duration(seconds: 10));
     if(res.statusCode == 200){
       List<dynamic> files = await json.decode(res.body)['files'];
       for (var i = 0; i < files.length; i++) {
@@ -175,7 +176,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         path: '/infinite_image_browsing/files',
         queryParameters: {'folder_path': p.join(_webuiPaths[ke[renderEngine]]!, sub)}
     );
-    var res = await http.Client().get(base);
+    var res = await http.Client().get(base).timeout(const Duration(seconds: 5));
     if(res.statusCode == 200){
       var folderFilesRaw = await json.decode(res.body)['files'].where((e) => ['.png', 'jpg', '.jpeg', '.gif', '.webp'].contains(p.extension(e['name']))).toList();
       if(hashes != null && hashes.isNotEmpty){

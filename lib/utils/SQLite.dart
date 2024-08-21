@@ -118,14 +118,17 @@ class SQLite with ChangeNotifier{
                 }
               }
 
-              await batch.commit(noResult: false, continueOnError: true);
+              List<Object?> res = await batch.commit(continueOnError: false);
+              for (var element in res) {
+                print(element);
+              }
               if (kDebugMode) print('Done');
               !use ? toBatchTwo.clear() : toBatchOne.clear();
               inProgress = false;
             }
           } on Exception catch(e) {
             if (kDebugMode){
-              print('error');
+              print('toBatch error');
               print(e);
             }
           }
