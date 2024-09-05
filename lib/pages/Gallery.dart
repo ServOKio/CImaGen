@@ -8,6 +8,7 @@ import 'package:cimagen/pages/Timeline.dart' as timeline;
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
@@ -27,6 +28,8 @@ import '../utils/NavigationService.dart';
 import '../utils/SQLite.dart';
 import '../utils/ThemeManager.dart';
 import 'Settings.dart';
+
+import 'package:path/path.dart' as p;
 
 Future<List<Folder>> _loadMenu(RenderEngine re) async {
   return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(re);
@@ -81,6 +84,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+
+
       appBarController!.setActions([
         CustomActionButton(icon: Icons.info, tooltip: 'Database info', onPress: (){
           context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value){
@@ -868,9 +873,8 @@ class PreviewImage extends StatelessWidget {
               label: 'Copy...',
               icon: Icons.copy,
               items: [
-                if(imageMeta.generationParams?.seed != null)MenuItem(
+                if(imageMeta.generationParams?.seed != null) MenuItem(
                   label: 'Seed',
-                  value: 'seed',
                   icon: Icons.abc,
                   onSelected: () async {
                     String seed = imageMeta.generationParams!.seed.toString();
@@ -879,6 +883,32 @@ class PreviewImage extends StatelessWidget {
                     )));
                   },
                 ),
+                MenuItem(
+                  label: 'Favorite images to folder...',
+                  icon: Icons.star,
+                  onSelected: () async {
+                    // imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)
+                    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      Iterable<ImageMeta> l = imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath));
+                      if(l.isNotEmpty){
+                        int notID = notificationManager!.show(
+                            title: 'Copying files',
+                            description: 'Now we will copy ${l.length} files to\n$selectedDirectory',
+                            content: Container(
+                              margin: const EdgeInsets.only(top: 7),
+                              width: 100,
+                              child: const LinearProgressIndicator(),
+                            )
+                        );
+                        for(ImageMeta m in l){
+                          await File(m.fullPath).copy(p.join(selectedDirectory, m.fileName));
+                        }
+                        notificationManager!.close(notID);
+                      }
+                    }
+                  },
+                )
               ],
             ),
             if(sp.hasSelected) CustomMenuItem(

@@ -49,6 +49,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   Map<int, ParseJob> _jobs = {};
 
   List<RenderEngine> useAddon = [];
+  List<RenderEngine> inSMB = [];
 
   @override
   Future<void> init() async {
@@ -77,6 +78,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           t = p.join(outBase, i2igOut.split('outputs').last.replaceFirst(RegExp(r'\\|\/'), ''));
           if(Directory(t).existsSync()){
             i2igOut = t;
+            i2igE = true;
+            inSMB.add(RenderEngine.img2imgGrid);
           } else {
             useAddon.add(RenderEngine.img2imgGrid);
           }
@@ -89,6 +92,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           if(Directory(t).existsSync()){
             i2iOut = t;
             i2iE = true;
+            inSMB.add(RenderEngine.img2img);
           } else {
             useAddon.add(RenderEngine.img2img);
           }
@@ -101,6 +105,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           if(Directory(t).existsSync()){
             t2igOut = t;
             t2igE = true;
+            inSMB.add(RenderEngine.txt2imgGrid);
           } else {
             useAddon.add(RenderEngine.txt2imgGrid);
           }
@@ -113,6 +118,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           if(Directory(t).existsSync()){
             t2iOut = t;
             t2iE = true;
+            inSMB.add(RenderEngine.txt2img);
           } else {
             useAddon.add(RenderEngine.txt2img);
           }
@@ -125,6 +131,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           if(Directory(t).existsSync()){
             eiOut = t;
             eE = true;
+            inSMB.add(RenderEngine.extra);
           } else {
             useAddon.add(RenderEngine.extra);
           }
@@ -198,8 +205,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           path: ent.path,
           name: p.basename(ent.path),
           files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-              fullPath: p.normalize(ent.path),
-              isLocal: true
+            fullPath: p.normalize(ent.path),
+            isLocal: true
           )).toList()
       ));
       ind++;

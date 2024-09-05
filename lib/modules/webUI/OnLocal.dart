@@ -147,7 +147,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
       // }
       fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       if (kDebugMode) {
-        print('to send: ${fe.length}');
+        print('onLocal:indexFolder: to send: ${fe.length}');
       }
     }
 
