@@ -70,13 +70,13 @@ class OnRemote extends ChangeNotifier implements AbMain{
           _sd_root = data['sd_cwd'];
 
           _webuiPaths.addAll({
-            'outdir_extras-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_extras_samples'])),
-            'outdir_img2img-grids': p.normalize(p.join(_sd_root, data['global_setting']['outdir_img2img_grids'])),
-            'outdir_img2img-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_img2img_samples'])),
-            'outdir_txt2img-grids': p.normalize(p.join(_sd_root, data['global_setting']['outdir_txt2img_grids'])),
-            'outdir_txt2img-images': p.normalize(p.join(_sd_root, data['global_setting']['outdir_txt2img_samples'])),
-            'outdir_save': p.normalize(p.join(_sd_root, data['global_setting']['outdir_save'])),
-            'outdir_init': p.normalize(p.join(_sd_root, data['global_setting']['outdir_init_images']))
+            'outdir_extras-images': normalizePath(p.join(_sd_root, data['global_setting']['outdir_extras_samples'])),
+            'outdir_img2img-grids': normalizePath(p.join(_sd_root, data['global_setting']['outdir_img2img_grids'])),
+            'outdir_img2img-images': normalizePath(p.join(_sd_root, data['global_setting']['outdir_img2img_samples'])),
+            'outdir_txt2img-grids': normalizePath(p.join(_sd_root, data['global_setting']['outdir_txt2img_grids'])),
+            'outdir_txt2img-images': normalizePath(p.join(_sd_root, data['global_setting']['outdir_txt2img_samples'])),
+            'outdir_save': normalizePath(p.join(_sd_root, data['global_setting']['outdir_save'])),
+            'outdir_init': normalizePath(p.join(_sd_root, data['global_setting']['outdir_init_images']))
           });
           loaded = true;
         } else {

@@ -41,7 +41,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     // changeScale.scaleState = PhotoViewScaleState.originalSize;
   }
 
-  late CarouselController carouselController;
+  late CarouselSliderController carouselController;
 
   int gpState = 0;
 
@@ -54,7 +54,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
   @override
   void initState() {
     super.initState();
-    carouselController = CarouselController();
+    carouselController = CarouselSliderController();
     _currentIndex = widget.currentIndex;
     _pageController = PageController(initialPage: _currentIndex);
     load();

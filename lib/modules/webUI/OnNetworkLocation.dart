@@ -205,7 +205,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           path: ent.path,
           name: p.basename(ent.path),
           files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-            fullPath: p.normalize(ent.path),
+            fullPath: normalizePath(ent.path),
             isLocal: true
           )).toList()
       ));

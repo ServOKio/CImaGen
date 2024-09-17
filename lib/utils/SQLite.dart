@@ -114,7 +114,7 @@ class SQLite with ChangeNotifier{
               if (kDebugMode) print('Sending ${send.length}...');
               for (var e in send) {
                 if(e.type == JobType.insert){
-                  batch.insert(e.to, e.obj);
+                  batch.insert(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.replace);
                 }
               }
 

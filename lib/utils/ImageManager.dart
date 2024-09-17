@@ -208,11 +208,12 @@ class ParseJob {
     _parse(re, host, remote);
   }
 
+  // НОРМАЛИЗОВАНО
   Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
     if(_cache.isEmpty) return _isDone();
     for(dynamic raw in _cache){
       bool yes = true;
-      String path = normalizePath(p.normalize(raw.runtimeType == String ? raw : raw['fullpath']));
+      String path = normalizePath(raw.runtimeType == String ? raw : raw['fullpath']);
       // Check file type
       final String e = p.extension(path);
       if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
@@ -653,7 +654,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
     ImageMeta i = ImageMeta(
         error: error,
-        fullPath: p.normalize(imagePath),
+        fullPath: imagePath,
         re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
         mine: mine,
         fileTypeExtension: e,
@@ -832,7 +833,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
     ImageMeta i = ImageMeta(
         error: error,
-        fullPath: p.normalize(imagePath),
+        fullPath: imagePath,
         re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
         mine: mine,
         fileTypeExtension: e,
@@ -938,7 +939,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     });
 
     ImageMeta i = ImageMeta(
-        fullPath: p.normalize(imagePath),
+        fullPath: imagePath,
         re: re,
         mine: mine,
         fileTypeExtension: e,
@@ -957,7 +958,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
     final originalImage = img.decodeGif(fileBytes);
     ImageMeta i = ImageMeta(
-        fullPath: p.normalize(imagePath),
+        fullPath: imagePath,
         re: re,
         mine: mine,
         fileTypeExtension: e,
@@ -979,7 +980,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     psdEx['softwareType'] = Software.photoshop.index;
 
     ImageMeta i = ImageMeta(
-        fullPath: p.normalize(imagePath),
+        fullPath: imagePath,
         re: re,
         mine: mine,
         fileTypeExtension: e,

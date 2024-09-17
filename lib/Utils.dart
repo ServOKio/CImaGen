@@ -939,7 +939,7 @@ Future<String> getDeviceInfo() async {
 
 String normalizePath(String path){
   bool isWindowsPath = path.startsWith('\\\\') || path[1] == ':';
-  return isWindowsPath ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/');
+  return p.normalize(isWindowsPath ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/'));
 }
 
 // https://e621.net/db_export/

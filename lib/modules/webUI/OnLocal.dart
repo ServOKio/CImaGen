@@ -109,8 +109,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   @override
   void exit() {
-    for (var element in watchList) {
-      element.cancel();
+    for (var e in watchList) {
+      e.cancel();
     }
   }
 
