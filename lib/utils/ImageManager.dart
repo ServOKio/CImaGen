@@ -1019,8 +1019,16 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
     await im.parseNetworkImage();
     await im.makeThumbnail();
     return im;
+  } else {
+    // Checking host
+    Uri parse = Uri.parse(imagePath);
+    if(['pin.it'].contains(parse.host)){
+      print('pin');
+    }
+    //https://pin.it/5xZcetzTV
+    return null;
   }
-  return null;
+
 }
 
 class ImageKey{
