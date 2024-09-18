@@ -1061,43 +1061,59 @@ class PreviewImage extends StatelessWidget {
                               ),
                             ),
                             Positioned(
-                                bottom: 4,
-                                left: 4,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                      decoration: BoxDecoration(
-                                          borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                          color: Colors.grey.withOpacity(0.7)
-                                      ),
-                                      child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                        colors: [
+                                          Color.fromRGBO(0, 0, 0, 0.0),
+                                          Color.fromRGBO(0, 0, 0, 0.4),
+                                          Color.fromRGBO(0, 0, 0, 0.8)
+                                        ],
+                                        stops: [0, 0.2, 1.0],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter
                                     ),
-                                    imageMeta.re == RenderEngine.inpaint ? Container(
-                                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                      decoration: BoxDecoration(
-                                          borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                          color: const Color(0xFF5fa9b5).withOpacity(0.7)
-                                      ),
-                                      child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                    ) : const SizedBox.shrink(),
-                                    imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                          decoration: BoxDecoration(
-                                              borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                              color: const Color(0xff5f55a6).withOpacity(0.7)
-                                          ),
-                                          child: const Text('Hi-Res', style: TextStyle(color: Color(
-                                              0xffc8c4f5), fontSize: 8)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                        decoration: BoxDecoration(
+                                            borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                            color: Colors.grey.withOpacity(0.7)
                                         ),
-                                        const Gap(3),
-                                        Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
-                                      ],
-                                    ) : const SizedBox.shrink(),
-                                  ],
+                                        child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                      ),
+                                      imageMeta.re == RenderEngine.inpaint ? Container(
+                                        padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                        decoration: BoxDecoration(
+                                            borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                            color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                        ),
+                                        child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                      ) : const SizedBox.shrink(),
+                                      imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                            decoration: BoxDecoration(
+                                                borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                color: const Color(0xff5f55a6).withOpacity(0.7)
+                                            ),
+                                            child: const Text('Hi-Res', style: TextStyle(color: Color(
+                                                0xffc8c4f5), fontSize: 8)),
+                                          ),
+                                          const Gap(3),
+                                          Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
+                                        ],
+                                      ) : const SizedBox.shrink(),
+                                    ],
+                                  )
                                 )
                             ),
                             // Positioned(

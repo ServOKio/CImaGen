@@ -295,6 +295,30 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
 
     Object? model = gp[isRefiner ? 'refiner' : isUNET ? 'unet' : 'model'];
 
+    //  cinematic, highly detailed
+
+    //  Negative prompt: drawing, painting, crayon, sketch
+
+    //  Steps: 20,
+    //  Sampler: DPM++ 2M,
+    //  Schedule type: Karras,
+    //  CFG scale: 5,
+    //  Seed: 802142021,
+    //  Size: 1216x832
+    //  Model: datassRevFINALPony_final,
+    //  FP8 weight: Enable,
+    //  Cache FP16 weight for LoRA: True,
+    //  Denoising strength: 0.5,
+    //  Clip skip: 2,
+    //  Style Selector Enabled: True,
+    //  Style Selector Randomize: False,
+    //  Style Selector Style: Photographic,
+    //  Hires prompt: "solo,anthro,(furry:1.2),male focus,felid,black panther,muscular,mature,back muscular,daddy,bathrobe,partially clothed,\ndetailed background,bathroom,\nzPDXL3,photo,realistic,",
+    //  Hires negative prompt: "human,(5 toes:1.5),necklace,text,logo,signature,bad hands,bad anatomy,abnormal,",
+    //  Hires upscale: 1.5,
+    //  Hires upscaler: 4x_foolhardy_Remacri,
+    //  Version: v1.10.1
+
     GenerationParams gpF = GenerationParams(
         positive: positivePromt,
         negative: negativePromt,
@@ -350,8 +374,10 @@ List<dynamic> parseComfUIParameters(String rawData){
     if(test.isNotEmpty){
       best = test[0];
     } else {
-      print('pizda');
-      print(jsonEncode(fi));
+      if (kDebugMode) {
+        print('pizda');
+        print(jsonEncode(fi));
+      }
     }
     return best;
   }

@@ -185,8 +185,8 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Network output (example: only output folder)', style: TextStyle(fontWeight: FontWeight.w600)),
-                                  Text('Only view and manage images', style: TextStyle(color: Colors.grey)),
+                                  Text('Network output', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Only view and manage images (example: only output folder)', style: TextStyle(color: Colors.grey)),
                                 ],
                               ),
                             ),
@@ -195,8 +195,8 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Remote Panel (example: provide just://your.url:7860/', style: TextStyle(fontWeight: FontWeight.w600)),
-                                  Text('Full functionality, but several addons are required', style: TextStyle(color: Colors.grey)),
+                                  Text('Remote Panel', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Full functionality, but several addons are required (example: provide just://your.url:7860/)', style: TextStyle(color: Colors.grey)),
                                 ],
                               ),
                             )
