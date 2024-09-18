@@ -161,7 +161,7 @@ class _ImageViewState extends State<ImageView> {
                 contextMenu: contextMenu,
                 child: Image.file(
                   File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath),
-                  gaplessPlayback: true,
+                  gaplessPlayback: false,
                   frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                     if (wasSynchronouslyLoaded) {
                       return child;

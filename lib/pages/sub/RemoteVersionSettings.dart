@@ -176,7 +176,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text('Network root', style: TextStyle(fontWeight: FontWeight.w600)),
-                                  Text('Maximum functionality', style: TextStyle(color: Colors.grey)),
+                                  Text('Maximum functionality (example: Windows SMB + USB for output folder)', style: TextStyle(color: Colors.grey)),
                                 ],
                               ),
                             ),
@@ -185,7 +185,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Network output', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Network output (example: only output folder)', style: TextStyle(fontWeight: FontWeight.w600)),
                                   Text('Only view and manage images', style: TextStyle(color: Colors.grey)),
                                 ],
                               ),
@@ -195,7 +195,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Remote Panel', style: TextStyle(fontWeight: FontWeight.w600)),
+                                  Text('Remote Panel (example: provide just://your.url:7860/', style: TextStyle(fontWeight: FontWeight.w600)),
                                   Text('Full functionality, but several addons are required', style: TextStyle(color: Colors.grey)),
                                 ],
                               ),

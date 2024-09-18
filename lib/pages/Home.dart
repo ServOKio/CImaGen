@@ -395,7 +395,7 @@ class _HomeState extends State<Home> {
                 builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
                   Widget children;
                   if (snapshot.hasData) {
-                    children = snapshot.data.length == 0 ? Expanded(
+                    children = snapshot.data.length == 0 ? Center(
                         child: Container(
                           constraints: BoxConstraints(
                             maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,

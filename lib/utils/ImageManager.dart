@@ -1024,6 +1024,94 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
     Uri parse = Uri.parse(imagePath);
     if(['pin.it'].contains(parse.host)){
       print('pin');
+      final client = HttpClient();
+      var request = await client.getUrl(parse);
+      request.followRedirects = false;
+      var response = await request.close();
+      while (response.isRedirect) {
+        response.drain();
+        final location = response.headers.value(HttpHeaders.locationHeader);
+        if (location != null) {
+          parse = parse.resolve(location);
+          request = await client.getUrl(parse);
+          request.followRedirects = false;
+          response = await request.close();
+        }
+      }
+      RegExp ex = RegExp(r'pin\/(.+)\/sent');
+      if(ex.hasMatch(parse.path)) {
+        RegExpMatch match = ex.allMatches(parse.path).first;
+        parse = Uri(
+            scheme: 'https',
+            host: 'widgets.pinterest.com',
+            path: '/v3/pidgets/pins/info/',
+            queryParameters: {'pin_ids': match[1]}
+        );
+        http.Response res = await http.Client().get(parse).timeout(const Duration(seconds: 5));
+        if(res.statusCode == 200){
+          var data = await json.decode(res.body);
+          //print(res.body);
+          if(data['status'] == 'success' && data['message'] == 'ok'){
+            data = data['data'].first;
+            if(!data['is_video'] && data['videos'] == null){
+              String fU = '';
+              bool h = false;
+              print(data['story_pin_data'] != null);
+              print(data['story_pin_data']['pages'].first['image_adjusted']['images']['originals'] != null);
+              if(data['story_pin_data'] != null && data['story_pin_data']['pages'].first['image_adjusted']['images']['originals'] != null){
+                print('use this');
+                fU = data['story_pin_data']['pages'].first['image_adjusted']['images']['originals']['url'];
+                h = true;
+              } else if(data['embed'] != null){
+                fU = data['embed']['src'];
+                h = true;
+              } else if(data['images']['564x'] != null){
+                print('use 6234');
+                fU = data['images']['564x']['url'];
+                h = true;
+              } else if(data['images']['237x'] != null){
+                fU = data['images']['237x']['url'];
+                h = true;
+              }
+
+              if(h){
+                parse = Uri.parse(fU);
+                final String e = p.extension(parse.path);
+                ImageMeta im = ImageMeta(
+                  host: Uri(
+                      host: parse.host,
+                      port: parse.port
+                  ).toString(),
+                  re: RenderEngine.unknown,
+                  fileTypeExtension: e.replaceFirst('.', ''),
+                  fullNetworkPath: fU,
+                );
+
+                await im.parseNetworkImage();
+                await im.makeThumbnail();
+                return im;
+              }
+            }
+          }
+        }
+      }
+      // http.Request req = http.Request("Get", parse)..followRedirects = false;
+      // http.Client baseClient = http.Client();
+      // http.StreamedResponse response = await baseClient.send(req);
+      // print(response.headers);
+
+      // http.Client client = http.Client();
+      // http.Response res = await http.Client().get(parse);
+      // if(res.statusCode == 200){
+      //   print('ok 200');
+      //   print(res.isRedirect);
+      //   print(res.request?.maxRedirects ?? 'nul');
+      //   print(res.request?.headers ?? 'nul');
+      //   print(res.request?.followRedirects ?? 'nul');
+      //   print(res.request?.headers['location'] ?? 'nul');
+      // } else {
+      //   print('code: ${res.statusCode}');
+      // }
     }
     //https://pin.it/5xZcetzTV
     return null;
