@@ -1023,7 +1023,6 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
     // Checking host
     Uri parse = Uri.parse(imagePath);
     if(['pin.it'].contains(parse.host)){
-      print('pin');
       final client = HttpClient();
       var request = await client.getUrl(parse);
       request.followRedirects = false;
@@ -1056,17 +1055,13 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
             if(!data['is_video'] && data['videos'] == null){
               String fU = '';
               bool h = false;
-              print(data['story_pin_data'] != null);
-              print(data['story_pin_data']['pages'].first['image_adjusted']['images']['originals'] != null);
               if(data['story_pin_data'] != null && data['story_pin_data']['pages'].first['image_adjusted']['images']['originals'] != null){
-                print('use this');
                 fU = data['story_pin_data']['pages'].first['image_adjusted']['images']['originals']['url'];
                 h = true;
               } else if(data['embed'] != null){
                 fU = data['embed']['src'];
                 h = true;
               } else if(data['images']['564x'] != null){
-                print('use 6234');
                 fU = data['images']['564x']['url'];
                 h = true;
               } else if(data['images']['237x'] != null){
