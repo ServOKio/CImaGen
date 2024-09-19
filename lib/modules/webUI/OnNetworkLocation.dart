@@ -75,7 +75,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         // img2img grid
         bool i2igE = Directory(i2igOut).existsSync();
         if(!i2igE){
-          t = p.join(outBase, i2igOut.split('outputs').last.replaceFirst(RegExp(r'\\|\/'), ''));
+          t = p.join(outBase, i2igOut.split('outputs').last.replaceFirst(RegExp(r'[\\/]'), ''));
           if(Directory(t).existsSync()){
             i2igOut = t;
             i2igE = true;
@@ -88,7 +88,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         // img2img
         bool i2iE = Directory(i2iOut).existsSync();
         if(!i2iE){
-          t = p.join(outBase, i2iOut.split('outputs').last.replaceFirst(RegExp(r'\\|\/'), ''));
+          t = p.join(outBase, i2iOut.split('outputs').last.replaceFirst(RegExp(r'[\\/]'), ''));
           if(Directory(t).existsSync()){
             i2iOut = t;
             i2iE = true;
@@ -101,7 +101,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         // txt2img grid
         bool t2igE = Directory(t2igOut).existsSync();
         if(!t2igE) {
-          t = p.join(outBase, t2igOut.split('outputs').last.replaceFirst(RegExp(r'\\|\/'), ''));
+          t = p.join(outBase, t2igOut.split('outputs').last.replaceFirst(RegExp(r"[\\/]"), ''));
           if(Directory(t).existsSync()){
             t2igOut = t;
             t2igE = true;
@@ -114,7 +114,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         // txt2img
         bool t2iE = Directory(t2iOut).existsSync();
         if(!t2iE){
-          t = p.join(outBase, t2iOut.split('outputs').last.replaceFirst(RegExp(r'\\|\/'), ''));
+          t = p.join(outBase, t2iOut.split('outputs').last.replaceFirst(RegExp(r'[\\/]'), ''));
           if(Directory(t).existsSync()){
             t2iOut = t;
             t2iE = true;
@@ -127,7 +127,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         // extra
         bool eE = Directory(eiOut).existsSync();
         if(!eE){
-          t = p.join(outBase, eiOut.split('outputs').last.replaceFirst(RegExp(r'\\|\/'), ''));
+          t = p.join(outBase, eiOut.split('outputs').last.replaceFirst(RegExp(r'\\|/'), ''));
           if(Directory(t).existsSync()){
             eiOut = t;
             eE = true;

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/pages/sub/ImageView.dart';
+import 'package:cimagen/pages/sub/MiniWorld.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/SaveManager.dart';
 import 'package:dotted_border/dotted_border.dart';
@@ -477,7 +478,9 @@ class _HomeState extends State<Home> {
                                         Row(
                                           children: [
                                             TextButton(
-                                              onPressed: () {},
+                                              onPressed: () async {
+                                                Navigator.push(context, MaterialPageRoute(builder: (context) => MiniWorld()));
+                                              },
                                               child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
                                             ),
                                           ],

@@ -4,7 +4,6 @@ import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 
 import '../../main.dart';
