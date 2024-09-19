@@ -26,6 +26,7 @@ import 'package:path/path.dart' as p;
 import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
 import 'package:http/http.dart' as http;
 
+import '../components/PromtAnalyzer.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
@@ -1656,21 +1657,26 @@ class ImageSize {
 }
 
 enum ContentRating {
-  G, // General audiences - All ages admitted
-  PG, // Parental guidance suggested - Some material may not be suitable for children.
-  PG_13, // Rated PG-13: Parents strongly cautioned - Some material may be inappropriate for children under 13.
-  R, // Rated R: Restricted - Under 17 requires accompanying parent or adult guardian.
-  NC_17, // Rated NC-17: No children under 17 admitted.
+  G, // General audiences - All ages admitted // #006835
+  PG, // Parental guidance suggested - Some material may not be suitable for children. // #f15a24
+  PG_13, // Rated PG-13: Parents strongly cautioned - Some material may be inappropriate for children under 13. // #803d99
+  R, // Rated R: Restricted - Under 17 requires accompanying parent or adult guardian. // #d8121a
+  NC_17, // Rated NC-17: No children under 17 admitted. // #1b3e9b
   X, // A commission of a couple having sex, Any artwork with detailed genitalia (sheathes, vents, penises, breasts, anuses, etc.), A story of a horse who gets captured by a dragoness for her other 'needs', Reference sheets with visible genitalia (erect or flaccid), Artwork with tight enough clothing to the point where they may as well be not wearing anything at all.
   XXX // Scat, Watersports, Snuff, Castration, Cub, Etc.
 }
+
+List<String> NC_17 = [
+  'presenting_hindquarters',
+  'panties_bulge',
+];
 
 List<String> xxx = [
   // Shit
   'scat', 'scatplay', 'eating_feces', 'eating_eating', 'feces_pile', 'scat_pile', 'feces_on_penis', 'scat_on_penis', 'feces_on_face', 'scat_on_face',
   'coprophilic_intercourse', 'scat_fucking', 'scat_inflation', 'feces_in_pussy', 'scat_in_pussy',
   // Pee
-  'watersports', 'waterspout', 'peeing self', 'wetting', 'urine_in_mouth', 'drinking_urine', 'urine_drinking', 'urine_on_face', 'urine_on_chest',
+  'watersports', 'waterspout', 'peeing_self', 'wetting', 'urine_in_mouth', 'drinking_urine', 'urine_drinking', 'urine_on_face', 'urine_on_chest',
   'urine_on_self', 'urine_on_leg',
   // idk
   'snuff',
@@ -1681,13 +1687,62 @@ List<String> xxx = [
 ];
 
 List<String> x = [
+  //general
+  'nude',
+  'erection'
 
+  'butt',
+
+
+  //female
+  'big_breasts', 'nipples',
+  'pussy',
+
+  //male
+  'sheath',
+  'penis', 'small_penis', 'flaccid_penis', 'equine_penis',
+  'balls',
 ];
+
+List<Combination> combinations = [
+  Combination(
+    level: 2,
+    exactly: ['trap'],
+    requires: ['1girl', 'girl'],
+    containsOne: ['penis']
+  )
+];
+
+class Combination{
+  // 0 - нахуя ?
+  // 1 - стандартно, бабки будут не довольны (gay, male, solo, masturbation)
+  // 2 - ну бля, давай не будем (трапы там)
+  // 3 - специфичные вкусы сука можно бан получить (xxx rating)
+  int level;
+  List<String>? containsOne;
+  List<String>? containsAll;
+  List<String>? requires;
+  List<String>? exactly;
+
+  Combination({
+    required this.level,
+    this.containsOne,
+    this.containsAll,
+    this.requires,
+    this.exactly
+  });
+
+  bool test(String string){
+    return false;
+  }
+}
 
 // TODO ;d
 ContentRating getContentRating(String text){
   // First - normalize
-  text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+  text = cleanUpSDPromt(text);
+  //Second - split
+  List<String> tags = getRawTags(text);
 
   return ContentRating.G;
 }

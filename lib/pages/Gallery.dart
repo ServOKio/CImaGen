@@ -1081,6 +1081,7 @@ class PreviewImage extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
+                                      Text(getContentRating(imageMeta.generationParams?.positive ?? '').toString()),
                                       Container(
                                         padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                         decoration: BoxDecoration(

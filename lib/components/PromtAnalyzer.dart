@@ -17,6 +17,10 @@ class PromtAnalyzer extends StatefulWidget{
   State<PromtAnalyzer> createState() => _PromtAnalyzerState();
 }
 
+RegExp reAttention = RegExp(r'\\\(|\\\)|\\\[|\\]|\\\\|\\|\(|\[|:\s*([+-]?[.\d]+)\s*\)|\)|]|[^\\()\[\]:]+|:');
+RegExp reBreak = RegExp(r'\s*\bBREAK\b\s*');
+RegExp reBracketTokens = RegExp(r'(?<!\\)\)\s*(,)\s*\S');
+
 class _PromtAnalyzerState extends State<PromtAnalyzer> {
   bool loaded = false;
 
@@ -68,7 +72,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
 
     List<List<dynamic>> res = [];
     List<int> roundBrackets = [];
-    var squareBrackets = [];
+    List<int> squareBrackets = [];
 
     double roundBracketMultiplier = 1.1;
     double squareBracketMultiplier = 1 / 1.1;
@@ -79,10 +83,6 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
       }
     }
 
-    RegExp reAttention = RegExp(r'\\\(|\\\)|\\\[|\\]|\\\\|\\|\(|\[|:\s*([+-]?[.\d]+)\s*\)|\)|]|[^\\()\[\]:]+|:');
-    RegExp reBreak = RegExp(r'\s*\bBREAK\b\s*');
-
-    RegExp reBracketTokens = RegExp(r'(?<!\\)\)\s*(,)\s*\S');
     Iterable<RegExpMatch> f = reBracketTokens.allMatches(_text);
     if(f.isNotEmpty){
       (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.warn, text: '${f.length} extra commas after parentheses were found, which are unnecessary tokens and may affect the result'));
@@ -430,6 +430,70 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
         )
     );
   }
+}
+
+List<String> getRawTags(String promt){
+  promt = promt.replaceAll('\n', ' ');
+
+  List<List<dynamic>> res = [];
+  List<int> roundBrackets = [];
+  List<int> squareBrackets = [];
+
+  for(final m in reAttention.allMatches(promt)){
+    String text = m.group(0) ?? '';
+    double? weight = m.group(1) != null ? double.parse(m.group(1)!) : null;
+
+    if(text.startsWith('\\')) {
+      res.add([text.substring(1), 1.0]);
+    } else if(text == '('){
+      roundBrackets.add(res.length);
+    } else if(text == '['){
+      squareBrackets.add(res.length);
+    } else if(weight != null && roundBrackets.isNotEmpty){
+      roundBrackets.removeLast();
+    } else if(text == ')' && roundBrackets.isNotEmpty){
+      roundBrackets.removeLast();
+    } else if(text == ']' && squareBrackets.isNotEmpty){
+      squareBrackets.removeLast();
+    } else {
+      var parts = text.split(reBreak);
+      for (int i = 0; i < parts.length; i++){
+        var part = parts[i];
+        if(i > 0){
+          res.add(['BREAK', -1]);
+        }
+        res.add([part.trim(), 1.0]);
+      }
+    }
+  }
+
+  if(res.isEmpty){
+    res = [['', 1.0]];
+  }
+
+  int i = 0;
+
+  while(i + 1 < res.length) {
+    if (res[i][1] == res[i + 1][1]) {
+      res[i][0] += res[i + 1][0];
+      res.removeAt(i + 1);
+    } else {
+      i += 1;
+    }
+  }
+
+  List<String> _tags = [];
+  for (var element in res) {
+    List<String> tags = (element[0] as String).split(',').map((e) =>
+        e.trim().toLowerCase().replaceAll(' ', '_'))
+        .where((e) => e != '')
+        .toList(growable: false);
+    for (String tag in tags) {
+      if(!_tags.contains(tag)) _tags.add(tag);
+    }
+  }
+
+  return _tags;
 }
 
 String categoryToString(int category){
