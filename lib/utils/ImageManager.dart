@@ -1662,13 +1662,18 @@ enum ContentRating {
   PG_13, // Rated PG-13: Parents strongly cautioned - Some material may be inappropriate for children under 13. // #803d99
   R, // Rated R: Restricted - Under 17 requires accompanying parent or adult guardian. // #d8121a
   NC_17, // Rated NC-17: No children under 17 admitted. // #1b3e9b
-  X, // A commission of a couple having sex, Any artwork with detailed genitalia (sheathes, vents, penises, breasts, anuses, etc.), A story of a horse who gets captured by a dragoness for her other 'needs', Reference sheets with visible genitalia (erect or flaccid), Artwork with tight enough clothing to the point where they may as well be not wearing anything at all.
-  XXX // Scat, Watersports, Snuff, Castration, Cub, Etc.
+  X, // A commission of a couple having sex, Any artwork with detailed genitalia (sheathes, vents, penises, breasts, anuses, etc.), A story of a horse who gets captured by a dragoness for her other 'needs', Reference sheets with visible genitalia (erect or flaccid), Artwork with tight enough clothing to the point where they may as well be not wearing anything at all. // #000000
+  XXX // Scat, Watersports, Snuff, Castration, Cub, Etc. #000000
 }
 
 List<String> NC_17 = [
   'presenting_hindquarters',
-  'panties_bulge',
+
+  'panties_bulge', 'bulge',
+  'open_shirt', 'naked_torso', 'topless', 'nipple', 'nipples',
+  'open_pants', 'unzipped_pants',
+
+  'milking_machine'
 ];
 
 List<String> xxx = [
@@ -1688,20 +1693,30 @@ List<String> xxx = [
 
 List<String> x = [
   //general
-  'nude',
-  'erection'
+  'nude', 'naked',
+  'erection',
 
-  'butt',
+  'sex', 'anal_penetration', 'penetration', 'masturbation', 'cowgirl_position', 'missionary_position',
+
+  'animal genitalia',
+  'butt', 'anal',
 
 
   //female
-  'big_breasts', 'nipples',
   'pussy',
 
   //male
+  'precum', 'cum_shot', 'cum', 'excessive_cum', 'cum_on_body',
+  'hand_on_penis',
+
   'sheath',
-  'penis', 'small_penis', 'flaccid_penis', 'equine_penis',
-  'balls',
+  'penis', 'small_penis', 'flaccid_penis', 'equine_penis', 'long_penis', 'penis_milking', 'penis_pump', 'cock_ring', 'urethral_penetration', 'veiny_penis', 'penis_tip',
+  'black_penis', 'knot',
+  'balls', 'saggy_balls', 'big_balls', 'hude_balls', 'veiny_balls',
+
+  //wtf section
+  'tentacle_rape', 'tentacle_sex',
+  'sheath_penetration'
 ];
 
 List<Combination> combinations = [
@@ -1710,7 +1725,12 @@ List<Combination> combinations = [
     exactly: ['trap'],
     requires: ['1girl', 'girl'],
     containsOne: ['penis']
-  )
+  ),
+  Combination(
+      level: 1,
+      requires: ['nude', 'naked'],
+      containsOne: ['big_breasts']
+  ),
 ];
 
 class Combination{
@@ -1744,7 +1764,34 @@ ContentRating getContentRating(String text){
   //Second - split
   List<String> tags = getRawTags(text);
 
-  return ContentRating.G;
+  bool done = false;
+  ContentRating r = ContentRating.G;
+  for(String tag in xxx){
+    if(tags.contains(tag)){
+      r = ContentRating.XXX;
+      done = true;
+    }
+  }
+
+  if(!done){
+    for(String tag in x){
+      if(tags.contains(tag)){
+        r = ContentRating.X;
+        done = true;
+      }
+    }
+  }
+
+  if(!done){
+    for(String tag in NC_17){
+      if(tags.contains(tag)){
+        r = ContentRating.NC_17;
+        done = true;
+      }
+    }
+  }
+
+  return r;
 }
 
 String genHash(RenderEngine re, String parent, String name, {String? host}){

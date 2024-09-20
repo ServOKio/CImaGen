@@ -130,9 +130,10 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
 
     int i = 0;
 
+
     while(i + 1 < res.length) {
       if (res[i][1] == res[i + 1][1]) {
-        res[i][0] += res[i + 1][0];
+        res[i][0] += ',${res[i + 1][0]}';
         res.removeAt(i + 1);
       } else {
         i += 1;
@@ -142,6 +143,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
     // because fox ass
     List<String> dubl = [];
     for (var element in res) {
+      //print((element[0] as String).split(','));
       List<String> tags = (element[0] as String).split(',').map((e) => e.trim().toLowerCase().replaceAll(' ', '_'))
           .map((e) => e.replaceFirst('by_', '').replaceFirst('art_by_', ''))
           .where((e) => e != '')
@@ -318,7 +320,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
                                 border: Border.all(color: Colors.green, width: 1),
                                 borderRadius: const BorderRadius.all(Radius.circular(5.0)),
                               ),
-                              child: Text(
+                              child: SelectableText(
                                 cleanUpSDPromt(positiveController.text),
                                 style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
                               ),
@@ -475,7 +477,7 @@ List<String> getRawTags(String promt){
 
   while(i + 1 < res.length) {
     if (res[i][1] == res[i + 1][1]) {
-      res[i][0] += res[i + 1][0];
+      res[i][0] += ',${res[i + 1][0]}';
       res.removeAt(i + 1);
     } else {
       i += 1;
@@ -483,13 +485,15 @@ List<String> getRawTags(String promt){
   }
 
   List<String> _tags = [];
+  // because fox ass
   for (var element in res) {
     List<String> tags = (element[0] as String).split(',').map((e) =>
         e.trim().toLowerCase().replaceAll(' ', '_'))
+        .map((e) => e.replaceFirst('by_', '').replaceFirst('art_by_', ''))
         .where((e) => e != '')
         .toList(growable: false);
     for (String tag in tags) {
-      if(!_tags.contains(tag)) _tags.add(tag);
+      if (!_tags.contains(tag)) _tags.add(tag);
     }
   }
 

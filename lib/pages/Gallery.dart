@@ -975,6 +975,27 @@ class PreviewImage extends StatelessWidget {
             padding: const EdgeInsets.all(8.0),
           );
 
+          //Rating
+          ContentRating r = getContentRating(imageMeta.generationParams?.positive ?? '');
+          Widget ratingBlock = Container(
+            width: 18,
+            height: 18,
+            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+            decoration: BoxDecoration(
+                borderRadius: const BorderRadius.all(Radius.circular(2)),
+                color: Color(r == ContentRating.X || r == ContentRating.X ? 0xff000000 : 0xffffffff).withOpacity(0.7)
+            ),
+            child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
+              0xff006835,
+              0xfff15a24,
+              0xff803d99,
+              0xffd8121a,
+              0xff1b3e9b,
+              0xffffffff,
+              0xffffffff
+            ][r.index]), fontSize: 12, fontWeight: FontWeight.bold)),
+          );
+
           return GestureDetector(
               onLongPress: () {
                 if (sp.selected.isEmpty) {
@@ -1081,7 +1102,7 @@ class PreviewImage extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(getContentRating(imageMeta.generationParams?.positive ?? '').toString()),
+                                      ratingBlock,
                                       Container(
                                         padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                         decoration: BoxDecoration(
