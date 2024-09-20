@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -102,6 +103,12 @@ class DataManager with ChangeNotifier {
         notifyListeners();
       });
     } else {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+          title: 'Some access points have been changed',
+          description: ''
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
   }
 
