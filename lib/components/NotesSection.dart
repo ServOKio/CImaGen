@@ -96,18 +96,15 @@ class _NotesSectionState extends State<NotesSection> {
                   itemCount: _notes.length,
                   itemBuilder: (BuildContext context, int index) {
                     Note element = _notes[index];
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(
-                          icon: Icon(element.icon, color: element.color),
-                          tooltip: element.title,
-                          onPressed: () {
-                            selectNote(index);
-                          },
-                        ),
-                        Text(element.title),
-                      ],
+                    return GestureDetector(
+                      onTap: () => selectNote(index),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(element.icon, color: element.color),
+                          Text(element.title),
+                        ],
+                      ),
                     );
                   },
                 ),

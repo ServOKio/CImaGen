@@ -85,6 +85,7 @@ class DataManager with ChangeNotifier {
     loadE621Tags();
   }
 
+  // https://e621.net/db_export/
   Future<void> loadE621Tags() async {
     Directory dD = await getApplicationDocumentsDirectory();
     dynamic csvPath = Directory(p.join(dD.path, 'CImaGen', 'csv'));
@@ -105,8 +106,8 @@ class DataManager with ChangeNotifier {
     } else {
       int notID = notificationManager!.show(
           thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Some access points have been changed',
-          description: ''
+          title: 'E621 tags not found',
+          description: 'Put the e621-tags.csv file in the "$csvPath" folder'
       );
       audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
@@ -974,5 +975,3 @@ String normalizePath(String path){
   bool isWindowsPath = path.startsWith('\\\\') || path[1] == ':';
   return p.normalize(isWindowsPath ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/'));
 }
-
-// https://e621.net/db_export/

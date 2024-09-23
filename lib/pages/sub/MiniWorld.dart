@@ -70,8 +70,19 @@ class _MiniWorldState extends State<MiniWorld> {
 
   @override
   Widget build(BuildContext context) {
-    return InfiniteCanvas(
-      controller: controller,
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+          title: const Text('Mini World'),
+          backgroundColor: const Color(0xaa000000),
+          elevation: 0,
+          actions: []
+      ),
+      body: SafeArea(
+        child: InfiniteCanvas(
+          controller: controller,
+        )
+      )
     );
   }
 }

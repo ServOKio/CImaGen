@@ -1,3 +1,4 @@
+import 'package:cimagen/components/TagsClassification.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -241,6 +242,19 @@ class _DBExtraState extends State<DBExtra>{
                             ],
                           ),
                         );
+                      },
+                    ),
+                  ],
+                ),
+                SettingsSection(
+                  title: const Text('Other'),
+                  tiles: [
+                    SettingsTile(
+                      leading: const Icon(Icons.view_timeline_outlined),
+                      title: const Text('Sort tags manually'),
+                      description: const Text('Sorting tags from the e621 site manually'),
+                      onPressed: (context){
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const TagsClassification()));
                       },
                     ),
                   ],

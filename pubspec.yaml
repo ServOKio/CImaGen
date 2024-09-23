@@ -1,7 +1,7 @@
 name: cimagen
 description: "Image work"
 publish_to: 'none'
-version: 0.0.3
+version: 0.0.4
 
 environment:
   sdk: '>=3.2.6 <4.0.0'

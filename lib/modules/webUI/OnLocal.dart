@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
@@ -23,6 +24,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
   bool get hasError => error != null;
 
   List<String> inProcess = [];
+  bool isIndexingAll = false;
 
   // Config
   Map<String, dynamic> _config = <String, dynamic>{};
@@ -130,7 +132,59 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
+  bool indexAll(RenderEngine re) {
+    int notID = notificationManager!.show(
+        thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+        title: 'Starting indexing',
+        description: 'Give us a few seconds...'
+    );
+    getFolders(re).then((fo) async {
+      if(isIndexingAll) return false;
+      isIndexingAll = true;
+      notificationManager!.update(notID, 'title', 'Indexing ${re.name}');
+      notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+      notificationManager!.update(notID, 'content', Container(
+        margin: const EdgeInsets.only(top: 7),
+        width: 100,
+        child: const LinearProgressIndicator(),
+      ));
+      notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
+        baseColor: Colors.lightBlueAccent,
+        highlightColor: Colors.blueAccent.withOpacity(0.3),
+        child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+      ));
+      int d = 0;
+      for(var f in fo){
+        List<ImageMeta> ima = await getFolderFiles(RenderEngine.values[re.index], f.name);
+        StreamController co = await indexFolder(RenderEngine.values[re.index], f.name, hashes: ima.map((e) => e.pathHash).toList(growable: false));
+        await _isDone(co);
+        d++;
+        notificationManager!.update(notID, 'content', Container(
+            margin: const EdgeInsets.only(top: 7),
+            width: 100,
+            child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
+        ));
+      }
+      if(notID != -1) notificationManager!.close(notID);
+      isIndexingAll = false;
+    }).catchError((err) {
+      notificationManager!.update(notID, 'title', 'Error');
+      notificationManager!.update(notID, 'description', 'Error: $err');
+      notificationManager!.update(notID, 'content', const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      return true;
+    });
+    return true;
+  }
+
+  Future<bool> _isDone(StreamController co) async{
+    while(!co.isClosed && _jobs.length >= 5){
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    return true;
+  }
+
+  @override
+  Future<StreamController<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
     print('indexFolder: ${renderEngine.name} $sub ${hashes?.length ?? 'null'}');
     // Read all files sizes and get hash
     //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
@@ -176,6 +230,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
     }
     job.run(
       onDone: (){
+        _jobs.remove(jobID);
         if(notID != -1) notificationManager!.close(notID);
         if(fe.isNotEmpty) inProcess.remove(sub);
       },
@@ -193,8 +248,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
     );
     _jobs[jobID] = job;
 
-    // Return job id
-    return job.controller.stream;
+    // Return stream
+    return job.controller;
   }
 }
 

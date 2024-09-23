@@ -28,7 +28,11 @@ abstract class AbMain extends ChangeNotifier{
     return [];
   }
 
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async{
+  bool indexAll(RenderEngine renderEngine){
+    return false;
+  }
+
+  Future<StreamController<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async{
     // Read all files sizes and get hash
     late final StreamController<List<ImageMeta>> controller;
     controller = StreamController<List<ImageMeta>>(
@@ -38,7 +42,7 @@ abstract class AbMain extends ChangeNotifier{
     );
 
     // Return job id
-    return controller.stream;
+    return controller;
   }
 
   void exit() async {

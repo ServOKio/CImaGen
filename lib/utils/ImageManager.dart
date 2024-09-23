@@ -239,17 +239,6 @@ class ParseJob {
               _doneTotal++;
               _isDone();
             });
-            // NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
-            //   if(doI){
-            //     NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
-            //       _doneTotal++;
-            //       _isDone();
-            //     });
-            //   } else {
-            //     _doneTotal++;
-            //     _isDone();
-            //   }
-            // });
           } else {
             _doneTotal++;
             _isDone();
@@ -301,17 +290,6 @@ class ParseJob {
 
                 _done.add(im);
                 if(!_controller.isClosed) _controller.add(finished);
-                // NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(path, host: host).then((doI) async {
-                //   if(doI){
-                //     NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
-                //       _doneTotal++;
-                //       _isDone();
-                //     });
-                //   } else {
-                //     _doneTotal++;
-                //     _isDone();
-                //   }
-                // });
                 okay = true;
                 NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
                   _doneTotal++;
@@ -1666,11 +1644,15 @@ enum ContentRating {
   XXX // Scat, Watersports, Snuff, Castration, Cub, Etc. #000000
 }
 
+List<String> R = [
+  'undressing'
+];
+
 List<String> NC_17 = [
   'presenting_hindquarters',
 
   'panties_bulge', 'bulge',
-  'open_shirt', 'naked_torso', 'topless', 'nipple', 'nipples',
+  'open_shirt', 'naked_torso', 'topless', 'bottomless', 'nipple', 'nipples',
   'open_pants', 'unzipped_pants',
 
   'milking_machine'
@@ -1695,6 +1677,7 @@ List<String> x = [
   //general
   'nude', 'naked',
   'erection',
+  'genital_outline', 'detailed_bulge', 'big_bulge',
 
   'sex', 'anal_penetration', 'penetration', 'masturbation', 'cowgirl_position', 'missionary_position',
 

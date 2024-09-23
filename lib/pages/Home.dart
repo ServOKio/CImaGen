@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/MiniWorld.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -36,12 +37,12 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
+final List<dynamic> _readHistory = [];
+
 class _HomeState extends State<Home> {
   bool _dragging = false;
 
   double breakpoint = 600.0;
-
-  final List<dynamic> _readHistory = [];
   int c = 1;
 
   final ScrollController _scrollController = ScrollController();
@@ -650,6 +651,19 @@ class FileInfoPreview extends StatelessWidget{
               dataModel.comparisonBlock.changeSelected(1, im);
             },
           ),
+        ],
+      ),
+      MenuItem.submenu(
+        label: 'Build...',
+        icon: Icons.build,
+        items: [
+          MenuItem(
+            label: 'XYZ plot',
+            icon: Icons.grid_view,
+            onSelected: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.where((el) => el.runtimeType == ImageMeta).toList(growable: false)))));
+            },
+          )
         ],
       ),
       // MenuItem.submenu(

@@ -400,6 +400,7 @@ class SQLite with ChangeNotifier{
     args.add(parent);
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC', args);
+    print(maps.length);
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
@@ -438,9 +439,9 @@ class SQLite with ChangeNotifier{
         )
       );
     });
-    // if (kDebugMode) {
-    //   print(fi.length);
-    // }
+    if (kDebugMode) {
+      print(fi.length);
+    }
     return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc

@@ -62,6 +62,7 @@ class Gallery extends StatefulWidget{
 
 class _GalleryState extends State<Gallery> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   String currentKey = 'null';
+  bool debug = false;
 
   late final TabController _tabController;
   final List<RenderEngine> _tabs = [
@@ -143,8 +144,35 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
             );
           });
         }, getter: () => true),
+        PopupMenuButton<int>(
+          color: Colors.black,
+          itemBuilder: (context) => [
+            PopupMenuItem<int>(
+              child: Text('Index ${_tabs[_tabController.index].name}'),
+              onTap: () => context.read<ImageManager>().getter.indexAll(_tabs[_tabController.index]),
+            ),
+            // PopupMenuItem<int>(
+            //     value: 1, child: Text("Privacy Policy page")),
+            // PopupMenuDivider(),
+            // PopupMenuItem<int>(
+            //     value: 2,
+            //     child: Row(
+            //       children: [
+            //         Icon(
+            //           Icons.logout,
+            //           color: Colors.red,
+            //         ),
+            //         const SizedBox(
+            //           width: 7,
+            //         ),
+            //         Text("Logout")
+            //       ],
+            //     )),
+          ],
+        )
       ]);
     });
+    debug = prefs!.getBool('debug') ?? false;
     _tabController = TabController(length: _tabs.length, vsync: this);
     var go = context.read<ImageManager>().getter.loaded;
     if (!go) {
@@ -166,10 +194,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(_tabs[0], value[0].name);
           _imagesList.then((listRes){
             if(listRes.isEmpty){
-              context.read<ImageManager>().getter.indexFolder(_tabs[0], value[0].name).then((stream){
+              context.read<ImageManager>().getter.indexFolder(_tabs[0], value[0].name).then((controller){
                 if(mounted) {
                   setState(() {
-                  imagesList = stream;
+                  imagesList = controller.stream;
                 });
                 }
               });
@@ -189,7 +217,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   void dispose(){
     super.dispose();
     for(RenderEngine re in _tabs){
-      // Scroll
       _scrollControllers[re.index]?.dispose();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -209,10 +236,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
       imagesList?.then((List<ImageMeta> value) {
         bool force = false; //listValue.length-1 == index;
-        context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((stream){
+        context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
           if(value.isEmpty || force){
             setState(() {
-              imagesList = stream;
+              imagesList = controller.stream;
             });
           }
         });
@@ -446,7 +473,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   Widget _buildMainSection(){
     return MouseRegion(
         onHover: _updateLocation,
-        child: imagesList.runtimeType.toString() == 'Future<List<ImageMeta>>' ? FutureBuilder(
+        child: imagesList.runtimeType.toString().startsWith('Future<List<') ? FutureBuilder(
             key: Key(currentKey),
             future: imagesList,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
@@ -505,14 +532,14 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   ),
                 );
               } else {
-                children = const Padding(
-                  padding: EdgeInsets.only(top: 16),
+                children = Padding(
+                  padding: const EdgeInsets.only(top: 16),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Loading...'),
-                      Gap(8),
-                      LinearProgressIndicator()
+                      Text(debug ? 'Future<List<ImageMeta>> hasData:${snapshot.hasData} hasError:${snapshot.hasError}' : 'Loading...'),
+                      const Gap(8),
+                      const LinearProgressIndicator()
                     ],
                   )
                 );
@@ -521,7 +548,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 duration: const Duration(milliseconds: 500),
                 child: children,
               );
-            }) : imagesList.runtimeType.toString() == '_ControllerStream<List<ImageMeta>>' ? StreamBuilder<List<ImageMeta>>(
+            }) : imagesList.runtimeType.toString().startsWith('_') && imagesList.runtimeType.toString().contains('<List<')? StreamBuilder<List<ImageMeta>>(
               stream: imagesList,
               builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
                 Widget children;
@@ -556,14 +583,14 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                     case ConnectionState.none:
                       children = Text('Hyi');
                     case ConnectionState.waiting:
-                      children = const Padding(
-                          padding: EdgeInsets.only(top: 16),
+                      children = Padding(
+                          padding: const EdgeInsets.only(top: 16),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('Loading...'),
-                              Gap(8),
-                              LinearProgressIndicator()
+                              Text(debug ? '_ControllerStream<List<ImageMeta>> hasError:${snapshot.hasError} connectionState:${snapshot.connectionState}' : 'Loading...'),
+                              const Gap(8),
+                              const LinearProgressIndicator()
                             ],
                           )
                       );
@@ -628,14 +655,14 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   child: children,
                 );
           },
-        ) : const Padding(
-            padding: EdgeInsets.only(top: 16),
+        ) : Padding(
+            padding: const EdgeInsets.only(top: 16),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SelectableText('Loading...'),
-                Gap(8),
-                LinearProgressIndicator()
+                SelectableText(debug ? 'other ${imagesList.runtimeType.toString()}' : 'Loading...'),
+                const Gap(8),
+                const LinearProgressIndicator()
               ],
             )
         )
@@ -983,7 +1010,7 @@ class PreviewImage extends StatelessWidget {
             padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
             decoration: BoxDecoration(
                 borderRadius: const BorderRadius.all(Radius.circular(2)),
-                color: Color(r == ContentRating.X || r == ContentRating.X ? 0xff000000 : 0xffffffff).withOpacity(0.7)
+                color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff).withOpacity(0.7)
             ),
             child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
               0xff006835,

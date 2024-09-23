@@ -162,16 +162,6 @@ class _ImageViewState extends State<ImageView> {
                 child: Image.file(
                   File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath),
                   gaplessPlayback: false,
-                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                    if (wasSynchronouslyLoaded) {
-                      return child;
-                    } else {
-                      return AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: frame == null ? const CircularProgressIndicator() : child,
-                      );
-                    }
-                  },
                 ),
             )
         ),

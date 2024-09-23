@@ -41,6 +41,7 @@ class _SettingsState extends State<Settings>{
   bool _gallery_display_id = false;
 
   String _custom_cache_dir = '-';
+  double _maxCacheSize = 5;
 
   String appDocumentsPath = '';
   String appTempPath = '';
@@ -80,6 +81,7 @@ class _SettingsState extends State<Settings>{
       appVersion = packageInfo.version;
       _deviceInfo = deviceInfo;
       _custom_cache_dir = context.read<ConfigManager>().tempDir;
+      _maxCacheSize = (prefs!.getDouble('max_cache_size') ?? 5);
     });
 
     context.read<SQLite>().getTablesInfo().then((value) => {
@@ -202,6 +204,29 @@ class _SettingsState extends State<Settings>{
                     );
                   },
                 ),
+                SettingsTile(
+                  leading: Icon(Icons.delete_sweep),
+                  title: Text('Maximum cache size'),
+                  description: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Limit: ${_maxCacheSize.round()}GB'),
+                      Slider(
+                        value: _maxCacheSize,
+                        min: 5,
+                        max: 50,
+                        divisions: 5,
+                        label: '${_maxCacheSize.round()}GB',
+                        onChanged: (double v) {
+                          prefs!.setDouble('max_cache_size', v);
+                          setState(() {
+                            _maxCacheSize = v;
+                          });
+                        },
+                      )
+                    ],
+                  ),
+                ),
                 SettingsTile.navigation(
                   leading: const Icon(Icons.network_check_rounded),
                   title: Text('Remote version settings'),
@@ -255,14 +280,14 @@ class _SettingsState extends State<Settings>{
               tiles: [
                 DBChart(dataMap: dataMap),
                 SettingsTile(
-                  leading: Icon(Icons.delete),
+                  leading: const Icon(Icons.delete),
                   title: Text('Clear image database'),
                   description: Text('Previews, image data. The list of favorites will remain untouched'),
                   onPressed: (context){
                     showDialog<String>(
                         context: context,
                         builder: (BuildContext context) => AlertDialog(
-                          icon: Icon(Icons.warning_amber_outlined),
+                          icon: const Icon(Icons.warning_amber_outlined),
                           title: const Text('Are you sure you want to delete the cache?'),
                           content: const Text('The application will take some time to read all the images again'),
                           actions: <Widget>[
@@ -298,7 +323,7 @@ class _SettingsState extends State<Settings>{
                   description: SelectableText(_deviceInfo),
                 ),
                 SettingsTile(
-                  leading: Icon(Icons.folder ),
+                  leading: const Icon(Icons.folder ),
                   title: const Text('Paths'),
                   description: Text(''
                       'App Documents\n↳ $appDocumentsPath\n'
@@ -337,7 +362,7 @@ class AppTheme extends AbstractSettingsTile{
     double size = 200;
     double aspectRatio = 16/9;
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       child: Row(
         children: [
           Column(
@@ -418,7 +443,6 @@ class AppTheme extends AbstractSettingsTile{
       ),
     );
   }
-
 }
 
 class DBChart extends AbstractSettingsTile{
