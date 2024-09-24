@@ -71,14 +71,15 @@ class OnRemote extends ChangeNotifier implements AbMain{
           var data = await json.decode(res.body);
           _sd_root = data['sd_cwd'];
 
+          //reForge has difference
           _webuiPaths.addAll({
-            'outdir_extras-images': normalizePath(p.join(_sd_root, data['global_setting']['outdir_extras_samples'])),
-            'outdir_img2img-grids': normalizePath(p.join(_sd_root, data['global_setting']['outdir_img2img_grids'])),
-            'outdir_img2img-images': normalizePath(p.join(_sd_root, data['global_setting']['outdir_img2img_samples'])),
-            'outdir_txt2img-grids': normalizePath(p.join(_sd_root, data['global_setting']['outdir_txt2img_grids'])),
-            'outdir_txt2img-images': normalizePath(p.join(_sd_root, data['global_setting']['outdir_txt2img_samples'])),
-            'outdir_save': normalizePath(p.join(_sd_root, data['global_setting']['outdir_save'])),
-            'outdir_init': normalizePath(p.join(_sd_root, data['global_setting']['outdir_init_images']))
+            'outdir_extras-images': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_extras_samples'] ?? 'outputs/extras-images'))),
+            'outdir_img2img-grids': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_img2img_grids'] ?? 'outputs/img2img-grids'))),
+            'outdir_img2img-images': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_img2img_samples'] ?? 'outputs/img2img-images'))),
+            'outdir_txt2img-grids': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_txt2img_grids'] ?? 'outputs/txt2img-grids'))),
+            'outdir_txt2img-images': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_txt2img_samples'] ?? 'outputs/txt2img-images'))),
+            'outdir_save': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_save']))),
+            'outdir_init': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_init_images'])))
           });
           loaded = true;
         } else {
@@ -115,7 +116,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
         host: parse.host,
         port: parse.port,
         path: '/infinite_image_browsing/files',
-        queryParameters: {'folder_path': _webuiPaths[ke[renderEngine]]}
+        queryParameters: {
+          'folder_path': _webuiPaths[ke[renderEngine]]
+        }
     );
     var res = await http.Client().get(base).timeout(const Duration(seconds: 10));
     if(res.statusCode == 200){

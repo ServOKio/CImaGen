@@ -127,7 +127,7 @@ class _TagsClassificationState extends State<TagsClassification> {
 
   @override
   Widget build(BuildContext context) {
-    TagInfo c = allTags[allTags.keys.first]!;
+    TagInfo? c = allTags[allTags.keys.first];
     return Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
@@ -140,7 +140,7 @@ class _TagsClassificationState extends State<TagsClassification> {
             actions: []
         ),
         body: SafeArea(
-            child: Column(
+            child: c != null ? Column(
               children: [
                 Row(
                   children: [
@@ -211,7 +211,7 @@ class _TagsClassificationState extends State<TagsClassification> {
                   )).toList(growable: false)
                 )
               ],
-            )
+            ) : const Text('tags db not found')
         )
     );
   }
