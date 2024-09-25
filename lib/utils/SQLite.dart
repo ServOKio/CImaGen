@@ -115,10 +115,15 @@ class SQLite with ChangeNotifier{
               for (var e in send) {
                 if(e.type == JobType.insert){
                   batch.insert(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.replace);
+                } else if(e.type == JobType.update){
+                  batch.update(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.replace);
                 }
               }
 
               List<Object?> res = await batch.commit(continueOnError: false);
+              if (kDebugMode) {
+                print(res);
+              }
               if (kDebugMode) print('Done');
               !use ? toBatchTwo.clear() : toBatchOne.clear();
               inProgress = false;
@@ -225,6 +230,26 @@ class SQLite with ChangeNotifier{
     );
     //print(genHash(type, parentName, imageMeta.imageParams.fileName));
     if (maps.isNotEmpty) {
+      Map<String, dynamic> res = maps.first;
+      if(res['pathHash'] != genPathHash(imageMeta.fullPath)){
+        toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
+        if(imageMeta.generationParams != null) {
+          Map<String, dynamic> m = imageMeta.generationParams!.toMap(
+              forDB: true,
+              key: imageMeta.getKey(),
+              amply: {
+                'pathHash': genPathHash(imageMeta.fullPath)
+              }
+          );
+          toBatchTwo.add(
+              Job(
+                  to: 'generation_params',
+                  type: JobType.update,
+                  obj: m
+              )
+          );
+        }
+      }
     } else {
       //Insert
       if(use){
@@ -400,7 +425,7 @@ class SQLite with ChangeNotifier{
     args.add(parent);
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC', args);
-    print(maps.length);
+    print('maps.length ${maps.length}');
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
@@ -440,7 +465,7 @@ class SQLite with ChangeNotifier{
       );
     });
     if (kDebugMode) {
-      print(fi.length);
+      print('fi.length ${fi.length}');
     }
     return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc

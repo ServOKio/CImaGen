@@ -127,7 +127,7 @@ class _TagsClassificationState extends State<TagsClassification> {
 
   @override
   Widget build(BuildContext context) {
-    TagInfo? c = allTags[allTags.keys.first];
+    TagInfo? c = allTags.keys.isNotEmpty ? allTags[allTags.keys.first] : null;
     return Scaffold(
         extendBodyBehindAppBar: true,
         appBar: AppBar(
