@@ -22,7 +22,7 @@ dependencies:
   sqflite: ^2.3.2
   sqflite_common_ffi: ^2.3.2+1
   path: ^1.8.3
-  mime: ^1.0.5
+  mime: ^2.0.0
   feedback: ^3.0.0
   crypto: ^3.0.3
   json_annotation: ^4.8.1
