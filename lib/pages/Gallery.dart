@@ -911,6 +911,15 @@ class PreviewImage extends StatelessWidget {
                   },
                 ),
                 MenuItem(
+                  label: 'Folder/file.name',
+                  icon: Icons.arrow_forward,
+                  onSelected: () {
+                    Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Copied'),
+                    )));
+                  },
+                ),
+                MenuItem(
                   label: 'Favorite images to folder...',
                   icon: Icons.star,
                   onSelected: () async {

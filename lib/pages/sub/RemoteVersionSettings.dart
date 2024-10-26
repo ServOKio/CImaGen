@@ -22,10 +22,10 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
   String _useMethod = 'remote';
   List<String> _methods = ['root', 'output', 'remote'];
 
-  String _sd_remote_webui_folder = '';
-  String _sd_remote_webui_outputs_folder = '';
+  String _remote_webui_folder = '';
+  String _remote_webui_outputs_folder = '';
 
-  String _sd_remote_webui_address = '';
+  String _remote_webui_address = '';
 
   // temp
   String remoteInfo = '';
@@ -47,12 +47,12 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
       _use_remote_version = prefs.getBool('use_remote_version') ?? false;
       _useMethod = prefs.getString('remote_version_method') ?? 'remote';
 
-      _sd_remote_webui_folder = prefs.getString('sd_remote_webui_folder') ?? '';
-      _sd_remote_webui_outputs_folder = prefs.getString('sd_remote_webui_outputs_folder') ?? '';
+      _remote_webui_folder = prefs.getString('remote_webui_folder') ?? '';
+      _remote_webui_outputs_folder = prefs.getString('remote_webui_outputs_folder') ?? '';
 
-      _sd_remote_webui_address = prefs.getString('sd_remote_webui_address') ?? '';
+      _remote_webui_address = prefs.getString('remote_webui_address') ?? '';
     });
-    if(_use_remote_version && _sd_remote_webui_address.isNotEmpty) checkRemoteStatus();
+    if(_use_remote_version && _remote_webui_address.isNotEmpty) checkRemoteStatus();
   }
 
   void checkRemoteStatus(){
@@ -63,7 +63,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
       _has_200_code = false;
     });
 
-    Uri parse = Uri.parse(_sd_remote_webui_address);
+    Uri parse = Uri.parse(_remote_webui_address);
 
     //TODO: Ping sosat with port
     // Uri pingUri = Uri(
@@ -107,6 +107,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
           remoteInfo = fin;
         });
       } else {
+
         setState(() {
           remoteInfo = 'Error: Code is not 200';
         });
@@ -147,16 +148,16 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     title: const Text('Main'),
                     tiles: <SettingsTile>[
                       SettingsTile.switchTile(
-                        enabled: _sd_remote_webui_address.isNotEmpty,
+                        enabled: _remote_webui_address.isNotEmpty,
                         leading: const Icon(Icons.network_check_rounded),
                         title: const Text('Use the remote version'),
-                        description: Text('${_sd_remote_webui_address.isNotEmpty ? '✓' : '✗'} - Specify the address of the panel'),
+                        description: Text('${_remote_webui_address.isNotEmpty ? '✓' : '✗'} - Specify the address of the panel'),
                         onToggle: (v) {
                           setState(() {
                             _use_remote_version = v;
                           });
                           prefs.setBool('use_remote_version', v);
-                          if(v && _sd_remote_webui_address.isNotEmpty) checkRemoteStatus();
+                          if(v && _remote_webui_address.isNotEmpty) checkRemoteStatus();
                           context.read<ImageManager>().switchGetterAuto();
                         },
                         initialValue: _use_remote_version,
@@ -215,18 +216,18 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     ],
                   ),
                   SettingsSection(
-                    title: const Text('WebUI'),
+                    title: const Text('UI'),
                     tiles: <SettingsTile>[
                       SettingsTile.navigation(
                         leading: const Icon(Icons.settings_system_daydream),
                         title: const Text('Root path'),
-                        value: Text('The main folder is where they are .bat files, .json configs and more${_sd_remote_webui_folder.isNotEmpty ? '\n\nNow: '+_sd_remote_webui_folder : ''}'),
+                        value: Text('The main folder is where they are .bat files, .json configs and more${_remote_webui_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_folder : ''}'),
                         onPressed: (context) async {
                           String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                           if (selectedDirectory != null) {
                             prefs.setString('sd_remote_webui_folder', selectedDirectory);
                             setState(() {
-                              _sd_remote_webui_folder = selectedDirectory;
+                              _remote_webui_folder = selectedDirectory;
                             });
                           }
                         },
@@ -234,13 +235,13 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                       SettingsTile.navigation(
                         leading: const Icon(Icons.system_update_tv_rounded),
                         title: const Text('outputs folder'),
-                        value: Text('If you do not have access to the root folder, specify the folder where the images are saved (extras-images, img2img-grids, img2img-images and more)${_sd_remote_webui_outputs_folder.isNotEmpty ? '\n\nNow: '+_sd_remote_webui_outputs_folder : ''}'),
+                        value: Text('If you do not have access to the root folder, specify the folder where the images are saved (extras-images, img2img-grids, img2img-images and more)${_remote_webui_outputs_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_outputs_folder : ''}'),
                         onPressed: (context) async {
                           String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                           if (selectedDirectory != null) {
                             prefs.setString('sd_remote_webui_outputs_folder', selectedDirectory);
                             setState(() {
-                              _sd_remote_webui_outputs_folder = selectedDirectory;
+                              _remote_webui_outputs_folder = selectedDirectory;
                             });
                           }
                         },
@@ -261,10 +262,10 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                       SettingsTile.navigation(
                         leading: const Icon(Icons.web),
                         title: const Text('Web panel address'),
-                        value: Text('The address that you use in the browser, for example: http://192.168.1.5:7860${_sd_remote_webui_address.isNotEmpty ? '\n\nNow: '+_sd_remote_webui_address : ''}'),
+                        value: Text('The address that you use in the browser, for example: http://192.168.1.5:7860${_remote_webui_address.isNotEmpty ? '\n\nNow: '+_remote_webui_address : ''}'),
                         onPressed: (context) async {
                           var addressController = TextEditingController();
-                          addressController.text = _sd_remote_webui_address;
+                          addressController.text = _remote_webui_address;
                           final _formKey = GlobalKey<FormState>();
                           await showDialog<void>(
                               context: context,
@@ -296,9 +297,9 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                                         onPressed: () {
                                           if (_formKey.currentState!.validate()) {
                                             String f = addressController.text.trim();
-                                            prefs.setString('sd_remote_webui_address', f);
+                                            prefs.setString('remote_webui_address', f);
                                             setState(() {
-                                              _sd_remote_webui_address = f;
+                                              _remote_webui_address = f;
                                             });
                                             checkRemoteStatus();
                                             Navigator.pop(context, 'Ok');

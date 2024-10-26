@@ -34,9 +34,11 @@ class _HistogramState extends State<Histogram> {
     int maxF_G = 0;
     int maxF_B = 0;
 
-    List<int> cF_R = List<int>.generate(256, (i) => 0);
-    List<int> cF_G = List<int>.generate(256, (i) => 0);
-    List<int> cF_B = List<int>.generate(256, (i) => 0);
+    int maxColors = data.bitsPerChannel == 16 ? 65536 : data.bitsPerChannel == 32 ? 16777216 : 256;
+
+    List<int> cF_R = List<int>.generate(maxColors, (i) => 0);
+    List<int> cF_G = List<int>.generate(maxColors, (i) => 0);
+    List<int> cF_B = List<int>.generate(maxColors, (i) => 0);
 
     // Iterate bitmap and count frequencies of specified component values
 
@@ -45,9 +47,19 @@ class _HistogramState extends State<Histogram> {
     while (range.moveNext()) {
       final pixel = range.current;
 
-      cF_R[pixel.r.toInt()]++;
-      cF_G[pixel.g.toInt()]++;
-      cF_B[pixel.b.toInt()]++;
+      try{
+        cF_R[pixel.r.toInt()]++;
+        cF_G[pixel.g.toInt()]++;
+        cF_B[pixel.b.toInt()]++;
+      } on RangeError catch(e) {
+        print('Error caught: $e');
+        print(pixel);
+        print(data.bitsPerChannel);
+        print('r: ${pixel.r}');
+        print('g: ${pixel.g}');
+        print('b: ${pixel.b}');
+        throw Exception("Wtf is pixels");
+      }
 
       if(cF_R[pixel.r.toInt()] > maxF_R) maxF_R++;
       if(cF_G[pixel.g.toInt()] > maxF_G) maxF_G++;
@@ -96,40 +108,44 @@ class _HistogramState extends State<Histogram> {
               if(debug){
                 return const Text('done');
               }
+              print(snapshot.data.width);
+              print(snapshot.data.height);
+              int maxColors = snapshot.data.bitsPerChannel == 16 ? 65536 : snapshot.data.bitsPerChannel == 32 ? 16777216 : 256;
               List<Line> lines = [];
               double boxHeight = constraints.maxHeight;
-              double lineWidth = constraints.maxWidth / 255;
+              double lineWidth = 1;
 
               Map<String, dynamic> colourFrequencies = getColourFrequencies(snapshot.data);
               double x = 0.0;
+
+              double toAdd = constraints.maxWidth / (maxColors-1);
               // //R
-              for(int i = 0; i <= 255; i++) {
+              for(int i = 0; i <= (maxColors-1); i++) {
 
                 Color colour = Colors.red;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['r'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['r'] as List<int>)[i] * pixelsPerUnit;
                 lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
-                x += lineWidth;
+                x += toAdd;
               }
               x = 0.0;
               //G
-              for(int i = 0; i <= 255; i++) {
-
+              for(int i = 0; i <= (maxColors-1); i++) {
                 Color colour = Colors.green;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['g'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['g'] as List<int>)[i] * pixelsPerUnit;
                 lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
-                x += lineWidth;
+                x += toAdd;
               }
               x = 0.0;
               //B
-              for(int i = 0; i <= 255; i++) {
+              for(int i = 0; i <= (maxColors-1); i++) {
 
                 Color colour = Colors.blue;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['b'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['b'] as List<int>)[i] * pixelsPerUnit;
                 lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
-                x += lineWidth;
+                x += toAdd;
               }
               //lines.add(Line(color: Colors.red, width: 2, height: 50, x: 0, y: 50)); //debug
               //print('${widget.path} ${lines[0].height}');

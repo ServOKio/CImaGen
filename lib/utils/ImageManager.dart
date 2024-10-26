@@ -209,7 +209,7 @@ class ParseJob {
     _parse(re, host, remote);
   }
 
-  // НОРМАЛИЗОВАНО
+  // path НОРМАЛИЗОВАНО
   Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
     if(_cache.isEmpty) return _isDone();
     for(dynamic raw in _cache){
@@ -509,11 +509,19 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
         // SD
         if(pngEx['parameters'] != null){
-          re = RenderEngine.txt2img;
           if(pngEx['generation_data'] != null && await isJson(pngEx['generation_data'])){
             pngEx['softwareType'] = Software.tensorArt;
           }
-          gp = parseSDParameters(pngEx['parameters']);
+          if(await isJson(pngEx['parameters'])){
+            var data = jsonDecode(pngEx['parameters']);
+            if(data['sui_image_params'] != null){
+              pngEx['softwareType'] = Software.swarmUI;
+              gp = parseSwarmUIParameters(pngEx['parameters']);
+            }
+          } else {
+            re = RenderEngine.txt2img;
+            gp = parseSDParameters(pngEx['parameters']);
+          }
         } else if(pngEx['workflow'] != null){
           if(await isJson(pngEx['workflow'] as String)){
             re = RenderEngine.comfUI;
@@ -1542,7 +1550,8 @@ enum Software {
   adobeImageReady,
   celsysStudioTool,
   tensorArt, // https://tensor.art/,
-  photoScape
+  photoScape,
+  swarmUI
 }
 
 String renderEngineToString(RenderEngine re){
@@ -1567,7 +1576,8 @@ String softwareToString(Software re){
     Software.adobeImageReady: 'Adobe ImageReady',
     Software.celsysStudioTool: 'Celsys Studio Tool',
     Software.tensorArt: 'TensorArt',
-    Software.photoScape: 'PhotoScape'
+    Software.photoScape: 'PhotoScape',
+    Software.swarmUI: 'SwarmUI'
   }[re] ?? 'Unknown*';
 }
 

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/components/PromtAnalyzer.dart';
+import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -243,6 +244,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
               children: <Widget>[
                 im.re != RenderEngine.unknown ? InfoBox(one: 'Render engine', two: renderEngineToString(im.re), withGap: false) : const SizedBox.shrink(),
                 im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
+                im.generationParams!.params?['internalbackendtype'] != null ? InfoBox(one: 'Internal Backend Type', two: im.generationParams!.params!['internalbackendtype']) : const SizedBox.shrink(),
                 Container(
                     padding: const EdgeInsets.all(4.0),
                     margin: const EdgeInsets.only(bottom: 8),
@@ -274,6 +276,39 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                     InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType), withGap: false),
                     InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
                     gp.params?['vae'] != null ? InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : '')) : const SizedBox.shrink(),
+                    gp.params?['loras'] != null ? Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        clipBehavior: Clip.hardEdge,
+                        decoration: const BoxDecoration(
+                            color: Color(0xff1a1a1a),
+                            borderRadius: BorderRadius.all(Radius.circular(4))
+                        ),
+                        child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ...(gp.params?['loras'] as List<dynamic>).mapIndexed((int index, dynamic item) {
+                                  return Row(
+                                    children: [
+                                      const SelectableText('Lora', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                                      const Gap(6),
+                                      Expanded(
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: SelectableText("$item:${gp!.params?['loraweights'][index]}", style: const TextStyle(fontSize: 13)),
+                                          ),
+                                        ),
+                                      )
+                                    ],
+                                  );
+                                }).toList()
+                              ],
+                            )
+                        )
+                    ) : const SizedBox.shrink(),
                     const Gap(6),
                     Container(
                         decoration: const BoxDecoration(
@@ -289,8 +324,10 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Gap(6),
                                 Column(
                                   children: [
-                                    InfoBox(one: 'Sampler name', two: gp.sampler ?? '', inner: true, withGap: false),
+                                    InfoBox(one: 'Sampler name', two: humanizeSamplerName(gp.sampler), inner: true, withGap: false),
+                                    gp.params?['scheduler'] != null ? InfoBox(one: 'Scheduler', two: gp.params!['scheduler'], inner: true, withGap: true) : const SizedBox.shrink(),
                                     InfoBox(one: 'Steps', two: gp.steps.toString(), inner: true),
+                                    gp.params?['initimagecreativity'] != null ? InfoBox(one: 'Init Image Creativity', two: gp.params!['initimagecreativity'].toString(), inner: true, withGap: true) : const SizedBox.shrink(),
                                     InfoBox(one: 'CFG Scale', two: gp.cfgScale.toString(), inner: true),
                                     gp.denoisingStrength != null && gp.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString(), inner: true) : const SizedBox.shrink(),
                                   ],

@@ -391,6 +391,74 @@ List<dynamic> parseComfUIParameters(String rawData){
   }
 }
 
+GenerationParams? parseSwarmUIParameters(String rawData, {bool onlyParams = false}){
+  try{
+    var data = jsonDecode(rawData)['sui_image_params'];
+
+//   {
+//       "sui_image_params": {
+      //   "prompt": "solo,score_9, score_8_up, score_7_up, light, realistic lighting, by marloncores, ((anthro German Shepard with a rose in his mouth, bite rose, (red rose))), male, abs, smile, cute, sexy look, photo, bright detailed reflective yellow eyes, (athletic), claws, paw pads, furry hands, furry fingers, (sheath, sheath showing, (fully sheathed), top shot, ((whole subject in view, full frame)), lying on bed, king size bed, shiny silk sheets, ((red sheets, red blanket, red pillow)), (tuft on arm, tuft on neck, soft fur, fluffy fur, tail, black fur, brown fur)), hair, standing, young, twink, (front view), FULL-LENGTH PORTRAIT,",
+      //   "negativeprompt": "NSFW",
+      //   "model": "Indigo_Furry_Mix_XL_-_realistic_beta",
+      //   "images": 51,
+      //   "seed": 2138144307,
+      //   "steps": 50,
+      //   "cfgscale": 7,
+      //   "aspectratio": "16:9",
+      //   "width": 1344,
+      //   "height": 1344,
+      //   "sampler": "dpmpp_3m_sde_gpu",
+      //   "scheduler": "karras",
+      //   "initimagecreativity": 0.6,
+      //   "maskblur": 4,
+      //   "altresolutionheightmultiplier": 1,
+      //   "webhooks": "Manual At End",
+      //   "internalbackendtype": "comfyui_selfstart",
+      //   "wildcardseed": -1,
+      //   "colordepth": "16bit",
+      //   "automaticvae": true,
+      //   "loras": [
+        //   "Lora/epi_noiseoffset2",
+        //   "Lora/more_details"
+      //   ],
+      //   "loraweights": [
+        //   "1",
+        //   "1"
+      //   ],
+      //   "swarm_version": "0.9.2.3",
+      //   "date": "2024-10-03",
+      //   "generation_time": "42.31 (prep) and 7.74 (gen) seconds"
+      // }
+  // }
+
+    Map<String, Object> gp = (data as Map).map((key, value) => MapEntry<String, Object>(key, value));
+
+    GenerationParams gpF = GenerationParams(
+        positive: data['prompt'],
+        negative: data['negativeprompt'],
+        steps: data['steps'],
+        sampler: data['sampler'] as String,
+        cfgScale: data['cfgscale'],
+        seed: data['seed'],
+        size: ImageSize(
+          width: data['width'],
+          height: data['height']
+        ),
+        checkpointType: CheckpointType.model,
+        checkpoint: data['model'],
+        version: data['swarm_version'],
+        params: gp,
+        rawData: rawData
+    );
+    return gpF;
+  } catch(e, s){
+    print(e);
+    print(s);
+    print(rawData);
+    return null;
+  }
+}
+
 List<dynamic> getImageLine(dynamic el, dynamic data){
   List<dynamic> history = [];
   if(el['class_type'] == 'SaveImage'){
@@ -646,7 +714,7 @@ class GenerationParams {
     required this.size,
     required this.checkpointType,
     required this.checkpoint,
-    required this.checkpointHash,
+    this.checkpointHash,
     this.vae,
     this.vaeHash,
     this.denoisingStrength,

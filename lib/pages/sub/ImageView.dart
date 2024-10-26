@@ -4,6 +4,7 @@ import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:photo_view/photo_view.dart';
 import 'package:provider/provider.dart';
 
 import '../../Utils.dart';
@@ -21,6 +22,9 @@ class ImageView extends StatefulWidget{
 class _ImageViewState extends State<ImageView> {
   //Text(widget.imageMeta!.fullPath)
 
+  bool showOriginalSize = true;
+  PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -33,7 +37,19 @@ class _ImageViewState extends State<ImageView> {
           title: Text(widget.imageMeta!.fileName),
           backgroundColor: const Color(0xaa000000),
           elevation: 0,
-          actions: []
+        actions: [
+          IconButton(
+              icon: Icon(
+                showOriginalSize ? Icons.photo_size_select_large_rounded : Icons.photo_size_select_actual_rounded,
+              ),
+              onPressed: (){
+                setState(() {
+                  showOriginalSize = !showOriginalSize;
+                  scaleStateController.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
+                });
+              }
+          ),
+        ],
       ),
       endDrawer: screenWidth >= breakpoint ? null : _buildMenu(),
       body: SafeArea(

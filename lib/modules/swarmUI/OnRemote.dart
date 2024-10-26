@@ -16,7 +16,6 @@ import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
 
-// Required "Infinite image browsing" addon
 class OnRemote extends ChangeNotifier implements AbMain{
   @override
   bool loaded = false;
@@ -96,7 +95,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
         int notID = notificationManager!.show(
             thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
-            title: 'Error on OnRemote.dart',
+            title: 'Error on OnRemote',
             description: e.toString()
         );
         audioController!.player.play(AssetSource('audio/error.wav'));
