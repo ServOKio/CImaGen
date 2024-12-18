@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
@@ -15,7 +16,7 @@ class PortfolioGalleryImageWidget extends StatelessWidget {
     if(!imageMeta.isLocal){
       provider = NetworkImage(imageMeta.networkThumbnail ?? imageMeta.fullNetworkPath!);
     } else {
-      provider = FileImage(File(imageMeta.fullPath));
+      provider = MemoryImage(base64Decode(imageMeta.thumbnail ?? ''));
     }
     return ClipRRect(
       borderRadius: const BorderRadius.all(Radius.circular(5)),

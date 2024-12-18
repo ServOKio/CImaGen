@@ -3,10 +3,6 @@ import 'dart:typed_data';
 
 import '../Utils.dart';
 
-class BufferUtils {
-
-}
-
 class BufferReader{
   List<int> data;
   ByteData view = ByteData(0);

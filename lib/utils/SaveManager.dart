@@ -16,7 +16,7 @@ class SaveManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void init(BuildContext context) {
+  Future<void> init(BuildContext context) async {
     context.read<SQLite>().getCategories().then((v){
       for (var element in v) {categories[element.id] = element;}
     });

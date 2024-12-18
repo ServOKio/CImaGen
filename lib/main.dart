@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
@@ -271,17 +270,17 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   void next(){
     context.read<ConfigManager>().init().then((v){
-      context.read<DataManager>().init().then((v){
-        // audioController!.player.play(AssetSource('audio/okay.wav'));
-      }).catchError((e){
-        if (kDebugMode) print(e);
-      });
       onDone();
       context.read<SQLite>().init().then((v){
         context.read<ImageManager>().init(context);
-        context.read<SaveManager>().init(context);
-        setState(() {
-          loaded = true;
+        context.read<DataManager>().init().then((v){
+          context.read<SaveManager>().init(context).then((v){
+            setState(() {
+              loaded = true;
+            });
+          });
+        }).catchError((e){
+          if (kDebugMode) print(e);
         });
       }).catchError((e){
         if (kDebugMode) print(e);

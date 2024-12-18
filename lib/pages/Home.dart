@@ -480,7 +480,7 @@ class _HomeState extends State<Home> {
                                           children: [
                                             TextButton(
                                               onPressed: () async {
-                                                Navigator.push(context, MaterialPageRoute(builder: (context) => MiniWorld()));
+                                                Navigator.push(context, MaterialPageRoute(builder: (context) => const MiniWorld()));
                                               },
                                               child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
                                             ),
@@ -522,9 +522,9 @@ class _HomeState extends State<Home> {
         withSpacer ? const Spacer() : const Gap(21),
         ElevatedButton(
             style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                backgroundColor: MaterialStateProperty.all<Color>(Theme.of(context).primaryColor),
-                shape: MaterialStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                backgroundColor: WidgetStateProperty.all<Color>(Theme.of(context).primaryColor),
+                shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
             ),
             onPressed: () async {
               // notificationManager?.show(title: 'Hello');
@@ -586,7 +586,7 @@ class _HomeState extends State<Home> {
                   )
               );
             },
-            child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create, style: TextStyle(fontSize: 14))
+            child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create, style: const TextStyle(fontSize: 14))
         )
       ],
     );
@@ -730,8 +730,8 @@ class FileInfoPreview extends StatelessWidget{
                           SizedBox(
                             width: constraints.maxWidth / 2,
                             child: AspectRatio(
-                              aspectRatio: im!.size!.aspectRatio(),
-                              child: im.error == null ? Image.memory(gaplessPlayback: true, base64Decode(im.thumbnail ?? '')) : DottedBorder(
+                              aspectRatio: im?.error == null ? im!.size!.aspectRatio() : 1/1,
+                              child: im?.error == null ? Image.memory(gaplessPlayback: true, base64Decode(im?.thumbnail ?? '')) : DottedBorder(
                                 dashPattern: const [6, 6],
                                 color: Colors.redAccent,
                                 borderType: BorderType.RRect,
@@ -756,7 +756,7 @@ class FileInfoPreview extends StatelessWidget{
                                         borderRadius: const BorderRadius.all(Radius.circular(2)),
                                         color: Colors.black.withOpacity(0.7)
                                     ),
-                                    child: Text(im.fileTypeExtension, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                                    child: Text(im?.fileTypeExtension ?? '', style: const TextStyle(color: Colors.white, fontSize: 10)),
                                   ),
                                   isHDRimage ? const Gap(4) : const SizedBox.shrink(),
                                   isHDRimage ? Container(
@@ -792,13 +792,14 @@ class FileInfoPreview extends StatelessWidget{
                 ],
               ),
               const Gap(7),
+              im.error != null ? InfoBox(one: 'Error', two: im.error, inner: true) : const SizedBox.shrink(),
               hasICC ? (im.specific?['iccProfileName'] != null) ? InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true) : InfoBox(one: 'Color profile', two: pn) : const SizedBox.shrink(),
               im.generationParams?.checkpoint != null ? InfoBox(one: 'Checkpoint', two: im.generationParams?.checkpoint, inner: true) : const SizedBox.shrink(),
               im.generationParams?.sampler != null ? InfoBox(one: 'Sampler', two: im.generationParams?.sampler, inner: true) : const SizedBox.shrink(),
               im.specific?['comfUINodes'] != null ? ExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 title: InfoBox(one: 'Node Count', two: im.specific!['comfUINodes'].length.toString()),
-                children: withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>Text(el['type'], style: TextStyle(fontSize: 12))).toList(), element: const Icon(Icons.arrow_downward, size: 10,)),
+                children: withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>Text(el['type'], style: const TextStyle(fontSize: 12))).toList(), element: const Icon(Icons.arrow_downward, size: 10,)),
               ) : const SizedBox.shrink(),
               const Gap(7),
               Row(

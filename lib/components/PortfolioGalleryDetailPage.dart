@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/ImageInfo.dart';
@@ -38,7 +41,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   void backCall(PhotoViewScaleStateController ns){
     changeScale = ns;
-    // changeScale.scaleState = PhotoViewScaleState.originalSize;
+    changeScale.scaleState = PhotoViewScaleState.originalSize;
   }
 
   late CarouselSliderController carouselController;
@@ -73,6 +76,16 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   Future<void> disp() async {
     if(prefs.getBool('imageview_use_fullscreen') ?? false) await WindowManager.instance.setFullScreen(false);
+  }
+
+  void back(){
+    carouselController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
+    _pageController.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
+  }
+
+  void next(){
+    carouselController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
+    _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.ease);
   }
 
   @override
@@ -220,6 +233,45 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     return Stack(
       children: <Widget>[
         _buildPhotoViewGallery(backCall), //Ебало
+        Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => back(),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  child: Container(
+                    width: 50,
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.arrow_left),
+                  ),
+                ),
+              ),
+            )
+        ),
+        Positioned(
+          right: 0,
+          bottom: 0,
+          top: 0,
+          child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => next(),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    child: Container(
+                      width: 50,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.arrow_right),
+                    ),
+                  ),
+                ),
+              )
+          ),
+        ),
+        //left
+        //right
         if(widget.images.length > 1) _buildIndicator() //Дно
       ],
     );
@@ -251,8 +303,8 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
         return PortfolioGalleryImageWidget(
           imageMeta: widget.images[index],
           onImageTap: () {
-            carouselController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.ease);
-            _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.ease);
+            carouselController.jumpToPage(index);
+            _pageController.jumpToPage(index);
           }
         );
       },
@@ -279,15 +331,37 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
     return PhotoViewGallery.builder(
       itemCount: widget.images.length,
       builder: (BuildContext context, int index) {
+        ImageMeta im = widget.images[index];
         ImageProvider? provider;
-        if(!widget.images[index].isLocal){
-          provider = NetworkImage(widget.images[index].fullNetworkPath);
+        if(!im.isLocal){
+          provider = NetworkImage(im.fullNetworkPath ?? '');
         } else {
-          provider = FileImage(File(widget.images[index].fullPath));
+          provider = FileImage(File(im.fullPath));
         }
         return PhotoViewGalleryPageOptions(
           scaleStateController: scaleStateController,
           imageProvider: provider,
+          errorBuilder: (context, error, stackTrace) {
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                im.thumbnail != null ? AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image.memory(
+                  base64Decode(im.thumbnail ?? ''),
+                  filterQuality: FilterQuality.low,
+                  gaplessPlayback: true,
+                )) : !im.isLocal && im.networkThumbnail != null ? CachedNetworkImage(
+                    imageUrl: im.networkThumbnail!,
+                    imageBuilder: (context, imageProvider) {
+                      return AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
+                    }
+                ) : const Text('Error'),
+                Transform.rotate(
+                    angle: 45 * math.pi / 180,
+                    child: Text('Deleted', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
+                )
+              ],
+            );
+          },
           initialScale: PhotoViewComputedScale.contained,
           minScale: 0.1,
           maxScale: PhotoViewComputedScale.covered * 1,
@@ -300,12 +374,8 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
       enableRotation: true,
       scrollPhysics: const BouncingScrollPhysics(),
       pageController: _pageController,
-      loadingBuilder: (context, event) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-      onPageChanged: (int index) => setState(() {
-        _currentIndex = index;
-      })
+      loadingBuilder: (context, event) => const Center(child: CircularProgressIndicator(),),
+      onPageChanged: (int index) => setState(() { _currentIndex = index; })
     );
   }
 }

@@ -3,7 +3,9 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:cimagen/utils/NavigationService.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:ffi';
@@ -15,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:win32/win32.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'package:fast_csv/fast_csv_ex.dart' as fast_csv_ex;
 import 'package:path/path.dart' as p;
@@ -82,7 +85,9 @@ class DataManager with ChangeNotifier {
   Map<String, TagInfo> get e621Tags => _e621Tags;
 
   Future<void> init() async {
-    loadE621Tags();
+    await loadE621Tags();
+    loaded = true;
+    notifyListeners();
   }
 
   // https://e621.net/db_export/
@@ -94,14 +99,11 @@ class DataManager with ChangeNotifier {
     }
     csvPath = File(p.join(dD.path, 'CImaGen', 'csv', 'e621-tags.csv'));
     if (csvPath.existsSync()) {
-      print('ok');
       File(csvPath.path).readAsString().then((value){
         final data = fast_csv_ex.parse(value);
         data.skip(1).forEach((e) {
           _e621Tags[e[1]] = TagInfo(id: int.parse(e[0]), name: e[1], category: int.parse(e[2]), count: int.parse(e[3]));
         });
-        loaded = true;
-        notifyListeners();
       });
     } else {
       int notID = notificationManager!.show(
@@ -702,6 +704,7 @@ class GenerationParams {
   final Map<String, String>? tiHashes;
   final String? version;
   final String? rawData;
+  late ContentRating contentRating;
   Map<String, dynamic>? params;
 
   GenerationParams({
@@ -727,6 +730,7 @@ class GenerationParams {
     this.rawData,
     this.params
   }){
+    contentRating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive);
     // if(rawData != null){
     //   GenerationParams? p = parseSDParameters(rawData!, onlyParams: true);
     //   if(p != null){

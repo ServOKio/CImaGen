@@ -193,12 +193,13 @@ class OnLocal extends ChangeNotifier implements AbMain{
     //print('total: ${fe.length}');
 
     if(hashes != null && hashes.isNotEmpty){
-      // print(hashes.first);
-      // for(FileSystemEntity te in fe){
-      //   print(te.path);
-      //   print(normalizePath(p.normalize(te.path)));
-      //   print(genPathHash(normalizePath(p.normalize(te.path))));
-      // }
+      print(hashes.first);
+      for(FileSystemEntity te in fe){
+        print(te.path);
+        print(normalizePath(p.normalize(te.path)));
+        print(genPathHash(normalizePath(p.normalize(te.path))));
+      }
+      fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       if (kDebugMode) {
         print('onLocal:indexFolder: to send: ${fe.length}');

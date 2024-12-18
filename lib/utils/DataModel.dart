@@ -1,12 +1,21 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'dart:io' as Io;
 
 import 'package:image/image.dart' as Il;
+import 'package:path_provider/path_provider.dart';
+
+import '../components/PromtAnalyzer.dart';
+
+import 'package:path/path.dart' as p;
+
+import '../main.dart';
 
 class DataModel with ChangeNotifier {
   late Function jumpToTab;
@@ -17,10 +26,12 @@ class DataModel with ChangeNotifier {
 
   ComparisonBlock comparisonBlock = ComparisonBlock();
   TimelineBlock timelineBlock = TimelineBlock();
+  ContentRatingModule contentRatingModule = ContentRatingModule();
 
   DataModel() {
     comparisonBlock.changeNotify(notify);
     timelineBlock.changeNotify(notify);
+    contentRatingModule.loadCRTags();
   }
 }
 
@@ -200,5 +211,120 @@ class TimelineBlock {
   void setSeed(int seed){
     _seed = seed;
     notify();
+  }
+}
+
+// Other
+class ContentRatingModule {
+
+  List<String> G = [];
+  List<String> PG = [];
+  List<String> PG_13 = [];
+  List<String> R = [];
+  List<String> NC_17 = [];
+  List<String> X = [];
+  List<String> XXX = [];
+
+  Future<void> loadCRTags() async {
+    Directory dD = await getApplicationDocumentsDirectory();
+    dynamic jsonPath = Directory(p.join(dD.path, 'CImaGen', 'json'));
+    if (!jsonPath.existsSync()) {
+      await jsonPath.create(recursive: true);
+    }
+    jsonPath = File(p.join(dD.path, 'CImaGen', 'json', 'content-rating.json'));
+    if (jsonPath.existsSync()) {
+      File(jsonPath.path).readAsString().then((rawData){
+        final data = jsonDecode(rawData);
+        G.addAll(List<String>.from(data['G']));
+        PG.addAll(List<String>.from(data['PG']));
+        PG_13.addAll(List<String>.from(data['PG_13']));
+        R.addAll(List<String>.from(data['R']));
+        NC_17.addAll(List<String>.from(data['NC_17']));
+        X.addAll(List<String>.from(data['X']));
+        XXX.addAll(List<String>.from(data['XXX']));
+      });
+    } else {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+          title: 'Content rating tags not found',
+          description: 'Put the content-rating.json file in the "$jsonPath" folder'
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+    }
+  }
+
+  // TODO ;d
+  ContentRating getContentRating(String text){
+    // First - normalize
+    text = cleanUpSDPromt(text);
+    //Second - split
+    List<String> tags = getRawTags(text);
+
+    bool done = false;
+    ContentRating r = ContentRating.G;
+    for(String tag in XXX){
+      if(tags.contains(tag)){
+        r = ContentRating.XXX;
+        done = true;
+      }
+    }
+
+    if(!done){
+      for(String tag in X){
+        if(tags.contains(tag)){
+          r = ContentRating.X;
+          done = true;
+        }
+      }
+    }
+
+    if(!done){
+      for(String tag in NC_17){
+        if(tags.contains(tag)){
+          r = ContentRating.NC_17;
+          done = true;
+        }
+      }
+    }
+
+    return r;
+  }
+}
+
+List<Combination> combinations = [
+  Combination(
+      level: 2,
+      exactly: ['trap'],
+      requires: ['1girl', 'girl'],
+      containsOne: ['penis']
+  ),
+  Combination(
+      level: 1,
+      requires: ['nude', 'naked'],
+      containsOne: ['big_breasts']
+  ),
+];
+
+class Combination{
+  // 0 - нахуя ?
+  // 1 - стандартно, бабки будут не довольны (gay, male, solo, masturbation)
+  // 2 - ну бля, давай не будем (трапы там)
+  // 3 - специфичные вкусы сука можно бан получить (xxx rating)
+  int level;
+  List<String>? containsOne;
+  List<String>? containsAll;
+  List<String>? requires;
+  List<String>? exactly;
+
+  Combination({
+    required this.level,
+    this.containsOne,
+    this.containsAll,
+    this.requires,
+    this.exactly
+  });
+
+  bool test(String string){
+    return false;
   }
 }

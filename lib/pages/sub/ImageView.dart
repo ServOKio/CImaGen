@@ -1,15 +1,18 @@
 import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:provider/provider.dart';
 
 import '../../Utils.dart';
 import '../../components/ImageInfo.dart';
 import '../../utils/DataModel.dart';
+
+import 'package:path/path.dart' as p;
+import 'package:http/http.dart' as http;
 
 class ImageView extends StatefulWidget{
   ImageMeta? imageMeta;
@@ -38,6 +41,22 @@ class _ImageViewState extends State<ImageView> {
           backgroundColor: const Color(0xaa000000),
           elevation: 0,
         actions: [
+          !widget.imageMeta!.isLocal ? IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: () async {
+                dynamic appDownloadDir = await getDownloadsDirectory();
+                if(appDownloadDir != null) appDownloadDir = appDownloadDir.path;
+                String pa = p.join(appDownloadDir, '${widget.imageMeta?.fileName}');
+                File f = File(pa);
+                if(!f.existsSync()){
+                  String clean = cleanUpUrl(widget.imageMeta!.fullNetworkPath!);
+                  http.Response res = await http.get(Uri.parse(clean));
+                  if(res.statusCode == 200){
+                    await f.writeAsBytes(res.bodyBytes);
+                  }
+                }
+              }
+          ) : const SizedBox.shrink(),
           IconButton(
               icon: Icon(
                 showOriginalSize ? Icons.photo_size_select_large_rounded : Icons.photo_size_select_actual_rounded,
@@ -48,7 +67,7 @@ class _ImageViewState extends State<ImageView> {
                   scaleStateController.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
                 });
               }
-          ),
+          )
         ],
       ),
       endDrawer: screenWidth >= breakpoint ? null : _buildMenu(),

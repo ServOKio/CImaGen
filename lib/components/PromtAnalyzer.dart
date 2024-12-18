@@ -477,7 +477,7 @@ List<String> getRawTags(String promt){
 
   while(i + 1 < res.length) {
     if (res[i][1] == res[i + 1][1]) {
-      res[i][0] += res[i + 1][0];
+      res[i][0] += ',${res[i + 1][0]}';
       res.removeAt(i + 1);
     } else {
       i += 1;

@@ -151,23 +151,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               child: Text('Index ${_tabs[_tabController.index].name}'),
               onTap: () => context.read<ImageManager>().getter.indexAll(_tabs[_tabController.index]),
             ),
-            // PopupMenuItem<int>(
-            //     value: 1, child: Text("Privacy Policy page")),
-            // PopupMenuDivider(),
-            // PopupMenuItem<int>(
-            //     value: 2,
-            //     child: Row(
-            //       children: [
-            //         Icon(
-            //           Icons.logout,
-            //           color: Colors.red,
-            //         ),
-            //         const SizedBox(
-            //           width: 7,
-            //         ),
-            //         Text("Logout")
-            //       ],
-            //     )),
+            PopupMenuItem<int>(
+              child: Text('Find incorrectly located files'),
+              onTap: (){
+                
+              },
+            ),
           ],
         )
       ]);
@@ -234,8 +223,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     _lists[re.index]?.then((listValue) {
       Folder f = listValue[index];
       imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
+      print('changeTab:${RenderEngine.values[re.index].name}/${f.name}');
       imagesList?.then((List<ImageMeta> value) {
         bool force = false; //listValue.length-1 == index;
+        print(value);
         context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
           if(value.isEmpty || force){
             setState(() {
@@ -1012,8 +1003,9 @@ class PreviewImage extends StatelessWidget {
           );
 
           //Rating
-          ContentRating r = getContentRating(imageMeta.generationParams?.positive ?? '');
+          ContentRating r = imageMeta.generationParams!.contentRating;
           Widget ratingBlock = Container(
+            margin: const EdgeInsets.only(bottom: 3),
             width: 18,
             height: 18,
             padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
@@ -1069,50 +1061,29 @@ class PreviewImage extends StatelessWidget {
                                 child: ImageWidget(imageMeta, dontBlink: dontBlink)
                             ),
                             AnimatedScale(
-                              scale: imageManager
-                                  .favoritePaths
-                                  .contains(imageMeta.fullPath)
-                                  ? 1
-                                  : 0,
-                              duration: const Duration(
-                                  milliseconds: 200),
+                              scale: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 1 : 0,
+                              duration: const Duration(milliseconds: 200),
                               curve: Curves.ease,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.black
-                                      .withOpacity(0.5),
+                                  color: Colors.black.withOpacity(0.5),
                                   shape: BoxShape.circle,
                                 ),
                                 padding:
-                                const EdgeInsets.all(
-                                    4),
-                                margin:
-                                const EdgeInsets.only(
-                                    top: 4, right: 4),
-                                child: Icon(Icons.star,
-                                    size: 16,
-                                    color:
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .onSecondary),
+                                const EdgeInsets.all(4),
+                                margin: const EdgeInsets.only(top: 4, right: 4),
+                                child: Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.onSecondary),
                               ),
                             ),
                             AnimatedScale(
-                              scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup)
-                                  ? 1
-                                  : 0 : 0,
-                              duration: const Duration(
-                                  milliseconds: 200),
+                              scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup) ? 1 : 0 : 0,
+                              duration: const Duration(milliseconds: 200),
                               curve: Curves.ease,
                               child: Container(
                                   decoration:
                                   BoxDecoration(
-                                    color:
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .secondary,
-                                    shape:
-                                    BoxShape.circle,
+                                    color: Theme.of(context).colorScheme.secondary,
+                                    shape: BoxShape.circle,
                                   ),
                                   child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
                               ),
@@ -1140,6 +1111,7 @@ class PreviewImage extends StatelessWidget {
                                     children: [
                                       ratingBlock,
                                       Container(
+                                        margin: const EdgeInsets.only(bottom: 3),
                                         padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                         decoration: BoxDecoration(
                                             borderRadius: const BorderRadius.all(Radius.circular(2)),
@@ -1148,6 +1120,7 @@ class PreviewImage extends StatelessWidget {
                                         child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                       ),
                                       imageMeta.re == RenderEngine.inpaint ? Container(
+                                        margin: const EdgeInsets.only(bottom: 3),
                                         padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                         decoration: BoxDecoration(
                                             borderRadius: const BorderRadius.all(Radius.circular(2)),
@@ -1155,20 +1128,16 @@ class PreviewImage extends StatelessWidget {
                                         ),
                                         child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                       ) : const SizedBox.shrink(),
-                                      imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                            decoration: BoxDecoration(
-                                                borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                color: const Color(0xff5f55a6).withOpacity(0.7)
-                                            ),
-                                            child: const Text('Hi-Res', style: TextStyle(color: Color(
-                                                0xffc8c4f5), fontSize: 8)),
+                                      imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Tooltip(
+                                        message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}',
+                                        child: Container(
+                                          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                          decoration: BoxDecoration(
+                                              borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                              color: const Color(0xff5f55a6).withOpacity(0.7)
                                           ),
-                                          const Gap(3),
-                                          Text('${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale} ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(fontSize: 10, color: Colors.white))
-                                        ],
+                                          child: const Text('Hi-Res', style: TextStyle(color: Color(0xffc8c4f5), fontSize: 12)),
+                                        ),
                                       ) : const SizedBox.shrink(),
                                     ],
                                   )

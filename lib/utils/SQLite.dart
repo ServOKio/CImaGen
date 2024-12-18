@@ -425,6 +425,10 @@ class SQLite with ChangeNotifier{
     args.add(parent);
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC', args);
+    if(kDebugMode){
+      print('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC');
+      print(args);
+    }
     print('maps.length ${maps.length}');
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];

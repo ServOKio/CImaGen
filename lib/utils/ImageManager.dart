@@ -26,7 +26,6 @@ import 'package:path/path.dart' as p;
 import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
 import 'package:http/http.dart' as http;
 
-import '../components/PromtAnalyzer.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
@@ -69,13 +68,6 @@ class ImageManager extends ChangeNotifier {
     switchGetterAuto();
 
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
-
-    // CR
-    List<String> tmp = [];
-    for (var e in xxx) {
-      if(e.contains('_')) tmp.add(e.replaceAll('_', ' '));
-    }
-    xxx.addAll(tmp);
   }
 
   void switchGetterAuto(){
@@ -1024,7 +1016,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
           response = await request.close();
         }
       }
-      RegExp ex = RegExp(r'pin\/(.+)\/sent');
+      RegExp ex = RegExp(r'pin/(.+)/sent');
       if(ex.hasMatch(parse.path)) {
         RegExpMatch match = ex.allMatches(parse.path).first;
         parse = Uri(
@@ -1077,25 +1069,74 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
           }
         }
       }
-      // http.Request req = http.Request("Get", parse)..followRedirects = false;
-      // http.Client baseClient = http.Client();
-      // http.StreamedResponse response = await baseClient.send(req);
-      // print(response.headers);
+    } else if(RegExp(r'\.pinterest\.com').hasMatch(parse.host)){
+      RegExp ex = RegExp(r'pin/(.+)/');
+      print('ok');
+      if(ex.hasMatch(parse.path)) {
+        RegExpMatch match = ex.allMatches(parse.path).first;
+        parse = Uri(
+            scheme: 'https',
+            host: 'widgets.pinterest.com',
+            path: '/v3/pidgets/pins/info/',
+            queryParameters: {'pin_ids': match[1]}
+        );
+        http.Response res = await http.Client().get(parse).timeout(const Duration(seconds: 5));
+        if(res.statusCode == 200){
+          var data = await json.decode(res.body);
+          //print(res.body);
+          if(data['status'] == 'success' && data['message'] == 'ok'){
+            data = data['data'].first;
+            if(!data['is_video'] && data['videos'] == null){
+              String fU = '';
+              bool h = false;
+              if(data['story_pin_data'] != null && data['story_pin_data']['pages'].first['image_adjusted']['images']['originals'] != null){
+                fU = data['story_pin_data']['pages'].first['image_adjusted']['images']['originals']['url'];
+                h = true;
+              } else if(data['embed'] != null){
+                fU = data['embed']['src'];
+                h = true;
+              } else if(data['images']['564x'] != null){
+                fU = data['images']['564x']['url'];
+                h = true;
+              } else if(data['images']['237x'] != null){
+                fU = data['images']['237x']['url'];
+                h = true;
+              }
 
-      // http.Client client = http.Client();
-      // http.Response res = await http.Client().get(parse);
-      // if(res.statusCode == 200){
-      //   print('ok 200');
-      //   print(res.isRedirect);
-      //   print(res.request?.maxRedirects ?? 'nul');
-      //   print(res.request?.headers ?? 'nul');
-      //   print(res.request?.followRedirects ?? 'nul');
-      //   print(res.request?.headers['location'] ?? 'nul');
-      // } else {
-      //   print('code: ${res.statusCode}');
-      // }
-    }
+              if(h){
+                parse = Uri.parse(fU);
+                final String e = p.extension(parse.path);
+                ImageMeta im = ImageMeta(
+                  host: Uri(
+                      host: parse.host,
+                      port: parse.port
+                  ).toString(),
+                  re: RenderEngine.unknown,
+                  fileTypeExtension: e.replaceFirst('.', ''),
+                  fullNetworkPath: fU,
+                );
+
+                await im.parseNetworkImage();
+                await im.makeThumbnail();
+                return im;
+              }
+            }
+          }
+        }
+      }
+    } else print('not ok');
     //https://pin.it/5xZcetzTV
+    ImageMeta im = ImageMeta(
+      error: 'Unknown host: ${parse.host}',
+      host: Uri(
+          host: parse.host,
+          port: parse.port
+      ).toString(),
+      re: RenderEngine.unknown,
+      fileTypeExtension: '',
+      fullNetworkPath: imagePath,
+    );
+    return im;
     return null;
   }
 
@@ -1210,7 +1251,7 @@ class ImageMeta {
   // Main
   String keyup = '';
   //Network
-  bool get isLocal => host == null;
+  bool get isLocal => fullNetworkPath == null;
   String? host;
   // Other
   String? error;
@@ -1652,139 +1693,6 @@ enum ContentRating {
   NC_17, // Rated NC-17: No children under 17 admitted. // #1b3e9b
   X, // A commission of a couple having sex, Any artwork with detailed genitalia (sheathes, vents, penises, breasts, anuses, etc.), A story of a horse who gets captured by a dragoness for her other 'needs', Reference sheets with visible genitalia (erect or flaccid), Artwork with tight enough clothing to the point where they may as well be not wearing anything at all. // #000000
   XXX // Scat, Watersports, Snuff, Castration, Cub, Etc. #000000
-}
-
-List<String> R = [
-  'undressing'
-];
-
-List<String> NC_17 = [
-  'presenting_hindquarters',
-
-  'panties_bulge', 'bulge',
-  'open_shirt', 'naked_torso', 'topless', 'bottomless', 'nipple', 'nipples',
-  'open_pants', 'unzipped_pants',
-
-  'milking_machine'
-];
-
-List<String> xxx = [
-  // Shit
-  'scat', 'scatplay', 'eating_feces', 'eating_eating', 'feces_pile', 'scat_pile', 'feces_on_penis', 'scat_on_penis', 'feces_on_face', 'scat_on_face',
-  'coprophilic_intercourse', 'scat_fucking', 'scat_inflation', 'feces_in_pussy', 'scat_in_pussy',
-  // Pee
-  'watersports', 'waterspout', 'peeing_self', 'wetting', 'urine_in_mouth', 'drinking_urine', 'urine_drinking', 'urine_on_face', 'urine_on_chest',
-  'urine_on_self', 'urine_on_leg',
-  // idk
-  'snuff',
-  // Bye bye balls
-  'castration', 'exposed_testicle', 'slit_throat',
-  // No more internet for u
-  'cub', 'cub_on_cub', 'cub_penetrating'
-];
-
-List<String> x = [
-  //general
-  'nude', 'naked',
-  'erection',
-  'genital_outline', 'detailed_bulge', 'big_bulge',
-
-  'sex', 'anal_penetration', 'penetration', 'masturbation', 'cowgirl_position', 'missionary_position',
-
-  'animal genitalia',
-  'butt', 'anal',
-
-
-  //female
-  'pussy',
-
-  //male
-  'precum', 'cum_shot', 'cum', 'excessive_cum', 'cum_on_body',
-  'hand_on_penis',
-
-  'sheath',
-  'penis', 'small_penis', 'flaccid_penis', 'equine_penis', 'long_penis', 'penis_milking', 'penis_pump', 'cock_ring', 'urethral_penetration', 'veiny_penis', 'penis_tip',
-  'black_penis', 'knot',
-  'balls', 'saggy_balls', 'big_balls', 'hude_balls', 'veiny_balls',
-
-  //wtf section
-  'tentacle_rape', 'tentacle_sex',
-  'sheath_penetration'
-];
-
-List<Combination> combinations = [
-  Combination(
-    level: 2,
-    exactly: ['trap'],
-    requires: ['1girl', 'girl'],
-    containsOne: ['penis']
-  ),
-  Combination(
-      level: 1,
-      requires: ['nude', 'naked'],
-      containsOne: ['big_breasts']
-  ),
-];
-
-class Combination{
-  // 0 - нахуя ?
-  // 1 - стандартно, бабки будут не довольны (gay, male, solo, masturbation)
-  // 2 - ну бля, давай не будем (трапы там)
-  // 3 - специфичные вкусы сука можно бан получить (xxx rating)
-  int level;
-  List<String>? containsOne;
-  List<String>? containsAll;
-  List<String>? requires;
-  List<String>? exactly;
-
-  Combination({
-    required this.level,
-    this.containsOne,
-    this.containsAll,
-    this.requires,
-    this.exactly
-  });
-
-  bool test(String string){
-    return false;
-  }
-}
-
-// TODO ;d
-ContentRating getContentRating(String text){
-  // First - normalize
-  text = cleanUpSDPromt(text);
-  //Second - split
-  List<String> tags = getRawTags(text);
-
-  bool done = false;
-  ContentRating r = ContentRating.G;
-  for(String tag in xxx){
-    if(tags.contains(tag)){
-      r = ContentRating.XXX;
-      done = true;
-    }
-  }
-
-  if(!done){
-    for(String tag in x){
-      if(tags.contains(tag)){
-        r = ContentRating.X;
-        done = true;
-      }
-    }
-  }
-
-  if(!done){
-    for(String tag in NC_17){
-      if(tags.contains(tag)){
-        r = ContentRating.NC_17;
-        done = true;
-      }
-    }
-  }
-
-  return r;
 }
 
 String genHash(RenderEngine re, String parent, String name, {String? host}){
