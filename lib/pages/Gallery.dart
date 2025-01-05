@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/pages/Timeline.dart' as timeline;
@@ -12,6 +13,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:flutter_resizable_container/flutter_resizable_container.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:gap/gap.dart';
@@ -21,8 +23,9 @@ import 'package:shimmer/shimmer.dart';
 
 import '../components/CustomActionButton.dart';
 import '../components/PortfolioGalleryDetailPage.dart';
+import '../components/XYZBuilder.dart';
 import '../main.dart';
-import '../modules/CustomMenuItem.dart';
+import '../components/CustomMenuItem.dart';
 import '../modules/webUI/AbMain.dart';
 import '../utils/NavigationService.dart';
 import '../utils/SQLite.dart';
@@ -64,7 +67,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   String currentKey = 'null';
   bool debug = false;
 
+  int previewType = 0;
+
   late final TabController _tabController;
+  final GlobalKey _key = GlobalKey();
+
   final List<RenderEngine> _tabs = [
     RenderEngine.txt2img,
     RenderEngine.img2img,
@@ -85,10 +92,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-
-
       appBarController!.setActions([
-        CustomActionButton(icon: Icons.info, tooltip: 'Database info', onPress: (){
+        CustomActionButton(getIcon: () => [Icons.grid_view, Icons.move_up, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
+          setState(() {
+            previewType = previewType + 1 >= 3 ? 0 : previewType + 1;
+          });
+        }, isActive: () => previewType != 0),
+        CustomActionButton(getIcon: () => Icons.info, tooltip: 'Database info', onPress: (){
           context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value){
             Map<String, double> dataMap = {
               'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
@@ -121,8 +131,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           }).onError((error, stackTrace){
 
           });
-        }, getter: () => true),
-        CustomActionButton(icon: Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
+        }, isActive: () => true),
+        CustomActionButton(getIcon: () => Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
           _lists[_tabs[_tabController.index].index]?.then((listValue) {
             Folder f = listValue[_selected[_tabs[_tabController.index].index]!];
             showDialog<String>(
@@ -143,7 +153,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               ),
             );
           });
-        }, getter: () => true),
+        }, isActive: () => true),
         PopupMenuButton<int>(
           color: Colors.black,
           itemBuilder: (context) => [
@@ -213,7 +223,14 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     });
   }
 
-  void changeTab(RenderEngine re, int index) {
+  void reloadTab(){
+    _lists[_tabs[_tabController.index].index] = _loadMenu(_tabs[_tabController.index]);
+    setState(() {
+
+    });
+  }
+
+  void changeFolder(RenderEngine re, int index) {
     _selected[re.index] = index;
     setState(() {
       currentKey = '${re.index}:$index';
@@ -226,7 +243,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       print('changeTab:${RenderEngine.values[re.index].name}/${f.name}');
       imagesList?.then((List<ImageMeta> value) {
         bool force = false; //listValue.length-1 == index;
-        print(value);
         context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
           if(value.isEmpty || force){
             setState(() {
@@ -253,12 +269,27 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               controller: _tabController,
               children: _tabs.map<Widget>((tab)=>_fBuilder(tab)).toList()
             )
+          ),
+          InkWell(
+            onTap: () {
+              reloadTab();
+            },
+            child: Container(
+              decoration: const BoxDecoration(
+                  color: Color(0xFF000000),
+              ),
+              child: const Align(
+                alignment: Alignment.center,
+                child: Text ('Rescan'),
+              ),
+            ),
           )
         ],
       ),
     );
   }
 
+  // Блок сбоку
   Widget _fBuilder(RenderEngine re){
     return FutureBuilder(
         future: _lists[re.index],
@@ -285,96 +316,141 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                     files.add(snapshot.data[index].files[snapshot.data[index].files.length - 1]);
                   }
 
+                  final entries = <ContextMenuEntry>[
+                    MenuItem.submenu(
+                      label: 'I see...',
+                      icon: Icons.view_list_sharp,
+                      items: [
+                        CustomMenuItem(
+                          label: 'Delete',
+                          value: 'delete',
+                          icon: Icons.delete,
+                          iconColor: Colors.redAccent,
+                          onSelected: () {
+                            showDialog<String>(
+                              context: context,
+                              builder: (BuildContext context) => AlertDialog(
+                                icon: const Icon(Icons.warning),
+                                iconColor: Colors.redAccent,
+                                title: const Text('Are you serious ?'),
+                                content: const Text('This action will delete this image'),
+                                actions: <Widget>[
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, 'cancel'),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: (){
+                                      Navigator.pop(context, 'ok');
+                                    },
+                                    child: const Text('Okay'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        )
+                      ],
+                    ),
+                  ];
+                  final contextMenu = ContextMenu(
+                    entries: entries,
+                    padding: const EdgeInsets.all(8.0),
+                  );
+
                   return AnimationConfiguration.staggeredList(
                     position: index,
                     duration: const Duration(milliseconds: 375),
                     child: SlideAnimation(
                       verticalOffset: 50.0,
                       child: FadeInAnimation(
-                        child: Container(
-                          height: 100,
-                          color: Colors.black,
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              int i = -1;
-                              List<Widget> goto = files.map<Widget>((ent){
-                                i++;
-                                return Positioned(
-                                  height: 100,
-                                  width: constraints.biggest.width / files.length,
-                                  top: 0,
-                                  left: ((constraints.biggest.width / files.length) * i).toDouble(),
-                                  child: ent.isLocal ? Image.file(
-                                    File(ent.fullPath),
-                                    gaplessPlayback: true,
-                                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                                      if (wasSynchronouslyLoaded) {
-                                        return child;
-                                      } else {
-                                        return AnimatedOpacity(
-                                          opacity: frame == null ? 0 : 1,
-                                          duration: const Duration(milliseconds: 200),
-                                          curve: Curves.easeOut,
-                                          child: child,
-                                        );
-                                      }
-                                    },
-                                    // cacheWidth: files.length == 4 ? 100 : (constraints.biggest.width / files.length).round(),
-                                    fit: BoxFit.cover,
-                                  ) : Image.network(
-                                      ent.thumbnail ?? ent.fullPath,
-                                      fit: BoxFit.cover
-                                  ),
-                                );
-                              }).toList();
-                              goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                              goto.add(Positioned(
-                                  bottom: 0,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                        Container(
-                                            decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(0.3),
-                                                border: Border.all(
-                                                  color: Colors.black.withOpacity(0.5),
-                                                ),
-                                                borderRadius: const BorderRadius.all(Radius.circular(20))
-                                            ),
-                                            padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.image, color: Colors.white70, size: 12),
-                                                const Gap(2),
-                                                Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
-                                              ],
-                                            )
-                                        )
-                                      ],
+                        child: ContextMenuRegion(
+                          contextMenu: contextMenu,
+                          child: Container(
+                            height: 100,
+                            color: Colors.black,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                int i = -1;
+                                List<Widget> goto = files.map<Widget>((ent){
+                                  i++;
+                                  return Positioned(
+                                    height: 100,
+                                    width: constraints.biggest.width / files.length,
+                                    top: 0,
+                                    left: ((constraints.biggest.width / files.length) * i).toDouble(),
+                                    child: ent.isLocal ? Image.file(
+                                      File(ent.fullPath),
+                                      gaplessPlayback: true,
+                                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                        if (wasSynchronouslyLoaded) {
+                                          return child;
+                                        } else {
+                                          return AnimatedOpacity(
+                                            opacity: frame == null ? 0 : 1,
+                                            duration: const Duration(milliseconds: 200),
+                                            curve: Curves.easeOut,
+                                            child: child,
+                                          );
+                                        }
+                                      },
+                                      // cacheWidth: files.length == 4 ? 100 : (constraints.biggest.width / files.length).round(),
+                                      fit: BoxFit.cover,
+                                    ) : Image.network(
+                                        ent.thumbnail ?? ent.fullPath,
+                                        fit: BoxFit.cover
                                     ),
-                                  )
-                              ));
-                              goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeTab(re, index)))));
-                              goto.add(AnimatedPositioned(
-                                top: 100 / 2 - 42 / 2,
-                                right: _selected[re.index] == index ? 0 : -12,
-                                duration: const Duration(seconds: 1),
-                                curve: Curves.ease,
-                                child: Container(
-                                  width: 12,
-                                  height: 42,
-                                  decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                                  );
+                                }).toList();
+                                goto.add(Container(color: Colors.black.withOpacity(0.35)));
+                                goto.add(Positioned(
+                                    bottom: 0,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                                          Container(
+                                              decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.3),
+                                                  border: Border.all(
+                                                    color: Colors.black.withOpacity(0.5),
+                                                  ),
+                                                  borderRadius: const BorderRadius.all(Radius.circular(20))
+                                              ),
+                                              padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.image, color: Colors.white70, size: 12),
+                                                  const Gap(2),
+                                                  Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
+                                                ],
+                                              )
+                                          )
+                                        ],
+                                      ),
+                                    )
+                                ));
+                                goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeFolder(re, index)))));
+                                goto.add(AnimatedPositioned(
+                                  top: 100 / 2 - 42 / 2,
+                                  right: _selected[re.index] == index ? 0 : -12,
+                                  duration: const Duration(seconds: 1),
+                                  curve: Curves.ease,
+                                  child: Container(
+                                    width: 12,
+                                    height: 42,
+                                    decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                                    ),
                                   ),
-                                ),
-                              ));
-                              return Stack(clipBehavior: Clip.none, children: goto);
-                            },
-                          ),
+                                ));
+                                return Stack(clipBehavior: Clip.none, children: goto);
+                              },
+                            ),
+                          )
                         ),
                       ),
                     ),
@@ -417,11 +493,17 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   double x = 0;
   double y = 0;
 
-  void _updateLocation(PointerEvent details) {
-    // setState(() {
-    //   x = details.position.dx;
-    //   y = details.position.dy;
-    // });
+
+  Function(PointerHoverEvent event, ImageMeta im)? func;
+  void _initFloat(Function(PointerHoverEvent event, ImageMeta im) func) {
+    this.func = func;
+  }
+
+  String oldID = '';
+  void _updateFloat(PointerHoverEvent event, ImageMeta im){
+    if(oldID == im.keyup) return;
+    oldID = im.keyup;
+    if(func != null) func!(event, im);
   }
 
   @override
@@ -430,6 +512,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     final screenWidth = MediaQuery.of(context).size.width;
     final theme = Provider.of<ThemeManager>(context, listen: false);
     const breakpoint = 600.0;
+
     return ChangeNotifierProvider(
       create: (context) => model,
       child: sr
@@ -437,8 +520,25 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         : screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
           _buildNavigationRail(),
           Expanded(
-            child: _buildMainSection()
-          )
+            child: previewType == 2 ? ResizableContainer(
+              direction: Axis.horizontal,
+              divider: const ResizableDivider(
+                thickness: 3,
+                padding: 18,
+                length: ResizableSize.ratio(0.25),
+                color: Colors.white,
+              ),
+              children: [
+                ResizableChild(
+                  child: _buildMainSection(),
+                ),
+                ResizableChild(
+                  child: _buildPreviewSection(),
+                ),
+              ],
+            ) : _buildMainSection()
+          ),
+          // if(previewType == 2) _buildPreviewSection()
         ]
       ) : Scaffold(
         body: _buildMainSection(),
@@ -461,40 +561,49 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     );
   }
 
+  int _getCount() {
+    RenderBox renderBox = _key.currentContext!.findRenderObject() as RenderBox;
+    return (renderBox.size.width / 200).round();
+  }
+
+
   Widget _buildMainSection(){
-    return MouseRegion(
-        onHover: _updateLocation,
-        child: imagesList.runtimeType.toString().startsWith('Future<List<') ? FutureBuilder(
-            key: Key(currentKey),
+    return Stack(
+      key: _key,
+      children: [
+        imagesList.runtimeType.toString().startsWith('Future<List<') ? FutureBuilder(
             future: imagesList,
             builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
               Widget children;
               if (snapshot.hasData) {
                 children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : AlignedGridView.count(
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: snapshot.data.length,
-                  mainAxisSpacing: 5,
-                  crossAxisSpacing: 5,
-                  crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
-                  itemBuilder: (context, index) {
-                    var it = snapshot.data[index];
-                    return PreviewImage(
-                      key: Key(it.keyup),
-                      imagesList: snapshot.data,
-                      imageMeta: it,
-                      selectedModel: model,
-                      index: index,
-                      onImageTap: () {
-                        Navigator.push(
-                          context,
-                          _createGalleryDetailRoute(
-                            snapshot.data,
-                            index
-                          )
-                        );
-                      },
-                    );
-                 }
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: snapshot.data.length,
+                    mainAxisSpacing: 5,
+                    crossAxisSpacing: 5,
+                    crossAxisCount: _getCount(),
+                    itemBuilder: (context, index) {
+                      var it = snapshot.data[index];
+                      return PreviewImage(
+                        key: Key(it.keyup),
+                        imagesList: snapshot.data,
+                        imageMeta: it,
+                        selectedModel: model,
+                        index: index,
+                        onHover: (PointerHoverEvent event, ImageMeta im){
+                          _updateFloat(event, im);
+                        },
+                        onImageTap: () {
+                          Navigator.push(
+                              context,
+                              _createGalleryDetailRoute(
+                                  snapshot.data,
+                                  index
+                              )
+                          );
+                        },
+                      );
+                    }
                 );
               } else if (snapshot.hasError) {
                 children = Padding(
@@ -524,15 +633,15 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 );
               } else {
                 children = Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(debug ? 'Future<List<ImageMeta>> hasData:${snapshot.hasData} hasError:${snapshot.hasError}' : 'Loading...'),
-                      const Gap(8),
-                      const LinearProgressIndicator()
-                    ],
-                  )
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(debug ? 'Future<List<ImageMeta>> hasData:${snapshot.hasData} hasError:${snapshot.hasError}' : 'Loading...'),
+                        const Gap(8),
+                        const LinearProgressIndicator()
+                      ],
+                    )
                 );
               }
               return AnimatedSwitcher(
@@ -540,111 +649,117 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 child: children,
               );
             }) : imagesList.runtimeType.toString().startsWith('_') && imagesList.runtimeType.toString().contains('<List<')? StreamBuilder<List<ImageMeta>>(
-              stream: imagesList,
-              builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
-                Widget children;
-                if (snapshot.hasError) {
-                  children = Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      children: [
-                        const Text('Oops, there seems to be a error.'),
-                        ExpansionTile(
-                          title: const Text('Error Information'),
-                          subtitle: const Text('Use this information to solve the problem'),
-                          children: <Widget>[
-                            Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                    color: Theme.of(context).scaffoldBackgroundColor,
-                                    borderRadius: const BorderRadius.all(Radius.circular(4))
-                                ),
-                                child: SelectableText(
-                                    snapshot.error.toString(),
-                                    style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
-                                )
+          stream: imagesList,
+          builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
+            Widget children;
+            if (snapshot.hasError) {
+              children = Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    const Text('Oops, there seems to be a error.'),
+                    ExpansionTile(
+                      title: const Text('Error Information'),
+                      subtitle: const Text('Use this information to solve the problem'),
+                      children: <Widget>[
+                        Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                                borderRadius: const BorderRadius.all(Radius.circular(4))
                             ),
-                          ],
-                        )
+                            child: SelectableText(
+                                snapshot.error.toString(),
+                                style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
+                            )
+                        ),
                       ],
-                    ),
+                    )
+                  ],
+                ),
+              );
+            } else {
+              switch (snapshot.connectionState) {
+                case ConnectionState.none:
+                  children = const Text('Hyi');
+                case ConnectionState.waiting:
+                  children = Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(debug ? '_ControllerStream<List<ImageMeta>> hasError:${snapshot.hasError} connectionState:${snapshot.connectionState}' : 'Loading...'),
+                          const Gap(8),
+                          const LinearProgressIndicator()
+                        ],
+                      )
                   );
-                } else {
-                  switch (snapshot.connectionState) {
-                    case ConnectionState.none:
-                      children = Text('Hyi');
-                    case ConnectionState.waiting:
-                      children = Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(debug ? '_ControllerStream<List<ImageMeta>> hasError:${snapshot.hasError} connectionState:${snapshot.connectionState}' : 'Loading...'),
-                              const Gap(8),
-                              const LinearProgressIndicator()
-                            ],
-                          )
-                      );
-                    case ConnectionState.active:
-                      children = AlignedGridView.count(
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: snapshot.data!.length,
-                          mainAxisSpacing: 5,
-                          crossAxisSpacing: 5,
-                          crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
-                          itemBuilder: (context, index) {
-                            var it = snapshot.data![index];
-                            return PreviewImage(
-                              key: Key(it.keyup),
-                              imagesList: snapshot.data!,
-                              imageMeta: it,
-                              selectedModel: model,
-                              index: index,
-                              onImageTap: () {
-                                Navigator.push(
-                                    context,
-                                    _createGalleryDetailRoute(
-                                        snapshot.data!,
-                                        index
-                                    )
-                                );
-                              },
+                case ConnectionState.active:
+                  children = AlignedGridView.count(
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: snapshot.data!.length,
+                      mainAxisSpacing: 5,
+                      crossAxisSpacing: 5,
+                      crossAxisCount: _getCount(),
+                      itemBuilder: (context, index) {
+                        var it = snapshot.data![index];
+                        return PreviewImage(
+                          key: Key(it.keyup),
+                          imagesList: snapshot.data!,
+                          imageMeta: it,
+                          selectedModel: model,
+                          index: index,
+                          onImageTap: () {
+                            Navigator.push(
+                                context,
+                                _createGalleryDetailRoute(
+                                    snapshot.data!,
+                                    index
+                                )
                             );
-                          }
-                      );
-                    case ConnectionState.done:
-                      children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : AlignedGridView.count(
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: snapshot.data!.length,
-                          mainAxisSpacing: 5,
-                          crossAxisSpacing: 5,
-                          crossAxisCount: (MediaQuery.of(context).size.width / 200).round(),
-                          itemBuilder: (context, index) {
-                            var it = snapshot.data![index];
-                            return PreviewImage(
-                              key: Key(it.keyup),
-                              imagesList: snapshot.data!,
-                              imageMeta: it,
-                              selectedModel: model,
-                              index: index,
-                              onImageTap: () {
-                                Navigator.push(
-                                    context,
-                                    _createGalleryDetailRoute(
-                                        snapshot.data!,
-                                        index
-                                    )
-                                );
-                              },
+                          },
+                          onHover: (PointerHoverEvent event, ImageMeta im){
+                            _updateFloat(event, im);
+                          },
+                        );
+                      }
+                  );
+                case ConnectionState.done:
+                  children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : AlignedGridView.count(
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: snapshot.data!.length,
+                      mainAxisSpacing: 5,
+                      crossAxisSpacing: 5,
+                      crossAxisCount: _getCount(),
+                      itemBuilder: (context, index) {
+                        var it = snapshot.data![index];
+                        return PreviewImage(
+                          key: Key(it.keyup),
+                          imagesList: snapshot.data!,
+                          imageMeta: it,
+                          selectedModel: model,
+                          index: index,
+                          onHover: (PointerHoverEvent event, ImageMeta im){
+                            _updateFloat(event, im);
+                          },
+                          onImageTap: () {
+                            Navigator.push(
+                                context,
+                                _createGalleryDetailRoute(
+                                    snapshot.data!,
+                                    index
+                                )
                             );
-                          }
-                      );
-                  }
-                }
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  child: children,
-                );
+                          },
+                        );
+                      }
+                  );
+              }
+            }
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: children,
+            );
           },
         ) : Padding(
             padding: const EdgeInsets.only(top: 16),
@@ -656,13 +771,134 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 const LinearProgressIndicator()
               ],
             )
+        ),
+        if(previewType == 1) FloatPreview(
+          initializer: _initFloat,
         )
+      ],
+    );
+  }
+
+  Widget _buildPreviewSection() {
+    return SizedBox(
+      width: MediaQuery.of(context).size.width / 3,
+      child: SidePreview(
+        initializer: _initFloat,
+      ),
     );
   }
 
   @override
-  bool get wantKeepAlive => false;
+  bool get wantKeepAlive => true;
 }
+
+class FloatPreview extends StatefulWidget{
+  final void Function(Function(PointerHoverEvent event, ImageMeta im)) initializer;
+
+  const FloatPreview({ super.key, required this.initializer });
+
+  @override
+  State<FloatPreview> createState() => _FloatPreviewState();
+}
+
+class _FloatPreviewState extends State<FloatPreview> {
+
+  ImageMeta? display;
+  bool top = true;
+  bool left = true;
+
+  void changePos(PointerHoverEvent event, ImageMeta im){
+    if(mounted) {
+      setState(() {
+      display = im;
+      top = event.position.dy > MediaQuery.of(context).size.height / 2;
+      left = event.position.dx > MediaQuery.of(context).size.width / 2;
+    });
+    }
+  }
+
+  @override
+  void initState(){
+    super.initState();
+    widget.initializer(changePos);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return display != null ? AnimatedAlign(
+      alignment: top && left ? Alignment.bottomLeft : top && !left ? Alignment.bottomRight : !top && left ? Alignment.topLeft : Alignment.topRight,
+      duration: const Duration(milliseconds: 50),
+      curve: Curves.ease,
+      child: AnimatedSizeAndFade(
+        sizeDuration: const Duration(milliseconds: 50),
+        sizeCurve: Curves.linear,
+        child: Container(
+          margin: const EdgeInsets.all(18),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 80 / 100,
+            maxWidth: MediaQuery.of(context).size.width / 3
+          ),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                spreadRadius: 5,
+                blurRadius: 7,
+                offset: const Offset(0, 3), // changes position of shadow
+              ),
+            ],
+          ),
+          child: display!.isLocal ? Image.file(File(display!.fullPath), gaplessPlayback: true) : Image.network(display!.fullNetworkPath!, gaplessPlayback: true)
+        ),
+      )
+    ) : const SizedBox.shrink();
+  }
+}
+
+class SidePreview extends StatefulWidget{
+  final void Function(Function(PointerHoverEvent event, ImageMeta im)) initializer;
+
+  const SidePreview({ super.key, required this.initializer });
+
+  @override
+  State<SidePreview> createState() => _SidePreviewState();
+}
+
+class _SidePreviewState extends State<SidePreview> {
+
+  ImageMeta? display;
+
+  void changeImage(PointerHoverEvent event, ImageMeta im){
+    if(mounted) {
+      setState(() {
+      display = im;
+    });
+    }
+  }
+
+  @override
+  void initState(){
+    super.initState();
+    widget.initializer(changeImage);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return display != null ? display!.isLocal ? Image.file(File(display!.fullPath), gaplessPlayback: true) : Image.network(display!.fullNetworkPath!, gaplessPlayback: true) : const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
+          Gap(4),
+          Text('Well well well...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text('Just hover over the image to see it', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
 
 MaterialPageRoute _createGalleryDetailRoute(List<dynamic> images, int currentIndex) {
   return MaterialPageRoute(
@@ -764,11 +1000,12 @@ class PreviewImage extends StatelessWidget {
   final SelectedModel selectedModel;
   final List<ImageMeta> imagesList;
   final VoidCallback onImageTap;
+  final Function(PointerHoverEvent event, ImageMeta im) onHover;
   final int index;
 
   final bool dontBlink = true;
 
-  const PreviewImage({ super.key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, this.index = -1});
+  const PreviewImage({ super.key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, required this.onHover, this.index = -1});
 
   @override
   Widget build(BuildContext context) {
@@ -877,6 +1114,19 @@ class PreviewImage extends StatelessWidget {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));
                 // implement redo
               },
+            ),
+            MenuItem.submenu(
+              label: 'Build...',
+              icon: Icons.build,
+              items: [
+                MenuItem(
+                  label: 'XYZ plot',
+                  icon: Icons.grid_view,
+                  onSelected: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: imagesList)));
+                  },
+                )
+              ],
             ),
             const MenuDivider(),
             MenuItem(
@@ -1045,113 +1295,118 @@ class PreviewImage extends StatelessWidget {
                   onImageTap();
                 }
               },
-              child: ContextMenuRegion(
-                  contextMenu: contextMenu,
-                  child: AspectRatio(
-                    aspectRatio: imageMeta.size!.width / imageMeta.size!.height,
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                        child: Stack(
-                          alignment: Alignment.topRight,
-                          children: [
-                            AnimatedScale(
-                                scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
-                                duration: const Duration(milliseconds: 200),
-                                curve: Curves.ease,
-                                child: ImageWidget(imageMeta, dontBlink: dontBlink)
-                            ),
-                            AnimatedScale(
-                              scale: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 1 : 0,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.ease,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.5),
-                                  shape: BoxShape.circle,
+              child: MouseRegion(
+                onHover: (PointerHoverEvent event){
+                  onHover(event, imageMeta);
+                },
+                child: ContextMenuRegion(
+                    contextMenu: contextMenu,
+                    child: AspectRatio(
+                        aspectRatio: imageMeta.size!.width / imageMeta.size!.height,
+                        child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Stack(
+                              alignment: Alignment.topRight,
+                              children: [
+                                AnimatedScale(
+                                    scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.ease,
+                                    child: ImageWidget(imageMeta, dontBlink: dontBlink)
                                 ),
-                                padding:
-                                const EdgeInsets.all(4),
-                                margin: const EdgeInsets.only(top: 4, right: 4),
-                                child: Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.onSecondary),
-                              ),
-                            ),
-                            AnimatedScale(
-                              scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup) ? 1 : 0 : 0,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.ease,
-                              child: Container(
-                                  decoration:
-                                  BoxDecoration(
-                                    color: Theme.of(context).colorScheme.secondary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
-                              ),
-                            ),
-                            Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                        colors: [
-                                          Color.fromRGBO(0, 0, 0, 0.0),
-                                          Color.fromRGBO(0, 0, 0, 0.4),
-                                          Color.fromRGBO(0, 0, 0, 0.8)
-                                        ],
-                                        stops: [0, 0.2, 1.0],
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter
+                                AnimatedScale(
+                                  scale: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 1 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.ease,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
                                     ),
+                                    padding:
+                                    const EdgeInsets.all(4),
+                                    margin: const EdgeInsets.only(top: 4, right: 4),
+                                    child: Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.onSecondary),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      ratingBlock,
-                                      Container(
-                                        margin: const EdgeInsets.only(bottom: 3),
-                                        padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                        decoration: BoxDecoration(
-                                            borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                            color: Colors.grey.withOpacity(0.7)
-                                        ),
-                                        child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                ),
+                                AnimatedScale(
+                                  scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup) ? 1 : 0 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.ease,
+                                  child: Container(
+                                      decoration:
+                                      BoxDecoration(
+                                        color: Theme.of(context).colorScheme.secondary,
+                                        shape: BoxShape.circle,
                                       ),
-                                      imageMeta.re == RenderEngine.inpaint ? Container(
-                                        margin: const EdgeInsets.only(bottom: 3),
-                                        padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                        decoration: BoxDecoration(
-                                            borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                            color: const Color(0xFF5fa9b5).withOpacity(0.7)
-                                        ),
-                                        child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                      ) : const SizedBox.shrink(),
-                                      imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Tooltip(
-                                        message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}',
-                                        child: Container(
-                                          padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                          decoration: BoxDecoration(
-                                              borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                              color: const Color(0xff5f55a6).withOpacity(0.7)
+                                      child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
+                                  ),
+                                ),
+                                Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          gradient: LinearGradient(
+                                              colors: [
+                                                Color.fromRGBO(0, 0, 0, 0.0),
+                                                Color.fromRGBO(0, 0, 0, 0.4),
+                                                Color.fromRGBO(0, 0, 0, 0.8)
+                                              ],
+                                              stops: [0, 0.2, 1.0],
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter
                                           ),
-                                          child: const Text('Hi-Res', style: TextStyle(color: Color(0xffc8c4f5), fontSize: 12)),
                                         ),
-                                      ) : const SizedBox.shrink(),
-                                    ],
-                                  )
-                                )
-                            ),
-                            // Positioned(
-                            //     top: 4,
-                            //     left: 4,
-                            //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
-                            // )
-                          ],
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            ratingBlock,
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 3),
+                                              padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                              decoration: BoxDecoration(
+                                                  borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                  color: Colors.grey.withOpacity(0.7)
+                                              ),
+                                              child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                            ),
+                                            imageMeta.re == RenderEngine.inpaint ? Container(
+                                              margin: const EdgeInsets.only(bottom: 3),
+                                              padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                              decoration: BoxDecoration(
+                                                  borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                  color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                              ),
+                                              child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                            ) : const SizedBox.shrink(),
+                                            imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Tooltip(
+                                              message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}',
+                                              child: Container(
+                                                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                                decoration: BoxDecoration(
+                                                    borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                    color: const Color(0xff5f55a6).withOpacity(0.7)
+                                                ),
+                                                child: const Text('Hi-Res', style: TextStyle(color: Color(0xffc8c4f5), fontSize: 12)),
+                                              ),
+                                            ) : const SizedBox.shrink(),
+                                          ],
+                                        )
+                                    )
+                                ),
+                                // Positioned(
+                                //     top: 4,
+                                //     left: 4,
+                                //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
+                                // )
+                              ],
+                            )
                         )
                     )
-                  )
+                ),
               )
           );
         }

@@ -56,21 +56,21 @@ class _ComparisonState extends State<Comparison> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
         CustomActionButton(
-            icon: Icons.remove_red_eye,
+            getIcon: () => Icons.remove_red_eye,
             tooltip: 'Automatically use the last generated image as a test',
             onPress: (){
               NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest();
             },
-            getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
+            isActive: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
         ),
-        CustomActionButton(icon: Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
+        CustomActionButton(getIcon: () => Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
           setState((){
             _snowJpeg = !_snowJpeg;
           });
-        }, getter: () => _snowJpeg),
-        CustomActionButton(icon: Icons.image_search, tooltip: 'Show the difference', onPress: (){
+        }, isActive: () => _snowJpeg),
+        CustomActionButton(getIcon: () => Icons.image_search, tooltip: 'Show the difference', onPress: (){
 
-        }, getter: () => false)
+        }, isActive: () => false)
       ]);
     });
   }

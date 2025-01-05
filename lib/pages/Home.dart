@@ -40,8 +40,6 @@ class Home extends StatefulWidget {
 final List<dynamic> _readHistory = [];
 
 class _HomeState extends State<Home> {
-  bool _dragging = false;
-
   double breakpoint = 600.0;
   int c = 1;
 

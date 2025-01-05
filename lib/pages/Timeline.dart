@@ -226,7 +226,7 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   // final String? hiresSampler;
   if(o.hiresSampler != t.hiresSampler) d.add(Difference(key: 'hiresSampler', oldValue: o.hiresSampler ?? '-', newValue: t.hiresSampler ?? '-'));
 
-  if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
+  if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscaler', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
 
@@ -239,7 +239,10 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
 }
 
 String getDifferencesHash(List<Difference> list){
-  return list.isEmpty ? '-' : sha256.convert(utf8.encode(list.map((e) => e.key).join('-'))).toString();
+  if(list.isEmpty) return '-';
+  List<String> v = list.map((e) => e.key).toList(growable: false);
+  v.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return sha256.convert(utf8.encode(v.join('-'))).toString();
 }
 
 class Difference {
