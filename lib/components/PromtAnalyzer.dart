@@ -41,9 +41,9 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
   void initState(){
     super.initState();
     positiveController = TextEditingController();
-    positiveController.text = widget.generationParams.positive;
+    positiveController.text = widget.generationParams.positive ?? '';
     negativeController = TextEditingController();
-    negativeController.text = widget.generationParams.negative;
+    negativeController.text = widget.generationParams.negative ?? '';
 
     _posFocusNode = FocusNode();
     _negFocusNode = FocusNode();

@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -69,6 +70,8 @@ class ConfigManager with ChangeNotifier {
 class DataManager with ChangeNotifier {
   String? error;
   bool get hasError => error != null;
+
+  HashMap<String, dynamic> temp = HashMap();
 
   void updateError(String? message){
     error = message;
@@ -385,7 +388,7 @@ List<dynamic> parseComfUIParameters(String rawData){
       best = test[0];
     } else {
       if (kDebugMode) {
-        print('pizda');
+        print('parseComfUIParameters: pizda');
         print(jsonEncode(fi));
       }
     }
@@ -429,7 +432,7 @@ GenerationParams? parseSwarmUIParameters(String rawData, {bool onlyParams = fals
       //   ],
       //   "swarm_version": "0.9.2.3",
       //   "date": "2024-10-03",
-      //   "generation_time": "42.31 (prep) and 7.74 (gen) seconds"
+      //   "generation_time": "42.31 (prep) and 7.74 (gen) seconds",
       // }
   // }
 
@@ -439,7 +442,7 @@ GenerationParams? parseSwarmUIParameters(String rawData, {bool onlyParams = fals
         positive: data['prompt'],
         negative: data['negativeprompt'],
         steps: data['steps'],
-        sampler: data['sampler'] as String,
+        sampler: data['sampler'] != null ? data['sampler'] as String : null,
         cfgScale: data['cfgscale'],
         seed: data['seed'],
         size: ImageSize(
@@ -684,14 +687,14 @@ void loraStack(List<String> fi, dynamic node, dynamic data){
 // TI hashes: "deformityv6: 8455ec9b3d31, easynegative: c74b4e810b03",
 // Version: 1.7.0
 class GenerationParams {
-  final String positive;
-  final String negative;
-  final int steps;
-  final String sampler;
-  final double cfgScale;
-  final int seed;
-  final ImageSize size;
-  final CheckpointType checkpointType;
+  final String? positive;
+  final String? negative;
+  final int? steps;
+  final String? sampler;
+  final double? cfgScale;
+  final int? seed;
+  final ImageSize? size;
+  final CheckpointType? checkpointType;
   final String? checkpoint;
   final String? checkpointHash;
   final String? vae;
@@ -704,19 +707,19 @@ class GenerationParams {
   final Map<String, String>? tiHashes;
   final String? version;
   final String? rawData;
-  late ContentRating contentRating;
-  Map<String, dynamic>? params;
+  ContentRating contentRating = ContentRating.G;
+  final Map<String, dynamic>? params;
 
   GenerationParams({
-    required this.positive,
-    required this.negative,
-    required this.steps,
-    required this.sampler,
-    required this.cfgScale,
-    required this.seed,
-    required this.size,
-    required this.checkpointType,
-    required this.checkpoint,
+    this.positive,
+    this.negative,
+    this.steps,
+    this.sampler,
+    this.cfgScale,
+    this.seed,
+    this.size,
+    this.checkpointType,
+    this.checkpoint,
     this.checkpointHash,
     this.vae,
     this.vaeHash,
@@ -726,11 +729,11 @@ class GenerationParams {
     this.hiresUpscaler,
     this.hiresUpscale,
     this.tiHashes,
-    required this.version,
+    this.version,
     this.rawData,
     this.params
   }){
-    contentRating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive);
+    if(positive != null) contentRating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
     // if(rawData != null){
     //   GenerationParams? p = parseSDParameters(rawData!, onlyParams: true);
     //   if(p != null){
@@ -748,7 +751,7 @@ class GenerationParams {
       'cfgScale': cfgScale,
 
       'seed': seed,
-      'checkpointType': checkpointType.index,
+      'checkpointType': checkpointType?.index ?? null,
       'checkpoint': checkpoint,
       'checkpointHash': checkpointHash,
       'vae': vae,
@@ -760,8 +763,8 @@ class GenerationParams {
       f['size'] = size.toString();
     } else {
       //forDB
-      f['sizeW'] = size.width;
-      f['sizeH'] = size.height;
+      f['sizeW'] = size?.width;
+      f['sizeH'] = size?.height;
       if(rawData != null) f['rawData'] = rawData;
       if(params != null) f['params'] = jsonEncode(params);
       if(key != null){

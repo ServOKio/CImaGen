@@ -33,7 +33,7 @@ class Settings extends StatefulWidget{
 
 class _SettingsState extends State<Settings>{
   // Settings
-  String _sd_webui_folder = '';
+  String _webui_folder = '';
   bool _use_remote_version = false;
 
   bool _debug = false;
@@ -71,7 +71,7 @@ class _SettingsState extends State<Settings>{
     String deviceInfo = await getDeviceInfo();
 
     setState(() {
-      _sd_webui_folder = prefs!.getString('sd_webui_folder') ?? 'none';
+      _webui_folder = prefs!.getString('webui_folder') ?? 'none';
       _use_remote_version = prefs!.getBool('use_remote_version') ?? false;
       _debug = prefs!.getBool('debug') ?? false;
       _imageview_use_fullscreen = (prefs!.getBool('imageview_use_fullscreen') ?? false);
@@ -132,15 +132,15 @@ class _SettingsState extends State<Settings>{
                 SettingsTile.navigation(
                   enabled: _use_remote_version == false,
                   leading: const Icon(Icons.web),
-                  title: const Text('Stable Diffusion web UI location'),
-                  value: Text(_use_remote_version ? 'Turn off the remote version to use the local version' : _sd_webui_folder),
+                  title: const Text('WebUI location'),
+                  value: Text(_use_remote_version ? 'Turn off the remote version to use the local version' : _webui_folder),
                   onPressed: (context) async {
                     SharedPreferences prefs = await SharedPreferences.getInstance();
                     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                     if (selectedDirectory != null) {
-                      prefs.setString('sd_webui_folder', selectedDirectory);
+                      prefs.setString('webui_folder', selectedDirectory);
                       setState(() {
-                        _sd_webui_folder = selectedDirectory;
+                        _webui_folder = selectedDirectory;
                       });
                       prefs.getKeys().forEach((element) {
                         print(prefs.get(element));

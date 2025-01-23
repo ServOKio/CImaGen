@@ -174,7 +174,8 @@ class _TagsClassificationState extends State<TagsClassification> {
                 const Gap(28),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: ([1,3,4,5].contains(c.category) ? [ContentRating.G] : [
+                  children: ([2,4,5,6].contains(c.category) ? [ContentRating.G] : [
+                    ContentRating.Unknown,
                     ContentRating.G,
                     ContentRating.PG,
                     ContentRating.PG_13,
@@ -192,6 +193,7 @@ class _TagsClassificationState extends State<TagsClassification> {
                           color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff)
                       ),
                       child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
+                        0xff5500ff,
                         0xff006835,
                         0xfff15a24,
                         0xff803d99,

@@ -5,6 +5,7 @@ import 'package:cimagen/components/NotesSection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import '../modules/webUI/AbMain.dart';
 import 'NavigationService.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as path;
@@ -114,13 +115,13 @@ class SQLite with ChangeNotifier{
               if (kDebugMode) print('Sending ${send.length}...');
               for (var e in send) {
                 if(e.type == JobType.insert){
-                  batch.insert(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.replace);
+                  batch.insert(e.to, e.obj);
                 } else if(e.type == JobType.update){
-                  batch.update(e.to, e.obj, conflictAlgorithm: ConflictAlgorithm.replace);
+                  batch.update(e.to, e.obj);
                 }
               }
 
-              List<Object?> res = await batch.commit(continueOnError: false);
+              List<Object?> res = await batch.commit(continueOnError: true);
               if (kDebugMode) {
                 print(res);
               }
@@ -222,7 +223,7 @@ class SQLite with ChangeNotifier{
 
   //TODO: ЧИНИМ
   Future<void> updateImages({required RenderEngine renderEngine, required ImageMeta imageMeta, bool fromWatch = false}) async {
-    final String parentName = path.basename(File(imageMeta.fullPath).parent.path);
+    final String parentName = path.basename(File(imageMeta.fullPath!).parent.path);
     final List<Map<String, dynamic>> maps = await database.query(
       'images',
       where: 'keyup = ?',
@@ -231,14 +232,14 @@ class SQLite with ChangeNotifier{
     //print(genHash(type, parentName, imageMeta.imageParams.fileName));
     if (maps.isNotEmpty) {
       Map<String, dynamic> res = maps.first;
-      if(res['pathHash'] != genPathHash(imageMeta.fullPath)){
+      if(res['pathHash'] != genPathHash(imageMeta.fullPath!)){
         toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
         if(imageMeta.generationParams != null) {
           Map<String, dynamic> m = imageMeta.generationParams!.toMap(
               forDB: true,
               key: imageMeta.getKey(),
               amply: {
-                'pathHash': genPathHash(imageMeta.fullPath)
+                'pathHash': genPathHash(imageMeta.fullPath!)
               }
           );
           toBatchTwo.add(
@@ -259,7 +260,7 @@ class SQLite with ChangeNotifier{
               forDB: true,
               key: imageMeta.getKey(),
               amply: {
-                'pathHash': genPathHash(imageMeta.fullPath)
+                'pathHash': genPathHash(imageMeta.fullPath!)
               }
           );
           toBatchTwo.add(
@@ -281,7 +282,7 @@ class SQLite with ChangeNotifier{
                         forDB: true,
                         key: imageMeta.getKey(),
                         amply: {
-                          'pathHash': genPathHash(imageMeta.fullPath)
+                          'pathHash': genPathHash(imageMeta.fullPath!)
                         }
                     )
                 )
@@ -416,6 +417,95 @@ class SQLite with ChangeNotifier{
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
+  Future<List<Folder>> getFolders({String? host}) async{
+    List<dynamic> args = [];
+    if(host != null) args.add(host);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT DATE(dateModified) AS day, count(keyup) as total FROM images where ${host != null ? 'host = ?' : 'host IS NULL'} GROUP BY DATE(dateModified) ORDER BY day', args);
+    print('getFolders maps.length ${maps.length}');
+    if(maps.length == 1 && maps[0]['day'] == null) return [];
+    List<Folder> fi = List.generate(maps.length, (i){
+      var d = maps[i];
+      return Folder(
+          index: i,
+          name: d['day'],
+          getter: d['day'],
+          type: FolderType.byDay,
+          files: []
+      );
+    });
+    return fi;
+  }
+
+  Future<List<String>> getFolderHashes(String folder, {String? host}) async {
+    List<dynamic> args = [];
+    if(host != null) args.add(host);
+    print('getFolderHashes: down');
+    print(args);
+    String g = 'SELECT fullPath, pathHash FROM images where fullPath LIKE \'$folder%\' AND ${host != null ? 'host = ?' : 'host IS NULL'}';
+    final List<Map<String, dynamic>> maps = await database.rawQuery(g, args);
+    print('getFolderHashes: maps.length ${maps.length}');
+    return List.generate(maps.length, (i) => maps[i]['pathHash']);
+  }
+
+  T? von<T>(x) => x is T ? x : null;
+
+  Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
+    if (kDebugMode) {
+      print('getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');
+    }
+    List<dynamic> args = [];
+    args.add(day);
+    if(type != null) args.add(type);
+    if(host != null) args.add(host);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT a.*, b.positive, b.negative, b.steps, b.sampler, b.cfgScale, b.seed, b.sizeW, b.sizeH, b.checkpointType, b.checkpoint, b.checkpointHash, b.vae, b.vaeHash, b.denoisingStrength, b.rng, b.hiresSampler, b.hiresUpscaler, b.hiresUpscale, b.tiHashes, b.version, b.params, b.rawData FROM images a FULL OUTER JOIN generation_params b ON a.keyup = b.keyup WHERE DATE(a.datemodified) = ? ${type != null ? 'AND a.type = ? ' : ' '} ${host != null ? 'AND a.host = ? ' : 'AND a.host IS NULL '}ORDER by a.datemodified ASC', args);
+
+    print('getImagesByDay: maps.length ${maps.length}');
+    List<ImageMeta> fi = List.generate(maps.length, (i) {
+      var d = maps[i];
+      List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
+      return ImageMeta(
+          re: RenderEngine.values[d['type'] as int],
+          host: von<String>(d['host']),
+          mine: d['mine'] as String,
+          fileTypeExtension: d['fileTypeExtension'] as String,
+          fileSize: d['fileSize'] as int,
+          fullPath: d['fullPath'] as String,
+          dateModified: DateTime.parse(d['dateModified'] as String),
+          size: ImageSize(width: size[0], height: size[1]),
+          specific: jsonDecode(d['specific'] as String),
+          thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
+          generationParams: GenerationParams(
+              positive: von<String>(d['positive']),
+              negative: von<String>(d['negative']),
+              steps: von<int>(d['steps']),
+              sampler: von<String>(d['sampler']),
+              cfgScale: von<double>(d['cfgScale']),
+              seed: von<int>(d['seed']),
+              size: d['sizeW'] != null && d['sizeH'] != null ? ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int) : null,
+              checkpointType: CheckpointType.values[d['checkpointType'] != null ? d['checkpointType'] as int : 0],
+              checkpoint: von<String>(d['checkpoint']),
+              checkpointHash: von<String>(d['checkpointHash']),
+              vae: von<String>(d['vae']),
+              vaeHash: von<String>(d['vaeHash']),
+              denoisingStrength: von<double>(d['denoisingStrength']),
+              rng: von<String>(d['rng']),
+              hiresSampler: von<String>(d['hiresSampler']),
+              hiresUpscaler: von<String>(d['hiresUpscaler']),
+              hiresUpscale: von<double>(d['hiresUpscale']),
+              version: von<String>(d['version']),
+              params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
+              rawData: d['rawData']
+          )
+      );
+    });
+    if (kDebugMode) {
+      print('getImagesByDay: fi.length ${fi.length}');
+    }
+    return fi;
+    // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
+    // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
+  }
+
   Future<List<ImageMeta>> getImagesByParent(dynamic type, String parent, {String? host}) async {
     if (kDebugMode) {
       print('getImagesByParent: $type ${type.runtimeType} $parent ${host ?? 'null'}');
@@ -426,10 +516,10 @@ class SQLite with ChangeNotifier{
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC', args);
     if(kDebugMode){
-      print('SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC');
+      print('getImagesByParent: SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC');
       print(args);
     }
-    print('maps.length ${maps.length}');
+    print('getImagesByParent: maps.length ${maps.length}');
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
@@ -469,7 +559,7 @@ class SQLite with ChangeNotifier{
       );
     });
     if (kDebugMode) {
-      print('fi.length ${fi.length}');
+      print('getImagesByParent: fi.length ${fi.length}');
     }
     return fi;
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
@@ -665,7 +755,7 @@ class SQLite with ChangeNotifier{
         columns: ['fullPath', 'keyup']
     );
     Batch batch = database.batch();
-    if (kDebugMode) print('Updating ${maps.length} records...');
+    if (kDebugMode) print('fixDB: Updating ${maps.length} records...');
     for (var record in maps) {
       batch.update('images', {
         'pathHash': genPathHash(normalizePath(record['fullPath']))
@@ -679,7 +769,7 @@ class SQLite with ChangeNotifier{
         where: 'params IS NULL AND rawData IS NOT NULL'
     );
     batch = database.batch();
-    if (kDebugMode) print('Updating ${maps.length} records...');
+    if (kDebugMode) print('fixDB: Updating ${maps.length} records...');
     for (var record in maps) {
       GenerationParams? gp = parseSDParameters(record['rawData']);
       if(gp != null && gp.params != null) {
@@ -688,7 +778,7 @@ class SQLite with ChangeNotifier{
       }, where: 'keyup = ?', whereArgs: [record['keyup']]);
       }
     }
-    if (kDebugMode) print('Done parsing ${maps.length} records, updating...');
+    if (kDebugMode) print('fixDB: Done parsing ${maps.length} records, updating...');
     await batch.commit(noResult: false, continueOnError: false);
   }
 }

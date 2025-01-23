@@ -16,23 +16,35 @@ abstract class AbMain extends ChangeNotifier{
   Map<String, String> _webuiPaths = {};
   Map<String, String> get webuiPaths => _webuiPaths;
 
+  List<String> _tabs = [];
+  List<String> get tabs => _tabs;
+
   void init() async {
     print("Not Implemented");
   }
 
-  Future<List<Folder>> getFolders(RenderEngine renderEngine) async{
+  Future<List<Folder>> getFolders(int index) async{
     return [];
   }
 
-  Future<List<ImageMeta>> getFolderFiles(RenderEngine renderEngine, String sub) async{
+  Future<List<Folder>> getAllFolders(int index) async{
     return [];
   }
 
-  bool indexAll(RenderEngine renderEngine){
+  // Тут мы ебашим id вкладки и index селектора потому-что ну а хуй пойми из какой системы запрос, пусть сам разбирается
+  Future<List<ImageMeta>> getFolderFiles(int section, int index) async{
+    return [];
+  }
+
+
+  String getFullUrlImage(ImageMeta im) => '';
+  String getThumbnailUrlImage(ImageMeta im) => '';
+
+  bool indexAll(int index){
     return false;
   }
 
-  Future<StreamController<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async{
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async{
     // Read all files sizes and get hash
     late final StreamController<List<ImageMeta>> controller;
     controller = StreamController<List<ImageMeta>>(
@@ -50,16 +62,22 @@ abstract class AbMain extends ChangeNotifier{
   }
 }
 
+enum FolderType {
+  path,
+  byDay
+}
 class Folder {
   final int index;
-  final String path;
+  final FolderType type;
+  final String getter;
   final String name;
-  final List<dynamic> files;
+  final List<FolderFile> files;
   bool? isLocal = true;
 
   Folder({
     required this.index,
-    required this.path,
+    required this.type,
+    required this.getter,
     required this.name,
     required this.files,
     this.isLocal

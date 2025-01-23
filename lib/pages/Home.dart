@@ -106,6 +106,13 @@ class _HomeState extends State<Home> {
         var metadataLen = randomAccessFile.read(8);
         if (kDebugMode) print(metadataLen);
 
+        _readHistory.add(UnknownFile(
+          file: p.basename(file.path),
+          icon: Icons.pest_control_rodent_outlined,
+          color: Color(0xFFD87CEE),
+          title: 'We know what it is, but we\'re not ready to read it',
+          message: 'Give us some time and we\'ll deal with this file in a future update.'
+        ));
         // int metadata_len = file.elementAt(8);
         // metadata_len = int.from_bytes(metadata_len, "little")
         // int json_start = file.read(2)
@@ -124,6 +131,30 @@ class _HomeState extends State<Home> {
         //       pass
         //
         // return res
+      } else if(e == '.json') {
+        File jsFile = File(file.path);
+        jsFile.readAsString().then((value) async {
+          if(await isJson(value)){
+            var data = jsonDecode(value);
+          } else {
+            _readHistory.add(UnknownFile(
+                file: p.basename(file.path),
+                icon: Icons.error_outline,
+                color: Color(0xFFE15454),
+                title: 'The file looks like .json, but that\'s not it',
+                message: 'We are unable to get the file data because it is incorrect. Is the file corrupted or in the wrong format?'
+            ));
+          }
+        });
+      } else {
+        _readHistory.add(UnknownFile(
+          file: p.basename(file.path),
+          icon: Icons.accessibility,
+          color: Color(0xFFF8CA84),
+          title: 'It seems that we don\'t know something...',
+          message: 'It looks like it\'s some unknown file type or content that we can\'t read.',
+          details: 'Path: ${file.path}\nBaseName: ${p.basename(file.path)}\nExtension: $e'
+        ));
       }
     }
   }
@@ -221,7 +252,38 @@ class _HomeState extends State<Home> {
                 itemCount: _readHistory.length,
                 itemBuilder: (BuildContext context, int index) {
                   var element = _readHistory[index];
-                  return FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element);
+                  return  element.runtimeType == UnknownFile ? Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: Theme.of(context).scaffoldBackgroundColor
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(element.icon ?? Icons.question_mark, color: element.color ?? const Color(0xD75252)),
+                            const Spacer(),
+                            Text(element.file, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        Gap(7),
+                        Text(element.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(element.message),
+                        if(element.details != null) ExpansionTile(
+                          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                          expandedAlignment: Alignment.topLeft,
+                          tilePadding: EdgeInsets.zero,
+                          title:  Text('Details'),
+                          children: <Widget>[
+                            Text(element.details)
+                          ]
+                        )
+                      ]
+                    )
+                  ) : FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element);
                 },
               ),
             ),
@@ -695,7 +757,7 @@ class FileInfoPreview extends StatelessWidget{
         value: 'show_in_explorer',
         icon: Icons.compare,
         onSelected: () {
-          showInExplorer(im!.fullPath);
+          showInExplorer(im!.fullPath!);
         },
       ),
     ];
@@ -781,6 +843,7 @@ class FileInfoPreview extends StatelessWidget{
                       children: [
                         Text(im!.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                         InfoBox(one: 'RE', two: renderEngineToString(im.re)),
+                        if(im.other?['chara'] != null) const InfoBox(one: 'Has', two: 'Character card'),
                         im.error == null ? InfoBox(one: 'Size', two: im.size.toString()) : const SizedBox.shrink(),
                         im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
                         im.generationParams?.version != null ? InfoBox(one: 'Version', two: im.generationParams?.version ?? 'error') : const SizedBox.shrink(),
@@ -851,4 +914,29 @@ class InfoBox extends StatelessWidget{
         )
     );
   }
+}
+
+class UnknownFile {
+  final IconData? icon;
+  final Color? color;
+  final String file;
+  final String title;
+  final String message;
+  final String? details;
+
+  const UnknownFile({
+    this.icon,
+    this.color,
+    required this.title,
+    required this.message,
+    required this.file,
+    this.details
+  });
+}
+
+enum FileTypes {
+  Unknown,
+  ImageMeta,
+  ConfUIWorkflow,
+  KoboldAISave
 }

@@ -183,8 +183,8 @@ String getGenerationHash(ImageMeta im, {String? except}){
   if(im.generationParams == null) return '-';
   String f = '';
   if(except != 'checkpoint' && im.generationParams?.checkpoint != null) f+= im.generationParams!.checkpoint!;
-  if(except != 'positive') f+= im.generationParams!.positive;
-  if(except != 'negative') f+= im.generationParams!.negative;
+  if(except != 'positive' && im.generationParams!.positive != null) f+= im.generationParams!.positive!;
+  if(except != 'negative' && im.generationParams!.negative != null) f+= im.generationParams!.negative!;
   if(except != 'cfgScale') f+= im.generationParams!.cfgScale.toString();
   if(except != 'seed') f+= im.generationParams!.seed.toString();
   if(except != 'size') f+= im.generationParams!.size.toString();
@@ -200,13 +200,13 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   if(o == null || t == null) return d;
 
   // final String positive;
-  if(o.positive.trim() != t.positive.trim()) d.add(Difference(key: 'positive', oldValue: o.positive, newValue: t.positive));
+  if(o.positive != t.positive) d.add(Difference(key: 'positive', oldValue: o.positive ?? '-', newValue: t.positive ?? '-'));
   // final String negative;
-  if(o.negative.trim() != t.negative.trim()) d.add(Difference(key: 'negative', oldValue: o.negative, newValue: t.negative));
+  if(o.negative != t.negative) d.add(Difference(key: 'negative', oldValue: o.negative ?? '-', newValue: t.negative ?? '-'));
   // final int steps;
   if(o.steps != t.steps) d.add(Difference(key: 'steps', oldValue: o.steps.toString(), newValue: t.steps.toString()));
   // final String sampler;
-  if(o.sampler != t.sampler) d.add(Difference(key: 'sampler', oldValue: o.sampler, newValue: t.sampler));
+  if(o.sampler != t.sampler) d.add(Difference(key: 'sampler', oldValue: o.sampler ?? '-', newValue: t.sampler ?? '-'));
   // final double cfgScale;
   if(o.cfgScale != t.cfgScale) d.add(Difference(key: 'cfgScale', oldValue: o.cfgScale.toString(), newValue: t.cfgScale.toString()));
   // final int seed;
@@ -343,7 +343,7 @@ class _RowListState extends State<RowList> {
                 height: height,
                 child: meta != null ? Stack(
                   children: [
-                    Image.file(File(widget.rowData.main!.fullPath)),
+                    Image.file(File(widget.rowData.main!.fullPath!)),
                     Padding(
                         padding: const EdgeInsets.all(5),
                         child: Column(
@@ -351,7 +351,7 @@ class _RowListState extends State<RowList> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             meta.generationParams != null ? TagBox(text: meta.generationParams!.denoisingStrength != null ? 'Hi-Res' : 'Raw') : const SizedBox.shrink(),
-                            meta.generationParams != null && meta.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.generationParams!.sampler)) : const SizedBox.shrink()
+                            meta.generationParams != null && meta.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.generationParams!.sampler!)) : const SizedBox.shrink()
                           ],
                         )
                     )
@@ -385,7 +385,7 @@ class _RowListState extends State<RowList> {
                   color: Colors.orange,
                   child: metaExtra != null ? Stack(
                     children: [
-                      Image.file(File(widget.rowData.extraMain!.fullPath)),
+                      Image.file(File(widget.rowData.extraMain!.fullPath!)),
                       Padding(
                           padding: const EdgeInsets.all(5),
                           child: Column(

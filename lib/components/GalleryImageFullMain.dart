@@ -6,11 +6,11 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/components/GalleryImageFullView.dart';
 import 'package:cimagen/components/ImageInfo.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-import 'package:cimagen/components/PortfolioGalleryImageWidget.dart';
 import 'package:provider/provider.dart';
 import 'package:gap/gap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,18 +20,18 @@ import 'package:window_manager/window_manager.dart';
 import '../utils/ImageManager.dart';
 import '../utils/ThemeManager.dart';
 
-class PortfolioGalleryDetailPage extends StatefulWidget {
+class GalleryImageFullMain extends StatefulWidget {
 
   final List<dynamic> images;
   final int currentIndex;
 
-  const PortfolioGalleryDetailPage({Key? key, required this.images, required this.currentIndex}) : super(key: key);
+  const GalleryImageFullMain({super.key, required this.images, required this.currentIndex});
 
   @override
-  _PortfolioGalleryDetailPageState createState() => _PortfolioGalleryDetailPageState();
+  _GalleryImageFullMainState createState() => _GalleryImageFullMainState();
 }
 
-class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage> {
+class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
   late int _currentIndex;
   late PageController _pageController;
   bool _showAppBar = true;
@@ -41,7 +41,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
 
   void backCall(PhotoViewScaleStateController ns){
     changeScale = ns;
-    changeScale.scaleState = PhotoViewScaleState.originalSize;
+    //changeScale.scaleState = PhotoViewScaleState.originalSize;
   }
 
   late CarouselSliderController carouselController;
@@ -140,7 +140,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
             ),
             onPressed: () async {
               if(!widget.images[_currentIndex].isLocal){
-                final Uri url = Uri.parse(widget.images[_currentIndex].fullNetworkPath);
+                final Uri url = Uri.parse(widget.images[_currentIndex].fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(widget.images[_currentIndex]));
                 if (!await launchUrl(url)) {
                   await showDialog<String>(
                     context: context,
@@ -300,7 +300,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
       itemCount: widget.images.length,
       carouselController: carouselController,
       itemBuilder: (ctx, index, realIdx) {
-        return PortfolioGalleryImageWidget(
+        return GalleryImageFullView(
           imageMeta: widget.images[index],
           onImageTap: () {
             carouselController.jumpToPage(index);
@@ -334,9 +334,9 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
         ImageMeta im = widget.images[index];
         ImageProvider? provider;
         if(!im.isLocal){
-          provider = NetworkImage(im.fullNetworkPath ?? '');
+          provider = NetworkImage(im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im));
         } else {
-          provider = FileImage(File(im.fullPath));
+          provider = FileImage(File(im.fullPath!));
         }
         return PhotoViewGalleryPageOptions(
           scaleStateController: scaleStateController,
@@ -357,7 +357,7 @@ class _PortfolioGalleryDetailPageState extends State<PortfolioGalleryDetailPage>
                 ) : const Text('Error'),
                 Transform.rotate(
                     angle: 45 * math.pi / 180,
-                    child: Text('Deleted', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
+                    child: Text('Deleted ${im.host} ${im.isLocal}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
                 )
               ],
             );

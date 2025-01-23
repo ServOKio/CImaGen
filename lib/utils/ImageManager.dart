@@ -66,7 +66,6 @@ class ImageManager extends ChangeNotifier {
 
   void init(BuildContext context){
     switchGetterAuto();
-
     context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
   }
 
@@ -153,6 +152,18 @@ class ImageManager extends ChangeNotifier {
   }
 }
 
+class JobImageFile{
+  final String fullPath;
+  String? fullNetworkPath;
+  String? networkThumbhail;
+
+  JobImageFile({
+    required this.fullPath,
+    this.fullNetworkPath,
+    this.networkThumbhail
+  });
+}
+
 class ParseJob {
   Function? _onDone;
   Function? _onProcess;
@@ -169,7 +180,7 @@ class ParseJob {
 
   List<ImageMeta> get finished => _done;
 
-  bool get isDone => _cache.length == _doneTotal;
+  bool get isDone => _doneTotal >= _cache.length;
 
   var rng = Random();
 
@@ -177,12 +188,10 @@ class ParseJob {
     _controller = StreamController<List<ImageMeta>>();
   }
 
-  RenderEngine? re;
   String? host;
   Uri? remote;
 
-  Future<int> putAndGetJobID(RenderEngine? re, List<dynamic> rawImages, {String? host, Uri? remote}) async {
-    this.re = re;
+  Future<int> putAndGetJobID(List<dynamic> rawImages, {String? host, Uri? remote}) async {
     this.host = host;
     this.remote = remote;
 
@@ -198,15 +207,15 @@ class ParseJob {
   void run({Null Function()? onDone, Null Function(int total, int current, String? thumbnail)? onProcess}) {
     if(onDone != null) _onDone = onDone;
     if(onProcess != null) _onProcess = onProcess;
-    _parse(re, host, remote);
+    _parse(host, remote);
   }
 
   // path НОРМАЛИЗОВАНО
-  Future<void> _parse(RenderEngine? re, String? host, Uri? remote) async {
+  Future<void> _parse(String? host, Uri? remote) async {
     if(_cache.isEmpty) return _isDone();
     for(dynamic raw in _cache){
       bool yes = true;
-      String path = normalizePath(raw.runtimeType == String ? raw : raw['fullpath']);
+      String path = normalizePath(raw.runtimeType == String ? raw : raw.runtimeType == JobImageFile ? (raw as JobImageFile).fullPath : raw);
       // Check file type
       final String e = p.extension(path);
       if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
@@ -223,7 +232,7 @@ class ParseJob {
       }
       if(yes){
         if(host == null){
-          ImageMeta? value = await parseImage(re ?? RenderEngine.unknown, path);
+          ImageMeta? value = await parseImage(RenderEngine.unknown, path);
           if(value != null){
             _done.add(value);
             _controller.add(finished);
@@ -236,79 +245,57 @@ class ParseJob {
             _isDone();
           }
         } else {
-            Uri thumb = Uri(
-                scheme: remote!.scheme,
-                host: remote.host,
-                port: remote.port,
-                path: '/infinite_image_browsing/image-thumbnail',
-                queryParameters: {
-                  'path': path,
-                  'size': '512x512',
-                  't': raw['date']
-                }
-            );
-            Uri full = Uri(
-                scheme: remote.scheme,
-                host: remote.host,
-                port: remote.port,
-                path: '/infinite_image_browsing/file',
-                queryParameters: {
-                  'path': path,
-                  't': raw['date']
-                }
-            );
+          JobImageFile jf = raw as JobImageFile;
 
-            ImageMeta im = ImageMeta(
-                host: Uri(
-                    host: remote.host,
-                    port: remote.port
-                ).toString(),
-                re: RenderEngine.unknown,
-                fileTypeExtension: e.replaceFirst('.', ''),
-                fileSize: raw['bytes'],
-                dateModified: DateTime.parse(raw['date']),
-                fullPath: path,
-                fullNetworkPath: full.toString(),
-                networkThumbnail: thumb.toString()
-            );
+          ImageMeta im = ImageMeta(
+              host: Uri(
+                  host: remote!.host,
+                  port: remote.port
+              ).toString(),
+              re: RenderEngine.unknown,
+              fileTypeExtension: e.replaceFirst('.', ''),
+              fullPath: path,
+              fullNetworkPath: jf.fullNetworkPath,
+              networkThumbnail: jf.networkThumbhail
+          );
 
-            int attempts = 0;
-            bool okay = false;
-            String? err;
-            while(attempts < 3 && okay != true){
-              try {
-                await im.parseNetworkImage();
-                await im.makeThumbnail();
+          int attempts = 0;
+          bool okay = false;
+          String? err;
+          while(attempts < 3 && okay != true){
+            try {
+              await im.parseNetworkImage();
+              await im.makeThumbnail();
 
-                _done.add(im);
-                if(!_controller.isClosed) _controller.add(finished);
-                okay = true;
-                NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
-                  _doneTotal++;
-                  _isDone();
-                });
-              } catch (e, t){
-                err = e.toString();
-                if (kDebugMode) {
-                  print(t);
-                }
-                attempts++;
-                await Future.delayed(const Duration(seconds: 3));
-              }
-            }
-            if(okay != true && attempts >= 3){
-              int notID = notificationManager!.show(
-                  thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-                  title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
-                  description: 'We were unable to process the image, 3 attempts were made\n$path\nError: $err'
-              );
-              audioController!.player.play(AssetSource('audio/error.wav'));
-              Future.delayed(const Duration(milliseconds: 10000), () {
-                notificationManager!.close(notID);
+              _done.add(im);
+              if(!_controller.isClosed) _controller.add(finished);
+              okay = true;
+              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+                _doneTotal++;
+                _isDone();
               });
+            } catch (e, t){
+              err = e.toString();
+              if (kDebugMode) {
+                print(t);
+              }
+              attempts++;
+              await Future.delayed(const Duration(seconds: 3));
             }
-            _doneTotal++;
-            _isDone();
+          }
+          if(okay != true && attempts >= 3){
+            int notID = notificationManager!.show(
+                thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+                title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
+                description: 'We were unable to process the image, 3 attempts were made\n$path\nError: $err'
+            );
+            audioController!.player.play(AssetSource('audio/error.wav'));
+            Future.delayed(const Duration(milliseconds: 10000), () {
+              notificationManager!.close(notID);
+            });
+          }
+          _doneTotal++;
+          _isDone();
         }
       } else {
         _doneTotal++;
@@ -329,6 +316,8 @@ class ParseJob {
   }
 }
 
+DateFormat format = DateFormat("yyyy-MM-dd");
+
 final listEqual = const ListEquality().equals;
 Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
   bool debug = false;
@@ -342,6 +331,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
   final String mine = lookupMimeType(imagePath, headerBytes: fileBytes) ?? 'unknown';
   String e = mine.split('/').last;
   var fileStat = await f.stat();
+  DateTime? creationDate;
 
   if(e == 'png') {
 
@@ -509,6 +499,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
             if(data['sui_image_params'] != null){
               pngEx['softwareType'] = Software.swarmUI;
               gp = parseSwarmUIParameters(pngEx['parameters']);
+              // Data check
+              if(data['sui_extra_data'] != null) creationDate = format.parse(data['sui_extra_data']['date']);
             }
           } else {
             re = RenderEngine.txt2img;
@@ -617,6 +609,10 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
           }
         }
 
+        // Character card inside
+        if(pngEx['chara'] != null){
+        }
+
         if(debug) print(pngEx);
       }
 
@@ -638,7 +634,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         mine: mine,
         fileTypeExtension: e,
         fileSize: fileStat.size,
-        dateModified: fileStat.modified,
+        dateModified: creationDate ?? fileStat.modified,
         size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : const ImageSize(width: 500, height: 500),
         specific: specific,
         generationParams: gp,
@@ -817,7 +813,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         mine: mine,
         fileTypeExtension: e,
         fileSize: fileStat.size,
-        dateModified: fileStat.modified,
+        dateModified: fileStat.changed,
         size: error == null ? ImageSize(width: originalImage!.width, height: originalImage.height) : const ImageSize(width: 500, height: 500),
         specific: specific,
         generationParams: gp,
@@ -1246,12 +1242,13 @@ String getCompression(int type){
 }
 
 final DateFormat dateFormatter = DateFormat('yyyy-MM-dd HH:mm:ss.mmm');
+RegExp dateRegex = RegExp(r"[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 
 class ImageMeta {
   // Main
   String keyup = '';
   //Network
-  bool get isLocal => fullNetworkPath == null;
+  bool get isLocal => host == null;
   String? host;
   // Other
   String? error;
@@ -1263,7 +1260,7 @@ class ImageMeta {
   String fileName = '';
   ImageSize? size;
   String pathHash = '';
-  dynamic fullPath;
+  String? fullPath;
   String? fullNetworkPath;
   String? tempFilePath;
   GenerationParams? generationParams;
@@ -1304,32 +1301,32 @@ class ImageMeta {
       keyup = genHash(re, 'undefined', fileName, host: host);
     }
 
-    if(fullNetworkPath == null && host != null && dateModified != null){
-      Uri parse = Uri.parse(host!);
-      Uri thumb = Uri(
-          scheme: 'http',
-          host: parse.host,
-          port: parse.port,
-          path: '/infinite_image_browsing/image-thumbnail',
-          queryParameters: {
-            'path': fullPath,
-            'size': '512x512',
-            't': dateFormatter.format(dateModified!)
-          }
-      );
-      Uri full = Uri(
-          scheme: 'http',
-          host: parse.host,
-          port: parse.port,
-          path: '/infinite_image_browsing/file',
-          queryParameters: {
-            'path': fullPath,
-            't': dateFormatter.format(dateModified!)
-          }
-      );
-      fullNetworkPath = full.toString();
-      networkThumbnail = thumb.toString();
-    }
+    // if(fullNetworkPath == null && host != null && dateModified != null){
+    //   Uri parse = Uri.parse(host!);
+    //   Uri thumb = Uri(
+    //       scheme: 'http',
+    //       host: parse.host,
+    //       port: parse.port,
+    //       path: '/infinite_image_browsing/image-thumbnail',
+    //       queryParameters: {
+    //         'path': fullPath,
+    //         'size': '512x512',
+    //         't': dateFormatter.format(dateModified!)
+    //       }
+    //   );
+    //   Uri full = Uri(
+    //       scheme: 'http',
+    //       host: parse.host,
+    //       port: parse.port,
+    //       path: '/infinite_image_browsing/file',
+    //       queryParameters: {
+    //         'path': fullPath,
+    //         't': dateFormatter.format(dateModified!)
+    //       }
+    //   );
+    //   fullNetworkPath = full.toString();
+    //   networkThumbnail = thumb.toString();
+    // }
   }
 
   Future<Map<String, dynamic>> toMap() async {
@@ -1371,7 +1368,8 @@ class ImageMeta {
 
   Future<void> makeThumbnail({Uint8List? fileBytes}) async {
     if(thumbnail == null) {
-      String url = isLocal ? fullPath : tempFilePath;
+      String? url = isLocal ? fullPath : tempFilePath;
+      if(url == null) return;
       img.Image? data;
       if(fileBytes != null){
         data = await compute(img.decodeImage, fileBytes);
@@ -1420,6 +1418,7 @@ class ImageMeta {
 
       if(tempFilePath != null){
         ImageMeta? im = await parseImage(RenderEngine.unknown, pa);
+        FileStat stat = f.statSync();
         if(im != null){
           size = im.size;
           generationParams = im.generationParams;
@@ -1427,8 +1426,11 @@ class ImageMeta {
           specific = im.specific;
           mine = im.mine;
           re = im.re;
-          final String parentFolder = p.basename(File(fullPath ?? tempFilePath).parent.path);
+          final String parentFolder = p.basename(File(fullPath ?? tempFilePath ?? '').parent.path);
           keyup = genHash(re, parentFolder, fileName, host: host);
+          // Try right date
+          dateModified = dateRegex.hasMatch(parentFolder) ? format.parse(parentFolder) : dateModified = stat.modified;
+          fileSize = stat.size;
         }
       }
     }
@@ -1514,15 +1516,15 @@ class ImageMeta {
       if(re != RenderEngine.unknown) fi += '${prefix}Render engine: ${tb(renderEngineToString(re))}\n';
       if(other?['softwareType'] != null) fi += '${prefix}Software: ${tb(softwareToString(Software.values[other?['softwareType']]))}\n';
       fi += 'Promt:\n```diff\n';
-      if(generationParams?.positive != null) fi += '+ ${generationParams!.positive.replaceAll("\n", " ").trim()}\n';
+      if(generationParams?.positive != null) fi += '+ ${(generationParams!.positive ?? '').replaceAll("\n", " ").trim()}\n';
       if(generationParams?.positive != null && generationParams?.negative != null) fi += '\n';
-      if(generationParams?.negative != null) fi += '- ${generationParams!.negative.replaceAll("\n", " ").trim()}\n';
+      if(generationParams?.negative != null) fi += '- ${(generationParams!.negative ?? '').replaceAll("\n", " ").trim()}\n';
       fi += '```\n';
-      fi += '${prefix}Checkpoint type: ${tb(checkpointTypeToString(generationParams!.checkpointType))}\n';
+      fi += '${prefix}Checkpoint type: ${tb(checkpointTypeToString(generationParams!.checkpointType ?? CheckpointType.unknown))}\n';
       fi += '${prefix}Checkpoint: ${tb('${generationParams!.checkpoint}${generationParams!.checkpointHash != null ? ' (${generationParams!.checkpointHash})' : ''}')}\n';
       if(generationParams?.params?['vae'] != null) fi += '${prefix}VAE: ${generationParams?.params?['vae']+(generationParams?.params?['vae_hash'] != null ? ' (${generationParams?.params?['vae_hash']})' : '')}\n';
       fi += '$prefix**Sampling**\n';
-      fi += '${prefix}Method: ${tb(generationParams!.sampler)}\n';
+      if(generationParams?.sampler != null) fi += '${prefix}Method: ${tb(generationParams!.sampler!)}\n';
       fi += '${prefix}Steps: ${tb(generationParams!.steps.toString())}\n';
       fi += '${prefix}CFG Scale: ${tb(generationParams!.cfgScale.toString())}\n';
       if(generationParams?.denoisingStrength != null && generationParams?.hiresUpscale == null) fi += '${prefix}Denoising strength: ${tb(generationParams!.denoisingStrength.toString())}\n';
@@ -1531,10 +1533,10 @@ class ImageMeta {
         if(generationParams?.hiresSampler != null) fi += '${prefix}Sampler: ${tb(generationParams?.hiresSampler ?? 'None')}\n';
         fi += '${prefix}Denoising strength: ${tb(generationParams!.denoisingStrength.toString())}\n';
         fi += '${prefix}Upscaler: ${tb(generationParams!.hiresUpscaler ?? 'None (Lanczos)')}\n';
-        fi += '${prefix}Upscale: ${tb('${generationParams!.hiresUpscale} (${generationParams!.size.withMultiply(generationParams!.hiresUpscale ?? 0)})')}\n';
+        fi += '${prefix}Upscale: ${tb('${generationParams!.hiresUpscale}(${generationParams!.size != null ? ' (${generationParams!.size!.withMultiply(generationParams!.hiresUpscale ?? 0)})' : ''}')}\n';
       }
       fi += '${prefix}Seed: ${tb(generationParams!.seed.toString())}\n';
-      fi += '${prefix}Width and height: ${tb('${generationParams!.size.width}x${generationParams!.size.height}')}\n';
+      if(generationParams!.size?.width != null && generationParams!.size?.height != null) fi += '${prefix}Width and height: ${tb('${generationParams!.size!.width}x${generationParams!.size!.height}')}\n';
       if(isWebuiForge){
         fi += '$prefix**Version**\n';
         fi += '${prefix}WebUI Forge: ${tb(wForgeV)}\n';
@@ -1573,14 +1575,15 @@ String checkpointTypeToString(CheckpointType ct){
 }
 
 enum RenderEngine{
-  unknown,
-  txt2img, // 1
+  unknown, // a5a5a5 / 262626
+  txt2img, // 1 // 003366 / 80bfff
   img2img, // 2
   inpaint, // 3
   txt2imgGrid, // 4
   img2imgGrid, // 5
-  extra, // 6
-  comfUI // 7
+  extra, // 6 // f3a505 / 734d02
+  comfUI, // 7 // 9d81ba / 31283b,
+  characterCard // 8 / 71bc78 / 253d27
 }
 
 enum Software {
@@ -1592,7 +1595,9 @@ enum Software {
   celsysStudioTool,
   tensorArt, // https://tensor.art/,
   photoScape,
-  swarmUI
+  swarmUI,
+  stableDiffusionWebUI,
+  comfUI
 }
 
 String renderEngineToString(RenderEngine re){
@@ -1618,7 +1623,7 @@ String softwareToString(Software re){
     Software.celsysStudioTool: 'Celsys Studio Tool',
     Software.tensorArt: 'TensorArt',
     Software.photoScape: 'PhotoScape',
-    Software.swarmUI: 'SwarmUI'
+    Software.swarmUI: 'SwarmUI',
   }[re] ?? 'Unknown*';
 }
 
@@ -1687,6 +1692,7 @@ class ImageSize {
 }
 
 enum ContentRating {
+  Unknown,
   G, // General audiences - All ages admitted // #006835
   PG, // Parental guidance suggested - Some material may not be suitable for children. // #f15a24
   PG_13, // Rated PG-13: Parents strongly cautioned - Some material may be inappropriate for children under 13. // #803d99

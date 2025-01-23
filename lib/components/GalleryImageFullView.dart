@@ -1,20 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class PortfolioGalleryImageWidget extends StatelessWidget {
+class GalleryImageFullView extends StatelessWidget {
   final ImageMeta imageMeta;
   final VoidCallback onImageTap;
 
-  const PortfolioGalleryImageWidget({Key? key, required this.imageMeta, required this.onImageTap}) : super(key: key);
+  const GalleryImageFullView({Key? key, required this.imageMeta, required this.onImageTap}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     late ImageProvider provider;
     if(!imageMeta.isLocal){
-      provider = NetworkImage(imageMeta.networkThumbnail ?? imageMeta.fullNetworkPath!);
+      provider = NetworkImage(imageMeta.networkThumbnail ?? imageMeta.fullNetworkPath ?? context.read<ImageManager>().getter.getThumbnailUrlImage(imageMeta));
     } else {
       provider = MemoryImage(base64Decode(imageMeta.thumbnail ?? ''));
     }

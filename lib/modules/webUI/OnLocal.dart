@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +24,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
   @override
   bool get hasError => error != null;
 
+  Software? software;
+
   List<String> inProcess = [];
   bool isIndexingAll = false;
 
@@ -32,7 +35,6 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   // WebUI
   String _webui_root = '';
-  String _webui_outputs_folder = '';
 
   @override
   String? get host => null;
@@ -44,13 +46,40 @@ class OnLocal extends ChangeNotifier implements AbMain{
   // Other
   List<StreamSubscription<FileSystemEvent>> watchList = [];
   Map<int, ParseJob> _jobs = {};
+  int getJobCountActive() {
+    _jobs.removeWhere((key, value) => value.controller.isClosed);
+    return _jobs.length;
+  }
+
+  List<String> _tabs = [];
+  @override
+  List<String> get tabs => _tabs;
+
 
   @override
   Future<void> init() async {
-    String sdWebuiFolder = prefs!.getString('sd_webui_folder') ?? '';
-    if(sdWebuiFolder.isNotEmpty){
-      _webui_root = sdWebuiFolder;
-      final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
+    String? webuiFolder = prefs!.getString('webui_folder');
+    if(webuiFolder == null) {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+          title: 'Initialization problem',
+          description: 'The folder containing Stable Diffusion WebUI is not specified. Specify in the settings',
+          content: ElevatedButton(
+              onPressed: () => init(),
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          )
+      );
+      audioController!.player.play(AssetSource('audio/error.wav'));
+      return;
+    }
+    _webui_root = webuiFolder;
+    //if swarnUI
+    bool swarnPS = File('$_webui_root/SwarmUI.sln').existsSync();
+    bool sdWebUIConfig = File('$webuiFolder/config.json').existsSync();
+    if(swarnPS){
+      // Output / local /
+    } else if(sdWebUIConfig){
+      final String response = File('$webuiFolder/config.json').readAsStringSync();
       _config = await json.decode(response);
       // paths
       String i2ig = p.join(_webui_root, _config['outdir_img2img_grids']);
@@ -66,17 +95,22 @@ class OnLocal extends ChangeNotifier implements AbMain{
         'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
         'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
       });
+      _tabs = ['txt2img', 'img2img'];
       loaded = true;
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
+          title: 'Welcome to Stable Diffusion',
+          description: 'Initialization was successful'
+      );
+      audioController!.player.play(AssetSource('audio/info.wav'));
+      Future.delayed(const Duration(milliseconds: 10000), () {
+        notificationManager!.close(notID);
+      });
       notifyListeners();
 
       if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
       if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
     }
-  }
-
-  @override
-  Future<List<ImageMeta>> getFolderFiles(RenderEngine re, String sub) {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(re == RenderEngine.img2img ? [RenderEngine.img2img, RenderEngine.inpaint] : re, sub);
   }
 
   Map<RenderEngine, String> ke = {
@@ -88,16 +122,25 @@ class OnLocal extends ChangeNotifier implements AbMain{
   };
 
   @override
-  Future<List<Folder>> getFolders(RenderEngine renderEngine) async {
+  Future<List<Folder>> getFolders(int index) async {
+    return getAllFolders(index);
+  }
+
+  @override
+  Future<List<Folder>> getAllFolders(int index) async {
     List<Folder> f = [];
     int ind = 0;
-    Directory di = Directory(_webuiPaths[ke[renderEngine]]!);
+    Directory di = Directory([
+      _webuiPaths['outdir_txt2img-images'],
+      _webuiPaths['outdir_img2img-images']
+    ][index]!);
     List<FileSystemEntity> fe = await dirContents(di);
 
     for(FileSystemEntity ent in fe){
       f.add(Folder(
         index: ind,
-        path: ent.path,
+        getter: ent.path,
+        type: FolderType.path,
         name: p.basename(ent.path),
         files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
             fullPath: p.normalize(ent.path),
@@ -108,6 +151,18 @@ class OnLocal extends ChangeNotifier implements AbMain{
     }
     return f;
   }
+
+  @override
+  Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
+    List<Folder> f = await getFolders(section);
+    String day = f[index].name;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day);
+  }
+
+  @override
+  String getFullUrlImage(ImageMeta im) => '';
+  @override
+  String getThumbnailUrlImage(ImageMeta im) => '';
 
   @override
   void exit() {
@@ -132,16 +187,16 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   @override
-  bool indexAll(RenderEngine re) {
+  bool indexAll(int index) {
     int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
         title: 'Starting indexing',
         description: 'Give us a few seconds...'
     );
-    getFolders(re).then((fo) async {
+    getFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
-      notificationManager!.update(notID, 'title', 'Indexing ${re.name}');
+      notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
       notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
       notificationManager!.update(notID, 'content', Container(
         margin: const EdgeInsets.only(top: 7),
@@ -155,9 +210,12 @@ class OnLocal extends ChangeNotifier implements AbMain{
       ));
       int d = 0;
       for(var f in fo){
-        List<ImageMeta> ima = await getFolderFiles(RenderEngine.values[re.index], f.name);
-        StreamController co = await indexFolder(RenderEngine.values[re.index], f.name, hashes: ima.map((e) => e.pathHash).toList(growable: false));
-        await _isDone(co);
+        List<ImageMeta> ima = await getFolderFiles(index, d);
+        StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
+        print(getJobCountActive());
+        print(_jobs);
+        print(_jobs.keys.map((key) => _jobs[key]!.controller.isClosed));
+        bool done = await _isDone(co);
         d++;
         notificationManager!.update(notID, 'content', Container(
             margin: const EdgeInsets.only(top: 7),
@@ -177,18 +235,18 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   Future<bool> _isDone(StreamController co) async{
-    while(!co.isClosed && _jobs.length >= 5){
+    while(getJobCountActive() >= 10){
       await Future.delayed(const Duration(seconds: 2));
     }
     return true;
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
-    print('indexFolder: ${renderEngine.name} $sub ${hashes?.length ?? 'null'}');
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async {
+    print('indexFolder: ${folder.getter} ${hashes?.length ?? 'null'}');
     // Read all files sizes and get hash
     //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
-    Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
+    Directory di = Directory(normalizePath(folder.getter));
     List<FileSystemEntity> fe = await dirContents(di); // Filter this shit
     //print('total: ${fe.length}');
 
@@ -207,20 +265,20 @@ class OnLocal extends ChangeNotifier implements AbMain{
     }
 
     if(fe.isNotEmpty){
-      if(inProcess.contains(sub)){
+      if(inProcess.contains(di.path)){
         fe = [];
       } else {
-        inProcess.add(sub);
+        inProcess.add(di.path);
       }
     }
 
     ParseJob job = ParseJob();
-    int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));
+    int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
 
     int notID = -1;
     if(fe.isNotEmpty) {
       notID = notificationManager!.show(
-        title: 'Indexing $sub',
+        title: 'Indexing ${di.path}',
         description: 'We are processing ${fe.length} images, please wait',
         content: Container(
           margin: const EdgeInsets.only(top: 7),
@@ -229,25 +287,24 @@ class OnLocal extends ChangeNotifier implements AbMain{
         )
       );
     }
-    job.run(
-      onDone: (){
-        _jobs.remove(jobID);
-        if(notID != -1) notificationManager!.close(notID);
-        if(fe.isNotEmpty) inProcess.remove(sub);
-      },
-      onProcess: (total, current, thumbnail) {
-        if(notID == -1) return;
-        notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-        if(thumbnail != null) {
-          notificationManager!.update(notID, 'thumbnail', Image.memory(
-            base64Decode(thumbnail),
-            filterQuality: FilterQuality.low,
-            gaplessPlayback: true,
-          ));
+    _jobs[jobID] = job..run(
+        onDone: (){
+          _jobs.remove(jobID);
+          if(notID != -1) notificationManager!.close(notID);
+          if(fe.isNotEmpty) inProcess.remove(di.path);
+        },
+        onProcess: (total, current, thumbnail) {
+          if(notID == -1) return;
+          notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
+          if(thumbnail != null) {
+            notificationManager!.update(notID, 'thumbnail', Image.memory(
+              base64Decode(thumbnail),
+              filterQuality: FilterQuality.low,
+              gaplessPlayback: true,
+            ));
+          }
         }
-      }
     );
-    _jobs[jobID] = job;
 
     // Return stream
     return job.controller;

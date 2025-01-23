@@ -109,7 +109,7 @@ class ComparisonBlock {
     if(s.runtimeType == ImageMeta){
       ImageMeta im = s as ImageMeta;
       if(im.isLocal){
-        path = im.fullPath;
+        path = im.fullPath!;
       } else {
         if(im.tempFilePath != null){
           path = im.tempFilePath!;
@@ -169,7 +169,7 @@ class ComparisonBlock {
               if(s.runtimeType == ImageMeta){
                 ImageMeta im = s as ImageMeta;
                 if(im.isLocal){
-                  path = im.fullPath;
+                  path = im.fullPath!;
                 } else if(im.tempFilePath != null){
                   path = im.tempFilePath!;
                 }

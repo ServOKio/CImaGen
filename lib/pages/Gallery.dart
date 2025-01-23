@@ -22,7 +22,7 @@ import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../components/CustomActionButton.dart';
-import '../components/PortfolioGalleryDetailPage.dart';
+import '../components/GalleryImageFullMain.dart';
 import '../components/XYZBuilder.dart';
 import '../main.dart';
 import '../components/CustomMenuItem.dart';
@@ -34,8 +34,8 @@ import 'Settings.dart';
 
 import 'package:path/path.dart' as p;
 
-Future<List<Folder>> _loadMenu(RenderEngine re) async {
-  return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(re);
+Future<List<Folder>> _loadMenu(int index) async {
+  return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(index);
 }
 
 Future<List<FileSystemEntity>> dirContents(Directory dir) {
@@ -64,20 +64,16 @@ class Gallery extends StatefulWidget{
 }
 
 class _GalleryState extends State<Gallery> with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  int getterID = 0;
   String currentKey = 'null';
   bool debug = false;
 
   int previewType = 0;
 
-  late final TabController _tabController;
+  TabController? _tabController;
   final GlobalKey _key = GlobalKey();
 
-  final List<RenderEngine> _tabs = [
-    RenderEngine.txt2img,
-    RenderEngine.img2img,
-    // RenderEngine.extra - fuck...
-  ];
-
+  List<String> _tabs = [];
   Map<int, ScrollController> _scrollControllers = {};
   Map<int, Future<List<Folder>>> _lists = {};
   Map<int, int> _selected = {};
@@ -91,7 +87,58 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   @override
   void initState() {
     super.initState();
+    debug = prefs!.getBool('debug') ?? false;
+
+    var go = context.read<ImageManager>().getter.loaded;
+    if (go) {
+      getterID = context.read<ImageManager>().getter.hashCode;
+      reloadTabs();
+      _lists[0]?.then((value){
+        if(mounted && value.isNotEmpty) {
+          Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, 0);
+          _imagesList.then((listRes){
+            if(listRes.isEmpty){
+              context.read<ImageManager>().getter.indexFolder(value[0]).then((controller){
+                if(mounted) {
+                  setState(() {
+                    imagesList = controller.stream;
+                  });
+                }
+              });
+            } else if(mounted) {
+              setState(() {
+                imagesList = _imagesList;
+              });
+            }
+          });
+        }
+      });
+    }
+  }
+
+  void reloadTabs(){
+    //Clear
+    if(_tabController != null) _tabController!.dispose();
+    for (var k in _scrollControllers.keys) {
+      _scrollControllers[k]!.dispose();
+    }
+    _scrollControllers.clear();
+
+    //Init
+    _tabs = context.read<ImageManager>().getter.tabs;
+    _tabController = TabController(length: _tabs.length, vsync: this);
+
+    for (int i = 0; i < _tabs.length; i++) {
+      // Scroll
+      _scrollControllers[i] = ScrollController();
+      // Lists
+      _lists[i] = _loadMenu(i);
+      // Selected
+      _selected[i] = 0;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.resetActions();
       appBarController!.setActions([
         CustomActionButton(getIcon: () => [Icons.grid_view, Icons.move_up, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
           setState(() {
@@ -133,8 +180,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           });
         }, isActive: () => true),
         CustomActionButton(getIcon: () => Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
-          _lists[_tabs[_tabController.index].index]?.then((listValue) {
-            Folder f = listValue[_selected[_tabs[_tabController.index].index]!];
+          _lists[_tabController!.index]?.then((listValue) {
+            Folder f = listValue[_selected[_tabController!.index]!];
             showDialog<String>(
               context: context,
               builder: (BuildContext context) => AlertDialog(
@@ -142,7 +189,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 content: SizedBox(
                   width: MediaQuery.of(context).size.width - 30 > MediaQuery.of(context).size.height - 30 ? MediaQuery.of(context).size.height - 30 : MediaQuery.of(context).size.width - 30,
                   height: MediaQuery.of(context).size.height - 30,
-                  child: XYZPlotForHiRes(_tabs[_tabController.index], f.name),
+                  child: XYZPlotForHiRes(_tabController!.index, _selected[_tabController!.index]!),
                 ),
                 actions: <Widget>[
                   TextButton(
@@ -158,92 +205,53 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           color: Colors.black,
           itemBuilder: (context) => [
             PopupMenuItem<int>(
-              child: Text('Index ${_tabs[_tabController.index].name}'),
-              onTap: () => context.read<ImageManager>().getter.indexAll(_tabs[_tabController.index]),
+              child: Text('Index ${_tabs[_tabController!.index]}'),
+              onTap: () => context.read<ImageManager>().getter.indexAll(_tabController!.index),
             ),
             PopupMenuItem<int>(
-              child: Text('Find incorrectly located files'),
+              child: const Text('Find incorrectly located files'),
               onTap: (){
-                
+
               },
             ),
           ],
         )
       ]);
     });
-    debug = prefs!.getBool('debug') ?? false;
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    var go = context.read<ImageManager>().getter.loaded;
-    if (!go) {
-      sr = true;
-    } else {
-      for(RenderEngine re in _tabs){
-        // Scroll
-        _scrollControllers[re.index] = ScrollController();
-        _scrollControllers[re.index]?.addListener(() {
-
-        });
-        // Lists
-        _lists[re.index] = _loadMenu(re);
-        // Selected
-        _selected[re.index] = 0;
-      }
-      _lists[_tabs[0].index]?.then((value){
-        if(mounted && value.isNotEmpty) {
-          Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(_tabs[0], value[0].name);
-          _imagesList.then((listRes){
-            if(listRes.isEmpty){
-              context.read<ImageManager>().getter.indexFolder(_tabs[0], value[0].name).then((controller){
-                if(mounted) {
-                  setState(() {
-                  imagesList = controller.stream;
-                });
-                }
-              });
-            } else if(mounted) {
-                setState(() {
-                imagesList = _imagesList;
-              });
-            }
-          });
-        }
-      });
-    }
   }
-
 
   @override
   void dispose(){
-    super.dispose();
-    for(RenderEngine re in _tabs){
-      _scrollControllers[re.index]?.dispose();
+    appBarController!.resetActions();
+    if(_tabController != null) _tabController!.dispose();
+    for (var k in _scrollControllers.keys) {
+      _scrollControllers[k]!.dispose();
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appBarController!.resetActions();
-    });
+    _scrollControllers.clear();
+    super.dispose();
   }
 
   void reloadTab(){
-    _lists[_tabs[_tabController.index].index] = _loadMenu(_tabs[_tabController.index]);
+    _lists[_tabController!.index] = _loadMenu(_tabController!.index);
     setState(() {
 
     });
   }
 
-  void changeFolder(RenderEngine re, int index) {
-    _selected[re.index] = index;
+  void changeFolder(int folder, int index) {
+    _selected[folder] = index;
     setState(() {
-      currentKey = '${re.index}:$index';
+      currentKey = '$folder:$index';
     });
 
 
-    _lists[re.index]?.then((listValue) {
+    _lists[folder]?.then((listValue) {
       Folder f = listValue[index];
-      imagesList = context.read<ImageManager>().getter.getFolderFiles(RenderEngine.values[re.index], f.name);
-      print('changeTab:${RenderEngine.values[re.index].name}/${f.name}');
+      imagesList = context.read<ImageManager>().getter.getFolderFiles(folder, index);
+      print('changeTab:$folder/${f.name}');
       imagesList?.then((List<ImageMeta> value) {
         bool force = false; //listValue.length-1 == index;
-        context.read<ImageManager>().getter.indexFolder(RenderEngine.values[re.index], f.name, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
+        context.read<ImageManager>().getter.indexFolder(f, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
           if(value.isEmpty || force){
             setState(() {
               imagesList = controller.stream;
@@ -261,13 +269,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         children: [
           TabBar(
             controller: _tabController,
-            tabs: _tabs.map<Widget>((tab)=>Tab(text: renderEngineToString(tab))).toList(),
+            tabs: _tabs.map<Widget>((tab)=>Tab(text: tab)).toList(),
             isScrollable: false
           ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: _tabs.map<Widget>((tab)=>_fBuilder(tab)).toList()
+              children: _tabs.asMap().map((i, element)=>MapEntry(i, _fBuilder(i))).values.toList()
             )
           ),
           InkWell(
@@ -289,16 +297,32 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     );
   }
 
-  // Блок сбоку
-  Widget _fBuilder(RenderEngine re){
+  // Блоки сбоку
+  Widget _fBuilder(int tabIndex){
     return FutureBuilder(
-        future: _lists[re.index],
+        future: _lists[tabIndex],
         builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
           Widget c;
           if (snapshot.hasData) {
-            c = AnimationLimiter(
+            if(snapshot.data.length == 0){
+              c = const Padding(padding: EdgeInsets.all(14), child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.nights_stay_rounded,
+                    color: Colors.white,
+                    size: 60,
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text('It looks like it\'s empty'),
+                  ),
+                ],
+              ));
+            } else {
+              c = AnimationLimiter(
               child: ListView.separated(
-                controller: _scrollControllers[re.index],
+                controller: _scrollControllers[tabIndex],
                 separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
                 itemCount: snapshot.data.length,
                 itemBuilder: (context, index) {
@@ -317,41 +341,47 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   }
 
                   final entries = <ContextMenuEntry>[
-                    MenuItem.submenu(
-                      label: 'I see...',
-                      icon: Icons.view_list_sharp,
-                      items: [
-                        CustomMenuItem(
-                          label: 'Delete',
-                          value: 'delete',
-                          icon: Icons.delete,
-                          iconColor: Colors.redAccent,
-                          onSelected: () {
-                            showDialog<String>(
-                              context: context,
-                              builder: (BuildContext context) => AlertDialog(
-                                icon: const Icon(Icons.warning),
-                                iconColor: Colors.redAccent,
-                                title: const Text('Are you serious ?'),
-                                content: const Text('This action will delete this image'),
-                                actions: <Widget>[
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, 'cancel'),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: (){
-                                      Navigator.pop(context, 'ok');
-                                    },
-                                    child: const Text('Okay'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        )
-                      ],
+                    MenuItem(
+                      label: 'Index this folder',
+                      icon: Icons.waterfall_chart,
+                      onSelected: () => context.read<ImageManager>().getter.indexFolder(snapshot.data[index])
                     ),
+                    const MenuDivider(),
+                    // MenuItem.submenu(
+                    //   label: 'I see...',
+                    //   icon: Icons.view_list_sharp,
+                    //   items: [
+                    //     CustomMenuItem(
+                    //       label: 'Delete',
+                    //       value: 'delete',
+                    //       icon: Icons.delete,
+                    //       iconColor: Colors.redAccent,
+                    //       onSelected: () {
+                    //         showDialog<String>(
+                    //           context: context,
+                    //           builder: (BuildContext context) => AlertDialog(
+                    //             icon: const Icon(Icons.warning),
+                    //             iconColor: Colors.redAccent,
+                    //             title: const Text('Are you serious ?'),
+                    //             content: const Text('This action will delete this image'),
+                    //             actions: <Widget>[
+                    //               TextButton(
+                    //                 onPressed: () => Navigator.pop(context, 'cancel'),
+                    //                 child: const Text('Cancel'),
+                    //               ),
+                    //               TextButton(
+                    //                 onPressed: (){
+                    //                   Navigator.pop(context, 'ok');
+                    //                 },
+                    //                 child: const Text('Okay'),
+                    //               ),
+                    //             ],
+                    //           ),
+                    //         );
+                    //       },
+                    //     )
+                    //   ],
+                    // ),
                   ];
                   final contextMenu = ContextMenu(
                     entries: entries,
@@ -423,7 +453,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                                               child: Row(
                                                 children: [
                                                   const Icon(Icons.image, color: Colors.white70, size: 12),
-                                                  const Gap(2),
+                                                  const Gap(3),
                                                   Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
                                                 ],
                                               )
@@ -432,10 +462,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                                       ),
                                     )
                                 ));
-                                goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeFolder(re, index)))));
+                                goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeFolder(tabIndex, index)))));
                                 goto.add(AnimatedPositioned(
                                   top: 100 / 2 - 42 / 2,
-                                  right: _selected[re.index] == index ? 0 : -12,
+                                  right: _selected[tabIndex] == index ? 0 : -12,
                                   duration: const Duration(seconds: 1),
                                   curve: Curves.ease,
                                   child: Container(
@@ -458,8 +488,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 },
               )
             );
+            }
           } else if (snapshot.hasError) {
-            c = Column(
+            c = Padding(padding: const EdgeInsets.all(14), child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
@@ -472,7 +503,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   child: Text('Error: ${snapshot.error}'),
                 ),
               ],
-            );
+            ));
           } else {
             c = const Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -513,11 +544,18 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     final theme = Provider.of<ThemeManager>(context, listen: false);
     const breakpoint = 600.0;
 
-    return ChangeNotifierProvider(
-      create: (context) => model,
-      child: sr
-        ? Center(child: LoadingState(loaded: !sr, error: context.read<DataManager>().error))
-        : screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => model),
+        ChangeNotifierProvider(create: (_) => context.read<ImageManager>().getter),
+      ],
+      child: !context.read<ImageManager>().getter.loaded
+        ? Center(
+          child: LoadingState(
+            loaded: context.read<ImageManager>().getter.loaded,
+            error: context.read<DataManager>().error
+          )
+        ) : screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
           _buildNavigationRail(),
           Expanded(
             child: previewType == 2 ? ResizableContainer(
@@ -538,25 +576,24 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               ],
             ) : _buildMainSection()
           ),
-          // if(previewType == 2) _buildPreviewSection()
         ]
       ) : Scaffold(
-        body: _buildMainSection(),
-        // use SizedBox to contrain the AppMenu to a fixed width
-        drawer: Theme(
-          data: ThemeData.dark(useMaterial3: false).copyWith(
-            canvasColor: Theme.of(context).scaffoldBackgroundColor,
-          ),
-          child: SizedBox(
-            width: 200,
-            child: Drawer(
-              child: Theme(
-                data: theme.getTheme,
-                child: _buildNavigationRail()
+          body: _buildMainSection(),
+          // use SizedBox to contrain the AppMenu to a fixed width
+          drawer: Theme(
+            data: ThemeData.dark(useMaterial3: false).copyWith(
+              canvasColor: Theme.of(context).scaffoldBackgroundColor,
+            ),
+            child: SizedBox(
+              width: 200,
+              child: Drawer(
+                child: Theme(
+                    data: theme.getTheme,
+                    child: _buildNavigationRail()
+                ),
               ),
             ),
-          ),
-        )
+          )
       )
     );
   }
@@ -789,7 +826,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive{
+    if (context.read<ImageManager>().getter.hashCode != getterID) {
+      getterID = context.read<ImageManager>().getter.hashCode;
+      return false;
+    }
+    return true;
+  }
 }
 
 class FloatPreview extends StatefulWidget{
@@ -849,7 +892,27 @@ class _FloatPreviewState extends State<FloatPreview> {
               ),
             ],
           ),
-          child: display!.isLocal ? Image.file(File(display!.fullPath), gaplessPlayback: true) : Image.network(display!.fullNetworkPath!, gaplessPlayback: true)
+          child: display!.isLocal ? Image.file(File(display!.fullPath!), gaplessPlayback: true) : CachedNetworkImage(
+            imageUrl: display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!),
+              progressIndicatorBuilder: (context, url, downloadProgress) => Stack(
+                children: [
+                  Image.memory(
+                    base64Decode(display!.thumbnail ?? ''),
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                  ),
+                  Shimmer.fromColors(
+                      baseColor: Colors.transparent,
+                      highlightColor: Colors.white.withAlpha(90),
+                      child: Image.memory(
+                        base64Decode(display!.thumbnail ?? ''),
+                        filterQuality: FilterQuality.low,
+                        gaplessPlayback: true,
+                      )
+                  ),
+                ],
+              )
+          )
         ),
       )
     ) : const SizedBox.shrink();
@@ -885,7 +948,34 @@ class _SidePreviewState extends State<SidePreview> {
 
   @override
   Widget build(BuildContext context) {
-    return display != null ? display!.isLocal ? Image.file(File(display!.fullPath), gaplessPlayback: true) : Image.network(display!.fullNetworkPath!, gaplessPlayback: true) : const Center(
+    return display != null ? display!.isLocal ? Image.file(File(display!.fullPath!), gaplessPlayback: true) : CachedNetworkImage(
+      imageUrl: display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!),
+      progressIndicatorBuilder: (context, url, downloadProgress) => Stack(
+          children: [
+            Center(
+              child: Stack(
+                children: [
+                  Image.memory(
+                    base64Decode(display!.thumbnail ?? ''),
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                  ),
+                  Shimmer.fromColors(
+                      baseColor: Colors.transparent,
+                      highlightColor: Colors.white.withAlpha(90),
+                      child: Image.memory(
+                        base64Decode(display!.thumbnail ?? ''),
+                        filterQuality: FilterQuality.low,
+                        gaplessPlayback: true,
+                      )
+                  ),
+                ],
+              ),
+            ),
+            Padding(padding: EdgeInsets.all(14), child: LinearProgressIndicator(value: downloadProgress.progress, color: Colors.white))
+          ]
+      )
+    ) : const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -902,7 +992,7 @@ class _SidePreviewState extends State<SidePreview> {
 
 MaterialPageRoute _createGalleryDetailRoute(List<dynamic> images, int currentIndex) {
   return MaterialPageRoute(
-    builder: (context) => PortfolioGalleryDetailPage(
+    builder: (context) => GalleryImageFullMain(
       images: images,
       currentIndex: currentIndex,
     ),
@@ -910,10 +1000,10 @@ MaterialPageRoute _createGalleryDetailRoute(List<dynamic> images, int currentInd
 }
 
 class XYZPlotForHiRes extends StatefulWidget{
-  final RenderEngine renderEngine;
-  final String folder;
+  final int sectionID;
+  final int index;
 
-  const XYZPlotForHiRes(this.renderEngine, this.folder, { super.key });
+  const XYZPlotForHiRes(this.sectionID, this.index, { super.key });
 
   @override
   State<XYZPlotForHiRes> createState() => _XYZPlotForHiResState();
@@ -932,7 +1022,7 @@ class _XYZPlotForHiResState extends State<XYZPlotForHiRes> {
   }
 
   void get(){
-    context.read<ImageManager>().getter.getFolderFiles(widget.renderEngine, widget.folder).then((List<ImageMeta> value) {
+    context.read<ImageManager>().getter.getFolderFiles(widget.sectionID, widget.index).then((List<ImageMeta> value) {
       for (var i = 0; i < value.length-1; i++) {
         List<timeline.Difference> d = timeline.findDifference(value[i], value[i+1]);
         //print('${d.length} ${d.length == 1 ? d.first.key : '-'}');
@@ -1033,7 +1123,7 @@ class PreviewImage extends StatelessWidget {
               label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',
               icon: imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline,
               onSelected: () {
-                imageManager.toogleFavorite(imageMeta.fullPath, host: imageMeta.host);
+                imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host);
               },
             ),
             const MenuDivider(),
@@ -1090,7 +1180,7 @@ class PreviewImage extends StatelessWidget {
                 ),
               ],
             ),
-            MenuItem.submenu(
+            if(imageMeta.generationParams!.seed != null )MenuItem.submenu(
               label: 'View in timeline',
               icon: Icons.view_timeline_outlined,
               items: [
@@ -1099,7 +1189,7 @@ class PreviewImage extends StatelessWidget {
                   value: 'timeline_by_seed',
                   icon: Icons.compare,
                   onSelected: () {
-                    dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed);
+                    dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed!);
                     dataModel.jumpToTab(2);
                   },
                 ),
@@ -1134,7 +1224,7 @@ class PreviewImage extends StatelessWidget {
               value: 'show_in_explorer',
               icon: Icons.compare,
               onSelected: () {
-                showInExplorer(imageMeta.fullPath);
+                showInExplorer(imageMeta.fullPath!);
               },
             ),
             MenuItem.submenu(
@@ -1155,7 +1245,7 @@ class PreviewImage extends StatelessWidget {
                   label: 'Folder/file.name',
                   icon: Icons.arrow_forward,
                   onSelected: () {
-                    Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                       content: Text('Copied'),
                     )));
                   },
@@ -1179,7 +1269,7 @@ class PreviewImage extends StatelessWidget {
                             )
                         );
                         for(ImageMeta m in l){
-                          await File(m.fullPath).copy(p.join(selectedDirectory, m.fileName));
+                          await File(m.fullPath!).copy(p.join(selectedDirectory, m.fileName));
                         }
                         notificationManager!.close(notID);
                       }
@@ -1229,7 +1319,7 @@ class PreviewImage extends StatelessWidget {
                     icon: const Icon(Icons.warning),
                     iconColor: Colors.redAccent,
                     title: const Text('Are you serious ?'),
-                    content: Text('This action will delete this image'),
+                    content: const Text('This action will delete this image'),
                     actions: <Widget>[
                       TextButton(
                         onPressed: () => Navigator.pop(context, 'cancel'),
@@ -1264,6 +1354,7 @@ class PreviewImage extends StatelessWidget {
                 color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff).withOpacity(0.7)
             ),
             child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
+              0xff5500ff,
               0xff006835,
               0xfff15a24,
               0xff803d99,
@@ -1373,15 +1464,15 @@ class PreviewImage extends StatelessWidget {
                                               ),
                                               child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                             ),
-                                            imageMeta.re == RenderEngine.inpaint ? Container(
+                                            Container(
                                               margin: const EdgeInsets.only(bottom: 3),
                                               padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                               decoration: BoxDecoration(
                                                   borderRadius: const BorderRadius.all(Radius.circular(2)),
                                                   color: const Color(0xFF5fa9b5).withOpacity(0.7)
                                               ),
-                                              child: const Text('Inpaint', style: TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                            ) : const SizedBox.shrink(),
+                                              child: Text(renderEngineToString(imageMeta.re), style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                            ),
                                             imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Tooltip(
                                               message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}',
                                               child: Container(
@@ -1501,28 +1592,28 @@ class EmplyFolderPlaceholder extends StatelessWidget{
                   top: 0,
                   left: constraints.maxWidth / 2,
                   bottom: 0,
-                  child: Icon(Icons.folder_copy, color: Color(0xffd87034), size: constraints.maxHeight / 3),
+                  child: Icon(Icons.folder_copy, color: const Color(0xffd87034), size: constraints.maxHeight / 3),
                 ),
                 Positioned(
                   top: 0,
                   left: 0,
                   bottom: 0,
                   child: Padding(
-                    padding: EdgeInsets.only(left: 50),
+                    padding: const EdgeInsets.only(left: 50),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Уууупсс!', style: TextStyle(color: Colors.black, fontSize: 32, fontWeight: FontWeight.bold)),
-                        Gap(8),
-                        Text('Кажется, произошла ошибка', style: TextStyle(color: Colors.grey)),
+                        const Text('Уууупсс!', style: TextStyle(color: Colors.black, fontSize: 32, fontWeight: FontWeight.bold)),
+                        const Gap(8),
+                        const Text('Кажется, произошла ошибка', style: TextStyle(color: Colors.grey)),
                         isNull ? Row(
                           children: [
-                            Text('П', style: TextStyle(color: Colors.grey)),
+                            const Text('П', style: TextStyle(color: Colors.grey)),
                             Stack(
                               alignment: Alignment.center,
                               children: [
-                                Text('о', style: TextStyle(color: Colors.grey)),
+                                const Text('о', style: TextStyle(color: Colors.grey)),
                                 Positioned(
                                   top: 12,
                                     child: Container(
@@ -1533,14 +1624,14 @@ class EmplyFolderPlaceholder extends StatelessWidget{
                                 )
                               ],
                             ),
-                            Text('апка пустая, поэтому наполните её чем-то и мы проверим её', style: TextStyle(color: Colors.grey))
+                            const Text('апка пустая, поэтому наполните её чем-то и мы проверим её', style: TextStyle(color: Colors.grey))
                           ],
-                        ) : Text('Похоже папка пустая. Проверьте пустая ли папка или нет', style: TextStyle(color: Colors.grey)),
-                        Gap(14),
+                        ) : const Text('Похоже папка пустая. Проверьте пустая ли папка или нет', style: TextStyle(color: Colors.grey)),
+                        const Gap(14),
                         TextButton(
                           style: TextButton.styleFrom(
-                            backgroundColor: Color(0xffd87034).withOpacity(0.2),
-                            foregroundColor: Color(0xffd87034)
+                            backgroundColor: const Color(0xffd87034).withOpacity(0.2),
+                            foregroundColor: const Color(0xffd87034)
                           ),
                           onPressed: () {
                             showDialog<String>(
@@ -1549,7 +1640,7 @@ class EmplyFolderPlaceholder extends StatelessWidget{
                                 icon: const Icon(Icons.warning),
                                 iconColor: Colors.yellowAccent,
                                 title: const Text('This feature is not ready yet'),
-                                content: Text('sorry ('),
+                                content: const Text('sorry ('),
                                 actions: <Widget>[
                                   TextButton(
                                     onPressed: () => Navigator.pop(context, 'OK'),
@@ -1559,7 +1650,7 @@ class EmplyFolderPlaceholder extends StatelessWidget{
                               ),
                             );
                           },
-                          child: Text(isNull ? 'Уже заполнили ? Проверить' : 'Проверили ? Проиндексировать',style: TextStyle(fontWeight: FontWeight.w400)),
+                          child: Text(isNull ? 'Уже заполнили ? Проверить' : 'Проверили ? Проиндексировать',style: const TextStyle(fontWeight: FontWeight.w400)),
                         ),
                       ],
                     ),

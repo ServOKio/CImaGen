@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../Utils.dart';
 import '../../components/ImageInfo.dart';
@@ -13,6 +15,23 @@ import '../../utils/DataModel.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
+
+Future<Uint8List?> _readImageFile(String? imagePath) async {
+  print('read');
+  if(imagePath == null) return null;
+  Uint8List? fi;
+  try {
+    final Uint8List bytes = await compute(readAsBytesSync, imagePath);
+    img.Image? image = await compute(img.decodeImage, bytes);
+    if(image != null){
+      return img.encodePng(image);
+    }
+  } on PathNotFoundException catch (e){
+    throw 'We\'ll fix it later.'; // TODO
+  }
+  return fi;
+}
 
 class ImageView extends StatefulWidget{
   ImageMeta? imageMeta;
@@ -23,10 +42,14 @@ class ImageView extends StatefulWidget{
 }
 
 class _ImageViewState extends State<ImageView> {
-  //Text(widget.imageMeta!.fullPath)
+  double _scale = 0;
+  final TransformationController _transformationController = TransformationController();
 
   bool showOriginalSize = true;
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
+
+  late final lotsOfData = _readImageFile(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath);
+  final photoSender = Rx<String>("");
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +60,7 @@ class _ImageViewState extends State<ImageView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
           surfaceTintColor: Colors.transparent,
-          title: Text(widget.imageMeta!.fileName),
+          title: Obx(()=>Text('${widget.imageMeta!.fileName} x${photoSender.value}')),
           backgroundColor: const Color(0xaa000000),
           elevation: 0,
         actions: [
@@ -92,7 +115,7 @@ class _ImageViewState extends State<ImageView> {
         label: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? 'UnLike': 'Like',
         icon: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? Icons.star : Icons.star_outline,
         onSelected: () {
-          imageManager.toogleFavorite(widget.imageMeta!.fullPath, host: widget.imageMeta!.host);
+          imageManager.toogleFavorite(widget.imageMeta!.fullPath!, host: widget.imageMeta!.host);
         },
       ),
       const MenuDivider(),
@@ -168,7 +191,7 @@ class _ImageViewState extends State<ImageView> {
         value: 'show_in_explorer',
         icon: Icons.compare,
         onSelected: () {
-          showInExplorer(widget.imageMeta!.fullPath);
+          showInExplorer(widget.imageMeta!.fullPath!);
         },
       ),
     ];
@@ -179,25 +202,45 @@ class _ImageViewState extends State<ImageView> {
     );
 
     return InteractiveViewer(
+      transformationController: _transformationController,
+      boundaryMargin: const EdgeInsets.all(double.infinity),
       panEnabled: true,
       scaleFactor: 1000,
       minScale: 0.000001,
-      maxScale: 10,
-      onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
-        // setState(() {
-        //   _scale = _transformationController.value.getMaxScaleOnAxis();
-        // });
-      },
+      maxScale: double.infinity,
+      onInteractionUpdate: (ScaleUpdateDetails details) => photoSender.value = _transformationController.value.getMaxScaleOnAxis().toStringAsFixed(2),
       child: SizedBox(
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height,
         child: Center(
-            child: ContextMenuRegion(
-                contextMenu: contextMenu,
-                child: Image.file(
-                  File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath),
-                  gaplessPlayback: false,
-                ),
+            child: FutureBuilder(
+              future: lotsOfData, // a previously-obtained Future<String> or null
+              builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+                Widget children;
+                if (snapshot.hasData) {
+                  children = ContextMenuRegion(
+                    contextMenu: contextMenu,
+                    child: Image.memory(snapshot.data, gaplessPlayback: true)
+                  );
+                } else if (snapshot.hasError) {
+                  children = Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 60,
+                        ),
+                        Text('Error: ${snapshot.error}')
+                      ],
+                    ),
+                  );
+                } else {
+                  children = const CircularProgressIndicator();
+                }
+                return children;
+              }
             )
         ),
       ),

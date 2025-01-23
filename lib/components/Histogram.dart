@@ -108,8 +108,6 @@ class _HistogramState extends State<Histogram> {
               if(debug){
                 return const Text('done');
               }
-              print(snapshot.data.width);
-              print(snapshot.data.height);
               int maxColors = snapshot.data.bitsPerChannel == 16 ? 65536 : snapshot.data.bitsPerChannel == 32 ? 16777216 : 256;
               List<Line> lines = [];
               double boxHeight = constraints.maxHeight;

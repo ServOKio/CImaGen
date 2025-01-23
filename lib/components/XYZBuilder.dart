@@ -1,15 +1,18 @@
 import 'dart:collection';
 import 'dart:io';
 
-import 'package:cimagen/components/ImageInfo.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:gap/gap.dart';
+import 'package:provider/provider.dart';
 
+import '../Utils.dart';
 import '../modules/Animations.dart';
 import '../pages/Timeline.dart';
 import '../pages/sub/ImageView.dart';
+import '../utils/DataModel.dart';
 
 class XYZBuilder extends StatefulWidget{
   final List<ImageMeta> images;
@@ -43,6 +46,7 @@ class _XYZBuilderState extends State<XYZBuilder> {
     list.clear();
 
     // Сначала ищем тупо все отличия и записываем в карту
+    //TODO split by seed - банально в на одних параметрах могут сидеть
     List<String> has = [];
     for (var i = 0; i < widget.images.length; i++) {
       ImageMeta main = widget.images[i];
@@ -73,44 +77,11 @@ class _XYZBuilderState extends State<XYZBuilder> {
               has.add('$dHash-${test.keyup}');
             }
           }
-          // if(d.length == 2 && !two){
-          //   two = true;
-          //   dHash = getDifferencesHash(d);
-          //   keys = d.map((e) => e.key).toList(growable: false);
-          //   for (var i3 = 0; i3 < d.length; i3++) {
-          //     Difference diff = d[i3];
-          //     keysValues.add([diff.oldValue.toString(), diff.newValue.toString()]);
-          //   }
-          // } else {
-          //   print('no');
-          // }
-          // if(d.length == 1 && !keys.contains(d[0].key)){
-          //   keys.add(d[0].key);
-          // }
         }
       }
     }
 
     print(list.length);
-
-    // for (var i = 0; i < widget.images.length; i++) {
-    //   ImageMeta main = widget.images[i];
-    //   for (var i2 = 0; i2 < widget.images.length; i2++) {
-    //     ImageMeta test = widget.images[i2];
-    //     if(i != i2){
-    //       List<Difference> d = findDifference(main, test);
-    //       if(two && d.length == 2 && getDifferencesHash(d) == dHash && !has.contains(main.keyup)){
-    //         toTest.add(main);
-    //         has.add(main.keyup);
-    //       } else if(!two && d.length == 1){
-    //
-    //       }
-    //       // if(d.length == 1 && !keys.contains(d[0].key)){
-    //       //   keys.add(d[0].key);
-    //       // }
-    //     }
-    //   }
-    // }
 
     setState(() {
       loaded = true;
@@ -134,9 +105,11 @@ class _XYZBuilderState extends State<XYZBuilder> {
     List<dynamic>? firstValues;
     List<ImageMeta>? finalImages;
     double newHeight = 10;
+    List<ImageMeta> firstImages = [];
     if(selectedXYZ != null){
       firstValues = selectedXYZ.images.where(selectedXYZ.keys.length == 1 ? (e) => true : (e) => e.generationParams!.toMap()[selectedXYZ.keys.first] == selectedXYZ.keysValues[0][0]).map((e) => e.generationParams!.toMap()[selectedXYZ.keys.last]).toList(growable: false);
       newHeight = (MediaQuery.of(context).size.height-appBar.preferredSize.height) / (firstValues.length + 1);
+      firstImages = selectedXYZ.images.where(selectedXYZ.keys.length == 1 ? (e) => true : (e) => e.generationParams!.toMap()[selectedXYZ.keys.first] == selectedXYZ.keysValues[0][0]).toList(growable: false);
     }
     // List<ImageMeta> sorted = toTest.where((e) => e.generationParams!.toMap()[keys.first] == keysValues[0][1]).toList(growable: false)..sort((a, b) => firstValues.indexOf(a.generationParams!.toMap()[keys.last]) - firstValues.indexOf(b.generationParams!.toMap()[keys.last]));
     List<String> sortedKeys = list.keys.toList(growable: false);
@@ -190,6 +163,7 @@ class _XYZBuilderState extends State<XYZBuilder> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                // Text
                                 Column(
                                     children: [
                                       Container(
@@ -212,6 +186,7 @@ class _XYZBuilderState extends State<XYZBuilder> {
                                       ))
                                     ]
                                 ),
+                                // First images
                                 Column(
                                     children: [
                                       Container(
@@ -222,16 +197,71 @@ class _XYZBuilderState extends State<XYZBuilder> {
                                             child: Center(child: Text(selectedXYZ.keys.length == 1 ? selectedXYZ.keys.first : selectedXYZ.keysValues[0][0], style: TextStyle(color: Colors.black, fontSize: newHeight * 0.06)))
                                         )
                                       ),
-                                      ...selectedXYZ.images.where(selectedXYZ.keys.length == 1 ? (e) => true : (e) => e.generationParams!.toMap()[selectedXYZ.keys.first] == selectedXYZ.keysValues[0][0]).map((e) => SizedBox(
-                                        height: newHeight,
-                                        child: AspectRatio(
-                                            aspectRatio: e.size!.aspectRatio(),
-                                            child: GestureDetector(
-                                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: e))),
-                                                child: Image.file(File(e.fullPath), gaplessPlayback: true)
+                                      ...selectedXYZ.images.where(selectedXYZ.keys.length == 1 ? (e) => true : (e) => e.generationParams!.toMap()[selectedXYZ.keys.first] == selectedXYZ.keysValues[0][0]).map((e){
+                                        final dataModel = Provider.of<DataModel>(context, listen: false);
+                                        final entries = <ContextMenuEntry>[
+                                          MenuItem.submenu(
+                                            label: 'Send to comparison',
+                                            icon: Icons.edit,
+                                            items: [
+                                              MenuItem(
+                                                label: 'Go to viewer',
+                                                value: 'comparison_view',
+                                                icon: Icons.compare,
+                                                onSelected: () {
+                                                  dataModel.comparisonBlock.addAllImages(firstImages);
+                                                  dataModel.jumpToTab(3);
+                                                },
+                                              ),
+                                              const MenuDivider(),
+                                              MenuItem(
+                                                label: 'As main',
+                                                value: 'comparison_as_main',
+                                                icon: Icons.swipe_left,
+                                                onSelected: () {
+                                                  dataModel.comparisonBlock.changeSelected(0, e);
+                                                  // implement redo
+                                                },
+                                              ),
+                                              MenuItem(
+                                                label: 'As test',
+                                                value: 'comparison_as_test',
+                                                icon: Icons.swipe_right,
+                                                onSelected: () {
+                                                  dataModel.comparisonBlock.changeSelected(1, e);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                          const MenuDivider(),
+                                          MenuItem(
+                                            label: 'Show in explorer',
+                                            value: 'show_in_explorer',
+                                            icon: Icons.compare,
+                                            onSelected: () {
+                                              showInExplorer(e.fullPath!);
+                                            },
+                                          ),
+                                        ];
+                                        final contextMenu = ContextMenu(
+                                          entries: entries,
+                                          padding: const EdgeInsets.all(8.0),
+                                        );
+                                        return SizedBox(
+                                            height: newHeight,
+                                            child: AspectRatio(
+                                                aspectRatio: e.size!.aspectRatio(),
+                                                child: ContextMenuRegion(
+                                                  contextMenu: contextMenu,
+                                                  child: GestureDetector(
+                                                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: e))),
+                                                      child: Image.file(File(e.fullPath!), gaplessPlayback: true)
+                                                  )
+                                                )
                                             )
-                                        )
-                                    ))]
+                                        );
+                                      }
+                                      )]
                                 ),
                                 if(selectedXYZ.keys.length > 2) ...selectedXYZ.keys.slice(1).asMap().map((i, e) => MapEntry(i, Column(
                                     children: [

@@ -53,6 +53,10 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   List<RenderEngine> useAddon = [];
   List<RenderEngine> inSMB = [];
 
+  List<String> _tabs = [];
+  @override
+  List<String> get tabs => _tabs;
+
   @override
   Future<void> init() async {
     // 'root', 'output', 'remote'
@@ -150,6 +154,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           'outdir_extras_samples': eE ? eiOut : _config['outdir_extras_samples'],
         });
 
+        _tabs = ['txt2img', 'img2img'];
         loaded = true;
 
         if(useAddon.isNotEmpty){
@@ -181,8 +186,10 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<List<ImageMeta>> getFolderFiles(RenderEngine re, String sub) {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(re == RenderEngine.img2img ? [RenderEngine.img2img, RenderEngine.inpaint] : re, sub);
+  Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
+    List<Folder> f = await getFolders(section);
+    String day = f[index].name;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
   }
 
   Map<RenderEngine, String> ke = {
@@ -194,22 +201,31 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   };
 
   @override
-  Future<List<Folder>> getFolders(RenderEngine renderEngine) async {
-    if(useAddon.contains(renderEngine)) return getNetworkFolders(renderEngine);
+  Future<List<Folder>> getAllFolders(int index) async {
+    return getFolders(index);
+  }
+
+  @override
+  Future<List<Folder>> getFolders(int index) async {
+    if(useAddon.contains(index)) return getNetworkFolders(index);
     List<Folder> f = [];
     int ind = 0;
-    Directory di = Directory(_webuiPaths[ke[renderEngine]]!);
+    Directory di = Directory([
+      _webuiPaths['outdir_txt2img-images'],
+      _webuiPaths['outdir_img2img-images']
+    ][index]!);
     List<FileSystemEntity> fe = await dirContents(di);
 
     for(FileSystemEntity ent in fe){
       f.add(Folder(
-          index: ind,
-          path: ent.path,
-          name: p.basename(ent.path),
-          files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-            fullPath: normalizePath(ent.path),
-            isLocal: true
-          )).toList()
+        index: ind,
+        getter: ent.path,
+        type: FolderType.path,
+        name: p.basename(ent.path),
+        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
+          fullPath: normalizePath(ent.path),
+          isLocal: true
+        )).toList()
       ));
       ind++;
     }
@@ -217,7 +233,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<List<Folder>> getNetworkFolders(RenderEngine renderEngine) async {
+  Future<List<Folder>> getNetworkFolders(int index) async {
     // http://gg:7860/infinite_image_browsing/files?folder_path=Z:%2Fstable-diffusion-webui%2Foutputs%2Ftxt2img-images
     List<Folder> list = [];
     Uri parse = Uri.parse(_remoteAddress);
@@ -226,7 +242,10 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         host: parse.host,
         port: parse.port,
         path: '/infinite_image_browsing/files',
-        queryParameters: {'folder_path': _webuiPaths[ke[renderEngine]]}
+        queryParameters: {'folder_path': [
+          _webuiPaths['outdir_txt2img-images'],
+          _webuiPaths['outdir_img2img-images']
+        ][index]!}
     );
     print(base.toString());
     var res = await http.Client().get(base).timeout(const Duration(seconds: 10));
@@ -260,7 +279,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           );
           folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, thumbnail: thumb.toString()));
         }
-        list.add(Folder(index: i, path: f['fullpath'], name: f['name'], files: folderFiles));
+        list.add(Folder(index: i, getter: f['fullpath'], type: FolderType.path, name: f['name'], files: folderFiles));
         i++;
       }
     } else {
@@ -269,6 +288,11 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
 
     return list;
   }
+
+  @override
+  String getFullUrlImage(ImageMeta im) => '';
+  @override
+  String getThumbnailUrlImage(ImageMeta im) => '';
 
   @override
   void exit() {
@@ -293,16 +317,16 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  bool indexAll(RenderEngine re) {
+  bool indexAll(int index) {
     int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
         title: 'Starting indexing',
         description: 'Give us a few seconds...'
     );
-    getFolders(re).then((fo) async {
+    getFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
-      notificationManager!.update(notID, 'title', 'Indexing ${re.name}');
+      notificationManager!.update(notID, 'title', 'Indexing ${_tabs[index]}');
       notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
       notificationManager!.update(notID, 'content', Container(
         margin: const EdgeInsets.only(top: 7),
@@ -316,8 +340,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       ));
       int d = 0;
       for(var f in fo){
-        List<ImageMeta> ima = await getFolderFiles(RenderEngine.values[re.index], f.name);
-        StreamController co = await indexFolder(RenderEngine.values[re.index], f.name, hashes: ima.map((e) => e.pathHash).toList(growable: false));
+        List<ImageMeta> ima = await getFolderFiles(index, d);
+        StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
         await _isDone(co);
         d++;
         notificationManager!.update(notID, 'content', Container(
@@ -345,9 +369,9 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async {
     // Read all files sizes and get hash
-    Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
+    Directory di = Directory(folder.getter);
     List<FileSystemEntity> fe = await dirContents(di);
 
     if(hashes != null && hashes.isNotEmpty){
@@ -358,20 +382,20 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
     }
 
     if(fe.isNotEmpty){
-      if(inProcess.contains(sub)){
+      if(inProcess.contains(folder.getter)){
         fe = [];
       } else {
-        inProcess.add(sub);
+        inProcess.add(folder.getter);
       }
     }
 
     ParseJob job = ParseJob();
-    int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));
+    int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
 
     int notID = -1;
     if(fe.isNotEmpty) {
       notID = notificationManager!.show(
-          title: 'Indexing $sub',
+          title: 'Indexing ${folder.getter}',
           description: 'We are processing ${fe.length} images, please wait',
           content: Container(
             margin: const EdgeInsets.only(top: 7),
@@ -384,7 +408,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         onDone: (){
           _jobs.remove(jobID);
           if(notID != -1) notificationManager!.close(notID);
-          if(fe.isNotEmpty) inProcess.remove(sub);
+          if(fe.isNotEmpty) inProcess.remove(folder.getter);
         },
         onProcess: (total, current, thumbnail) {
           if(notID == -1) return;
@@ -433,7 +457,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       }
 
       ParseJob job = ParseJob();
-      int jobID = await job.putAndGetJobID(renderEngine, folderFilesRaw, host: _host, remote: parse);
+      int jobID = await job.putAndGetJobID(folderFilesRaw, host: _host, remote: parse);
 
       int notID = -1;
       if(folderFilesRaw.isNotEmpty) {

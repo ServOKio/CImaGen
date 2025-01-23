@@ -1,14 +1,19 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:cimagen/modules/swarmUI/swarmModule.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:settings_ui/settings_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+
+import '../../Utils.dart';
 
 class RemoteVersionSettings extends StatefulWidget{
   const RemoteVersionSettings({ super.key });
@@ -20,6 +25,9 @@ class RemoteVersionSettings extends StatefulWidget{
 class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
   bool _use_remote_version = false;
   String _useMethod = 'remote';
+  String _appVersion = '-';
+
+  List<String> _system = ['sd', 'forge', 'comfui', 'swarm'];
   List<String> _methods = ['root', 'output', 'remote'];
 
   String _remote_webui_folder = '';
@@ -43,6 +51,8 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
 
   _loadSettings() async {
     prefs = await SharedPreferences.getInstance();
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    _appVersion = packageInfo.version;
     setState(() {
       _use_remote_version = prefs.getBool('use_remote_version') ?? false;
       _useMethod = prefs.getString('remote_version_method') ?? 'remote';
@@ -77,6 +87,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
     //   print(event);
     // });
 
+    // Checking if Stable Diffusion
     Uri base = Uri(
         scheme: parse.scheme,
         host: parse.host,
@@ -107,9 +118,58 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
           remoteInfo = fin;
         });
       } else {
+        // Not sd, swarm ?
+        // 1. Need session token
 
-        setState(() {
-          remoteInfo = 'Error: Code is not 200';
+        String session_id = context.read<DataManager>().temp.containsKey('swarm_client_info') ? (context.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+
+        Uri base = Uri(
+            scheme: parse.scheme,
+            host: parse.host,
+            port: parse.port,
+            path: '/API/${session_id != 'null' ? 'GetCurrentStatus' : 'GetNewSession'}'
+        );
+        http.Client().post(base, headers: {
+          "User-Agent": "CImaGen/$_appVersion (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})",
+          "Accept": "*/*",
+          "Accept-Language": "en,en-US;q=0.5",
+          "Content-Type": "application/json"
+        }, body: jsonEncode(<String, String>{
+          'session_id': session_id
+        })).then((res) async {
+          if(res.statusCode == 200){
+            //print(res.body);
+            _has_200_code = true;
+            var data = await json.decode(res.body);
+            if(session_id == 'null'){
+              context.read<DataManager>().temp['swarm_client_info'] = SwarmClientInfo(
+                  sessionID: data['session_id'],
+                  userID: data['user_id'],
+                  outputAppendUser: data['output_append_user'],
+                  version: data['version'],
+                  serverID: data['server_id'],
+                  countRunning: data['count_running'],
+                  permissions: List<String>.from(data['permissions'])
+              );
+            }
+            setState(() {
+              remoteInfo = res.body;
+            });
+          } else {
+            // TODO
+            // Not swarm, comfui ?
+
+            print(res.body);
+            setState(() {
+              remoteInfo = 'Error: Code is not 200: ${res.statusCode}\n${res.body}';
+            });
+          }
+        }).catchError((e){
+          if(mounted) {
+            setState(() {
+              remoteInfo = 'Error: $e';
+            });
+          }
         });
       }
     }).catchError((e){
@@ -216,39 +276,6 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     ],
                   ),
                   SettingsSection(
-                    title: const Text('UI'),
-                    tiles: <SettingsTile>[
-                      SettingsTile.navigation(
-                        leading: const Icon(Icons.settings_system_daydream),
-                        title: const Text('Root path'),
-                        value: Text('The main folder is where they are .bat files, .json configs and more${_remote_webui_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_folder : ''}'),
-                        onPressed: (context) async {
-                          String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-                          if (selectedDirectory != null) {
-                            prefs.setString('sd_remote_webui_folder', selectedDirectory);
-                            setState(() {
-                              _remote_webui_folder = selectedDirectory;
-                            });
-                          }
-                        },
-                      ),
-                      SettingsTile.navigation(
-                        leading: const Icon(Icons.system_update_tv_rounded),
-                        title: const Text('outputs folder'),
-                        value: Text('If you do not have access to the root folder, specify the folder where the images are saved (extras-images, img2img-grids, img2img-images and more)${_remote_webui_outputs_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_outputs_folder : ''}'),
-                        onPressed: (context) async {
-                          String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-                          if (selectedDirectory != null) {
-                            prefs.setString('sd_remote_webui_outputs_folder', selectedDirectory);
-                            setState(() {
-                              _remote_webui_outputs_folder = selectedDirectory;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  SettingsSection(
                     title: const Text('WebUI via IP:port'),
                     tiles: <SettingsTile>[
                       SettingsTile(
@@ -316,12 +343,45 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     ],
                   ),
                   SettingsSection(
+                    title: const Text('UI'),
+                    tiles: <SettingsTile>[
+                      SettingsTile.navigation(
+                        leading: const Icon(Icons.settings_system_daydream),
+                        title: const Text('Root path'),
+                        value: Text('The main folder is where they are .bat files, .json configs and more${_remote_webui_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_folder : ''}'),
+                        onPressed: (context) async {
+                          String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                          if (selectedDirectory != null) {
+                            prefs.setString('sd_remote_webui_folder', selectedDirectory);
+                            setState(() {
+                              _remote_webui_folder = selectedDirectory;
+                            });
+                          }
+                        },
+                      ),
+                      SettingsTile.navigation(
+                        leading: const Icon(Icons.system_update_tv_rounded),
+                        title: const Text('outputs folder'),
+                        value: Text('If you do not have access to the root folder, specify the folder where the images are saved (extras-images, img2img-grids, img2img-images and more)${_remote_webui_outputs_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_outputs_folder : ''}'),
+                        onPressed: (context) async {
+                          String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                          if (selectedDirectory != null) {
+                            prefs.setString('sd_remote_webui_outputs_folder', selectedDirectory);
+                            setState(() {
+                              _remote_webui_outputs_folder = selectedDirectory;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  SettingsSection(
                     title: const Text('Utils'),
                     tiles: <SettingsTile>[
                       SettingsTile.navigation(
                         leading: const Icon(Icons.checklist),
                         title: const Text('Check the status'),
-                        value: Text(remoteInfo.isNotEmpty ? remoteInfo : 'Get information about the remote interface'),
+                        value: SelectableText(remoteInfo.isNotEmpty ? remoteInfo : 'Get information about the remote interface'),
                         onPressed: (context) async {
                           checkRemoteStatus();
                         },

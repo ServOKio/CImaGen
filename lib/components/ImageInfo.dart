@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:cimagen/components/CharacterCard.dart';
 import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/components/PromtAnalyzer.dart';
+import 'package:cimagen/components/Vectorscope.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
@@ -20,13 +22,12 @@ class MyImageInfo extends StatefulWidget {
   State<MyImageInfo> createState() => _MyImageInfoState();
 }
 
-
 class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin {
-
   @override
   Widget build(BuildContext context) {
     ImageMeta im = widget.data;
     GenerationParams? gp;
+
     bool isWebuiForge = false;
     String wForgeV = '';
     String wUIV = '';
@@ -66,7 +67,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AspectRatio(aspectRatio: 16/9, child: Histogram(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath)),
+                    AspectRatio(aspectRatio: 16/9, child: Histogram(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath!)),
+                    AspectRatio(aspectRatio: 1/1, child: Vectorscope(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath!)),
                     InfoBox(one: 'Extension/mine', two: '${im.fileTypeExtension} (${im.mine})'),
                     InfoBox(one: 'Render engine', two: renderEngineToString(im.re)),
                     const Gap(6),
@@ -240,7 +242,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
             if (gp != null) ExpansionTile(
               tilePadding: EdgeInsets.zero,
               initiallyExpanded: true,
-              title:  Text('Generation info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
+              title: Text('Generation info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
               children: <Widget>[
                 im.re != RenderEngine.unknown ? InfoBox(one: 'Render engine', two: renderEngineToString(im.re), withGap: false) : const SizedBox.shrink(),
                 im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
@@ -273,7 +275,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType), withGap: false),
+                    InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType ?? CheckpointType.unknown), withGap: false),
                     InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
                     gp.params?['vae'] != null ? InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : '')) : const SizedBox.shrink(),
                     gp.params?['loras'] != null ? Container(
@@ -324,7 +326,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Gap(6),
                                 Column(
                                   children: [
-                                    InfoBox(one: 'Sampler name', two: humanizeSamplerName(gp.sampler), inner: true, withGap: false),
+                                    InfoBox(one: 'Sampler name', two: gp.sampler != null ? humanizeSamplerName(gp.sampler!) : 'Undefined', inner: true, withGap: false),
                                     gp.params?['scheduler'] != null ? InfoBox(one: 'Scheduler', two: gp.params!['scheduler'], inner: true, withGap: true) : const SizedBox.shrink(),
                                     InfoBox(one: 'Steps', two: gp.steps.toString(), inner: true),
                                     gp.params?['initimagecreativity'] != null ? InfoBox(one: 'Init Image Creativity', two: gp.params!['initimagecreativity'].toString(), inner: true, withGap: true) : const SizedBox.shrink(),
@@ -351,21 +353,18 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Gap(6),
                                 Column(
                                   children: [
-                                    gp.hiresSampler != null ? InfoBox(one: 'Sampler', two: gp.hiresSampler ?? 'None', inner: true, withGap: false) : const SizedBox.shrink(),
+                                    if(gp.hiresSampler != null) InfoBox(one: 'Sampler', two: gp.hiresSampler ?? 'None', inner: true, withGap: false),
                                     InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString(), inner: true),
                                     InfoBox(one: 'Upscaler', two: gp.hiresUpscaler ?? 'None (Lanczos)', inner: true),
-                                    InfoBox(one: 'Upscale', two: '${gp.hiresUpscale} (${gp.size.withMultiply(gp.hiresUpscale ?? 0)})' ?? '', inner: true),
+                                    if(gp.size != null) InfoBox(one: 'Upscale', two: '${gp.hiresUpscale} (${gp.size!.withMultiply(gp.hiresUpscale ?? 0)})' ?? '', inner: true),
                                   ],
                                 )
                               ],
                             )
                         )
                     ) : const SizedBox.shrink(),
-                    const Gap(6),
                     InfoBox(one: 'Seed', two: '${gp.seed}'),
-                    const Gap(6),
-                    InfoBox(one: 'Width and height', two: '${gp.size.width}x${gp.size.height}'),
-                    const Gap(6),
+                    if(gp.size != null) InfoBox(one: 'Width and height', two: '${gp.size!.width}x${gp.size!.height}'),
                     isWebuiForge ? Container(
                         decoration: const BoxDecoration(
                             color: Color(0xff303030),
@@ -534,7 +533,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                   ],
                 ) : const SizedBox.shrink(),
               ],
-            ) else const SizedBox.shrink(),
+            ),
             if (im.specific?['comfUINodes'] != null) ExpansionTile(
               tilePadding: EdgeInsets.zero,
               initiallyExpanded: true,
@@ -561,7 +560,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                   ],
                 ) : const SizedBox.shrink(),
               ]
-            ) else const SizedBox.shrink(),
+            ),
+            if (im.other?['chara'] != null) CharacterCardImageInfo(im.other?['chara']),
             BottomNavigationBar(
               backgroundColor: Colors.transparent,
               items: const <BottomNavigationBarItem>[

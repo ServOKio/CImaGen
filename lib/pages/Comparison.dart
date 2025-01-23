@@ -410,7 +410,7 @@ class GetInfoOrShit extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          i.generationParams?.sampler != null ? Text(i.generationParams!.sampler) : const SizedBox.shrink(),
+          if(i.generationParams!.sampler != null) i.generationParams?.sampler != null ? Text(i.generationParams!.sampler!) : const SizedBox.shrink(),
           Text(i.size.toString()),
           i.generationParams?.hiresSampler != null ? Text(i.generationParams?.hiresSampler ?? 'none') : const SizedBox.shrink(),
           i.generationParams?.hiresUpscale != null ? Text('x${i.generationParams!.hiresUpscale.toString()}') : const SizedBox.shrink(),
@@ -486,7 +486,7 @@ class _ImageListStateStateful extends State<ImageList>{
                       label: imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like',
                       icon: imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline,
                       onSelected: () {
-                        imageManager.toogleFavorite(im.fullPath, host: im.host);
+                        imageManager.toogleFavorite(im.fullPath!, host: im.host);
                       },
                     ),
                     const MenuDivider(),
@@ -505,7 +505,7 @@ class _ImageListStateStateful extends State<ImageList>{
                       value: 'show_in_explorer',
                       icon: Icons.compare,
                       onSelected: () {
-                        showInExplorer(im.fullPath);
+                        showInExplorer(im.fullPath!);
                       },
                     ),
                   ];
