@@ -1,14 +1,16 @@
 name: cimagen
 description: "Image work"
 publish_to: 'none'
+
 version: 0.0.4
 
 environment:
-  sdk: '>=3.2.6 <4.0.0'
+  sdk: ^3.6.1
 
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8
   image_compare_slider: ^2.8.0
   shared_preferences: ^2.2.2
   provider: ^6.1.1
@@ -18,7 +20,6 @@ dependencies:
   file_picker: ^8.0.3
   photo_view: ^0.15.0
   carousel_slider: ^5.0.0
-  cupertino_icons: ^1.0.2
   sqflite: ^2.3.2
   sqflite_common_ffi: ^2.3.2+1
   path: ^1.8.3
@@ -86,50 +87,51 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   #msix: ^3.16.7
   inno_bundle: ^0.7.3
+
 flutter:
   uses-material-design: true
   generate: true
   assets:
-   - assets/audio/error.wav
-   - assets/audio/info.wav
-   - assets/audio/okay.wav
-   - assets/audio/open.wav
-   - assets/audio/wrong.wav
+    - assets/audio/error.wav
+    - assets/audio/info.wav
+    - assets/audio/okay.wav
+    - assets/audio/open.wav
+    - assets/audio/wrong.wav
   fonts:
-   - family: Montserrat
-     fonts:
-       - asset: fonts/montserrat-100-normal.ttf
-         weight: 100
-       - asset: fonts/montserrat-200-normal.ttf
-         weight: 200
-       - asset: fonts/montserrat-300-normal.ttf
-         weight: 300
-       - asset: fonts/montserrat-400-normal.ttf
-         weight: 400
-       - asset: fonts/montserrat-500-normal.ttf
-         weight: 500
-       - asset: fonts/montserrat-600-normal.ttf
-         weight: 600
-       - asset: fonts/montserrat-700-normal.ttf
-         weight: 700
-       - asset: fonts/montserrat-800-normal.ttf
-         weight: 800
-       - asset: fonts/montserrat-900-normal.ttf
-         weight: 900
-   - family: 'Open Sans'
-     fonts:
-       - asset: fonts/OpenSans-Light.ttf
-         weight: 300
-       - asset: fonts/OpenSans-Regular.ttf
-         weight: 400
-       - asset: fonts/OpenSans-Medium.ttf
-         weight: 500
-       - asset: fonts/OpenSans-SemiBold.ttf
-         weight: 600
-       - asset: fonts/OpenSans-Bold.ttf
-         weight: 700
-       - asset: fonts/OpenSans-ExtraBold.ttf
-         weight: 800
+    - family: Montserrat
+      fonts:
+        - asset: fonts/montserrat-100-normal.ttf
+          weight: 100
+        - asset: fonts/montserrat-200-normal.ttf
+          weight: 200
+        - asset: fonts/montserrat-300-normal.ttf
+          weight: 300
+        - asset: fonts/montserrat-400-normal.ttf
+          weight: 400
+        - asset: fonts/montserrat-500-normal.ttf
+          weight: 500
+        - asset: fonts/montserrat-600-normal.ttf
+          weight: 600
+        - asset: fonts/montserrat-700-normal.ttf
+          weight: 700
+        - asset: fonts/montserrat-800-normal.ttf
+          weight: 800
+        - asset: fonts/montserrat-900-normal.ttf
+          weight: 900
+    - family: 'Open Sans'
+      fonts:
+        - asset: fonts/OpenSans-Light.ttf
+          weight: 300
+        - asset: fonts/OpenSans-Regular.ttf
+          weight: 400
+        - asset: fonts/OpenSans-Medium.ttf
+          weight: 500
+        - asset: fonts/OpenSans-SemiBold.ttf
+          weight: 600
+        - asset: fonts/OpenSans-Bold.ttf
+          weight: 700
+        - asset: fonts/OpenSans-ExtraBold.ttf
+          weight: 800
 
 #msix_config:
 #  display_name: CImaGen
