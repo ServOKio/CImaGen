@@ -71,7 +71,7 @@ dependencies:
   fast_csv: ^0.2.11
   csv: ^6.0.0
   audioplayers: ^6.0.0
-  animated_size_and_fade: ^4.0.0
+  animated_size_and_fade: ^5.0.0
   infinite_canvas: ^0.0.10
   media_kit: ^1.0.2
   primer_progress_bar: ^0.5.0
