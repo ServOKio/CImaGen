@@ -324,6 +324,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   Widget build(BuildContext context) {
     bool debug = false;
 
+    bool changeNotify = MediaQuery.of(context).size.width < 720;
+
     return Scaffold(
       appBar: CAppBar(),
       body: Stack(
@@ -346,11 +348,19 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             ],
           ),
           Positioned(
-            bottom: 14,
-            right: 90,
-            child: ChangeNotifierProvider(
-              create: (context) => notificationManager,
-              child:  Consumer<NotificationManager>(builder: (context, manager, child) => Column(crossAxisAlignment: CrossAxisAlignment.end, children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()))
+            bottom: changeNotify ? 90 : 14,
+            right: changeNotify ? 14 : 90,
+            child: Container(
+            constraints: BoxConstraints(maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720),
+              child: ChangeNotifierProvider(
+                  create: (context) => notificationManager,
+                  child:  Consumer<NotificationManager>(
+                      builder: (context, manager, child) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
+                      )
+                  )
+              )
             )
           )
         ],

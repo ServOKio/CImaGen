@@ -197,15 +197,13 @@ class _HomeState extends State<Home> {
           data: ThemeData.dark(useMaterial3: false).copyWith(
             canvasColor: Theme.of(context).scaffoldBackgroundColor,
           ),
-          child: SizedBox(
+          child: Drawer(
             width: 350,
-            child: Drawer(
-              child: Theme(
-                data: theme.getTheme,
-                child: _buildMenu(),
-              ),
+            child: Theme(
+              data: theme.getTheme,
+              child:  _buildMenu(),
             ),
-          ),
+          )
         )
     );
   }

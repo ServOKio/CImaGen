@@ -29,7 +29,7 @@ class NotificationManager with ChangeNotifier {
     int id = getRandomInt(10000, 50000);
     _notifications[id] = NotificationObject(id: id, thumbnail: thumbnail, title: title, description: description, content: content);
     notifyListeners();
-    audioController!.player.play(AssetSource('audio/open.wav'));
+    //audioController!.player.play(AssetSource('audio/open.wav'));
     if (kDebugMode) {
       print('show with id:$id: $title');
     }
@@ -119,82 +119,43 @@ class _NotificationWidgetState extends State<NotificationWidget> with TickerProv
         sizeFactor: _animation,
         axis: Axis.vertical,
         child: Container(
-          clipBehavior: Clip.none,
+          // clipBehavior: Clip.none,
           margin: const EdgeInsets.only(top: 7),
           padding: const EdgeInsets.all(28),
           decoration: const BoxDecoration(
             borderRadius: BorderRadius.all(Radius.circular(7)),
             color: Colors.black,
-            // boxShadow: [
-            //   BoxShadow(
-            //     color: Colors.grey.withOpacity(0.5),
-            //     spreadRadius: 5,
-            //     blurRadius: 7,
-            //     offset: const Offset(0, 3), // changes position of shadow
-            //   ),
-            // ],
           ),
-          child: Stack(
-            clipBehavior: Clip.none,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  AnimatedSizeAndFade(
-                    child: notiData.thumbnail != null ? Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(7)
-                          ),
-                          width: 64,
-                          height: 64,
-                          child: notiData.thumbnail!,
-                        ),
-                        const Gap(21),
-                      ],
-                    ) : const SizedBox.shrink(),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(notiData.title, style: const TextStyle(fontWeight: FontWeight.w500)),
-                      if(notiData.description != null) SelectableText(notiData.description!, style: const TextStyle(color: Colors.grey)),
-                      if(notiData.content != null) notiData.content!,
-                      // const Gap(21),
-                      // Row(
-                      //   children: [
-                      //     ElevatedButton(
-                      //         style: ButtonStyle(
-                      //             foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                      //             backgroundColor: MaterialStateProperty.all<Color>(Theme.of(context).primaryColor),
-                      //             shape: MaterialStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                      //         ),
-                      //         onPressed: () async {
-                      //         },
-                      //         child: Text('hfgh', style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal))
-                      //     ),
-                      //     const Gap(8),
-                      //     ElevatedButton(
-                      //         style: ButtonStyle(
-                      //             foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                      //             backgroundColor: MaterialStateProperty.all<Color>(Theme.of(context).primaryColor),
-                      //             shape: MaterialStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                      //         ),
-                      //         onPressed: () async {
-                      //         },
-                      //         child: Text('fsfd', style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal))
-                      //     )
-                      //   ],
-                      // )
-                    ],
-                  ),
-                  IconButton(
-                    onPressed: (){
-                      close();
-                    },
-                    icon: const Icon(Icons.close, size: 21, color: Colors.grey),
-                  )
-                ],
+              AnimatedSizeAndFade(
+                child: notiData.thumbnail != null ? Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(7)
+                      ),
+                      width: 64,
+                      height: 64,
+                      child: notiData.thumbnail!,
+                    ),
+                    const Gap(21),
+                  ],
+                ) : const SizedBox.shrink(),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(notiData.title, style: const TextStyle(fontWeight: FontWeight.w500)),
+                    if(notiData.description != null) SelectableText(notiData.description!, style: const TextStyle(color: Colors.grey)),
+                    if(notiData.content != null) notiData.content!,
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => close(),
+                icon: const Icon(Icons.close, size: 21, color: Colors.grey),
               )
             ],
           ),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:cimagen/main.dart';
+import 'package:cimagen/pages/sub/DebugDevPage.dart';
 import 'package:feedback/feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -141,6 +142,11 @@ class _CustomAppBarState extends State<CAppBar>{
                   ),
                 ),
                 actions: appBarController!.actions.isEmpty ? <Widget>[
+                  IconButton(
+                    icon: const Icon(Icons.stadium_outlined),
+                    tooltip: 'DEBUG PAGE',
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DebugDevPage())),
+                  ),
                   IconButton(
                     icon: const Icon(Icons.bug_report),
                     tooltip: 'Report bug',

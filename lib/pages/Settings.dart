@@ -46,6 +46,7 @@ class _SettingsState extends State<Settings>{
   String appDocumentsPath = '';
   String appTempPath = '';
   String? documentsPath = '';
+  String? downloadsPath = '';
   String appVersion = '-';
 
   String _deviceInfo = '-';
@@ -66,6 +67,8 @@ class _SettingsState extends State<Settings>{
     } else if(Platform.isWindows){
       documentsPath = appDocumentsDir.path;
     }
+    Directory? dP = await getDownloadsDirectory();
+    if(dP != null) downloadsPath = dP.absolute.path;
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
 
     String deviceInfo = await getDeviceInfo();
@@ -328,7 +331,8 @@ class _SettingsState extends State<Settings>{
                   description: Text(''
                       'App Documents\n↳ $appDocumentsPath\n'
                       'App Temp\n↳ $appTempPath\n'
-                      'Documents\n↳ $documentsPath\n'),
+                      'Documents\n↳ $documentsPath\n'
+                      'Downloads\n↳ $downloadsPath\n'),
                 )
               ],
             ),

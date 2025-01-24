@@ -33,15 +33,13 @@ public class MainActivity extends FlutterActivity {
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
         GeneratedPluginRegistrant.registerWith(flutterEngine);
 
-        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL)
-                .setMethodCallHandler(
-                        (call, result) -> {
-                            if (call.method.contentEquals("getSharedText")) {
-                                result.success(sharedText);
-                                sharedText = null;
-                            }
-                        }
-                );
+        new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL).setMethodCallHandler((call, result) -> {
+                if (call.method.contentEquals("getSharedText")) {
+                    result.success(sharedText);
+                    sharedText = null;
+                }
+            }
+        );
     }
 
     void handleSendText(Intent intent) {

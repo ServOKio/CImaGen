@@ -233,9 +233,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   void reloadTab(){
     _lists[_tabController!.index] = _loadMenu(_tabController!.index);
-    setState(() {
-
-    });
+    setState(() {});
   }
 
   void changeFolder(int folder, int index) {
