@@ -28,7 +28,7 @@ class SQLite with ChangeNotifier{
   late Timer timer;
 
   Future<void> init() async {
-    int dbVersion = 3;
+    int dbVersion = 4;
     if (Platform.isWindows || Platform.isLinux) {
       sqfliteFfiInit();
       databaseFactory = databaseFactoryFfi;
@@ -63,7 +63,8 @@ class SQLite with ChangeNotifier{
             'specific TEXT,'
             'imageParams TEXT,'
             'other TEXT,'
-            'thumbnail TEXT'
+            'thumbnail TEXT,'
+            'cached_image TEXT'
           ')',
         );
 
@@ -150,6 +151,11 @@ class SQLite with ChangeNotifier{
             batch.rawQuery('ALTER TABLE generation_params ADD vae VARCHAR(128)');
             batch.rawQuery('ALTER TABLE generation_params ADD vaeHash VARCHAR(128)');
             batch.rawQuery('ALTER TABLE generation_params ADD params TEXT');
+            await batch.commit(noResult: true, continueOnError: true);
+            break;
+          case 4:
+            Batch batch = db.batch();
+            batch.rawQuery('ALTER TABLE images ADD cached_image TEXT');
             await batch.commit(noResult: true, continueOnError: true);
             break;
           default:
@@ -347,6 +353,7 @@ class SQLite with ChangeNotifier{
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
           thumbnail: d['thumbnail'] as String,
+          cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
           generationParams: GenerationParams(
               positive: d['positive'] as String,
               negative: d['negative'] as String,
@@ -389,6 +396,7 @@ class SQLite with ChangeNotifier{
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
           thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
+          cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
           generationParams: GenerationParams(
               positive: d['positive'] as String,
               negative: d['negative'] as String,
@@ -474,6 +482,7 @@ class SQLite with ChangeNotifier{
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String),
           thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
+          cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
           generationParams: GenerationParams(
               positive: von<String>(d['positive']),
               negative: von<String>(d['negative']),
@@ -534,6 +543,7 @@ class SQLite with ChangeNotifier{
         size: ImageSize(width: size[0], height: size[1]),
         specific: jsonDecode(d['specific'] as String),
         thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
+        cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
         generationParams: GenerationParams(
             positive: d['positive'] as String,
             negative: d['negative'] as String,

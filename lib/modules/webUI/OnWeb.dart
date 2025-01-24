@@ -13,7 +13,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:snowflake_dart/snowflake_dart.dart';
 
 import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
@@ -31,6 +31,10 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   List<String> inProcess = [];
   bool isIndexingAll = false;
+
+  // Other
+  List<StreamSubscription<FileSystemEvent>> watchList = [];
+  late Snowflake snowflake;
 
   String _host = '-';
   @override
@@ -56,12 +60,6 @@ class OnWeb extends ChangeNotifier implements AbMain{
     audioController!.player.play(AssetSource('audio/error.wav'));
   }
 
-  String _sd_root = '';
-
-  Map<String, String> _webuiPaths = {};
-  @override
-  Map<String, String> get webuiPaths => _webuiPaths;
-
   Map<int, ParseJob> _jobs = {};
   int getJobCountActive() {
     _jobs.removeWhere((key, value) => value.controller.isClosed);
@@ -85,17 +83,53 @@ class OnWeb extends ChangeNotifier implements AbMain{
       return;
     }
 
+    snowflake = Snowflake(epoch: 1420070400000, nodeId: 0); //Discord
+
     // 2. Watch new json bathes
+    watchDir(dP.absolute.path);
 
     int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.web, color: Colors.blue),
         title: 'Welcome to web',
-        description: 'Now when we find a new file with a name starting with "images_batch", we will immediately start analyzing it'
+        description: 'Now when we find a new file with a name starting with "images_batch", we will immediately start analyzing it\nWe are watching: ${dP.absolute.path}'
     );
     audioController!.player.play(AssetSource('audio/info.wav'));
-    Future.delayed(const Duration(milliseconds: 10000), () {
-      notificationManager!.close(notID);
-    });
+    Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+  }
+
+  @override
+  void exit() {
+    for (var e in watchList) {
+      e.cancel();
+    }
+  }
+
+  List<String> looked = [];
+  void watchDir(String path){
+    final tempFolder = File(path);
+    if (kDebugMode) print('watch $path');
+    Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: false);
+    watchList.add(te.listen((event) {
+      print(event);
+      if (event is FileSystemCreateEvent && !event.isDirectory){
+        String name = p.basename(event.path);
+        if(name.startsWith('images_batch') && name.endsWith('.json')) {
+          if(!looked.contains(name)){
+            looked.add(name);
+            Future.delayed(const Duration(seconds: 5), (){
+              File jsFile = File(event.path);
+              jsFile.readAsString().then((value) async {
+                if (await isJson(value)) {
+                  List<String> urls = List<String>.from(jsonDecode(value));
+                  indexUrls(urls);
+                  looked.remove(name);
+                }
+              });
+            });
+          }
+        }
+      }
+    }));
   }
 
   @override
@@ -126,9 +160,73 @@ class OnWeb extends ChangeNotifier implements AbMain{
     return im.networkThumbnail ?? '';
   }
 
-  @override
-  void exit() {
-    // TODO: implement exit
+  RegExp ex = RegExp(r'(attachments/[0-9]+/([0-9]+)/)');
+  Future<StreamController<List<ImageMeta>>> indexUrls(List<String> urls) async {
+    // 1. Check if this is discord
+    urls = urls.where((url) => ['cdn.discordapp.com', 'media.discordapp.net'].contains(Uri.parse(url).host)).toList();
+
+    // 2. Put images and parse
+    ParseJob job = ParseJob();
+    int jobID = await job.putAndGetJobID(urls.map((uri) {
+      Uri parsed = Uri.parse(uri);
+      Uri thumb = Uri(
+        scheme: parsed.scheme,
+        host: 'media.discordapp.net',
+        port: parsed.port,
+        path: parsed.path,
+        queryParameters: parsed.queryParameters
+      );
+      Uri full = Uri(
+        scheme: parsed.scheme,
+        host: 'cdn.discordapp.com',
+        port: parsed.port,
+        path: parsed.path,
+        queryParameters: parsed.queryParameters
+      );
+      RegExpMatch match = ex.allMatches(uri).first;
+      String fullPath = '${match[1]}${p.basename(parsed.path)}';
+      return JobImageFile(
+        fullPath: fullPath,
+        fullNetworkPath: full.toString(),
+        networkThumbhail: thumb.toString(),
+        dateModified: DateTime.fromMillisecondsSinceEpoch(snowflake.getTimeFromId(int.parse(match[2]!)))
+      );
+    }).toList(), host: 'web');
+
+    int notID = -1;
+    if (urls.isNotEmpty) {
+      notID = notificationManager!.show(
+          title: 'Indexing ${urls.length} images',
+          description: 'Please wait',
+          content: Container(
+            margin: const EdgeInsets.only(top: 7),
+            width: 100,
+            child: const LinearProgressIndicator(),
+          )
+      );
+    }
+
+    job.run(
+        onDone: () {
+          _jobs.remove(jobID);
+          if (notID != -1) notificationManager!.close(notID);
+        },
+        onProcess: (total, current, thumbnail) {
+          if (notID == -1) return;
+          notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
+          if (thumbnail != null) {
+            notificationManager!.update(notID, 'thumbnail', Image.memory(
+              base64Decode(thumbnail),
+              filterQuality: FilterQuality.low,
+              gaplessPlayback: true,
+            ));
+          }
+        }
+    );
+    _jobs[jobID] = job;
+
+    // Return job id
+    return job.controller;
   }
 
   @override
@@ -244,7 +342,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
               fullNetworkPath: full.toString(),
               networkThumbhail: thumb.toString()
           );
-        }), host: _host, remote: parse);
+        }), host: _host);
 
         int notID = -1;
         if(folderFilesRaw.isNotEmpty) {
@@ -349,7 +447,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
               fullNetworkPath: full.toString(),
               networkThumbhail: thumb.toString()
           );
-        }).toList(), host: _host, remote: parse);
+        }).toList(), host: _host);
 
         int notID = -1;
         if(folderFilesPaths.isNotEmpty) {
@@ -407,4 +505,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
       return controller;
     }
   }
+
+  @override
+  Map<String, String> get webuiPaths => {};
 }

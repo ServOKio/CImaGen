@@ -42,6 +42,7 @@ class _SettingsState extends State<Settings>{
 
   String _custom_cache_dir = '-';
   double _maxCacheSize = 5;
+  int _currentCacheSize = 0;
 
   String appDocumentsPath = '';
   String appTempPath = '';
@@ -86,6 +87,10 @@ class _SettingsState extends State<Settings>{
       _custom_cache_dir = context.read<ConfigManager>().tempDir;
       _maxCacheSize = (prefs!.getDouble('max_cache_size') ?? 5);
     });
+
+    getDirSize(Directory(_custom_cache_dir)).then((value) => setState(() {
+      _currentCacheSize = value;
+    }));
 
     context.read<SQLite>().getTablesInfo().then((value) => {
       if(mounted)setState(() {
@@ -213,7 +218,7 @@ class _SettingsState extends State<Settings>{
                   description: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Limit: ${_maxCacheSize.round()}GB'),
+                      Text('Limit: ${_maxCacheSize.round()}GB Current: ${readableFileSize(_currentCacheSize)}'),
                       Slider(
                         value: _maxCacheSize,
                         min: 5,

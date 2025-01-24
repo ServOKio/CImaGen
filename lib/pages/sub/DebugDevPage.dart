@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:snowflake_dart/snowflake_dart.dart';
+
+import '../../utils/ImageManager.dart';
 
 class DebugDevPage extends StatefulWidget {
   DebugDevPage({Key? key}) : super(key: key);
@@ -41,6 +44,12 @@ class _DebugDevPageState extends State<DebugDevPage> {
                   print(DateTime.fromMillisecondsSinceEpoch(snowflake.getTimeFromId(1332201808214364314)));
                 },
                 child: Text('Print epoch'),
+              ),
+              TextButton(
+                onPressed: (){
+                  context.read<ImageManager>().changeGetter(3);
+                },
+                child: Text('Change getter to OnWeb'),
               ),
             ],
           )

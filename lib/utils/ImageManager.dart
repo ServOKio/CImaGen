@@ -7,12 +7,14 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/modules/webUI/OnLocal.dart';
+import 'package:cimagen/modules/webUI/OnWeb.dart';
 import 'package:cimagen/utils/BufferUtils.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:xml/xml.dart';
@@ -89,6 +91,7 @@ class ImageManager extends ChangeNotifier {
   ///
   /// * 1 - [OnRemote]
   /// * 2 - [OnNetworkLocation]
+  /// * 3 - [OnWeb]
   /// * default - [OnLocal]
   Future<void> changeGetter(int type, {bool exit = true}) async {
     print('Change getter to $type:$exit');
@@ -99,6 +102,9 @@ class ImageManager extends ChangeNotifier {
       case 2:
         if(exit) _getter.exit();
         _getter = OnNetworkLocation()..init();
+      case 3:
+        if(exit) _getter.exit();
+        _getter = OnWeb()..init();
       default:
         if(exit) _getter.exit();
         _getter = OnLocal()..init();
@@ -156,11 +162,13 @@ class JobImageFile{
   final String fullPath;
   String? fullNetworkPath;
   String? networkThumbhail;
+  DateTime? dateModified;
 
   JobImageFile({
     required this.fullPath,
     this.fullNetworkPath,
-    this.networkThumbhail
+    this.networkThumbhail,
+    this.dateModified
   });
 }
 
@@ -189,11 +197,9 @@ class ParseJob {
   }
 
   String? host;
-  Uri? remote;
 
-  Future<int> putAndGetJobID(List<dynamic> rawImages, {String? host, Uri? remote}) async {
+  Future<int> putAndGetJobID(List<dynamic> rawImages, {String? host}) async {
     this.host = host;
-    this.remote = remote;
 
     if (kDebugMode) {
       print('IM:putAndGetJobID: get ${rawImages.length}');
@@ -205,20 +211,29 @@ class ParseJob {
   }
 
   void run({Null Function()? onDone, Null Function(int total, int current, String? thumbnail)? onProcess}) {
+    if (kDebugMode) {
+      print('Run job $_jobID');
+    }
     if(onDone != null) _onDone = onDone;
     if(onProcess != null) _onProcess = onProcess;
-    _parse(host, remote);
+    _parse(host);
   }
 
   // path НОРМАЛИЗОВАНО
-  Future<void> _parse(String? host, Uri? remote) async {
-    if(_cache.isEmpty) return _isDone();
+  Future<void> _parse(String? host) async {
+    if(_cache.isEmpty){
+      if (kDebugMode) {
+        print('putAndGetJobID: _cache.isEmpty');
+      }
+      return _isDone();
+    }
     for(dynamic raw in _cache){
       bool yes = true;
       String path = normalizePath(raw.runtimeType == String ? raw : raw.runtimeType == JobImageFile ? (raw as JobImageFile).fullPath : raw);
       // Check file type
       final String e = p.extension(path);
       if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
+        print('putAndGetJobID: invalid ex: ${e.replaceFirst('.', '')} ($e)');
         yes = false;
         _doneTotal++;
         _isDone();
@@ -248,15 +263,13 @@ class ParseJob {
           JobImageFile jf = raw as JobImageFile;
 
           ImageMeta im = ImageMeta(
-              host: Uri(
-                  host: remote!.host,
-                  port: remote.port
-              ).toString(),
+              host: host,
               re: RenderEngine.unknown,
               fileTypeExtension: e.replaceFirst('.', ''),
               fullPath: path,
               fullNetworkPath: jf.fullNetworkPath,
-              networkThumbnail: jf.networkThumbhail
+              networkThumbnail: jf.networkThumbhail,
+              dateModified: jf.dateModified
           );
 
           int attempts = 0;
@@ -266,6 +279,7 @@ class ParseJob {
             try {
               await im.parseNetworkImage();
               await im.makeThumbnail();
+              await im.makeCachedImage();
 
               _done.add(im);
               if(!_controller.isClosed) _controller.add(finished);
@@ -993,6 +1007,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
 
     await im.parseNetworkImage();
     await im.makeThumbnail();
+    await im.makeCachedImage();
     return im;
   } else {
     // Checking host
@@ -1059,6 +1074,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
 
                 await im.parseNetworkImage();
                 await im.makeThumbnail();
+                await im.makeCachedImage();
                 return im;
               }
             }
@@ -1114,6 +1130,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
 
                 await im.parseNetworkImage();
                 await im.makeThumbnail();
+                await im.makeCachedImage();
                 return im;
               }
             }
@@ -1265,6 +1282,7 @@ class ImageMeta {
   String? tempFilePath;
   GenerationParams? generationParams;
   String? thumbnail;
+  String? cachedImage;
   String? networkThumbnail;
   Map<String, dynamic>? other = {};
   Map<String, dynamic>? specific = {};
@@ -1285,6 +1303,7 @@ class ImageMeta {
     this.fullNetworkPath,
     this.generationParams,
     this.thumbnail,
+    this.cachedImage,
     this.networkThumbnail,
     this.other,
   }){
@@ -1353,6 +1372,7 @@ class ImageMeta {
       'specific': jsonEncode(specific),
       // 'generationParams': generationParams != null ? forSQL ? jsonEncode(generationParams?.toMap()) : generationParams?.toMap() : null, // Нахуй не нужно оно мне в базе
       'thumbnail': thumbnail,
+      'cached_image': cachedImage,
       'other': jsonEncode(other)
     };
   }
@@ -1368,29 +1388,57 @@ class ImageMeta {
 
   Future<void> makeThumbnail({Uint8List? fileBytes}) async {
     if(thumbnail == null) {
-      String? url = isLocal ? fullPath : tempFilePath;
-      if(url == null) return;
+      String? uri = isLocal ? fullPath : tempFilePath;
+      if(uri == null) return;
       img.Image? data;
       if(fileBytes != null){
         data = await compute(img.decodeImage, fileBytes);
       } else {
         switch (mine?.split('/').last) {
           case 'png':
-            data = await compute(img.decodePngFile, url);
+            data = await compute(img.decodePngFile, uri);
             break;
           case 'jpg':
           case 'jpeg':
-            data = await compute(img.decodeJpgFile, url);
+            data = await compute(img.decodeJpgFile, uri);
             break;
           case 'gif':
-            data = await compute(img.decodeGifFile, url);
+            data = await compute(img.decodeGifFile, uri);
             break;
           case 'webp':
-            data = await compute(img.decodeWebPFile, url);
+            data = await compute(img.decodeWebPFile, uri);
             break;
         }
       }
       thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
+    }
+  }
+
+  Future<void> makeCachedImage({Uint8List? fileBytes}) async {
+    if(cachedImage == null) {
+      String? uri = isLocal ? fullPath : tempFilePath;
+      if(uri == null) return;
+      img.Image? data;
+      if(fileBytes != null){
+        data = await compute(img.decodeImage, fileBytes);
+      } else {
+        switch (mine?.split('/').last) {
+          case 'png':
+            data = await compute(img.decodePngFile, uri);
+            break;
+          case 'jpg':
+          case 'jpeg':
+            data = await compute(img.decodeJpgFile, uri);
+            break;
+          case 'gif':
+            data = await compute(img.decodeGifFile, uri);
+            break;
+          case 'webp':
+            data = await compute(img.decodeWebPFile, uri);
+            break;
+        }
+      }
+      cachedImage = data != null ? base64Encode(img.encodeJpg(data, quality: 80)) : null;
     }
   }
 
@@ -1410,7 +1458,7 @@ class ImageMeta {
           fileSize = stat.size;
           dateModified ??= stat.modified;
         } else {
-          throw Exception('The answer is not 200: ${res.statusCode}');
+          throw Exception('The answer is not 200: ${res.statusCode}\nUri: $clean');
         }
       } else {
         tempFilePath = pa;
@@ -1429,7 +1477,7 @@ class ImageMeta {
           final String parentFolder = p.basename(File(fullPath ?? tempFilePath ?? '').parent.path);
           keyup = genHash(re, parentFolder, fileName, host: host);
           // Try right date
-          dateModified = dateRegex.hasMatch(parentFolder) ? format.parse(parentFolder) : dateModified = stat.modified;
+          dateModified ??= dateRegex.hasMatch(parentFolder) ? format.parse(parentFolder) : dateModified = stat.modified;
           fileSize = stat.size;
         }
       }

@@ -646,7 +646,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
             fullNetworkPath: full.toString(),
             networkThumbhail: thumb.toString()
           );
-        }), host: _host, remote: parse);
+        }), host: _host);
 
         int notID = -1;
         if(folderFilesRaw.isNotEmpty) {
@@ -751,7 +751,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               fullNetworkPath: full.toString(),
               networkThumbhail: thumb.toString()
           );
-        }).toList(), host: _host, remote: parse);
+        }).toList(), host: _host);
 
         int notID = -1;
         if(folderFilesPaths.isNotEmpty) {

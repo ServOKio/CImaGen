@@ -457,7 +457,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       }
 
       ParseJob job = ParseJob();
-      int jobID = await job.putAndGetJobID(folderFilesRaw, host: _host, remote: parse);
+      int jobID = await job.putAndGetJobID(folderFilesRaw, host: _host);
 
       int notID = -1;
       if(folderFilesRaw.isNotEmpty) {

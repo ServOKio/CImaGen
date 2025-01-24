@@ -7,7 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   file_selector_linux
   irondash_engine_context
   open_file_linux
-  screen_retriever_linux
+  screen_retriever
   sqlite3_flutter_libs
   super_native_extensions
   system_theme

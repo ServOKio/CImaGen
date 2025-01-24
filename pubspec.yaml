@@ -80,6 +80,7 @@ dependencies:
   flutter_resizable_container: ^3.0.4
   get: ^4.6.6
   snowflake_dart: ^2.0.0
+  flutter_image_compress: ^2.4.0
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
