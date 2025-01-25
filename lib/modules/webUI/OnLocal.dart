@@ -46,6 +46,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
   // Other
   List<StreamSubscription<FileSystemEvent>> watchList = [];
   Map<int, ParseJob> _jobs = {};
+  Map<int, ParseJob> get getJobs => _jobs;
+
   int getJobCountActive() {
     _jobs.removeWhere((key, value) => value.controller.isClosed);
     return _jobs.length;

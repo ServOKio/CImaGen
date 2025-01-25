@@ -19,6 +19,9 @@ abstract class AbMain extends ChangeNotifier{
   List<String> _tabs = [];
   List<String> get tabs => _tabs;
 
+  Map<int, ParseJob> _jobs = {};
+  Map<int, ParseJob> get getJobs => _jobs;
+
   void init() async {
     print("Not Implemented");
   }

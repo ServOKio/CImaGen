@@ -62,6 +62,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   Map<String, String> get webuiPaths => _webuiPaths;
 
   Map<int, ParseJob> _jobs = {};
+  Map<int, ParseJob> get getJobs => _jobs;
   int getJobCountActive() {
     _jobs.removeWhere((key, value) => value.controller.isClosed);
     return _jobs.length;

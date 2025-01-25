@@ -178,6 +178,7 @@ class ParseJob {
 
   int _jobID = -1;
   int get jobID => _jobID;
+  bool _forceStop = false;
 
   List<dynamic> _cache = [];
   List<ImageMeta> _done = [];
@@ -189,6 +190,10 @@ class ParseJob {
   List<ImageMeta> get finished => _done;
 
   bool get isDone => _doneTotal >= _cache.length;
+
+  void forceStop(){
+    _forceStop = true;
+  }
 
   var rng = Random();
 
@@ -228,6 +233,7 @@ class ParseJob {
       return _isDone();
     }
     for(dynamic raw in _cache){
+      if(_forceStop) continue;
       bool yes = true;
       String path = normalizePath(raw.runtimeType == String ? raw : raw.runtimeType == JobImageFile ? (raw as JobImageFile).fullPath : raw);
       // Check file type
@@ -254,12 +260,16 @@ class ParseJob {
             NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
               _doneTotal++;
               _isDone();
+            }).catchError((onError){
+              _doneTotal++;
+              _isDone();
             });
           } else {
             _doneTotal++;
             _isDone();
           }
         } else {
+          // Если изображение в сети
           JobImageFile jf = raw as JobImageFile;
 
           ImageMeta im = ImageMeta(
@@ -278,8 +288,7 @@ class ParseJob {
           while(attempts < 3 && okay != true){
             try {
               await im.parseNetworkImage();
-              await im.makeThumbnail();
-              await im.makeCachedImage();
+              await im.makeImage(makeCacheImage: true);
 
               _done.add(im);
               if(!_controller.isClosed) _controller.add(finished);
@@ -298,18 +307,16 @@ class ParseJob {
             }
           }
           if(okay != true && attempts >= 3){
+            _doneTotal++;
+            _isDone();
             int notID = notificationManager!.show(
                 thumbnail: const Icon(Icons.error, color: Colors.redAccent),
                 title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
-                description: 'We were unable to process the image, 3 attempts were made\n$path\nError: $err'
+                description: 'We were unable to process the image, 3 attempts were made\n$path\nError: $err\nJob ID: $jobID'
             );
             audioController!.player.play(AssetSource('audio/error.wav'));
-            Future.delayed(const Duration(milliseconds: 10000), () {
-              notificationManager!.close(notID);
-            });
+            Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
           }
-          _doneTotal++;
-          _isDone();
         }
       } else {
         _doneTotal++;
@@ -654,7 +661,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: pngEx
     );
-    await i.makeThumbnail(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes);
     return i;
     // print(text);
   } else if(['jpg', 'jpeg'].contains(e)){
@@ -833,7 +840,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: jpgEx
     );
-    if(error == null ) await i.makeThumbnail(fileBytes: fileBytes);
+    if(error == null ) await i.makeImage(fileBytes: fileBytes);
     return i;
   } else if(['webp'].contains(e)) {
     Map<String, dynamic> specific = {};
@@ -939,7 +946,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: webpEx
     );
-    await i.makeThumbnail(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes);
     return i;
   } else if('gif' == e) {
     Map<String, dynamic> specific = {};
@@ -958,7 +965,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: gifEx
     );
-    await i.makeThumbnail(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes);
     return i;
   } else if('vnd.adobe.photoshop' == e) {
     Map<String, dynamic> specific = {};
@@ -980,7 +987,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: psdEx
     );
-    await i.makeThumbnail(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes);
     return i;
   } else {
     if (kDebugMode) {
@@ -1006,8 +1013,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
     );
 
     await im.parseNetworkImage();
-    await im.makeThumbnail();
-    await im.makeCachedImage();
+    await im.makeImage(makeCacheImage: true);
     return im;
   } else {
     // Checking host
@@ -1073,8 +1079,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
                 );
 
                 await im.parseNetworkImage();
-                await im.makeThumbnail();
-                await im.makeCachedImage();
+                await im.makeImage(makeCacheImage: true);
                 return im;
               }
             }
@@ -1129,8 +1134,7 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
                 );
 
                 await im.parseNetworkImage();
-                await im.makeThumbnail();
-                await im.makeCachedImage();
+                await im.makeImage(makeCacheImage: true);
                 return im;
               }
             }
@@ -1351,7 +1355,7 @@ class ImageMeta {
   Future<Map<String, dynamic>> toMap() async {
     final String parentFolder = p.basename(File(fullPath!).parent.path);
     if(thumbnail == null && isLocal){
-      await makeThumbnail();
+      await makeImage();
     }
     return {
       'keyup': keyup,
@@ -1386,8 +1390,8 @@ class ImageMeta {
     return ImageKey(type: re, parent: parentFolder, fileName: fileName, host: host);
   }
 
-  Future<void> makeThumbnail({Uint8List? fileBytes}) async {
-    if(thumbnail == null) {
+  Future<void> makeImage({Uint8List? fileBytes, bool makeThumbnail = true, bool makeCacheImage = false}) async {
+    if((makeThumbnail && thumbnail == null) || (makeCacheImage && cachedImage == null)){
       String? uri = isLocal ? fullPath : tempFilePath;
       if(uri == null) return;
       img.Image? data;
@@ -1410,35 +1414,8 @@ class ImageMeta {
             break;
         }
       }
-      thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
-    }
-  }
-
-  Future<void> makeCachedImage({Uint8List? fileBytes}) async {
-    if(cachedImage == null) {
-      String? uri = isLocal ? fullPath : tempFilePath;
-      if(uri == null) return;
-      img.Image? data;
-      if(fileBytes != null){
-        data = await compute(img.decodeImage, fileBytes);
-      } else {
-        switch (mine?.split('/').last) {
-          case 'png':
-            data = await compute(img.decodePngFile, uri);
-            break;
-          case 'jpg':
-          case 'jpeg':
-            data = await compute(img.decodeJpgFile, uri);
-            break;
-          case 'gif':
-            data = await compute(img.decodeGifFile, uri);
-            break;
-          case 'webp':
-            data = await compute(img.decodeWebPFile, uri);
-            break;
-        }
-      }
-      cachedImage = data != null ? base64Encode(img.encodeJpg(data, quality: 80)) : null;
+      if(makeThumbnail && thumbnail == null) thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
+      if(makeCacheImage && cachedImage == null) cachedImage = data != null ? base64Encode(img.encodeJpg(data, quality: 80)) : null;
     }
   }
 

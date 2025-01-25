@@ -825,6 +825,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   @override
   bool get wantKeepAlive{
+    return false;
     if (context.read<ImageManager>().getter.hashCode != getterID) {
       getterID = context.read<ImageManager>().getter.hashCode;
       return false;

@@ -49,6 +49,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   // Other
   List<StreamSubscription<FileSystemEvent>> watchList = [];
   Map<int, ParseJob> _jobs = {};
+  Map<int, ParseJob> get getJobs => _jobs;
 
   List<RenderEngine> useAddon = [];
   List<RenderEngine> inSMB = [];

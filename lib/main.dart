@@ -212,8 +212,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
           try{
             await im.parseNetworkImage();
-            await im.makeThumbnail();
-            await im.makeCachedImage();
+            await im.makeImage(makeThumbnail: true);
             if(!mounted) return;
             Navigator.pop(context);
             Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));

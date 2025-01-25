@@ -342,7 +342,10 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
           scaleStateController: scaleStateController,
           imageProvider: provider,
           errorBuilder: (context, error, stackTrace) {
-            return Stack(
+            return im.cachedImage != null ? AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image.memory(
+              base64Decode(im.cachedImage ?? ''),
+              gaplessPlayback: true,
+            )) : Stack(
               alignment: Alignment.center,
               children: [
                 im.thumbnail != null ? AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image.memory(

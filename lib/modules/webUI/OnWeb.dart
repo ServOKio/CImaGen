@@ -36,7 +36,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   List<StreamSubscription<FileSystemEvent>> watchList = [];
   late Snowflake snowflake;
 
-  String _host = '-';
+  String _host = 'web';
   @override
   String? get host => _host;
 
@@ -61,6 +61,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   }
 
   Map<int, ParseJob> _jobs = {};
+  Map<int, ParseJob> get getJobs => _jobs;
   int getJobCountActive() {
     _jobs.removeWhere((key, value) => value.controller.isClosed);
     return _jobs.length;
@@ -87,6 +88,10 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
     // 2. Watch new json bathes
     watchDir(dP.absolute.path);
+    _tabs = ['All'];
+
+    loaded = true;
+    notifyListeners();
 
     int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.web, color: Colors.blue),

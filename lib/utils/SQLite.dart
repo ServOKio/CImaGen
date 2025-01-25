@@ -441,6 +441,7 @@ class SQLite with ChangeNotifier{
           files: []
       );
     });
+    print(fi.length);
     return fi;
   }
 

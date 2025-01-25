@@ -51,6 +51,28 @@ class _DebugDevPageState extends State<DebugDevPage> {
                 },
                 child: Text('Change getter to OnWeb'),
               ),
+              Text("Jobs"),
+              Column(
+                children: context.read<ImageManager>().getter.getJobs.keys.map((key){
+                  ParseJob j = context.read<ImageManager>().getter.getJobs[key]!;
+                  return Container(
+                    margin: EdgeInsets.all(7),
+                    color: Colors.blueGrey,
+                    child: Column(
+                      children: [
+                        SelectableText('JobID: ${j.jobID}'),
+                        SelectableText('controller.isClosed: ${j.controller.isClosed}'),
+                        SelectableText('host: ${j.host}'),
+                        SelectableText('isDone: ${j.isDone}'),
+                        TextButton(
+                          onPressed: () => j.forceStop(),
+                          child: Text('Force stop'),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(growable: false),
+              )
             ],
           )
         )
