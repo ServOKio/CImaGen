@@ -48,6 +48,9 @@ Comparison allows you to select several images and compare them with each other.
 | <h4>Split view</h4> Put the images next to each other to choose the best one | <img src="preview/gif_2.gif" width="300px"/>  |
 | <h4>Reading metadata and generation parameters</h4> Reading data from Topaz Photo AI, Photoshop, NovelAI, ArtBot, Adobe ImageReady, Celsus Studio Tool, Tensor Art, PhotoScape, A1111, SwarmUI, CharacherCard and more | <img src="preview/gif_3.gif" width="300px"/>  |
 | <h4>Notes</h4> As much as you want and whatever you want | <img src="preview/gif_4.gif" width="300px"/>  |
+| <h4>Histogram and Vectorscope</h4> For those who want to get the desired colors | <img src="preview/5.png" width="300px"/>  |
+| <h4>Connecting to the network UI</h4> You can connect to your computer at home; A1111, SwarmUI, Windows SMB and just parsing, for example, discord - everything in one place and even offline | <img src="preview/gif_6.gif" width="300px"/>  |
+| <h4>XYZ rebuilder</h4> Have a bunch of images, but forgot to create an XYZ table or you can’t? Here you can try to recreate using several options depending on the data | <img src="preview/gif_7.gif" width="300px"/>  |
 
 ### Status
 In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
