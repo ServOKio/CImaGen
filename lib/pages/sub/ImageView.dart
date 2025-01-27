@@ -18,7 +18,6 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
 Future<Uint8List?> _readImageFile(String? imagePath) async {
-  print('read');
   if(imagePath == null) return null;
   Uint8List? fi;
   try {
@@ -34,8 +33,8 @@ Future<Uint8List?> _readImageFile(String? imagePath) async {
 }
 
 class ImageView extends StatefulWidget{
-  ImageMeta? imageMeta;
-  ImageView({ Key? key, this.imageMeta}): super(key: key);
+  final ImageMeta? imageMeta;
+  const ImageView({ super.key, this.imageMeta});
 
   @override
   _ImageViewState createState() => _ImageViewState();
@@ -114,16 +113,14 @@ class _ImageViewState extends State<ImageView> {
       MenuItem(
         label: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? 'UnLike': 'Like',
         icon: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? Icons.star : Icons.star_outline,
-        onSelected: () {
-          imageManager.toogleFavorite(widget.imageMeta!.fullPath!, host: widget.imageMeta!.host);
-        },
+        onSelected: () => imageManager.toogleFavorite(widget.imageMeta!.fullPath!, host: widget.imageMeta!.host),
       ),
       const MenuDivider(),
       MenuItem(
         label: 'View render tree',
         icon: Icons.account_tree_sharp,
         onSelected: () {
-          // implement copy
+          // TODO
         },
       ),
       MenuItem.submenu(
@@ -213,8 +210,39 @@ class _ImageViewState extends State<ImageView> {
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height,
         child: Center(
-            child: FutureBuilder(
-              future: lotsOfData, // a previously-obtained Future<String> or null
+            child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? ContextMenuRegion(
+                contextMenu: contextMenu,
+                child: Image.file(
+                  File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? ''),
+                  gaplessPlayback: true,
+                  errorBuilder: (context, exception, stack) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 60,
+                        ),
+                        Text('Error: $exception')
+                      ],
+                    ),
+                  ),
+                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                    if (wasSynchronouslyLoaded) {
+                      return child;
+                    } else {
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: child,
+                      );
+                    }
+                  },
+                )
+            ) : FutureBuilder(
+              future: lotsOfData,
               builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
                 Widget children;
                 if (snapshot.hasData) {

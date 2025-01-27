@@ -6,6 +6,7 @@ import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
 import '../modules/Animations.dart';
+import '../modules/DataManager.dart';
 import '../utils/range.dart';
 
 class PromptAnalyzer extends StatefulWidget{

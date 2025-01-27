@@ -66,10 +66,14 @@ class OnLocal extends ChangeNotifier implements AbMain{
           thumbnail: const Icon(Icons.error, color: Colors.redAccent),
           title: 'Initialization problem',
           description: 'The folder containing Stable Diffusion WebUI is not specified. Specify in the settings',
-          content: ElevatedButton(
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
               onPressed: () => init(),
               child: const Text("Try again", style: TextStyle(fontSize: 12))
-          )
+          ))
       );
       audioController!.player.play(AssetSource('audio/error.wav'));
       return;
@@ -318,12 +322,4 @@ class OnLocal extends ChangeNotifier implements AbMain{
     // Return stream
     return job.controller;
   }
-}
-
-Future<List<FileSystemEntity>> dirContents(Directory dir) {
-  var files = <FileSystemEntity>[];
-  var completer = Completer<List<FileSystemEntity>>();
-  var lister = dir.list(recursive: false);
-  lister.listen((file) => files.add(file), onDone:() => completer.complete(files));
-  return completer.future;
 }

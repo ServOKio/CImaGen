@@ -12,7 +12,7 @@ import 'package:path/path.dart' as path;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:provider/provider.dart';
 import 'dart:io' show Directory, File, Platform;
-import 'package:cimagen/utils/SaveManager.dart';
+import 'package:cimagen/modules/SaveManager.dart';
 
 import '../Utils.dart';
 

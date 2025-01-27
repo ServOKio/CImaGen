@@ -16,169 +16,14 @@ import 'package:ffi/ffi.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:win32/win32.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
-import 'package:fast_csv/fast_csv_ex.dart' as fast_csv_ex;
 import 'package:path/path.dart' as p;
 
 import 'components/PromptAnalyzer.dart';
 import 'main.dart';
-
-class ConfigManager with ChangeNotifier {
-  int _count = 0;
-
-  //Getter
-  int get count => _count;
-
-  String _tempDir = './temp';
-  String get tempDir => _tempDir;
-
-  bool _isNull = false;
-  bool get isNull => _isNull;
-
-  Timer? cacheTimer;
-
-  Future<void> init() async {
-    updateCacheLocation();
-    if(Platform.isWindows){
-      _isNull = (getUserName() == 'aandr' && getComputerName().toLowerCase() == 'workhorse') || (getUserName() == 'TurboBox' && getComputerName() == 'TurboBox');
-    }
-  }
-
-  Future<String> updateCacheLocation() async {
-    if(cacheTimer != null) cacheTimer!.cancel();
-    String? customCacheDir = prefs!.getString('custom_cache_dir');
-    Directory tDir;
-    if(customCacheDir != null){
-      tDir = Directory(customCacheDir);
-    } else {
-      Directory appTempDir = await getTemporaryDirectory();
-      tDir = Directory(p.join(appTempDir.path, 'cImagen'));
-    }
-
-    if(!tDir.existsSync()){
-      tDir.createSync(recursive: true);
-    }
-    _tempDir = tDir.path;
-    cacheTimer = Timer.periodic(const Duration(minutes: 10), (timer) => checkCasheDir());
-    checkCasheDir();
-
-    return _tempDir;
-  }
-
-  void checkCasheDir(){
-    getDirSize(Directory(_tempDir)).then((size){
-      if(size >= ((prefs!.getDouble('max_cache_size') ?? 5) * 1073741824)){
-        if (kDebugMode) {
-          print(_tempDir);
-        }
-        int notID = notificationManager!.show(
-            thumbnail: CircularProgressIndicator(),
-            title: 'Too much junk in cache (${readableFileSize(size)})',
-            description: 'Please wait while we clean everything up'
-        );
-        Future.delayed(const Duration(seconds: 3), (){
-          List<FileSystemEntity> files = Directory(_tempDir).listSync();
-          for(FileSystemEntity ent in files){
-            try {
-              ent.deleteSync(recursive: true);
-            } on Exception catch(e){
-              if (kDebugMode) {
-                print(e);
-              }
-            }
-          }
-          notificationManager!.update(notID, 'thumbnail', const Icon(Icons.restore_from_trash, color: Colors.greenAccent));
-          notificationManager!.update(notID, 'title', 'Well...done!');
-          notificationManager!.update(notID, 'description', 'Everything is clear!');
-          Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
-        });
-      }
-    });
-  }
-
-  void increment() {
-    _count++;
-  }
-}
-
-class DataManager with ChangeNotifier {
-  String? error;
-  bool get hasError => error != null;
-
-  HashMap<String, dynamic> temp = HashMap();
-
-  void updateError(String? message){
-    error = message;
-    notifyListeners();
-  }
-
-  bool loaded = false;
-  int _count = 0;
-
-  //Getter
-  int get count => _count;
-
-  Map<String, TagInfo> _e621Tags = {};
-  Map<String, TagInfo> get e621Tags => _e621Tags;
-
-  Future<void> init() async {
-    await loadE621Tags();
-    loaded = true;
-    notifyListeners();
-  }
-
-  // https://e621.net/db_export/
-  Future<void> loadE621Tags() async {
-    Directory dD = await getApplicationDocumentsDirectory();
-    dynamic csvPath = Directory(p.join(dD.path, 'CImaGen', 'csv'));
-    if (!csvPath.existsSync()) {
-      await csvPath.create(recursive: true);
-    }
-    csvPath = File(p.join(dD.path, 'CImaGen', 'csv', 'e621-tags.csv'));
-    if (csvPath.existsSync()) {
-      File(csvPath.path).readAsString().then((value){
-        final data = fast_csv_ex.parse(value);
-        data.skip(1).forEach((e) {
-          _e621Tags[e[1]] = TagInfo(id: int.parse(e[0]), name: e[1], category: int.parse(e[2]), count: int.parse(e[3]));
-        });
-      });
-    } else {
-      int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'E621 tags not found',
-          description: 'Put the e621-tags.csv file in the "$csvPath" folder'
-      );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
-    }
-  }
-
-  void increment() {
-    _count++;
-  }
-}
-
-class TagInfo {
-  final int id;
-  final String name;
-  final int category;
-  final int count;
-
-  const TagInfo({
-    required this.id,
-    required this.name,
-    required this.category,
-    required this.count
-  });
-
-  @override
-  String toString(){
-    return '$name: cat:$category(${categoryToString(category)}) cou:$count';
-  }
-}
 
 String getUserName() {
   const usernameLength = 256;
@@ -1096,6 +941,14 @@ Future<String> getDeviceInfo() async {
 String normalizePath(String path){
   bool isWindowsPath = path.startsWith('\\\\') || path[1] == ':';
   return p.normalize(isWindowsPath ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/'));
+}
+
+Future<List<FileSystemEntity>> dirContents(Directory dir) {
+  var files = <FileSystemEntity>[];
+  var completer = Completer<List<FileSystemEntity>>();
+  var lister = dir.list(recursive: false);
+  lister.listen((file) => files.add(file), onDone:() => completer.complete(files));
+  return completer.future;
 }
 
 Future<int> getDirSize(Directory dir) async {

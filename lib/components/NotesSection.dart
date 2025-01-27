@@ -92,18 +92,38 @@ class _NotesSectionState extends State<NotesSection> {
               const Gap(10),
               Expanded(
                 child: ListView.separated(
-                  separatorBuilder: (BuildContext context, int index) => const Divider(height: 28),
+                  separatorBuilder: (BuildContext context, int index) => const Divider(height: 5),
                   itemCount: _notes.length,
                   itemBuilder: (BuildContext context, int index) {
                     Note element = _notes[index];
                     return GestureDetector(
                       onTap: () => selectNote(index),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(element.icon, color: element.color),
-                          Text(element.title),
-                        ],
+                      child: Padding(
+                          padding: EdgeInsets.all(7),
+                          child: AspectRatio(
+                            aspectRatio: 1/1,
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Container(
+                                padding: EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(color: Theme.of(context).dividerColor, blurRadius: 5)
+                                  ]
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Icon(element.icon, color: element.color),
+                                    Text(element.title, style: TextStyle(), overflow: TextOverflow.ellipsis, maxLines: 1),
+                                  ],
+                                ),
+                              ),
+                            )
+                          )
                       ),
                     );
                   },

@@ -12,6 +12,7 @@ import '../Utils.dart';
 import '../modules/Animations.dart';
 import 'package:path/path.dart' as p;
 
+import '../modules/DataManager.dart';
 import '../utils/ImageManager.dart';
 
 class TagsClassification extends StatefulWidget{

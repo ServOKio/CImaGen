@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 import '../../Utils.dart';
+import '../../modules/DataManager.dart';
 
 class RemoteVersionSettings extends StatefulWidget{
   const RemoteVersionSettings({ super.key });

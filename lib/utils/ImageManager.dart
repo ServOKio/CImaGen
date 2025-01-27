@@ -27,6 +27,7 @@ import 'package:path/path.dart' as p;
 import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
 import 'package:http/http.dart' as http;
 
+import '../modules/ConfigManager.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';

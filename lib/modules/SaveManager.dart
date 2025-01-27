@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'SQLite.dart';
+import '../utils/SQLite.dart';
 
 class SaveManager extends ChangeNotifier {
   Map<int, Category> categories = {};

@@ -26,6 +26,8 @@ import '../components/GalleryImageFullMain.dart';
 import '../components/XYZBuilder.dart';
 import '../main.dart';
 import '../components/CustomMenuItem.dart';
+import '../modules/ConfigManager.dart';
+import '../modules/DataManager.dart';
 import '../modules/webUI/AbMain.dart';
 import '../utils/NavigationService.dart';
 import '../utils/SQLite.dart';
@@ -313,7 +315,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   ),
                   Padding(
                     padding: EdgeInsets.only(top: 16),
-                    child: Text('It looks like it\'s empty'),
+                    child: Text('It looks like it\'s empty\nTry indexing all'),
                   ),
                 ],
               ));

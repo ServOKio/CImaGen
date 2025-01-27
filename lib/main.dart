@@ -9,7 +9,7 @@ import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/utils/SQLite.dart';
-import 'package:cimagen/utils/SaveManager.dart';
+import 'package:cimagen/modules/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -36,6 +36,8 @@ import 'components/LoadingState.dart';
 import 'components/NotesSection.dart';
 import 'l10n/all_locales.dart';
 import 'modules/AudioController.dart';
+import 'modules/ConfigManager.dart';
+import 'modules/DataManager.dart';
 
 GitHub? githubAPI;
 AppBarController? appBarController;
@@ -351,13 +353,19 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             bottom: changeNotify ? 90 : 14,
             right: changeNotify ? 14 : 90,
             child: Container(
-            constraints: BoxConstraints(maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720),
+              // color: Colors.red,
+              constraints: BoxConstraints(
+                  maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720,
+                  maxHeight: MediaQuery.of(context).size.height - (changeNotify ? 220 : 156)
+              ),
               child: ChangeNotifierProvider(
                   create: (context) => notificationManager,
                   child:  Consumer<NotificationManager>(
-                      builder: (context, manager, child) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
+                      builder: (context, manager, child) => SingleChildScrollView(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
+                        ),
                       )
                   )
               )

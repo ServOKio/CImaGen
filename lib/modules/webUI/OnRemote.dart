@@ -17,6 +17,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
 import '../../utils/SQLite.dart';
+import '../DataManager.dart';
 import '../swarmUI/swarmModule.dart';
 
 class OnRemote extends ChangeNotifier implements AbMain{
@@ -78,14 +79,22 @@ class OnRemote extends ChangeNotifier implements AbMain{
     _userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
     // 1. We need to know the system we are working with.
     if(!prefs!.containsKey('remote_webui_address')){
-      int notID = notificationManager!.show(
+      int notID = 0;
+      notID = notificationManager!.show(
           thumbnail: const Icon(Icons.error, color: Colors.redAccent),
           title: 'Initialization problem',
           description: 'The remote address of the panel is not specified. Specify it in the settings in the remote connection section\bDev: remote_webui_address key',
-          content: ElevatedButton(
-              onPressed: () => init(),
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                init();
+              },
               child: const Text("Try again", style: TextStyle(fontSize: 12))
-          )
+          ))
       );
       audioController!.player.play(AssetSource('audio/error.wav'));
       return;
@@ -110,14 +119,22 @@ class OnRemote extends ChangeNotifier implements AbMain{
         var exNames = data['Extensions'].map((ex) => ex['name'] as String).toList();
         _has_infinite_image_browsing_extension = exNames.contains('sd-webui-infinite-image-browsing');
         if(!_has_infinite_image_browsing_extension){
-          int notID = notificationManager!.show(
+          int notID = 0;
+          notID = notificationManager!.show(
               thumbnail: const Icon(Icons.warning, color: Colors.redAccent),
               title: 'One of the Dependencies is missing',
               description: 'sd-webui-infinite-image-browsing addon not found',
-              content: ElevatedButton(
-                  onPressed: () => init(),
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
                   child: const Text("Try again", style: TextStyle(fontSize: 12))
-              )
+              ))
           );
           audioController!.player.play(AssetSource('audio/error.wav'));
           return;
@@ -168,14 +185,22 @@ class OnRemote extends ChangeNotifier implements AbMain{
           error = e.toString();
           notifyListeners();
 
-          int notID = notificationManager!.show(
+          int notID = 0;
+          notID = notificationManager!.show(
               thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
               title: 'Error on OnRemote.dart',
               description: e.toString(),
-              content: ElevatedButton(
-                  onPressed: () => init(),
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
                   child: const Text("Try again", style: TextStyle(fontSize: 12))
-              )
+              ))
           );
           audioController!.player.play(AssetSource('audio/error.wav'));
           findError();
@@ -214,7 +239,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
                   outputAppendUser: data['output_append_user'],
                   version: data['version'],
                   serverID: data['server_id'],
-                  countRunning: data['count_running'],
+                  countRunning: data['count_running'] ?? 0,
                   permissions: List<String>.from(data['permissions'])
               );
             }
@@ -234,41 +259,65 @@ class OnRemote extends ChangeNotifier implements AbMain{
           } else {
             // TODO
             // Not swarm, comfui ?
-            int notID = notificationManager!.show(
+            int notID = 0;
+            notID = notificationManager!.show(
                 thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
                 title: 'Initialization problem',
                 description: 'Error: Code is not 200: ${res.statusCode}\n${res.body}',
-                content: ElevatedButton(
-                    onPressed: () => init(),
+                content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                    style: ButtonStyle(
+                        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                    ),
+                    onPressed: (){
+                      notificationManager!.close(notID);
+                      init();
+                    },
                     child: const Text("Try again", style: TextStyle(fontSize: 12))
-                )
+                ))
             );
             audioController!.player.play(AssetSource('audio/error.wav'));
           }
           notifyListeners();
           if(!loaded) findError();
-        }).catchError((e){
-          int notID = notificationManager!.show(
+        }).catchError((e, stack){
+          int notID = 0;
+          notID = notificationManager!.show(
               thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
-              title: 'Initialization problem',
-              description: 'Error: $e',
-              content: ElevatedButton(
-                  onPressed: () => init(),
+              title: 'SwarmUI initialization problem',
+              description: 'Error: $e\n$stack',
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
                   child: const Text("Try again", style: TextStyle(fontSize: 12))
-              )
+              ))
           );
           audioController!.player.play(AssetSource('audio/error.wav'));
         });
       }
     }).catchError((e){
-      int notID = notificationManager!.show(
+      int notID = 0;
+      notID = notificationManager!.show(
           thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
           title: 'Initialization problem',
           description: 'Error: $e',
-          content: ElevatedButton(
-              onPressed: () => init(),
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                init();
+              },
               child: const Text("Try again", style: TextStyle(fontSize: 12))
-          )
+          ))
       );
       audioController!.player.play(AssetSource('audio/error.wav'));
     });
@@ -381,7 +430,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
           child: const LinearProgressIndicator(),
         ));
         notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
-          direction: ShimmerDirection.ttb,
           baseColor: Colors.lightBlueAccent,
           highlightColor: Colors.blueAccent.withOpacity(0.3),
           child: const Icon(Icons.inbox, color: Colors.white, size: 64),

@@ -5,7 +5,7 @@ import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/MiniWorld.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/SaveManager.dart';
+import 'package:cimagen/modules/SaveManager.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +24,7 @@ import '../components/ImageInfo.dart';
 import '../modules/Animations.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
+import '../modules/SaveManager.dart' as sm;
 import '../utils/DataModel.dart';
 import '../utils/SQLite.dart';
 import '../utils/ThemeManager.dart';
@@ -141,7 +142,7 @@ class _HomeState extends State<Home> {
                 file: p.basename(file.path),
                 icon: Icons.error_outline,
                 color: Color(0xFFE15454),
-                title: 'The file looks like .json, but that\'s not it',
+                title: 'Corrupted file?',
                 message: 'We are unable to get the file data because it is incorrect. Is the file corrupted or in the wrong format?'
             ));
           }
@@ -149,9 +150,9 @@ class _HomeState extends State<Home> {
       } else {
         _readHistory.add(UnknownFile(
           file: p.basename(file.path),
-          icon: Icons.accessibility,
+          icon: Icons.question_mark,
           color: Color(0xFFF8CA84),
-          title: 'It seems that we don\'t know something...',
+          title: 'We don\'t know what this is',
           message: 'It looks like it\'s some unknown file type or content that we can\'t read.',
           details: 'Path: ${file.path}\nBaseName: ${p.basename(file.path)}\nExtension: $e'
         ));
@@ -177,7 +178,13 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
-    //test();
+    loadCaregories();
+  }
+
+  late Future<List<sm.Category>> categoriesFuture;
+
+  void loadCaregories(){
+    categoriesFuture = context.read<SQLite>().getCategories();
   }
 
   @override
@@ -250,38 +257,57 @@ class _HomeState extends State<Home> {
                 itemCount: _readHistory.length,
                 itemBuilder: (BuildContext context, int index) {
                   var element = _readHistory[index];
-                  return  element.runtimeType == UnknownFile ? Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      color: Theme.of(context).scaffoldBackgroundColor
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(element.icon ?? Icons.question_mark, color: element.color ?? const Color(0xD75252)),
-                            const Spacer(),
-                            Text(element.file, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ],
+                  return ShowUp(
+                    child: element.runtimeType == UnknownFile ? Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: Theme.of(context).scaffoldBackgroundColor
                         ),
-                        Gap(7),
-                        Text(element.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(element.message),
-                        if(element.details != null) ExpansionTile(
-                          expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                          expandedAlignment: Alignment.topLeft,
-                          tilePadding: EdgeInsets.zero,
-                          title:  Text('Details'),
-                          children: <Widget>[
-                            Text(element.details)
-                          ]
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(7),
+                                    color: element.color ?? const Color(0x00d75252)
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black87,
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Icon(element.icon ?? Icons.question_mark, color: Colors.white),
+                                    ),
+                                    const Gap(7),
+                                    Expanded(
+                                        flex: 1,
+                                        child: Text(element.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontFamily: 'Montserrat'), maxLines: 1, overflow: TextOverflow.ellipsis)
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Gap(7),
+                              Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              Gap(3),
+                              SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
+                              if(element.details != null) ExpansionTile(
+                                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                                  expandedAlignment: Alignment.topLeft,
+                                  tilePadding: EdgeInsets.zero,
+                                  title:  Text('Details'),
+                                  children: <Widget>[
+                                    SelectableText(element.details)
+                                  ]
+                              )
+                            ]
                         )
-                      ]
-                    )
-                  ) : FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element);
+                    ) : FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element),
+                  );
                 },
               ),
             ),
@@ -451,7 +477,7 @@ class _HomeState extends State<Home> {
           const Gap(8),
           Expanded(
             child: FutureBuilder(
-                future: context.read<SQLite>().getCategories(),
+                future: categoriesFuture,
                 builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
                   Widget children;
                   if (snapshot.hasData) {
@@ -633,6 +659,7 @@ class _HomeState extends State<Home> {
                                     description: description.text.trim()
                                 ).then((category){
                                   context.read<SaveManager>().addCategory(category);
+                                  loadCaregories();
                                   Navigator.pop(context, 'Ok');
                                 });
                               }

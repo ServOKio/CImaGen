@@ -21,6 +21,7 @@ import 'package:path/path.dart' as p;
 
 import '../Utils.dart';
 import '../main.dart';
+import '../modules/ConfigManager.dart';
 import '../modules/webUI/OnLocal.dart';
 import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
@@ -373,11 +374,13 @@ class AppTheme extends AbstractSettingsTile{
     double aspectRatio = 16/9;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      child: Row(
-        children: [
-          Column(
-            children: [
-              Container(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Column(
+              children: [
+                SizedBox(
                   width: size,
                   child: AspectRatio(
                     aspectRatio: aspectRatio,
@@ -386,8 +389,8 @@ class AppTheme extends AbstractSettingsTile{
                           borderRadius: BorderRadius.all(Radius.circular(7)),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 14
+                                color: Colors.black12,
+                                blurRadius: 14
                             )
                           ],
                           color: Color(0xFF131517)
@@ -397,59 +400,60 @@ class AppTheme extends AbstractSettingsTile{
                 ),
                 const Gap(8),
                 const Text('Dark')
-            ],
-          ),
-          const Gap(14),
-          Column(
-            children: [
-              Container(
+              ],
+            ),
+            const Gap(14),
+            Column(
+              children: [
+                SizedBox(
                   width: size,
                   child: AspectRatio(
                     aspectRatio: aspectRatio,
                     child: Container(
                       decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(7)),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 14
-                          )
-                        ],
-                        color: Color(0xFFf5f5f5)
+                          borderRadius: BorderRadius.all(Radius.circular(7)),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 14
+                            )
+                          ],
+                          color: Color(0xFFf5f5f5)
                       ),
                     ),
                   ),
                 ),
                 const Gap(8),
                 const Text('Light')
-            ],
-          ),
-          const Gap(14),
-          Column(
-            children: [
-              Container(
-                width: size,
-                child: AspectRatio(
-                  aspectRatio: aspectRatio,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(7)),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 14
-                          )
-                        ],
-                        color: Color(0xFFf5f5f5)
+              ],
+            ),
+            const Gap(14),
+            Column(
+              children: [
+                SizedBox(
+                  width: size,
+                  child: AspectRatio(
+                    aspectRatio: aspectRatio,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(7)),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 14
+                            )
+                          ],
+                          color: Color(0xFFf5f5f5)
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const Gap(8),
-              const Text('System')
-            ],
-          )
-        ],
+                const Gap(8),
+                const Text('System')
+              ],
+            )
+          ],
+        ),
       ),
     );
   }

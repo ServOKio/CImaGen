@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../modules/DataManager.dart';
 import '../utils/DataModel.dart';
 import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';

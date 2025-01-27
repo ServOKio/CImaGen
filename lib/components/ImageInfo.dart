@@ -60,7 +60,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             ExpansionTile(
-              initiallyExpanded: gp == null && im.specific?['comfUINodes'] == null,
+              initiallyExpanded: false, //gp == null && im.specific?['comfUINodes'] == null,
               tilePadding: EdgeInsets.zero,
               title:  Text('Image info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
               children: <Widget>[
