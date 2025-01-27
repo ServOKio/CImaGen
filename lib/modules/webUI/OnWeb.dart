@@ -152,7 +152,14 @@ class OnWeb extends ChangeNotifier implements AbMain{
   Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: _host);
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
+  }
+
+  @override
+  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
+    List<Folder> f = await getFolders(section);
+    String day = f[index].name;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day, host: host);
   }
 
   @override
@@ -218,6 +225,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
         },
         onProcess: (total, current, thumbnail) {
           if (notID == -1) return;
+          print('on process');
           notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
           if (thumbnail != null) {
             notificationManager!.update(notID, 'thumbnail', Image.memory(

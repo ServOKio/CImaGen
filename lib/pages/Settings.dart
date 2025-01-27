@@ -22,6 +22,7 @@ import 'package:path/path.dart' as p;
 import '../Utils.dart';
 import '../main.dart';
 import '../modules/webUI/OnLocal.dart';
+import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
 class Settings extends StatefulWidget{
@@ -92,8 +93,8 @@ class _SettingsState extends State<Settings>{
       _currentCacheSize = value;
     }));
 
-    context.read<SQLite>().getTablesInfo().then((value) => {
-      if(mounted)setState(() {
+    context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) => {
+      if(mounted) setState(() {
         dataMap = {
           'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
           'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),

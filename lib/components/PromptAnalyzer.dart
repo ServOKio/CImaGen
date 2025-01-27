@@ -8,20 +8,20 @@ import 'package:provider/provider.dart';
 import '../modules/Animations.dart';
 import '../utils/range.dart';
 
-class PromtAnalyzer extends StatefulWidget{
+class PromptAnalyzer extends StatefulWidget{
   final GenerationParams generationParams;
 
-  const PromtAnalyzer({ super.key, required this.generationParams});
+  const PromptAnalyzer({ super.key, required this.generationParams});
 
   @override
-  State<PromtAnalyzer> createState() => _PromtAnalyzerState();
+  State<PromptAnalyzer> createState() => _PromptAnalyzerState();
 }
 
 RegExp reAttention = RegExp(r'\\\(|\\\)|\\\[|\\]|\\\\|\\|\(|\[|:\s*([+-]?[.\d]+)\s*\)|\)|]|[^\\()\[\]:]+|:');
 RegExp reBreak = RegExp(r'\s*\bBREAK\b\s*');
 RegExp reBracketTokens = RegExp(r'(?<!\\)\)\s*(,)\s*\S');
 
-class _PromtAnalyzerState extends State<PromtAnalyzer> {
+class _PromptAnalyzerState extends State<PromptAnalyzer> {
   bool loaded = false;
 
   late TextEditingController positiveController;
@@ -47,14 +47,14 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
 
     _posFocusNode = FocusNode();
     _negFocusNode = FocusNode();
-    _posFocusNode.addListener(() {if(!_posFocusNode.hasFocus) analyzePromt(0);});
-    _negFocusNode.addListener(() {if(!_negFocusNode.hasFocus) analyzePromt(1);});
+    _posFocusNode.addListener(() {if(!_posFocusNode.hasFocus) analyzePrompt(0);});
+    _negFocusNode.addListener(() {if(!_negFocusNode.hasFocus) analyzePrompt(1);});
 
-    analyzePromt(0);
-    analyzePromt(1);
+    analyzePrompt(0);
+    analyzePrompt(1);
   }
 
-  Future<void> analyzePromt(int id) async {
+  Future<void> analyzePrompt(int id) async {
     setState(() {
       loaded = false;
       if(id == 0){
@@ -274,7 +274,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
         appBar: AppBar(
             title: const ShowUp(
               delay: 100,
-              child: Text('Promt analyzer', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              child: Text('Prompt analyzer', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
             ),
             backgroundColor: const Color(0xaa000000),
             elevation: 0,
@@ -321,7 +321,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
                                 borderRadius: const BorderRadius.all(Radius.circular(5.0)),
                               ),
                               child: SelectableText(
-                                cleanUpSDPromt(positiveController.text),
+                                cleanUpSDPrompt(positiveController.text),
                                 style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
                               ),
                             ),
@@ -378,7 +378,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
                   Row(
                     children: [
                       const Spacer(),
-                      MaterialButton(onPressed: () => analyzePromt(0), child: const Text('Analyze'))
+                      MaterialButton(onPressed: () => analyzePrompt(0), child: const Text('Analyze'))
                     ],
                   ),
                   const Gap(8),
@@ -423,7 +423,7 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
                   Row(
                     children: [
                       const Spacer(),
-                      MaterialButton(onPressed: () => analyzePromt(1), child: const Text('Analyze'))
+                      MaterialButton(onPressed: () => analyzePrompt(1), child: const Text('Analyze'))
                     ],
                   ),
                 ],
@@ -434,14 +434,14 @@ class _PromtAnalyzerState extends State<PromtAnalyzer> {
   }
 }
 
-List<String> getRawTags(String promt){
-  promt = promt.replaceAll('\n', ' ');
+List<String> getRawTags(String prompt){
+  prompt = prompt.replaceAll('\n', ' ');
 
   List<List<dynamic>> res = [];
   List<int> roundBrackets = [];
   List<int> squareBrackets = [];
 
-  for(final m in reAttention.allMatches(promt)){
+  for(final m in reAttention.allMatches(prompt)){
     String text = m.group(0) ?? '';
     double? weight = m.group(1) != null ? double.parse(m.group(1)!) : null;
 

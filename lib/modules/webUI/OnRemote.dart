@@ -329,7 +329,14 @@ class OnRemote extends ChangeNotifier implements AbMain{
           //   );
           //   folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, thumbnail: thumb.toString()));
           // }
-          list.add(Folder(index: i, getter: f['fullpath'], type: FolderType.path, name: f['name'], files: folderFiles));
+          list.add(
+              Folder(
+              index: i,
+              getter: f['fullpath'],
+              type: FolderType.path,
+              name: f['name'],
+              files: Future.delayed(Duration(milliseconds: 1), () => folderFiles)
+          ));
           i++;
         }
       } else {
@@ -423,7 +430,13 @@ class OnRemote extends ChangeNotifier implements AbMain{
               );
               folderFiles.add(FolderFile(fullPath: full.toString(), isLocal: false, thumbnail: thumb.toString()));
             }
-            list.add(Folder(index: i, getter: folderPath, type: FolderType.path, name: folderPath, files: folderFiles));
+            list.add(Folder(
+                index: i,
+                getter: folderPath,
+                type: FolderType.path,
+                name: folderPath,
+                files: Future.delayed(Duration(milliseconds: 1), () => folderFiles)
+            ));
           } on Exception catch(e){
             int notID = notificationManager!.show(
                 thumbnail: const Icon(Icons.error_outline, color: Colors.yellow),
@@ -457,10 +470,17 @@ class OnRemote extends ChangeNotifier implements AbMain{
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
     if(software == Software.swarmUI) {
-      return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: _host);
+      return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
     } else {
       return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day);
     }
+  }
+
+  @override
+  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
+    List<Folder> f = await getFolders(section);
+    String day = f[index].name;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day, host: host);
   }
 
   @override

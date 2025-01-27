@@ -193,6 +193,13 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
     return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
   }
 
+  @override
+  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
+    List<Folder> f = await getFolders(section);
+    String day = f[index].name;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day, host: host);
+  }
+
   Map<RenderEngine, String> ke = {
     RenderEngine.txt2img: 'outdir_txt2img-images',
     RenderEngine.txt2imgGrid: 'outdir_txt2img_grids',
@@ -223,10 +230,10 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         getter: ent.path,
         type: FolderType.path,
         name: p.basename(ent.path),
-        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
+        files: Future.delayed(Duration(milliseconds: 1), () async => (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
           fullPath: normalizePath(ent.path),
           isLocal: true
-        )).toList()
+        )).toList())
       ));
       ind++;
     }
@@ -280,7 +287,13 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           );
           folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, thumbnail: thumb.toString()));
         }
-        list.add(Folder(index: i, getter: f['fullpath'], type: FolderType.path, name: f['name'], files: folderFiles));
+        list.add(Folder(
+            index: i,
+            getter: f['fullpath'],
+            type: FolderType.path,
+            name: f['name'],
+            files: Future.delayed(Duration(milliseconds: 1), () => folderFiles)
+        ));
         i++;
       }
     } else {

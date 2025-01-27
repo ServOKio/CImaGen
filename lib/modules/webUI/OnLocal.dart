@@ -144,10 +144,10 @@ class OnLocal extends ChangeNotifier implements AbMain{
         getter: ent.path,
         type: FolderType.path,
         name: p.basename(ent.path),
-        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-            fullPath: p.normalize(ent.path),
-            isLocal: true
-        )).toList()
+        files: Future.delayed(Duration(milliseconds: 1), () async => (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
+          fullPath: p.normalize(ent.path),
+          isLocal: true
+        )).toList())
       ));
       ind++;
     }
@@ -159,6 +159,13 @@ class OnLocal extends ChangeNotifier implements AbMain{
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
     return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day);
+  }
+
+  @override
+  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
+    List<Folder> f = await getFolders(section);
+    String day = f[index].name;
+    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day);
   }
 
   @override

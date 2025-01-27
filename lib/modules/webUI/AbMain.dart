@@ -34,6 +34,10 @@ abstract class AbMain extends ChangeNotifier{
     return [];
   }
 
+  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
+    return [];
+  }
+
   // Тут мы ебашим id вкладки и index селектора потому-что ну а хуй пойми из какой системы запрос, пусть сам разбирается
   Future<List<ImageMeta>> getFolderFiles(int section, int index) async{
     return [];
@@ -74,7 +78,7 @@ class Folder {
   final FolderType type;
   final String getter;
   final String name;
-  final List<FolderFile> files;
+  Future<List<FolderFile>>? files;
   bool? isLocal = true;
 
   Folder({

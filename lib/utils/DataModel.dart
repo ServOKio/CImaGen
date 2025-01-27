@@ -11,7 +11,7 @@ import 'dart:io' as Io;
 import 'package:image/image.dart' as Il;
 import 'package:path_provider/path_provider.dart';
 
-import '../components/PromtAnalyzer.dart';
+import '../components/PromptAnalyzer.dart';
 
 import 'package:path/path.dart' as p;
 
@@ -256,7 +256,7 @@ class ContentRatingModule {
   // TODO ;d
   ContentRating getContentRating(String text){
     // First - normalize
-    text = cleanUpSDPromt(text);
+    text = cleanUpSDPrompt(text);
     //Second - split
     List<String> tags = getRawTags(text);
 

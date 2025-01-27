@@ -24,7 +24,7 @@ import 'dart:math' as math;
 import 'package:fast_csv/fast_csv_ex.dart' as fast_csv_ex;
 import 'package:path/path.dart' as p;
 
-import 'components/PromtAnalyzer.dart';
+import 'components/PromptAnalyzer.dart';
 import 'main.dart';
 
 class ConfigManager with ChangeNotifier {
@@ -402,7 +402,16 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
 }
 
 List<dynamic> parseComfUIParameters(String rawData){
-  var myData = jsonDecode(rawData);
+  var myData;
+  try{
+    myData = jsonDecode(rawData);
+  } on FormatException catch(e){
+    try{
+      myData = jsonDecode(rawData.replaceAll('[NaN]', '[]'));
+    } on FormatException catch(e){
+      // ne eby
+    }
+  }
   if(myData['nodes'] != null){
     // Vanilla ComfUI
     // TODO: Страшная штука, курить много
@@ -440,7 +449,7 @@ GenerationParams? parseSwarmUIParameters(String rawData, {bool onlyParams = fals
 
 //   {
 //       "sui_image_params": {
-      //   "prompt": "solo,score_9, score_8_up, score_7_up, light, realistic lighting, by marloncores, ((anthro German Shepard with a rose in his mouth, bite rose, (red rose))), male, abs, smile, cute, sexy look, photo, bright detailed reflective yellow eyes, (athletic), claws, paw pads, furry hands, furry fingers, (sheath, sheath showing, (fully sheathed), top shot, ((whole subject in view, full frame)), lying on bed, king size bed, shiny silk sheets, ((red sheets, red blanket, red pillow)), (tuft on arm, tuft on neck, soft fur, fluffy fur, tail, black fur, brown fur)), hair, standing, young, twink, (front view), FULL-LENGTH PORTRAIT,",
+      //   "prompt": "solo,score_9, score_8_up, score_7_up, light, realistic lighting, by marloncores, FULL-LENGTH PORTRAIT,",
       //   "negativeprompt": "NSFW",
       //   "model": "Indigo_Furry_Mix_XL_-_realistic_beta",
       //   "images": 51,

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:cimagen/components/CharacterCard.dart';
 import 'package:cimagen/components/Histogram.dart';
-import 'package:cimagen/components/PromtAnalyzer.dart';
+import 'package:cimagen/components/PromptAnalyzer.dart';
 import 'package:cimagen/components/Vectorscope.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -490,8 +490,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                           minimumSize: Size.zero, // Set this
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                         ),
-                        onPressed: ()=> Navigator.push(context, MaterialPageRoute(builder: (context) => PromtAnalyzer(generationParams: gp!))),
-                        child: const Text("Analyze promt", style: TextStyle(fontSize: 12))
+                        onPressed: ()=> Navigator.push(context, MaterialPageRoute(builder: (context) => PromptAnalyzer(generationParams: gp!))),
+                        child: const Text("Analyze prompt", style: TextStyle(fontSize: 12))
                     ),
                   ],
                 ),

@@ -319,173 +319,19 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               ));
             } else {
               c = AnimationLimiter(
-              child: ListView.separated(
-                controller: _scrollControllers[tabIndex],
-                separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
-                itemCount: snapshot.data.length,
-                itemBuilder: (context, index) {
-                  List<FolderFile> files = [];
-
-                  if(snapshot.data[index].files.length <= 4){
-                    files = snapshot.data[index].files;
-                  } else {
-                    int l = snapshot.data[index].files.length;
-                    // 123 = 100
-                    //  ?  = 33
-                    files.add(snapshot.data[index].files[0]);
-                    files.add(snapshot.data[index].files[(l*33/100).round()]);
-                    files.add(snapshot.data[index].files[(l*66/100).round()]);
-                    files.add(snapshot.data[index].files[snapshot.data[index].files.length - 1]);
-                  }
-
-                  final entries = <ContextMenuEntry>[
-                    MenuItem(
-                      label: 'Index this folder',
-                      icon: Icons.waterfall_chart,
-                      onSelected: () => context.read<ImageManager>().getter.indexFolder(snapshot.data[index])
-                    ),
-                    const MenuDivider(),
-                    // MenuItem.submenu(
-                    //   label: 'I see...',
-                    //   icon: Icons.view_list_sharp,
-                    //   items: [
-                    //     CustomMenuItem(
-                    //       label: 'Delete',
-                    //       value: 'delete',
-                    //       icon: Icons.delete,
-                    //       iconColor: Colors.redAccent,
-                    //       onSelected: () {
-                    //         showDialog<String>(
-                    //           context: context,
-                    //           builder: (BuildContext context) => AlertDialog(
-                    //             icon: const Icon(Icons.warning),
-                    //             iconColor: Colors.redAccent,
-                    //             title: const Text('Are you serious ?'),
-                    //             content: const Text('This action will delete this image'),
-                    //             actions: <Widget>[
-                    //               TextButton(
-                    //                 onPressed: () => Navigator.pop(context, 'cancel'),
-                    //                 child: const Text('Cancel'),
-                    //               ),
-                    //               TextButton(
-                    //                 onPressed: (){
-                    //                   Navigator.pop(context, 'ok');
-                    //                 },
-                    //                 child: const Text('Okay'),
-                    //               ),
-                    //             ],
-                    //           ),
-                    //         );
-                    //       },
-                    //     )
-                    //   ],
-                    // ),
-                  ];
-                  final contextMenu = ContextMenu(
-                    entries: entries,
-                    padding: const EdgeInsets.all(8.0),
-                  );
-
-                  return AnimationConfiguration.staggeredList(
-                    position: index,
-                    duration: const Duration(milliseconds: 375),
-                    child: SlideAnimation(
-                      verticalOffset: 50.0,
-                      child: FadeInAnimation(
-                        child: ContextMenuRegion(
-                          contextMenu: contextMenu,
-                          child: Container(
-                            height: 100,
-                            color: Colors.black,
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                int i = -1;
-                                List<Widget> goto = files.map<Widget>((ent){
-                                  i++;
-                                  return Positioned(
-                                    height: 100,
-                                    width: constraints.biggest.width / files.length,
-                                    top: 0,
-                                    left: ((constraints.biggest.width / files.length) * i).toDouble(),
-                                    child: ent.isLocal ? Image.file(
-                                      File(ent.fullPath),
-                                      gaplessPlayback: true,
-                                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                                        if (wasSynchronouslyLoaded) {
-                                          return child;
-                                        } else {
-                                          return AnimatedOpacity(
-                                            opacity: frame == null ? 0 : 1,
-                                            duration: const Duration(milliseconds: 200),
-                                            curve: Curves.easeOut,
-                                            child: child,
-                                          );
-                                        }
-                                      },
-                                      // cacheWidth: files.length == 4 ? 100 : (constraints.biggest.width / files.length).round(),
-                                      fit: BoxFit.cover,
-                                    ) : Image.network(
-                                        ent.thumbnail ?? ent.fullPath,
-                                        fit: BoxFit.cover
-                                    ),
-                                  );
-                                }).toList();
-                                goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                                goto.add(Positioned(
-                                    bottom: 0,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('${snapshot.data[index].name}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                                          Container(
-                                              decoration: BoxDecoration(
-                                                  color: Colors.black.withOpacity(0.3),
-                                                  border: Border.all(
-                                                    color: Colors.black.withOpacity(0.5),
-                                                  ),
-                                                  borderRadius: const BorderRadius.all(Radius.circular(20))
-                                              ),
-                                              padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(Icons.image, color: Colors.white70, size: 12),
-                                                  const Gap(3),
-                                                  Text(snapshot.data[index].files.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
-                                                ],
-                                              )
-                                          )
-                                        ],
-                                      ),
-                                    )
-                                ));
-                                goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => changeFolder(tabIndex, index)))));
-                                goto.add(AnimatedPositioned(
-                                  top: 100 / 2 - 42 / 2,
-                                  right: _selected[tabIndex] == index ? 0 : -12,
-                                  duration: const Duration(seconds: 1),
-                                  curve: Curves.ease,
-                                  child: Container(
-                                    width: 12,
-                                    height: 42,
-                                    decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
-                                    ),
-                                  ),
-                                ));
-                                return Stack(clipBehavior: Clip.none, children: goto);
-                              },
-                            ),
-                          )
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              )
-            );
+                child: ListView.separated(
+                  controller: _scrollControllers[tabIndex],
+                  separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
+                  itemCount: snapshot.data.length,
+                  itemBuilder: (context, index) => FolderBlock(
+                      folder: snapshot.data[index],
+                      section: tabIndex,
+                      index: index,
+                      onTap: () => changeFolder(tabIndex, index),
+                      active: _selected[tabIndex] == index
+                  )
+                )
+              );
             }
           } else if (snapshot.hasError) {
             c = Padding(padding: const EdgeInsets.all(14), child: Column(
@@ -831,6 +677,216 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       return false;
     }
     return true;
+  }
+}
+
+class FolderBlock extends StatefulWidget{
+  final Folder folder;
+  final int section;
+  final int index;
+  final void Function() onTap;
+  final bool active;
+  const FolderBlock({ super.key, required this.folder, required this.section, required this.index, required this.onTap, required this.active});
+
+  @override
+  State<FolderBlock> createState() => _FolderBlockState();
+}
+
+class _FolderBlockState extends State<FolderBlock> {
+  bool loaded = false;
+  bool first = true;
+  List<FolderFile> origFiles = [];
+  List<FolderFile> displayFiles = [];
+
+  @override
+  void initState(){
+    print('init ${widget.index}');
+    widget.folder.files ??= context.read<ImageManager>().getter.getFolderThumbnails(widget.section, widget.index);
+    widget.folder.files!.then((files) {
+      if(files.length <= 4){
+        displayFiles = files;
+      } else {
+        int l = files.length;
+        // 123 = 100
+        //  ?  = 33
+        displayFiles.add(files[0]);
+        displayFiles.add(files[(l*33/100).round()]);
+        displayFiles.add(files[(l*66/100).round()]);
+        displayFiles.add(files[files.length - 1]);
+      }
+      if(mounted) {
+        setState(() {
+          origFiles = files;
+          loaded = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = <ContextMenuEntry>[
+      // MenuItem(
+      //     label: 'Index this folder',
+      //     icon: Icons.waterfall_chart,
+      //     onSelected: () => context.read<ImageManager>().getter.indexFolder(snapshot.data[index])
+      // ),
+      const MenuDivider(),
+      // MenuItem.submenu(
+      //   label: 'I see...',
+      //   icon: Icons.view_list_sharp,
+      //   items: [
+      //     CustomMenuItem(
+      //       label: 'Delete',
+      //       value: 'delete',
+      //       icon: Icons.delete,
+      //       iconColor: Colors.redAccent,
+      //       onSelected: () {
+      //         showDialog<String>(
+      //           context: context,
+      //           builder: (BuildContext context) => AlertDialog(
+      //             icon: const Icon(Icons.warning),
+      //             iconColor: Colors.redAccent,
+      //             title: const Text('Are you serious ?'),
+      //             content: const Text('This action will delete this image'),
+      //             actions: <Widget>[
+      //               TextButton(
+      //                 onPressed: () => Navigator.pop(context, 'cancel'),
+      //                 child: const Text('Cancel'),
+      //               ),
+      //               TextButton(
+      //                 onPressed: (){
+      //                   Navigator.pop(context, 'ok');
+      //                 },
+      //                 child: const Text('Okay'),
+      //               ),
+      //             ],
+      //           ),
+      //         );
+      //       },
+      //     )
+      //   ],
+      // ),
+    ];
+    final contextMenu = ContextMenu(
+      entries: entries,
+      padding: const EdgeInsets.all(8.0),
+    );
+
+    return AnimationConfiguration.staggeredList(
+      position: widget.index,
+      duration: const Duration(milliseconds: 375),
+      child: SlideAnimation(
+        verticalOffset: 50.0,
+        child: FadeInAnimation(
+          child: ContextMenuRegion(
+              contextMenu: contextMenu,
+              child: Container(
+                height: 100,
+                color: Colors.black,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    int i = -1;
+                    List<Widget> goto = displayFiles.map<Widget>((ent){
+                      i++;
+                      return Positioned(
+                          height: 100,
+                          width: constraints.biggest.width / displayFiles.length,
+                          top: 0,
+                          left: ((constraints.biggest.width / displayFiles.length) * i).toDouble(),
+                          child: Image.memory(
+                            base64Decode(ent.thumbnail!),
+                            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                              if (wasSynchronouslyLoaded) {
+                                return child;
+                              } else {
+                                return AnimatedOpacity(
+                                  opacity: frame == null ? 0 : 1,
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOut,
+                                  child: child,
+                                );
+                              }
+                            },
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                          )
+                        // child: ent.isLocal ? Image.file(
+                        //   File(ent.fullPath),
+                        //   gaplessPlayback: true,
+                        //   frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        //     if (wasSynchronouslyLoaded) {
+                        //       return child;
+                        //     } else {
+                        //       return AnimatedOpacity(
+                        //         opacity: frame == null ? 0 : 1,
+                        //         duration: const Duration(milliseconds: 200),
+                        //         curve: Curves.easeOut,
+                        //         child: child,
+                        //       );
+                        //     }
+                        //   },
+                        //   // cacheWidth: files.length == 4 ? 100 : (constraints.biggest.width / files.length).round(),
+                        //   fit: BoxFit.cover,
+                        // ) : Image.network(
+                        //     ent.thumbnail ?? ent.fullPath,
+                        //     fit: BoxFit.cover
+                        // ),
+                      );
+                    }).toList();
+                    goto.add(Container(color: Colors.black.withOpacity(0.35)));
+                    goto.add(Positioned(
+                        bottom: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(widget.folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                              Container(
+                                  decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.3),
+                                      border: Border.all(
+                                        color: Colors.black.withOpacity(0.5),
+                                      ),
+                                      borderRadius: const BorderRadius.all(Radius.circular(20))
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.image, color: Colors.white70, size: 12),
+                                      const Gap(3),
+                                      Text(origFiles.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
+                                    ],
+                                  )
+                              )
+                            ],
+                          ),
+                        )
+                    ));
+                    goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => widget.onTap()))));
+                    goto.add(AnimatedPositioned(
+                      top: 100 / 2 - 42 / 2,
+                      right: widget.active ? 0 : -12,
+                      duration: const Duration(seconds: 1),
+                      curve: Curves.ease,
+                      child: Container(
+                        width: 12,
+                        height: 42,
+                        decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                        ),
+                      ),
+                    ));
+                    return Stack(clipBehavior: Clip.none, children: goto);
+                  },
+                ),
+              )
+          ),
+        ),
+      ),
+    );
   }
 }
 

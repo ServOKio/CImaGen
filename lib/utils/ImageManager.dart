@@ -14,7 +14,6 @@ import 'package:cimagen/utils/SQLite.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:xml/xml.dart';
@@ -287,9 +286,8 @@ class ParseJob {
           String? err;
           while(attempts < 3 && okay != true){
             try {
-              await im.parseNetworkImage();
-              await im.makeImage(makeCacheImage: true);
-
+              await im.parseNetworkImage(makeCachedImage: true);
+              print(im.thumbnail != null);
               _done.add(im);
               if(!_controller.isClosed) _controller.add(finished);
               okay = true;
@@ -340,13 +338,13 @@ class ParseJob {
 DateFormat format = DateFormat("yyyy-MM-dd");
 
 final listEqual = const ListEquality().equals;
-Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
+Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fileBytes, bool makeCachedImage = false}) async {
   bool debug = false;
 
   GenerationParams? gp;
 
   // Read
-  final Uint8List fileBytes = await compute(readAsBytesSync, imagePath);
+  fileBytes ??= await compute(readAsBytesSync, imagePath);
   final File f = File(imagePath);
 
   final String mine = lookupMimeType(imagePath, headerBytes: fileBytes) ?? 'unknown';
@@ -360,7 +358,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
 
     List<Map<String, dynamic>> chunks = [];
     try{
-      chunks = png_extract.extractChunks(fileBytes);
+      chunks = png_extract.extractChunks(fileBytes!);
     } catch(e){
       if(debug) print(e);
       error = e.toString();
@@ -600,13 +598,13 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
               //   "signed_hash": "wOTyzWt95rON2w43sVLPfXYBJuBf3EeD3AYdxDtYfDXKYKvcBqi9huWsBPy/DMgrVRZZY304fSkiMR70235MBg=="
               // }
               gp = GenerationParams(
-                  positive: data['prompt'] as String,
-                  negative: data['uc'] as String,
+                  positive: data['prompt'] != null ? data['prompt'] as String : pngEx['description'],
+                  negative: data['uc'] != null ? data['uc'] as String : null,
                   steps: data['steps'] as int,
                   sampler: data['sampler'] as String,
-                  cfgScale: data['cfg_rescale'] as double,
+                  cfgScale: data['cfg_rescale'] != null ? data['cfg_rescale'] as double : null,
                   seed: data['seed'] as int,
-                  size: ImageSize(width: data['width'], height: data['height']),
+                  size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
                   checkpointType: pngEx['source'] != null ? pngEx['source'].startsWith('Stable Diffusion') ? CheckpointType.model : CheckpointType.unknown : CheckpointType.unknown,
                   checkpoint: pngEx['source'],
                   checkpointHash: null,
@@ -661,7 +659,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: pngEx
     );
-    await i.makeImage(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
     // print(text);
   } else if(['jpg', 'jpeg'].contains(e)){
@@ -673,7 +671,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
     int SEGMENT_SOS = 0xDA;
     int MARKER_EOI = 0xD9;
 
-    var reader = BufferReader(data: fileBytes);
+    var reader = BufferReader(data: fileBytes!);
     int magicNumber = 0;
     String? error;
     try{
@@ -840,13 +838,13 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: jpgEx
     );
-    if(error == null ) await i.makeImage(fileBytes: fileBytes);
+    if(error == null ) await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if(['webp'].contains(e)) {
     Map<String, dynamic> specific = {};
     Map<String, dynamic> webpEx = {};
 
-    final originalImage = img.decodeWebP(fileBytes);
+    final originalImage = img.decodeWebP(fileBytes!);
     if(originalImage!.exif.exifIfd.hasUserComment){
       String fi = utf8.decode(Uint8List.fromList(originalImage.exif.exifIfd[0x9286]!.toData().toList().where((e) => e != 0).toList(growable: false).cast()));
       try{
@@ -946,13 +944,13 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: webpEx
     );
-    await i.makeImage(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if('gif' == e) {
     Map<String, dynamic> specific = {};
     Map<String, dynamic> gifEx = {};
 
-    final originalImage = img.decodeGif(fileBytes);
+    final originalImage = img.decodeGif(fileBytes!);
     ImageMeta i = ImageMeta(
         fullPath: imagePath,
         re: re,
@@ -965,13 +963,13 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: gifEx
     );
-    await i.makeImage(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if('vnd.adobe.photoshop' == e) {
     Map<String, dynamic> specific = {};
     Map<String, dynamic> psdEx = {};
 
-    final originalImage = img.decodePsd(fileBytes);
+    final originalImage = img.decodePsd(fileBytes!);
 
     psdEx['softwareType'] = Software.photoshop.index;
 
@@ -987,7 +985,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath) async {
         generationParams: gp,
         other: psdEx
     );
-    await i.makeImage(fileBytes: fileBytes);
+    await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else {
     if (kDebugMode) {
@@ -1391,6 +1389,7 @@ class ImageMeta {
   }
 
   Future<void> makeImage({Uint8List? fileBytes, bool makeThumbnail = true, bool makeCacheImage = false}) async {
+    print('${makeThumbnail} ${makeCacheImage}');
     if((makeThumbnail && thumbnail == null) || (makeCacheImage && cachedImage == null)){
       String? uri = isLocal ? fullPath : tempFilePath;
       if(uri == null) return;
@@ -1419,19 +1418,22 @@ class ImageMeta {
     }
   }
 
-  Future<void> parseNetworkImage() async {
+  Future<void> parseNetworkImage({bool makeCachedImage = false}) async {
     if(!isLocal && fullNetworkPath != null){
       // Download to temp
       String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
-      String pa = p.join(appTempDir, '$keyup-$fileName');
+      String pa = p.join(appTempDir, '$keyup${p.extension(fileName)}'); // max 256 so shit
       File f = File(pa);
+      Uint8List? bytes;
+      FileStat? stat;
       if(!f.existsSync()){
         String clean = cleanUpUrl(fullNetworkPath!);
         http.Response res = await http.get(Uri.parse(clean));
         if(res.statusCode == 200){
-          await f.writeAsBytes(res.bodyBytes);
+          bytes = res.bodyBytes;
+          await f.writeAsBytes(bytes);
           tempFilePath = pa;
-          FileStat stat = f.statSync();
+          stat = f.statSync();
           fileSize = stat.size;
           dateModified ??= stat.modified;
         } else {
@@ -1442,8 +1444,8 @@ class ImageMeta {
       }
 
       if(tempFilePath != null){
-        ImageMeta? im = await parseImage(RenderEngine.unknown, pa);
-        FileStat stat = f.statSync();
+        ImageMeta? im = await parseImage(RenderEngine.unknown, pa, fileBytes: bytes, makeCachedImage: makeCachedImage);
+        stat ??= f.statSync();
         if(im != null){
           size = im.size;
           generationParams = im.generationParams;
@@ -1451,6 +1453,8 @@ class ImageMeta {
           specific = im.specific;
           mine = im.mine;
           re = im.re;
+          thumbnail ??= im.thumbnail;
+          cachedImage ??= im.cachedImage;
           final String parentFolder = p.basename(File(fullPath ?? tempFilePath ?? '').parent.path);
           keyup = genHash(re, parentFolder, fileName, host: host);
           // Try right date
@@ -1733,8 +1737,8 @@ String genHash(RenderEngine re, String parent, String name, {String? host}){
   return hash;
 }
 
-String cleanUpSDPromt(String promt){
-  return promt
+String cleanUpSDPrompt(String prompt){
+  return prompt
       .trim()
       .replaceFirst(RegExp(r',\s*$'), '')
       .replaceAll('\n', '')

@@ -431,17 +431,43 @@ class SQLite with ChangeNotifier{
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT DATE(dateModified) AS day, count(keyup) as total FROM images where ${host != null ? 'host = ?' : 'host IS NULL'} GROUP BY DATE(dateModified) ORDER BY day', args);
     print('getFolders maps.length ${maps.length}');
     if(maps.length == 1 && maps[0]['day'] == null) return [];
-    List<Folder> fi = List.generate(maps.length, (i){
+
+    List<Folder> fi = [];
+    for(var d in maps){
+      fi.add(Folder(
+        index: fi.length,
+        name: d['day'],
+        getter: d['day'],
+        type: FolderType.byDay,
+        files: null
+      ));
+    }
+    print(fi.length);
+    return fi;
+  }
+
+  Future<List<FolderFile>> getFolderThumbnails(String day, {String? host}) async {
+    if (kDebugMode) {
+      print('getFolderThumbnails: $day ${host ?? 'null'}');
+    }
+    List<dynamic> args = [];
+    args.add(day);
+    if(host != null) args.add(host);
+    final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT thumbnail, fullPath FROM images WHERE DATE(datemodified) = ? ${host != null ? 'AND host = ? ' : 'AND host IS NULL '}ORDER by datemodified ASC', args);
+
+    print('getFolderThumbnails: maps.length ${maps.length}');
+    List<FolderFile> fi = List.generate(maps.length, (i) {
       var d = maps[i];
-      return Folder(
-          index: i,
-          name: d['day'],
-          getter: d['day'],
-          type: FolderType.byDay,
-          files: []
+      return FolderFile(
+        fullPath: d['fullPath'] as String,
+        thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
+        isLocal: host == null,
+        host: host
       );
     });
-    print(fi.length);
+    if (kDebugMode) {
+      print('getFolderThumbnails: fi.length ${fi.length}');
+    }
     return fi;
   }
 
@@ -744,14 +770,16 @@ class SQLite with ChangeNotifier{
           '(SELECT COUNT(keyup) FROM images) as totalImages,'
           '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
           '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
-          '(SELECT SUM(filesize) FROM images WHERe type = 1) as txt2imgSumSize,'
+          '(SELECT SUM(filesize) FROM images WHERE type = 1) as txt2imgSumSize,'
           '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
           '(SELECT SUM(filesize) FROM images WHERE type = 2) as img2imgSumSize,'
           '(SELECT COUNT(keyup) FROM images WHERE type = 3) as inpaintCount,'
           '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize,'
+          '(SELECT COUNT(keyup) FROM images WHERE type = 6) as extraCount,'
+          '(SELECT SUM(filesize) FROM images WHERE type = 6) as extraSumSize,';
           '(SELECT COUNT(keyup) FROM images WHERE type = 7) as comfuiCount,'
           '(SELECT SUM(filesize) FROM images WHERE type = 7) as comfuiSumSize';
-      host != null ? ' WHERE host = "$host"' : ' WHERE host IS NULL'; // TODO Stupid man thing
+      host != null ? ' WHERE host = "$host"' : ' WHERE host IS NULL'; // TODO Stupid man thing // hahaha from 2025
       final List<Map<String, dynamic>> maps = await database.rawQuery(q);
 
       Map<String, int> finalMe = {};

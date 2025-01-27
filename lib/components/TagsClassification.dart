@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cimagen/components/PromtAnalyzer.dart';
+import 'package:cimagen/components/PromptAnalyzer.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:path_provider/path_provider.dart';
