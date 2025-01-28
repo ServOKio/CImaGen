@@ -766,25 +766,24 @@ class SQLite with ChangeNotifier{
 
   // System
   Future<Map<String, int>> getTablesInfo({String? host}) async {
-      String q = 'SELECT'
-          '(SELECT COUNT(keyup) FROM images) as totalImages,'
-          '(SELECT COUNT(keyup) FROM generation_params) as totalImagesWithMetadata,'
-          '(SELECT COUNT(keyup) FROM images WHERE type = 1) as txt2imgCount,'
-          '(SELECT SUM(filesize) FROM images WHERE type = 1) as txt2imgSumSize,'
-          '(SELECT COUNT(keyup) FROM images WHERE type = 2) as img2imgCount,'
-          '(SELECT SUM(filesize) FROM images WHERE type = 2) as img2imgSumSize,'
-          '(SELECT COUNT(keyup) FROM images WHERE type = 3) as inpaintCount,'
-          '(SELECT SUM(filesize) FROM images WHERE type = 3) as inpaintSumSize,'
-          '(SELECT COUNT(keyup) FROM images WHERE type = 6) as extraCount,'
-          '(SELECT SUM(filesize) FROM images WHERE type = 6) as extraSumSize,';
-          '(SELECT COUNT(keyup) FROM images WHERE type = 7) as comfuiCount,'
-          '(SELECT SUM(filesize) FROM images WHERE type = 7) as comfuiSumSize';
-      host != null ? ' WHERE host = "$host"' : ' WHERE host IS NULL'; // TODO Stupid man thing // hahaha from 2025
-      final List<Map<String, dynamic>> maps = await database.rawQuery(q);
-
-      Map<String, int> finalMe = {};
-      maps.first.forEach((key, value) => finalMe[key] = value == null ? 0 : value as int);
-      return finalMe;
+    List<dynamic> args = host == null ? [] : List<String>.generate(12, (index) => host);
+    String q = 'SELECT'
+        '(SELECT COUNT(keyup) FROM images WHERE host ${host != null ? '= ?' : 'IS NULL'}) as totalImages,'
+        '(SELECT COUNT(keyup) FROM generation_params WHERE host ${host != null ? '= ?' : 'IS NULL'}) as totalImagesWithMetadata,'
+        '(SELECT COUNT(keyup) FROM images WHERE type = 1 AND host ${host != null ? '= ?' : 'IS NULL'}) as txt2imgCount,'
+        '(SELECT SUM(filesize) FROM images WHERE type = 1 AND host ${host != null ? '= ?' : 'IS NULL'}) as txt2imgSumSize,'
+        '(SELECT COUNT(keyup) FROM images WHERE type = 2 AND host ${host != null ? '= ?' : 'IS NULL'}) as img2imgCount,'
+        '(SELECT SUM(filesize) FROM images WHERE type = 2 AND host ${host != null ? '= ?' : 'IS NULL'}) as img2imgSumSize,'
+        '(SELECT COUNT(keyup) FROM images WHERE type = 3 AND host ${host != null ? '= ?' : 'IS NULL'}) as inpaintCount,'
+        '(SELECT SUM(filesize) FROM images WHERE type = 3 AND host ${host != null ? '= ?' : 'IS NULL'}) as inpaintSumSize,'
+        '(SELECT COUNT(keyup) FROM images WHERE type = 6 AND host ${host != null ? '= ?' : 'IS NULL'}) as extraCount,'
+        '(SELECT SUM(filesize) FROM images WHERE type = 6 AND host ${host != null ? '= ?' : 'IS NULL'}) as extraSumSize,'
+        '(SELECT COUNT(keyup) FROM images WHERE type = 7 AND host ${host != null ? '= ?' : 'IS NULL'}) as comfuiCount,'
+        '(SELECT SUM(filesize) FROM images WHERE type = 7 AND host ${host != null ? '= ?' : 'IS NULL'}) as comfuiSumSize';
+    final List<Map<String, dynamic>> maps = await database.rawQuery(q, args);
+    Map<String, int> finalMe = {};
+    maps.first.forEach((key, value) => finalMe[key] = value == null ? 0 : value as int);
+    return finalMe;
   }
 
   // System

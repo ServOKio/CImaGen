@@ -288,7 +288,6 @@ class ParseJob {
           while(attempts < 3 && okay != true){
             try {
               await im.parseNetworkImage(makeCachedImage: true);
-              print(im.thumbnail != null);
               _done.add(im);
               if(!_controller.isClosed) _controller.add(finished);
               okay = true;
@@ -540,6 +539,25 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
               if(nodesList.isNotEmpty) specific['comfUINodes'] = nodesList;
             } else {
               pngEx['softwareType'] = Software.tensorArt;
+              if(await isJson(pngEx['generation_data'])){
+                var data = jsonDecode(pngEx['generation_data']);
+                String modelType = data['baseModel']['type'] as String;
+                gp = GenerationParams(
+                    positive: data['prompt'] as String,
+                    negative: data['negativePrompt'] as String,
+                    steps: data['steps'] as int,
+                    sampler: data['samplerName'] as String,
+                    cfgScale: double.parse(data['cfgScale'].toString()),
+                    seed: int.parse(data['seed'] as String),
+                    size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
+                    checkpointType: modelType == 'BASE_MODEL' ? CheckpointType.model : CheckpointType.unknown,
+                    checkpoint: data['baseModel']['modelFileName'] as String,
+                    checkpointHash: data['baseModel']['hash'] as String,
+                    version: data['workEngine'] as String,
+                    rawData: jsonEncode(data),
+                    params: data
+                );
+              }
             }
           }
         }
@@ -637,7 +655,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       }
 
       //Remove shit
-      pngEx.remove('parameters');
+      if(gp != null) pngEx.remove('parameters');
       pngEx.remove('postprocessing');
       if(pngEx['softwareType'] != null ) pngEx['softwareType'] = pngEx['softwareType'].index;
 
@@ -845,7 +863,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     Map<String, dynamic> specific = {};
     Map<String, dynamic> webpEx = {};
 
-    final originalImage = img.decodeWebP(fileBytes!);
+    final originalImage = await compute(img.decodeWebP, fileBytes!);
     if(originalImage!.exif.exifIfd.hasUserComment){
       String fi = utf8.decode(Uint8List.fromList(originalImage.exif.exifIfd[0x9286]!.toData().toList().where((e) => e != 0).toList(growable: false).cast()));
       try{
@@ -877,6 +895,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       //clean
       webpEx.remove('EXIF UserComment');
     }
+    if(originalImage.hasAnimation) specific['hasAnimation'] = true;
 
     // // Fuuuuuck... it's u again...
     // var reader = BufferReader(data: fileBytes);
@@ -948,10 +967,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if('gif' == e) {
+    final originalImage = img.decodeGif(fileBytes!);
     Map<String, dynamic> specific = {};
     Map<String, dynamic> gifEx = {};
 
-    final originalImage = img.decodeGif(fileBytes!);
+    if(originalImage!.hasAnimation) specific['hasAnimation'] = true;
+
     ImageMeta i = ImageMeta(
         fullPath: imagePath,
         re: re,
@@ -959,7 +980,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         fileTypeExtension: e,
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
-        size: ImageSize(width: originalImage!.width, height: originalImage.height),
+        size: ImageSize(width: originalImage.width, height: originalImage.height),
         specific: specific,
         generationParams: gp,
         other: gifEx
@@ -1087,7 +1108,6 @@ Future<ImageMeta?> parseUrlImage(String imagePath) async {
       }
     } else if(RegExp(r'\.pinterest\.com').hasMatch(parse.host)){
       RegExp ex = RegExp(r'pin/(.+)/');
-      print('ok');
       if(ex.hasMatch(parse.path)) {
         RegExpMatch match = ex.allMatches(parse.path).first;
         parse = Uri(
@@ -1390,7 +1410,6 @@ class ImageMeta {
   }
 
   Future<void> makeImage({Uint8List? fileBytes, bool makeThumbnail = true, bool makeCacheImage = false}) async {
-    print('${makeThumbnail} ${makeCacheImage}');
     if((makeThumbnail && thumbnail == null) || (makeCacheImage && cachedImage == null)){
       String? uri = isLocal ? fullPath : tempFilePath;
       if(uri == null) return;
@@ -1414,10 +1433,25 @@ class ImageMeta {
             break;
         }
       }
-      if(makeThumbnail && thumbnail == null) thumbnail = data != null ? base64Encode(img.encodeJpg(img.copyResize(data, width: 256), quality: 50)) : null;
-      if(makeCacheImage && cachedImage == null) cachedImage = data != null ? base64Encode(img.encodeJpg(data, quality: 80)) : null;
+      bool hasAnim = specific != null && (specific!['hasAnimation'] ?? false);
+      if(makeThumbnail && thumbnail == null) {
+        thumbnail = data != null ? base64Encode(
+          hasAnim ?
+            await compute(img.encodePng, img.copyResize(data, width: 256)) :
+            await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 50})
+        ) : null;
+      }
+      if(makeCacheImage && cachedImage == null) {
+        cachedImage = data != null ? base64Encode(
+          hasAnim ?
+            await compute(img.encodePng, data) :
+            await compute(_encodeJpg, {'data': data, 'quality': 80})
+        ) : null;
+      }
     }
   }
+
+  Future<Uint8List> _encodeJpg(map) async => img.encodeJpg(img.copyResize(map['data'], width: 256), quality: map['quality']);
 
   Future<void> parseNetworkImage({bool makeCachedImage = false}) async {
     if(!isLocal && fullNetworkPath != null){
