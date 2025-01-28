@@ -233,7 +233,11 @@ class ParseJob {
       return _isDone();
     }
     for(dynamic raw in _cache){
-      if(_forceStop) continue;
+      if(_forceStop) {
+        _doneTotal++;
+        _isDone();
+        continue;
+      }
       bool yes = true;
       String path = normalizePath(raw.runtimeType == String ? raw : raw.runtimeType == JobImageFile ? (raw as JobImageFile).fullPath : raw);
       // Check file type

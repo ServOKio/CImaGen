@@ -429,7 +429,6 @@ class SQLite with ChangeNotifier{
     List<dynamic> args = [];
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT DATE(dateModified) AS day, count(keyup) as total FROM images where ${host != null ? 'host = ?' : 'host IS NULL'} GROUP BY DATE(dateModified) ORDER BY day', args);
-    print('getFolders maps.length ${maps.length}');
     if(maps.length == 1 && maps[0]['day'] == null) return [];
 
     List<Folder> fi = [];
@@ -442,7 +441,6 @@ class SQLite with ChangeNotifier{
         files: null
       ));
     }
-    print(fi.length);
     return fi;
   }
 
@@ -455,7 +453,6 @@ class SQLite with ChangeNotifier{
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT thumbnail, fullPath FROM images WHERE DATE(datemodified) = ? ${host != null ? 'AND host = ? ' : 'AND host IS NULL '}ORDER by datemodified ASC', args);
 
-    print('getFolderThumbnails: maps.length ${maps.length}');
     List<FolderFile> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       return FolderFile(
@@ -474,11 +471,8 @@ class SQLite with ChangeNotifier{
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
     List<dynamic> args = [];
     if(host != null) args.add(host);
-    print('getFolderHashes: down');
-    print(args);
     String g = 'SELECT fullPath, pathHash FROM images where fullPath LIKE \'$folder%\' AND ${host != null ? 'host = ?' : 'host IS NULL'}';
     final List<Map<String, dynamic>> maps = await database.rawQuery(g, args);
-    print('getFolderHashes: maps.length ${maps.length}');
     return List.generate(maps.length, (i) => maps[i]['pathHash']);
   }
 
@@ -494,7 +488,6 @@ class SQLite with ChangeNotifier{
     if(host != null) args.add(host);
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT a.*, b.positive, b.negative, b.steps, b.sampler, b.cfgScale, b.seed, b.sizeW, b.sizeH, b.checkpointType, b.checkpoint, b.checkpointHash, b.vae, b.vaeHash, b.denoisingStrength, b.rng, b.hiresSampler, b.hiresUpscaler, b.hiresUpscale, b.tiHashes, b.version, b.params, b.rawData FROM images a FULL OUTER JOIN generation_params b ON a.keyup = b.keyup WHERE DATE(a.datemodified) = ? ${type != null ? 'AND a.type = ? ' : ' '} ${host != null ? 'AND a.host = ? ' : 'AND a.host IS NULL '}ORDER by a.datemodified ASC', args);
 
-    print('getImagesByDay: maps.length ${maps.length}');
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
@@ -555,7 +548,6 @@ class SQLite with ChangeNotifier{
       print('getImagesByParent: SELECT * FROM images JOIN generation_params on images.keyup=generation_params.keyup WHERE images.type ${type.runtimeType == RenderEngine ? '= ?' : 'IN(${type.map((value) => value.index).toList().join(',')})'} AND images.parent = ? ${host != null ? 'AND images.host = ? ' : 'AND images.host IS NULL '}ORDER by datemodified ASC');
       print(args);
     }
-    print('getImagesByParent: maps.length ${maps.length}');
     List<ImageMeta> fi = List.generate(maps.length, (i) {
       var d = maps[i];
       List<int> size = (d['size'] as String).split('x').map((e) => int.parse(e)).toList();
