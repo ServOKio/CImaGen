@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cimagen/modules/NotificationManager.dart';
+import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/utils/AppBarController.dart';
@@ -8,10 +9,14 @@ import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
+import 'package:cimagen/utils/Objectbox.dart';
 import 'package:cimagen/utils/SQLite.dart';
 import 'package:cimagen/modules/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:floaty_nav_bar/res/floaty_nav_bar.dart';
+import 'package:floaty_nav_bar/res/models/floaty_action_button.dart';
+import 'package:floaty_nav_bar/res/models/floaty_tab.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,7 +48,8 @@ GitHub? githubAPI;
 AppBarController? appBarController;
 NotificationManager? notificationManager;
 AudioController? audioController;
-SharedPreferences? prefs;
+late SharedPreferences prefs;
+late ObjectboxDB objectbox;
 
 Future<void> main() async {
   bool debug = false;
@@ -51,6 +57,10 @@ Future<void> main() async {
     runApp(Test());
   } else {
     WidgetsFlutterBinding.ensureInitialized();
+
+    prefs = await SharedPreferences.getInstance();
+    objectbox = await ObjectboxDB.create();
+
     await SystemTheme.accentColor.load();
     if (Platform.isWindows) {
       await windowManager.ensureInitialized();
@@ -92,14 +102,9 @@ class Test extends StatelessWidget {
 class MyApp extends StatelessWidget {
 
   MyApp({super.key}) {
-    initAsync();
     appBarController = AppBarController();
     notificationManager = NotificationManager();
     notificationManager?.init();
-  }
-
-  Future<void> initAsync() async {
-    prefs = await SharedPreferences.getInstance();
   }
 
   @override
@@ -342,7 +347,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                 ],
               ) : const Home() : LoadingState(loaded: loaded, error: error),
               loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
-              loaded ? const Timeline() : LoadingState(loaded: loaded, error: error),
+              loaded ? P404() : LoadingState(loaded: loaded, error: error),
               loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
               // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
               // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
@@ -350,8 +355,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             ],
           ),
           Positioned(
-            bottom: changeNotify ? 90 : 14,
-            right: changeNotify ? 14 : 90,
+            bottom: 90,
+            right: 14,
             child: Container(
               // color: Colors.red,
               constraints: BoxConstraints(
@@ -370,6 +375,68 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   )
               )
             )
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: FloatyNavBar(
+              selectedTab: _currentPageIndex,
+              tabs: [
+                FloatyTab(
+                  isSelected: _currentPageIndex == 0,
+                  onTap: () => _updateCurrentPageIndex(0),
+                  title: 'Home',
+                  icon: Icon(Icons.inbox),
+                  floatyActionButton: FloatyActionButton(
+                    icon: const Icon(Icons.file_open),
+                    onTap: (){
+
+                    },
+                  ),
+                ),
+                FloatyTab(
+                  isSelected: _currentPageIndex == 1,
+                  onTap: () => _updateCurrentPageIndex(1),
+                  title: 'Gallery',
+                  icon: Icon(Icons.auto_awesome_mosaic_outlined),
+                  floatyActionButton: FloatyActionButton(
+                    icon: const Icon(Icons.autorenew),
+                    onTap: (){
+
+                    },
+                  ),
+                ),
+                FloatyTab(
+                  isSelected: _currentPageIndex == 2,
+                  onTap: () => _updateCurrentPageIndex(2),
+                  title: 'Render History',
+                  icon: Icon(Icons.account_tree_sharp),
+                  floatyActionButton: FloatyActionButton(
+                    icon: const Icon(Icons.photo_size_select_large),
+                    onTap: (){
+
+                    },
+                  ),
+                ),
+                FloatyTab(
+                  isSelected: _currentPageIndex == 3,
+                  onTap: () => _updateCurrentPageIndex(3),
+                  title: 'Comparison',
+                  icon: Icon(Icons.compare),
+                  floatyActionButton: FloatyActionButton(
+                    icon: const Icon(Icons.share),
+                    onTap: (){
+
+                    },
+                  ),
+                ),
+                FloatyTab(
+                  isSelected: _currentPageIndex == 4,
+                  onTap: () => _updateCurrentPageIndex(4),
+                  title: 'Settings',
+                  icon: Icon(Icons.settings),
+                ),
+              ],
+            ),
           )
         ],
       ),
@@ -381,51 +448,52 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         tooltip: 'Notes',
         child: const Icon(Icons.note),
       ),
-      bottomNavigationBar: NavigationBar(
-        height: 70,
-        backgroundColor: Theme.of(context).colorScheme.background,
-        indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-        surfaceTintColor: Colors.transparent,
-        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-        selectedIndex: _currentPageIndex,
-        onDestinationSelected: (int index) {
-          _updateCurrentPageIndex(index);
-        },
-        destinations: const <Widget>[
-          NavigationDestination(
-            icon: Icon(Icons.inbox),
-            selectedIcon: Icon(Icons.all_inbox),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.auto_awesome_mosaic_outlined),
-            selectedIcon: Icon(Icons.auto_awesome_mosaic),
-            label: 'Gallery',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_tree_outlined),
-            selectedIcon: Icon(Icons.account_tree_sharp),
-            label: 'Render History',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.add_to_photos_outlined),
-            selectedIcon: Icon(Icons.add_to_photos),
-            label: 'Comparison',
-          ),
-          // NavigationDestination(
-          //   icon: Icon(Icons.border_all_sharp),
-          //   label: 'Grid rebuild',
-          // ),
-          // NavigationDestination(
-          //   icon: Icon(Icons.amp_stories),
-          //   label: 'Maybe',
-          // ),
-          NavigationDestination(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
-      ),
+      // NavigationBar(
+      //   height: 70,
+      //   backgroundColor: Theme.of(context).colorScheme.background,
+      //   indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+      //   surfaceTintColor: Colors.transparent,
+      //   labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      //   selectedIndex: _currentPageIndex,
+      //   onDestinationSelected: (int index) {
+      //     _updateCurrentPageIndex(index);
+      //   },
+      //   destinations: const <Widget>[
+      //     NavigationDestination(
+      //       icon: Icon(Icons.inbox),
+      //       selectedIcon: Icon(Icons.all_inbox),
+      //       label: 'Home',
+      //     ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.auto_awesome_mosaic_outlined),
+      //       selectedIcon: Icon(Icons.auto_awesome_mosaic),
+      //       label: 'Gallery',
+      //     ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.account_tree_outlined),
+      //       selectedIcon: Icon(Icons.account_tree_sharp),
+      //       label: 'Render History',
+      //       enabled: false,
+      //     ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.add_to_photos_outlined),
+      //       selectedIcon: Icon(Icons.add_to_photos),
+      //       label: 'Comparison',
+      //     ),
+      //     // NavigationDestination(
+      //     //   icon: Icon(Icons.border_all_sharp),
+      //     //   label: 'Grid rebuild',
+      //     // ),
+      //     // NavigationDestination(
+      //     //   icon: Icon(Icons.amp_stories),
+      //     //   label: 'Maybe',
+      //     // ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.settings),
+      //       label: 'Settings',
+      //     ),
+      //   ],
+      // ),
     );
   }
 

@@ -17,12 +17,10 @@ import 'package:settings_ui/settings_ui.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
-import 'package:path/path.dart' as p;
 
 import '../Utils.dart';
 import '../main.dart';
 import '../modules/ConfigManager.dart';
-import '../modules/webUI/OnLocal.dart';
 import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
@@ -43,7 +41,9 @@ class _SettingsState extends State<Settings>{
   bool _gallery_display_id = false;
 
   String _custom_cache_dir = '-';
+  String _custom_images_cache_dir = '-';
   double _maxCacheSize = 5;
+  int _maxDBSize = 4;
   int _currentCacheSize = 0;
 
   String appDocumentsPath = '';
@@ -77,17 +77,19 @@ class _SettingsState extends State<Settings>{
     String deviceInfo = await getDeviceInfo();
 
     setState(() {
-      _webui_folder = prefs!.getString('webui_folder') ?? 'none';
-      _use_remote_version = prefs!.getBool('use_remote_version') ?? false;
-      _debug = prefs!.getBool('debug') ?? false;
-      _imageview_use_fullscreen = (prefs!.getBool('imageview_use_fullscreen') ?? false);
-      _gallery_display_id = (prefs!.getBool('gallery_display_id') ?? false);
+      _webui_folder = prefs.getString('webui_folder') ?? 'none';
+      _use_remote_version = prefs.getBool('use_remote_version') ?? false;
+      _debug = prefs.getBool('debug') ?? false;
+      _imageview_use_fullscreen = (prefs.getBool('imageview_use_fullscreen') ?? false);
+      _gallery_display_id = (prefs.getBool('gallery_display_id') ?? false);
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
       _deviceInfo = deviceInfo;
       _custom_cache_dir = context.read<ConfigManager>().tempDir;
-      _maxCacheSize = (prefs!.getDouble('max_cache_size') ?? 5);
+      _custom_images_cache_dir = context.read<ConfigManager>().imagesCacheDir;
+      _maxCacheSize = (prefs.getDouble('max_cache_size') ?? 5);
+      _maxDBSize = (prefs.getInt('max_db_size') ?? 4);
     });
 
     getDirSize(Directory(_custom_cache_dir)).then((value) => setState(() {
@@ -100,8 +102,9 @@ class _SettingsState extends State<Settings>{
           'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
           'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
           'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
+          'extra (${readableFileSize(value['extraSumSize'] as int)})': (value['extraCount'] as int).toDouble(),
           'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
-          'Without meta': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
+          'Without meta (${readableFileSize(value['unknownSumSize'] as int)})': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
         };
       })
     }).onError((error, stackTrace) => {
@@ -168,7 +171,7 @@ class _SettingsState extends State<Settings>{
                     if (selectedDirectory != null) {
                       List<FileSystemEntity> fe = await dirContents(Directory(selectedDirectory));
                       if(fe.isNotEmpty){
-                        Directory tDir = Directory(p.join(selectedDirectory, 'cImagen'));
+                        Directory tDir = Directory(selectedDirectory);
                         tDir.create(recursive: true).then((va){
                           setState(() {
                             _custom_cache_dir = va.path;
@@ -178,6 +181,31 @@ class _SettingsState extends State<Settings>{
                         });
                       } else {
                         prefs.setString('custom_cache_dir', selectedDirectory);
+                        context.read<ConfigManager>().updateCacheLocation();
+                      }
+                    }
+                  },
+                ),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.image_sharp),
+                  title: const Text('Image cache folder'),
+                  value: Text('This is the largest folder because it will store cached previews for images (we recommend choosing a folder on a separate drive, not on the system drive)\nNow: $_custom_images_cache_dir'),
+                  onPressed: (context) async {
+                    SharedPreferences prefs = await SharedPreferences.getInstance();
+                    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      List<FileSystemEntity> fe = await dirContents(Directory(selectedDirectory));
+                      if(fe.isNotEmpty){
+                        Directory tDir = Directory(selectedDirectory);
+                        tDir.create(recursive: true).then((va){
+                          setState(() {
+                            _custom_images_cache_dir = va.path;
+                          });
+                          prefs.setString('custom_images_cache_dir', va.path);
+                          context.read<ConfigManager>().updateCacheLocation();
+                        });
+                      } else {
+                        prefs.setString('custom_images_cache_dir', selectedDirectory);
                         context.read<ConfigManager>().updateCacheLocation();
                       }
                     }
@@ -228,10 +256,31 @@ class _SettingsState extends State<Settings>{
                         divisions: 5,
                         label: '${_maxCacheSize.round()}GB',
                         onChanged: (double v) {
-                          prefs!.setDouble('max_cache_size', v);
+                          prefs.setDouble('max_cache_size', v);
                           setState(() {
                             _maxCacheSize = v;
                           });
+                        },
+                      )
+                    ],
+                  ),
+                ),
+                SettingsTile(
+                  leading: Icon(Icons.dataset),
+                  title: Text('Maximum database size'),
+                  description: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Limit: ${_maxDBSize.round()}GB'),
+                      Slider(
+                        value: _maxDBSize.toDouble(),
+                        min: 1,
+                        max: 1000,
+                        divisions: 5,
+                        label: '${_maxDBSize}GB',
+                        onChanged: (double v) {
+                          prefs.setInt('max_db_size', v.round());
+                          setState(() => _maxDBSize = v.round());
                         },
                       )
                     ],
@@ -250,7 +299,7 @@ class _SettingsState extends State<Settings>{
                     setState(() {
                       _debug = v;
                     });
-                    prefs!.setBool('debug', v);
+                    prefs.setBool('debug', v);
                   },
                   leading: Icon(Icons.bug_report),
                   title: Text('Enable debug'), initialValue: _debug,
@@ -269,18 +318,18 @@ class _SettingsState extends State<Settings>{
                     setState(() {
                       _imageview_use_fullscreen = v;
                     });
-                    prefs!.setBool('imageview_use_fullscreen', v);
+                    prefs.setBool('imageview_use_fullscreen', v);
                   }, initialValue: _imageview_use_fullscreen,
                 ),
                 SettingsTile.switchTile(
-                  leading: const Icon(Icons.numbers),
+                  leading: const Icon(Icons.one_x_mobiledata),
                   title: Text('Display image ID in gallery'),
                   description: Text('This will help determine the sequence of images if they are all the same size'),
                   onToggle: (v) {
                     setState(() {
                       _gallery_display_id = v;
                     });
-                    prefs!.setBool('gallery_display_id', v);
+                    prefs.setBool('gallery_display_id', v);
                   }, initialValue: _gallery_display_id,
                 ),
               ],
@@ -539,15 +588,32 @@ class DBChart extends AbstractSettingsTile{
         increaseColorHue(const Color(0xff2800ff), -15)
       ]
     ], // 5
-    // [ // TODO
-    //   const Color(0xff26f8b8),
-    //   const Color(0xffcbc20a),
-    //   const Color(0xfffc8c0e),
-    //   const Color(0xffd63d50),
-    //   const Color(0xff2800ff),
-    //   const Color(0xffd63d50),
-    //   const Color(0xff2800ff)
-    // ], // 6
+    [ // TODO
+      [
+        const Color(0xfffe5d45),
+        increaseColorHue(const Color(0xfffe5d45), -15)
+      ],
+      [
+        const Color(0xfffb41bc),
+        increaseColorHue(const Color(0xfffb41bc), -15)
+      ],
+      [
+        const Color(0xff3167fc),
+        increaseColorHue(const Color(0xff3167fc), -15)
+      ],
+      [
+        const Color(0xff1df4ac),
+        increaseColorHue(const Color(0xff1df4ac), -15)
+      ],
+      [
+        const Color(0xff64fdfe),
+        increaseColorHue(const Color(0xff64fdfe), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ]
+    ], // 6
     // [ // TODO
     //   const Color(0xff26f8b8),
     //   const Color(0xffcbc20a),

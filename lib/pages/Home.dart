@@ -583,9 +583,8 @@ class _HomeState extends State<Home> {
                   } else if (snapshot.hasError) {
                     children = const Text('error');
                   } else {
-                    children = const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: Text('Awaiting result...'),
+                    children = Center(
+                      child: CircularProgressIndicator(),
                     );
                   }
                   return children;
@@ -816,7 +815,7 @@ class FileInfoPreview extends StatelessWidget{
                             width: constraints.maxWidth / 2,
                             child: AspectRatio(
                               aspectRatio: im?.error == null ? im!.size!.aspectRatio() : 1/1,
-                              child: im?.error == null ? Image.memory(gaplessPlayback: true, base64Decode(im?.thumbnail ?? '')) : DottedBorder(
+                              child: im?.error == null ? im?.thumbnail != null ? Image.memory(im!.thumbnail!, gaplessPlayback: true) : Icon(Icons.error) : DottedBorder(
                                 dashPattern: const [6, 6],
                                 color: Colors.redAccent,
                                 borderType: BorderType.RRect,

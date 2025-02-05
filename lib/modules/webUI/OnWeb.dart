@@ -140,7 +140,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolders(host: _host);
+    return objectbox.getFolders(host: _host);
   }
 
   @override
@@ -153,7 +153,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
+    return objectbox.getImagesByDay(day, host: host);
   }
 
   @override
@@ -181,7 +181,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
     // 2. Put images and parse
     ParseJob job = ParseJob();
     int jobID = await job.putAndGetJobID(urls.map((uri) {
-      Uri parsed = Uri.parse(uri);
+      Uri parsed = Uri.parse(cleanUpUrl(uri));
       Uri thumb = Uri(
         scheme: parsed.scheme,
         host: 'media.discordapp.net',

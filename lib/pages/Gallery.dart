@@ -89,7 +89,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   @override
   void initState() {
     super.initState();
-    debug = prefs!.getBool('debug') ?? false;
+    debug = prefs.getBool('debug') ?? false;
 
     var go = context.read<ImageManager>().getter.loaded;
     if (go) {
@@ -224,12 +224,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   @override
   void dispose(){
-    appBarController!.resetActions();
     if(_tabController != null) _tabController!.dispose();
     for (var k in _scrollControllers.keys) {
       _scrollControllers[k]!.dispose();
     }
     _scrollControllers.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) => appBarController!.resetActions());
     super.dispose();
   }
 
@@ -702,27 +702,23 @@ class _FolderBlockState extends State<FolderBlock> {
 
   @override
   void initState(){
-    print('init ${widget.index}');
-    widget.folder.files ??= context.read<ImageManager>().getter.getFolderThumbnails(widget.section, widget.index);
-    widget.folder.files!.then((files) {
-      if(files.length <= 4){
-        displayFiles = files;
-      } else {
-        int l = files.length;
-        // 123 = 100
-        //  ?  = 33
-        displayFiles.add(files[0]);
-        displayFiles.add(files[(l*33/100).round()]);
-        displayFiles.add(files[(l*66/100).round()]);
-        displayFiles.add(files[files.length - 1]);
-      }
-      if(mounted) {
-        setState(() {
-          origFiles = files;
-          loaded = true;
-        });
-      }
-    });
+    if(widget.folder.files.length <= 4){
+      displayFiles = widget.folder.files;
+    } else {
+      int l = widget.folder.files.length;
+      // 123 = 100
+      //  ?  = 33
+      displayFiles.add(widget.folder.files[0]);
+      displayFiles.add(widget.folder.files[(l*33/100).round()]);
+      displayFiles.add(widget.folder.files[(l*66/100).round()]);
+      displayFiles.add(widget.folder.files[widget.folder.files.length - 1]);
+    }
+    if(mounted) {
+      setState(() {
+        origFiles = widget.folder.files;
+        loaded = true;
+      });
+    }
   }
 
   @override
@@ -796,8 +792,8 @@ class _FolderBlockState extends State<FolderBlock> {
                           width: constraints.biggest.width / displayFiles.length,
                           top: 0,
                           left: ((constraints.biggest.width / displayFiles.length) * i).toDouble(),
-                          child: Image.memory(
-                            base64Decode(ent.thumbnail!),
+                          child: ent.thumbnail != null ? Image.memory(
+                            ent.thumbnail!,
                             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                               if (wasSynchronouslyLoaded) {
                                 return child;
@@ -812,7 +808,7 @@ class _FolderBlockState extends State<FolderBlock> {
                             },
                             fit: BoxFit.cover,
                             gaplessPlayback: true,
-                          )
+                          ) : Icon(Icons.error)
                         // child: ent.isLocal ? Image.file(
                         //   File(ent.fullPath),
                         //   gaplessPlayback: true,
@@ -925,54 +921,98 @@ class _FloatPreviewState extends State<FloatPreview> {
 
   @override
   Widget build(BuildContext context) {
-    return display != null ? AnimatedAlign(
-      alignment: top && left ? Alignment.bottomLeft : top && !left ? Alignment.bottomRight : !top && left ? Alignment.topLeft : Alignment.topRight,
-      duration: const Duration(milliseconds: 50),
-      curve: Curves.ease,
-      child: AnimatedSizeAndFade(
-        sizeDuration: const Duration(milliseconds: 50),
-        sizeCurve: Curves.linear,
-        child: Container(
-          margin: const EdgeInsets.all(18),
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 80 / 100,
-            maxWidth: MediaQuery.of(context).size.width / 3
-          ),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.5),
-                spreadRadius: 5,
-                blurRadius: 7,
-                offset: const Offset(0, 3), // changes position of shadow
-              ),
-            ],
-          ),
-          child: display!.isLocal ? Image.file(File(display!.fullPath!), gaplessPlayback: true) : CachedNetworkImage(
-            imageUrl: display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!),
-              progressIndicatorBuilder: (context, url, downloadProgress) => Stack(
-                children: [
-                  Image.memory(
-                    base64Decode(display!.thumbnail ?? ''),
-                    filterQuality: FilterQuality.low,
-                    gaplessPlayback: true,
-                  ),
-                  Shimmer.fromColors(
-                      baseColor: Colors.transparent,
-                      highlightColor: Colors.white.withAlpha(90),
-                      child: Image.memory(
-                        base64Decode(display!.thumbnail ?? ''),
-                        filterQuality: FilterQuality.low,
-                        gaplessPlayback: true,
-                      )
-                  ),
-                ],
-              )
-          )
+    String pa = display == null ? '' : display!.fullNetworkPath ?? context
+        .read<ImageManager>()
+        .getter
+        .getFullUrlImage(display!);
+    Widget child;
+    if (display != null) {
+      if (display!.isLocal) {
+        child = Image.file(File(display!.fullPath!), gaplessPlayback: true);
+      } else {
+        if (pa == '') {
+          child = Image.file(File(display!.cacheFilePath!));
+        } else {
+          child = CachedNetworkImage(
+              imageUrl: display!.fullNetworkPath ?? context
+                  .read<ImageManager>()
+                  .getter
+                  .getFullUrlImage(display!),
+              progressIndicatorBuilder: (context, url, downloadProgress) =>
+                  Stack(
+                      children: [
+                        Center(
+                          child: Stack(
+                            children: [
+                              display!.thumbnail != null ? Image.memory(
+                                display!.thumbnail!,
+                                filterQuality: FilterQuality.low,
+                                gaplessPlayback: true,
+                              ) : Icon(Icons.error),
+                              if(display!.thumbnail != null) Shimmer.fromColors(
+                                  baseColor: Colors.transparent,
+                                  highlightColor: Colors.white.withAlpha(90),
+                                  child: Image.memory(
+                                    display!.thumbnail!,
+                                    filterQuality: FilterQuality.low,
+                                    gaplessPlayback: true,
+                                  )
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(padding: EdgeInsets.all(14),
+                            child: LinearProgressIndicator(
+                                value: downloadProgress.progress,
+                                color: Colors.white))
+                      ]
+                  )
+          );
+        }
+      }
+    } else {
+      child = const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
+            Gap(4),
+            Text('Well well well...',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Just hover over the image to see it',
+                style: TextStyle(color: Colors.grey)),
+          ],
         ),
-      )
-    ) : const SizedBox.shrink();
+      );
+    }
+    return AnimatedAlign(
+        alignment: top && left ? Alignment.bottomLeft : top && !left ? Alignment.bottomRight : !top && left ? Alignment.topLeft : Alignment.topRight,
+        duration: const Duration(milliseconds: 50),
+        curve: Curves.ease,
+          child: AnimatedSizeAndFade(
+            sizeDuration: const Duration(milliseconds: 50),
+            sizeCurve: Curves.linear,
+            child: Container(
+              margin: const EdgeInsets.all(18),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 80 / 100,
+                maxWidth: MediaQuery.of(context).size.width / 3
+              ),
+              decoration: BoxDecoration(
+              color: Colors.black,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  spreadRadius: 5,
+                  blurRadius: 7,
+                  offset: const Offset(0, 3), // changes position of shadow
+                ),
+              ],
+            ),
+            child: child
+            )
+          )
+    );
   }
 }
 
@@ -1005,44 +1045,71 @@ class _SidePreviewState extends State<SidePreview> {
 
   @override
   Widget build(BuildContext context) {
-    return display != null ? display!.isLocal ? Image.file(File(display!.fullPath!), gaplessPlayback: true) : CachedNetworkImage(
-      imageUrl: display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!),
-      progressIndicatorBuilder: (context, url, downloadProgress) => Stack(
+    String pa = display == null ? '' : display!.fullNetworkPath ?? context
+        .read<ImageManager>()
+        .getter
+        .getFullUrlImage(display!);
+    Widget child;
+    if (display != null) {
+      if (display!.isLocal) {
+        child = Image.file(File(display!.fullPath!), gaplessPlayback: true);
+      } else {
+        if (pa == '') {
+          child = Image.file(File(display!.cacheFilePath!));
+        } else {
+          child = CachedNetworkImage(
+              imageUrl: display!.fullNetworkPath ?? context
+                  .read<ImageManager>()
+                  .getter
+                  .getFullUrlImage(display!),
+              progressIndicatorBuilder: (context, url, downloadProgress) =>
+                  Stack(
+                      children: [
+                        Center(
+                          child: Stack(
+                            children: [
+                              display!.thumbnail != null ? Image.memory(
+                                display!.thumbnail!,
+                                filterQuality: FilterQuality.low,
+                                gaplessPlayback: true,
+                              ) : Icon(Icons.error),
+                              if(display!.thumbnail != null) Shimmer.fromColors(
+                                  baseColor: Colors.transparent,
+                                  highlightColor: Colors.white.withAlpha(90),
+                                  child: Image.memory(
+                                    display!.thumbnail!,
+                                    filterQuality: FilterQuality.low,
+                                    gaplessPlayback: true,
+                                  )
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(padding: EdgeInsets.all(14),
+                            child: LinearProgressIndicator(
+                                value: downloadProgress.progress,
+                                color: Colors.white))
+                      ]
+                  )
+          );
+        }
+      }
+    } else {
+      child = const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Center(
-              child: Stack(
-                children: [
-                  Image.memory(
-                    base64Decode(display!.thumbnail ?? ''),
-                    filterQuality: FilterQuality.low,
-                    gaplessPlayback: true,
-                  ),
-                  Shimmer.fromColors(
-                      baseColor: Colors.transparent,
-                      highlightColor: Colors.white.withAlpha(90),
-                      child: Image.memory(
-                        base64Decode(display!.thumbnail ?? ''),
-                        filterQuality: FilterQuality.low,
-                        gaplessPlayback: true,
-                      )
-                  ),
-                ],
-              ),
-            ),
-            Padding(padding: EdgeInsets.all(14), child: LinearProgressIndicator(value: downloadProgress.progress, color: Colors.white))
-          ]
-      )
-    ) : const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
-          Gap(4),
-          Text('Well well well...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          Text('Just hover over the image to see it', style: TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
+            Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
+            Gap(4),
+            Text('Well well well...',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Just hover over the image to see it',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+    return child;
   }
 }
 
@@ -1237,7 +1304,7 @@ class PreviewImage extends StatelessWidget {
                 ),
               ],
             ),
-            if(imageMeta.generationParams!.seed != null )MenuItem.submenu(
+            if(imageMeta.generationParams?.seed != null )MenuItem.submenu(
               label: 'View in timeline',
               icon: Icons.view_timeline_outlined,
               items: [
@@ -1400,7 +1467,7 @@ class PreviewImage extends StatelessWidget {
           );
 
           //Rating
-          ContentRating r = imageMeta.generationParams!.contentRating;
+          ContentRating r = imageMeta.generationParams?.rating ?? ContentRating.Unknown;
           Widget ratingBlock = Container(
             margin: const EdgeInsets.only(bottom: 3),
             width: 18,
@@ -1570,11 +1637,24 @@ class ImageWidget extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    return imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image.memory(
-      base64Decode(imageMeta.thumbnail ?? ''),
+    return imageMeta.thumbnail != null ? AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: imageMeta.thumbnail != null ?
+    Image.memory(
+      imageMeta.thumbnail!,
       filterQuality: FilterQuality.low,
       gaplessPlayback: dontBlink,
-    )) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) {
+          return child;
+        } else {
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            child: child,
+          );
+        }
+      },
+    ) : Icon(Icons.error)) : !imageMeta.isLocal && imageMeta.networkThumbnail != null ? CachedNetworkImage(
       imageUrl: imageMeta.networkThumbnail!,
       imageBuilder: (context, imageProvider) {
         return AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));

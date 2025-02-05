@@ -200,7 +200,10 @@ class _CustomAppBarState extends State<CAppBar>{
                                     ),
                                     child: Stack(
                                       children: [
-                                        Image.memory(gaplessPlayback: true, base64Decode(im.thumbnail ?? '')),
+                                        im.thumbnail != null ? Image.memory(
+                                            im.thumbnail!,
+                                            gaplessPlayback: true
+                                        ) : Icon(Icons.error),
                                       ],
                                     )
                                 );

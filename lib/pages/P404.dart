@@ -55,9 +55,14 @@ class _P404State extends State<P404> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Column(children: [
-                      Text('404', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                    ])),
+                    Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Column(
+                            children: [
+                              Text('Not done yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                            ]
+                        )
+                    ),
                   ],
                 )
             )

@@ -275,8 +275,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType ?? CheckpointType.unknown), withGap: false),
-                    InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
+                    if(gp.checkpointType != null) InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType!), withGap: false),
+                    if(gp.checkpoint != null) InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
                     gp.params?['vae'] != null ? InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : '')) : const SizedBox.shrink(),
                     gp.params?['loras'] != null ? Container(
                         margin: const EdgeInsets.only(top: 4),
@@ -388,7 +388,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                               ],
                             )
                         )
-                    ) : InfoBox(one: 'Version', two: gp.version ?? ''),
+                    ) : gp.version != null ? InfoBox(one: 'Version', two: gp.version ?? '') : const SizedBox.shrink(),
+                    // InfoBox(one: 'Has cached image', two: (im.cachedImage != null) ? 'true' : 'false')
                   ],
                 ),
                 const Gap(6),

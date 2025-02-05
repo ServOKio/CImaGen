@@ -148,10 +148,10 @@ class OnLocal extends ChangeNotifier implements AbMain{
         getter: ent.path,
         type: FolderType.path,
         name: p.basename(ent.path),
-        files: Future.delayed(Duration(milliseconds: 1), () async => (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-          fullPath: p.normalize(ent.path),
-          isLocal: true
-        )).toList())
+        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
+            fullPath: p.normalize(ent.path),
+            isLocal: true
+        )).toList()
       ));
       ind++;
     }

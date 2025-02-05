@@ -529,10 +529,10 @@ class _ImageListStateStateful extends State<ImageList>{
                             children: [
                               AspectRatio(
                                 aspectRatio: im.size!.width / im.size!.height,
-                                child: im.isLocal ? Image.memory(
+                                child: im.isLocal ? im.thumbnail != null ? Image.memory(
                                     gaplessPlayback: true,
-                                    base64Decode(im.thumbnail ?? '')
-                                ) : Image.network(im.networkThumbnail!),
+                                    im.thumbnail!
+                                ) : Icon(Icons.error) : Image.network(im.networkThumbnail!),
                               ),
                               Positioned(
                                 bottom: 0,

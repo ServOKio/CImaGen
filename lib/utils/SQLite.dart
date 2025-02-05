@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:cimagen/components/NotesSection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import '../main.dart';
 import '../modules/webUI/AbMain.dart';
 import 'NavigationService.dart';
 import 'package:flutter/foundation.dart' hide Category;
@@ -63,8 +65,7 @@ class SQLite with ChangeNotifier{
             'specific TEXT,'
             'imageParams TEXT,'
             'other TEXT,'
-            'thumbnail TEXT,'
-            'cached_image TEXT'
+            'thumbnail TEXT'
           ')',
         );
 
@@ -137,6 +138,12 @@ class SQLite with ChangeNotifier{
             }
           }
         });
+        int notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.data_saver_off, color: Colors.greenAccent),
+            title: 'Connected to db',
+            description: 'Done'
+        );
+        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
       },
       onCreate: (db, version) async {
       },
@@ -151,11 +158,6 @@ class SQLite with ChangeNotifier{
             batch.rawQuery('ALTER TABLE generation_params ADD vae VARCHAR(128)');
             batch.rawQuery('ALTER TABLE generation_params ADD vaeHash VARCHAR(128)');
             batch.rawQuery('ALTER TABLE generation_params ADD params TEXT');
-            await batch.commit(noResult: true, continueOnError: true);
-            break;
-          case 4:
-            Batch batch = db.batch();
-            batch.rawQuery('ALTER TABLE images ADD cached_image TEXT');
             await batch.commit(noResult: true, continueOnError: true);
             break;
           default:
@@ -352,30 +354,28 @@ class SQLite with ChangeNotifier{
           dateModified: DateTime.parse(d['dateModified'] as String),
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
-          thumbnail: d['thumbnail'] as String,
-          cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
-          generationParams: GenerationParams(
-              positive: d['positive'] as String,
-              negative: d['negative'] as String,
-              steps: d['steps'] as int,
-              sampler: d['sampler'] as String,
-              cfgScale: d['cfgScale'] as double,
-              seed: d['seed'] as int,
-              size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-              checkpointType: CheckpointType.values[d['checkpointType'] as int],
-              checkpoint: d['checkpoint'] as String,
-              checkpointHash: d['checkpointHash'] as String,
-              vae: d['vae'] != null ? d['vae'] as String : null,
-              vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
-              denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
-              rng: d['rng'] != null ? d['rng'] as String : null,
-              hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
-              hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
-              hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
-              version: d['version'] as String,
-              params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
-              rawData: d['rawData']
-          )
+          thumbnail: base64Decode(d['thumbnail'] as String)
+      )..generationParams = GenerationParams(
+          positive: d['positive'] as String,
+          negative: d['negative'] as String,
+          steps: d['steps'] as int,
+          sampler: d['sampler'] as String,
+          cfgScale: d['cfgScale'] as double,
+          seed: d['seed'] as int,
+          size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
+          checkpointType: CheckpointType.values[d['checkpointType'] as int],
+          checkpoint: d['checkpoint'] as String,
+          checkpointHash: d['checkpointHash'] as String,
+          vae: d['vae'] != null ? d['vae'] as String : null,
+          vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
+          denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+          rng: d['rng'] != null ? d['rng'] as String : null,
+          hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+          hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
+          hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+          version: d['version'] as String,
+          params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
+          rawData: d['rawData']
       );
     });
   }
@@ -395,40 +395,45 @@ class SQLite with ChangeNotifier{
           dateModified: DateTime.parse(d['dateModified'] as String),
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String) as Map<String, dynamic>,
-          thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
-          cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
-          generationParams: GenerationParams(
-              positive: d['positive'] as String,
-              negative: d['negative'] as String,
-              steps: d['steps'] as int,
-              sampler: d['sampler'] as String,
-              cfgScale: d['cfgScale'] as double,
-              seed: d['seed'] as int,
-              size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-              checkpointType: CheckpointType.values[d['checkpointType'] as int],
-              checkpoint: d['checkpoint'] as String,
-              checkpointHash: d['checkpointHash'] as String,
-              vae: d['vae'] != null ? d['vae'] as String : null,
-              vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
-              denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
-              rng: d['rng'] != null ? d['rng'] as String : null,
-              hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
-              hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
-              hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
-              version: d['version'] as String,
-              params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
-              rawData: d['rawData']
-          )
+          thumbnail: d['thumbnail'] == null ? null : base64Decode(d['thumbnail'] as String),
+      )..generationParams = GenerationParams(
+          positive: d['positive'] as String,
+          negative: d['negative'] as String,
+          steps: d['steps'] as int,
+          sampler: d['sampler'] as String,
+          cfgScale: d['cfgScale'] as double,
+          seed: d['seed'] as int,
+          size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
+          checkpointType: CheckpointType.values[d['checkpointType'] as int],
+          checkpoint: d['checkpoint'] as String,
+          checkpointHash: d['checkpointHash'] as String,
+          vae: d['vae'] != null ? d['vae'] as String : null,
+          vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
+          denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+          rng: d['rng'] != null ? d['rng'] as String : null,
+          hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+          hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
+          hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+          version: d['version'] as String,
+          params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
+          rawData: d['rawData']
       );
     });
     // SELECT seed, COUNT(seed) as order_count FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY order_count desc
     // SELECT seed FROM images GROUP BY seed HAVING COUNT(seed) > 1 ORDER BY COUNT(seed) desc
   }
 
+  HashMap<String, List<Folder>> foldersCache = HashMap();
+
   Future<List<Folder>> getFolders({String? host}) async{
+    if (kDebugMode) {
+      print('getFolders $host');
+    }
     List<dynamic> args = [];
     if(host != null) args.add(host);
+    if(foldersCache.containsKey(host ?? 'null')) return foldersCache[host ?? 'null']!;
     final List<Map<String, dynamic>> maps = await database.rawQuery('SELECT DATE(dateModified) AS day, count(keyup) as total FROM images where ${host != null ? 'host = ?' : 'host IS NULL'} GROUP BY DATE(dateModified) ORDER BY day', args);
+    print('goto');
     if(maps.length == 1 && maps[0]['day'] == null) return [];
 
     List<Folder> fi = [];
@@ -438,9 +443,13 @@ class SQLite with ChangeNotifier{
         name: d['day'],
         getter: d['day'],
         type: FolderType.byDay,
-        files: null
+        files: []
       ));
     }
+    if (kDebugMode) {
+      print('getFolders ${fi.length}');
+    }
+    foldersCache[host ?? 'null'] = fi;
     return fi;
   }
 
@@ -457,7 +466,7 @@ class SQLite with ChangeNotifier{
       var d = maps[i];
       return FolderFile(
         fullPath: d['fullPath'] as String,
-        thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
+        thumbnail: d['thumbnail'] == null ? null : base64Decode(d['thumbnail'] as String),
         isLocal: host == null,
         host: host
       );
@@ -476,6 +485,7 @@ class SQLite with ChangeNotifier{
     return List.generate(maps.length, (i) => maps[i]['pathHash']);
   }
 
+  // THIS
   T? von<T>(x) => x is T ? x : null;
 
   Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
@@ -501,30 +511,28 @@ class SQLite with ChangeNotifier{
           dateModified: DateTime.parse(d['dateModified'] as String),
           size: ImageSize(width: size[0], height: size[1]),
           specific: jsonDecode(d['specific'] as String),
-          thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
-          cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
-          generationParams: GenerationParams(
-              positive: von<String>(d['positive']),
-              negative: von<String>(d['negative']),
-              steps: von<int>(d['steps']),
-              sampler: von<String>(d['sampler']),
-              cfgScale: von<double>(d['cfgScale']),
-              seed: von<int>(d['seed']),
-              size: d['sizeW'] != null && d['sizeH'] != null ? ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int) : null,
-              checkpointType: CheckpointType.values[d['checkpointType'] != null ? d['checkpointType'] as int : 0],
-              checkpoint: von<String>(d['checkpoint']),
-              checkpointHash: von<String>(d['checkpointHash']),
-              vae: von<String>(d['vae']),
-              vaeHash: von<String>(d['vaeHash']),
-              denoisingStrength: von<double>(d['denoisingStrength']),
-              rng: von<String>(d['rng']),
-              hiresSampler: von<String>(d['hiresSampler']),
-              hiresUpscaler: von<String>(d['hiresUpscaler']),
-              hiresUpscale: von<double>(d['hiresUpscale']),
-              version: von<String>(d['version']),
-              params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
-              rawData: d['rawData']
-          )
+          thumbnail: d['thumbnail'] == null ? null : base64Decode(d['thumbnail'] as String),
+      )..generationParams = GenerationParams(
+          positive: von<String>(d['positive']),
+          negative: von<String>(d['negative']),
+          steps: von<int>(d['steps']),
+          sampler: von<String>(d['sampler']),
+          cfgScale: von<double>(d['cfgScale']),
+          seed: von<int>(d['seed']),
+          size: d['sizeW'] != null && d['sizeH'] != null ? ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int) : null,
+          checkpointType: CheckpointType.values[d['checkpointType'] != null ? d['checkpointType'] as int : 0],
+          checkpoint: von<String>(d['checkpoint']),
+          checkpointHash: von<String>(d['checkpointHash']),
+          vae: von<String>(d['vae']),
+          vaeHash: von<String>(d['vaeHash']),
+          denoisingStrength: von<double>(d['denoisingStrength']),
+          rng: von<String>(d['rng']),
+          hiresSampler: von<String>(d['hiresSampler']),
+          hiresUpscaler: von<String>(d['hiresUpscaler']),
+          hiresUpscale: von<double>(d['hiresUpscale']),
+          version: von<String>(d['version']),
+          params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
+          rawData: d['rawData']
       );
     });
     if (kDebugMode) {
@@ -561,30 +569,28 @@ class SQLite with ChangeNotifier{
         dateModified: DateTime.parse(d['dateModified'] as String),
         size: ImageSize(width: size[0], height: size[1]),
         specific: jsonDecode(d['specific'] as String),
-        thumbnail: d['thumbnail'] == null ? null : d['thumbnail'] as String,
-        cachedImage: d['cached_image'] != null ? d['cached_image'] as String : null,
-        generationParams: GenerationParams(
-            positive: d['positive'] as String,
-            negative: d['negative'] as String,
-            steps: d['steps'] as int,
-            sampler: d['sampler'] as String,
-            cfgScale: d['cfgScale'] as double,
-            seed: d['seed'] as int,
-            size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
-            checkpointType: CheckpointType.values[d['checkpointType'] as int],
-            checkpoint: d['checkpoint'] as String,
-            checkpointHash: d['checkpointHash'] as String,
-            vae: d['vae'] != null ? d['vae'] as String : null,
-            vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
-            denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
-            rng: d['rng'] != null ? d['rng'] as String : null,
-            hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
-            hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
-            hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
-            version: d['version'] as String,
-            params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
-            rawData: d['rawData']
-        )
+        thumbnail: d['thumbnail'] == null ? null : base64Decode(d['thumbnail'] as String),
+      )..generationParams = GenerationParams(
+          positive: d['positive'] as String,
+          negative: d['negative'] as String,
+          steps: d['steps'] as int,
+          sampler: d['sampler'] as String,
+          cfgScale: d['cfgScale'] as double,
+          seed: d['seed'] as int,
+          size: ImageSize(width: d['sizeW'] as int, height: d['sizeH'] as int),
+          checkpointType: CheckpointType.values[d['checkpointType'] as int],
+          checkpoint: d['checkpoint'] as String,
+          checkpointHash: d['checkpointHash'] as String,
+          vae: d['vae'] != null ? d['vae'] as String : null,
+          vaeHash: d['vaeHash'] != null ? d['vaeHash'] as String : null,
+          denoisingStrength: d['denoisingStrength'] != null ? d['denoisingStrength'] as double : null,
+          rng: d['rng'] != null ? d['rng'] as String : null,
+          hiresSampler: d['hiresSampler'] != null ? d['hiresSampler'] as String : null,
+          hiresUpscaler: d['hiresUpscaler'] != null ? d['hiresUpscaler'] as String : null,
+          hiresUpscale: d['hiresUpscale'] != null ? d['hiresUpscale'] as double : null,
+          version: d['version'] as String,
+          params: d['params'] != null ? jsonDecode(d['params'] as String) : null,
+          rawData: d['rawData']
       );
     });
     if (kDebugMode) {
@@ -649,7 +655,7 @@ class SQLite with ChangeNotifier{
         'parent': path.basename(File(pa).parent.path),
         'fileName': path.basename(pa)
       };
-      if(host != null) values[host] = host;
+      if(host != null) values['host'] = host;
       constDatabase.insert(
         'favorites',
         values,
@@ -659,7 +665,7 @@ class SQLite with ChangeNotifier{
       constDatabase.delete(
         'favorites',
         where: 'pathHash = ? AND host ${host == null ? 'IS NULL' : '= ?'}',
-        whereArgs: host != null ? [ph] : null
+        whereArgs: host != null ? [ph, host] : [ph]
       );
     }
   }
@@ -758,11 +764,12 @@ class SQLite with ChangeNotifier{
 
   // System
   Future<Map<String, int>> getTablesInfo({String? host}) async {
-    List<dynamic> args = host == null ? [] : List<String>.generate(12, (index) => host);
+    List<dynamic> args = host == null ? [] : List<String>.generate(13, (index) => host);
     String q = 'SELECT'
         '(SELECT COUNT(keyup) FROM images WHERE host ${host != null ? '= ?' : 'IS NULL'}) as totalImages,'
         '(SELECT COUNT(keyup) FROM generation_params WHERE host ${host != null ? '= ?' : 'IS NULL'}) as totalImagesWithMetadata,'
         '(SELECT COUNT(keyup) FROM images WHERE type = 1 AND host ${host != null ? '= ?' : 'IS NULL'}) as txt2imgCount,'
+        '(SELECT SUM(filesize) FROM images WHERE type = 0 AND host ${host != null ? '= ?' : 'IS NULL'}) as unknownSumSize,'
         '(SELECT SUM(filesize) FROM images WHERE type = 1 AND host ${host != null ? '= ?' : 'IS NULL'}) as txt2imgSumSize,'
         '(SELECT COUNT(keyup) FROM images WHERE type = 2 AND host ${host != null ? '= ?' : 'IS NULL'}) as img2imgCount,'
         '(SELECT SUM(filesize) FROM images WHERE type = 2 AND host ${host != null ? '= ?' : 'IS NULL'}) as img2imgSumSize,'
@@ -780,36 +787,51 @@ class SQLite with ChangeNotifier{
 
   // System
   Future<void> fixDB() async {
+    print('start fix');
     List<Map<String, dynamic>> maps = await database.query(
-        'images',
-        columns: ['fullPath', 'keyup']
+      'images',
+      columns: ['fullPath', 'keyup', 'cached_image'],
+      where: 'host = ?',
+      whereArgs: ['web'],
+      limit: 10
     );
     Batch batch = database.batch();
-    if (kDebugMode) print('fixDB: Updating ${maps.length} records...');
+    if (kDebugMode) print('fixDB: Checking ${maps.length} images...');
     for (var record in maps) {
-      batch.update('images', {
-        'pathHash': genPathHash(normalizePath(record['fullPath']))
-      }, where: 'keyup = ?', whereArgs: [record['keyup']]);
+      // batch.update('images', {
+      //   'pathHash': genPathHash(normalizePath(record['fullPath']))
+      // }, where: 'keyup = ?', whereArgs: [record['keyup']]);
     }
     await batch.commit(noResult: false, continueOnError: false);
 
-    maps = await database.query(
-        'generation_params',
-        columns: ['rawData', 'keyup'],
-        where: 'params IS NULL AND rawData IS NOT NULL'
-    );
-    batch = database.batch();
-    if (kDebugMode) print('fixDB: Updating ${maps.length} records...');
-    for (var record in maps) {
-      GenerationParams? gp = parseSDParameters(record['rawData']);
-      if(gp != null && gp.params != null) {
-        batch.update('generation_params', {
-        'params': jsonEncode(gp.params)
-      }, where: 'keyup = ?', whereArgs: [record['keyup']]);
-      }
+    if (kDebugMode) print('fixDB: Done');
+  }
+
+  Future<void> testDB() async {
+    print('start test');
+
+    // Query<ImageMeta> query = objectbox.imageMetaBox.query(ImageMeta_.host.equals('web')).order(ImageMeta_.dateModified).build();
+    // Map<String, List<ImageMeta>> folders = groupBy(query.find(), (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
+    // print(folders.keys);
+    // query.close();
+
+    // Database is big as fuck, so, gettings folderd...
+    // List<Folder> folders = await getFolders(host: 'web');
+    // for(Folder f in folders){
+    //   List<ImageMeta> images = await getImagesByDay(f.name, host: 'web');
+    //   for(ImageMeta im in images){
+    //     // Rebuild im
+    //     if(!(im.generationParams!.rawData != null || im.generationParams!.params != null)){
+    //       im.generationParams = null;
+    //     }
+    //   }
+    //   List<int>? res = await objectbox.imageMetaBox.putManyAsync(images);
+    //   print(res);
+    // }
+
+    if (kDebugMode) {
+      print('testDB: Done');
     }
-    if (kDebugMode) print('fixDB: Done parsing ${maps.length} records, updating...');
-    await batch.commit(noResult: false, continueOnError: false);
   }
 }
 
@@ -862,7 +884,7 @@ class Job{
   final JobType type;
   final dynamic obj;
 
-  Job({
+  const Job({
     required this.to,
     required this.type,
     required this.obj

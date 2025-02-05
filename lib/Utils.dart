@@ -1,10 +1,8 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
@@ -16,14 +14,12 @@ import 'package:ffi/ffi.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:objectbox/objectbox.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:win32/win32.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'package:path/path.dart' as p;
-
-import 'components/PromptAnalyzer.dart';
-import 'main.dart';
 
 String getUserName() {
   const usernameLength = 256;
@@ -214,29 +210,36 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
     //  Hires upscale: 1.5,
     //  Hires upscaler: 4x_foolhardy_Remacri,
     //  Version: v1.10.1
+    if(gp.keys.isEmpty) return null;
+    GenerationParams gpF;
+    try{
+      gpF = GenerationParams(
+          positive: positivePromt,
+          negative: negativePromt,
+          steps: int.parse(gp['steps'] as String),
+          sampler: gp['sampler'] as String,
+          cfgScale: double.parse(gp['cfg_scale'] as String),
+          seed: int.parse(gp['seed'] as String),
+          size: sizeFromString(gp['size'] as String),
+          checkpointType: isRefiner ? CheckpointType.refiner : isUNET ? CheckpointType.unet : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
+          checkpoint: model != null ? model as String : null,
+          checkpointHash: gp['model_hash'] != null ? gp['model_hash'] as String : null,
+          vae: gp['vae'] != null ? gp['vae'] as String : null,
+          vaeHash: gp['vae_hash'] != null ? gp['vae_hash'] as String : null,
+          denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
+          rng: gp['rng'] != null ? gp['rng'] as String : null,
+          hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
+          hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
+          hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
+          version: gp['version']  != null ? gp['version'] as String : null,
+          params: gp,
+          rawData: rawData
+      );
+    } on Exception catch(e){
+      print(jsonEncode(gp));
+      throw Exception(e);
+    }
 
-    GenerationParams gpF = GenerationParams(
-        positive: positivePromt,
-        negative: negativePromt,
-        steps: int.parse(gp['steps'] as String),
-        sampler: gp['sampler'] as String,
-        cfgScale: double.parse(gp['cfg_scale'] as String),
-        seed: int.parse(gp['seed'] as String),
-        size: sizeFromString(gp['size'] as String),
-        checkpointType: isRefiner ? CheckpointType.refiner : isUNET ? CheckpointType.unet : gp['model'] != null ? CheckpointType.model : CheckpointType.unknown,
-        checkpoint: model != null ? model as String : null,
-        checkpointHash: gp['model_hash'] != null ? gp['model_hash'] as String : null,
-        vae: gp['vae'] != null ? gp['vae'] as String : null,
-        vaeHash: gp['vae_hash'] != null ? gp['vae_hash'] as String : null,
-        denoisingStrength: gp['denoising_strength'] != null ? double.parse(gp['denoising_strength'] as String) : null,
-        rng: gp['rng'] != null ? gp['rng'] as String : null,
-        hiresSampler: gp['hires_sampler'] != null ? gp['hires_sampler'] as String : null,
-        hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
-        hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
-        version: gp['version']  != null ? gp['version'] as String : null,
-        params: gp,
-        rawData: rawData
-    );
     return gpF;
   } catch(e, s){
     print(e);
@@ -578,15 +581,47 @@ void loraStack(List<String> fi, dynamic node, dynamic data){
 // Hires upscaler: Latent,
 // TI hashes: "deformityv6: 8455ec9b3d31, easynegative: c74b4e810b03",
 // Version: 1.7.0
+@Entity()
 class GenerationParams {
+  int id;
   final String? positive;
   final String? negative;
   final int? steps;
   final String? sampler;
   final double? cfgScale;
   final int? seed;
-  final ImageSize? size;
-  final CheckpointType? checkpointType;
+
+  @Transient()
+  ImageSize? size;
+  List<int>? get dbSize {
+    return size != null ? [
+      size!.width,
+      size!.height
+    ] : null;
+  }
+  set dbSize(List<int>? value) {
+    size = value != null && value.length == 2 ? ImageSize(width: value[0], height: value[1]) : null;
+  }
+
+  @Transient()
+  CheckpointType? checkpointType;
+  int get dbCheckpointType {
+    _ensureCheckpointTypeEnumValues();
+    return checkpointType != null ? checkpointType!.index : 0;
+  }
+  set dbCheckpointType(int value) {
+    _ensureCheckpointTypeEnumValues();
+    checkpointType = value >= 0 && value < CheckpointType.values.length ? CheckpointType.values[value] : CheckpointType.unknown;
+  }
+
+  void _ensureCheckpointTypeEnumValues() {
+    assert(CheckpointType.unknown.index == 0);
+    assert(CheckpointType.model.index == 1);
+    assert(CheckpointType.refiner.index == 2);
+    assert(CheckpointType.inpaint.index == 3);
+    assert(CheckpointType.unet.index == 4);
+  }
+
   final String? checkpoint;
   final String? checkpointHash;
   final String? vae;
@@ -596,13 +631,59 @@ class GenerationParams {
   final String? hiresSampler;
   final String? hiresUpscaler;
   final double? hiresUpscale;
-  final Map<String, String>? tiHashes;
+
+  @Transient()
+  Map<String, String>? tiHashes;
+  String get dbTiHashes {
+    return tiHashes != null ? jsonEncode(tiHashes) : '{}';
+  }
+  set dbTiHashes(String value) {
+    try{
+      tiHashes = json.decode(value);
+    } catch (e) {
+      tiHashes = null;
+    }
+  }
+
   final String? version;
   final String? rawData;
-  ContentRating contentRating = ContentRating.G;
-  final Map<String, dynamic>? params;
+
+  @Transient()
+  ContentRating rating = ContentRating.G;
+  int get dbRating {
+    _ensureRatingEnumValues();
+    return rating.index;
+  }
+  set dbRating(int value) {
+    _ensureRatingEnumValues();
+    rating = value >= 0 && value < ContentRating.values.length ? ContentRating.values[value] : ContentRating.Unknown;
+  }
+  void _ensureRatingEnumValues() {
+    assert(ContentRating.Unknown.index == 0);
+    assert(ContentRating.G.index == 1);
+    assert(ContentRating.PG.index == 2);
+    assert(ContentRating.PG_13.index == 3);
+    assert(ContentRating.R.index == 4);
+    assert(ContentRating.NC_17.index == 5);
+    assert(ContentRating.X.index == 6);
+    assert(ContentRating.XXX.index == 7);
+  }
+
+  @Transient()
+  Map<String, dynamic>? params;
+  String get dbParams {
+    return params != null ? jsonEncode(params) : '{}';
+  }
+  set dbParams(String value) {
+    try{
+      params = json.decode(value);
+    } catch (e) {
+      params = null;
+    }
+  }
 
   GenerationParams({
+    this.id = 0,
     this.positive,
     this.negative,
     this.steps,
@@ -625,7 +706,7 @@ class GenerationParams {
     this.rawData,
     this.params
   }){
-    if(positive != null) contentRating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
+    if(positive != null) rating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
     // if(rawData != null){
     //   GenerationParams? p = parseSDParameters(rawData!, onlyParams: true);
     //   if(p != null){

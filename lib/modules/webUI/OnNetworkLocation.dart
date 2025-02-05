@@ -230,10 +230,10 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         getter: ent.path,
         type: FolderType.path,
         name: p.basename(ent.path),
-        files: Future.delayed(Duration(milliseconds: 1), () async => (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
-          fullPath: normalizePath(ent.path),
-          isLocal: true
-        )).toList())
+        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
+            fullPath: normalizePath(ent.path),
+            isLocal: true
+        )).toList()
       ));
       ind++;
     }
@@ -285,14 +285,14 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
                 't': file['date']
               }
           );
-          folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, thumbnail: thumb.toString()));
+          folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, networkThumbnail: thumb.toString()));
         }
         list.add(Folder(
             index: i,
             getter: f['fullpath'],
             type: FolderType.path,
             name: f['name'],
-            files: Future.delayed(Duration(milliseconds: 1), () => folderFiles)
+            files: folderFiles
         ));
         i++;
       }

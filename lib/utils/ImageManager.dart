@@ -16,6 +16,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
+import 'package:objectbox/objectbox.dart';
 import 'package:xml/xml.dart';
 
 import '../Utils.dart';
@@ -129,7 +130,7 @@ class ImageManager extends ChangeNotifier {
         ImageMeta? value = await parseImage(re, imagePath);
         updateLastJob(imagePath);
         if(value != null) {
-          NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
+          objectbox.updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
           if(_useLastAsTest){
             Future.delayed(const Duration(milliseconds: 1000), () {
               DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
@@ -261,7 +262,7 @@ class ParseJob {
           if(value != null){
             _done.add(value);
             _controller.add(finished);
-            NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+            objectbox.updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
               _doneTotal++;
               _isDone();
             }).catchError((onError){
@@ -295,7 +296,7 @@ class ParseJob {
               _done.add(im);
               if(!_controller.isClosed) _controller.add(finished);
               okay = true;
-              NavigationService.navigatorKey.currentContext?.read<SQLite>().updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+              objectbox.updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
                 _doneTotal++;
                 _isDone();
               });
@@ -537,15 +538,33 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
           }
         } else if(pngEx['prompt'] != null){
           if(await isJson(pngEx['prompt'] as String)){
+            var data = jsonDecode(pngEx['prompt'] as String);
             if(pngEx['generation_data'] == null){
-              re = RenderEngine.comfUI;
-              List<dynamic> nodesList = parseComfUIParameters(pngEx['prompt']);
-              if(nodesList.isNotEmpty) specific['comfUINodes'] = nodesList;
+              if(data['request_type'] == null){
+                re = RenderEngine.comfUI;
+                List<dynamic> nodesList = parseComfUIParameters(pngEx['prompt']);
+                if(nodesList.isNotEmpty) specific['comfUINodes'] = nodesList;
+              } else {
+                // Какая-то хуйня
+                re = RenderEngine.txt2img;
+                gp = GenerationParams(
+                    positive: data['prompt'] as String,
+                    negative: data['uc'] as String,
+                    steps: data['steps'] as int,
+                    sampler: data['sampler'] as String,
+                    cfgScale: double.parse(data['cfg_rescale'].toString()),
+                    seed: data['seed'],
+                    size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
+                    rawData: jsonEncode(data),
+                    params: data
+                );
+              }
             } else {
               pngEx['softwareType'] = Software.tensorArt;
               if(await isJson(pngEx['generation_data'])){
                 var data = jsonDecode(pngEx['generation_data']);
                 String modelType = data['baseModel']['type'] as String;
+                re = RenderEngine.txt2img;
                 gp = GenerationParams(
                     positive: data['prompt'] as String,
                     negative: data['negativePrompt'] as String,
@@ -557,7 +576,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
                     checkpointType: modelType == 'BASE_MODEL' ? CheckpointType.model : CheckpointType.unknown,
                     checkpoint: data['baseModel']['modelFileName'] as String,
                     checkpointHash: data['baseModel']['hash'] as String,
-                    version: data['workEngine'] as String,
+                    version: data['workEngine'] != null ? data['workEngine'] as String : null,
                     rawData: jsonEncode(data),
                     params: data
                 );
@@ -588,53 +607,55 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
             pngEx['softwareType'] = Software.topazPhotoAI;
           } else if(pngEx['software'] == 'NovelAI'){
             pngEx['softwareType'] = Software.novelAI;
-            if(await isJson(pngEx['comment'] as String)){
+            if(pngEx['comment'] != null && await isJson(pngEx['comment'])){
               final data = jsonDecode(pngEx['comment']);
-              // {
-              //   "prompt": "protogen",
-              //   "steps": 28,
-              //   "height": 1024,
-              //   "width": 1024,
-              //   "scale": 6.2,
-              //   "uncond_scale": 1,
-              //   "cfg_rescale": 0,
-              //   "seed": 1354345381,
-              //   "n_samples": 1,
-              //   "hide_debug_overlay": false,
-              //   "noise_schedule": "native",
-              //   "legacy_v3_extend": false,
-              //   "reference_information_extracted_multiple": [],
-              //   "reference_strength_multiple": [],
-              //   "sampler": "k_euler_ancestral",
-              //   "controlnet_strength": 1,
-              //   "controlnet_model": null,
-              //   "dynamic_thresholding": false,
-              //   "dynamic_thresholding_percentile": 0.999,
-              //   "dynamic_thresholding_mimic_scale": 10,
-              //   "sm": false,
-              //   "sm_dyn": false,
-              //   "skip_cfg_below_sigma": 0,
-              //   "lora_unet_weights": null,
-              //   "lora_clip_weights": null,
-              //   "uc": "high contrast",
-              //   "request_type": "PromptGenerateRequest",
-              //   "signed_hash": "wOTyzWt95rON2w43sVLPfXYBJuBf3EeD3AYdxDtYfDXKYKvcBqi9huWsBPy/DMgrVRZZY304fSkiMR70235MBg=="
-              // }
-              gp = GenerationParams(
-                  positive: data['prompt'] != null ? data['prompt'] as String : pngEx['description'],
-                  negative: data['uc'] != null ? data['uc'] as String : null,
-                  steps: data['steps'] as int,
-                  sampler: data['sampler'] as String,
-                  cfgScale: data['cfg_rescale'] != null ? data['cfg_rescale'] as double : null,
-                  seed: data['seed'] as int,
-                  size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
-                  checkpointType: pngEx['source'] != null ? pngEx['source'].startsWith('Stable Diffusion') ? CheckpointType.model : CheckpointType.unknown : CheckpointType.unknown,
-                  checkpoint: pngEx['source'],
-                  checkpointHash: null,
-                  version: null,
-                  rawData: jsonEncode(data),
-                  params: data
-              );
+              if(data['req_type'] != 'lineart'){
+                // {
+                //   "prompt": "protogen",
+                //   "steps": 28,
+                //   "height": 1024,
+                //   "width": 1024,
+                //   "scale": 6.2,
+                //   "uncond_scale": 1,
+                //   "cfg_rescale": 0,
+                //   "seed": 1354345381,
+                //   "n_samples": 1,
+                //   "hide_debug_overlay": false,
+                //   "noise_schedule": "native",
+                //   "legacy_v3_extend": false,
+                //   "reference_information_extracted_multiple": [],
+                //   "reference_strength_multiple": [],
+                //   "sampler": "k_euler_ancestral",
+                //   "controlnet_strength": 1,
+                //   "controlnet_model": null,
+                //   "dynamic_thresholding": false,
+                //   "dynamic_thresholding_percentile": 0.999,
+                //   "dynamic_thresholding_mimic_scale": 10,
+                //   "sm": false,
+                //   "sm_dyn": false,
+                //   "skip_cfg_below_sigma": 0,
+                //   "lora_unet_weights": null,
+                //   "lora_clip_weights": null,
+                //   "uc": "high contrast",
+                //   "request_type": "PromptGenerateRequest",
+                //   "signed_hash": "wOTyzWt95rON2w43sVLPfXYBJuBf3EeD3AYdxDtYfDXKYKvcBqi9huWsBPy/DMgrVRZZY304fSkiMR70235MBg=="
+                // }
+                gp = GenerationParams(
+                    positive: data['prompt'] != null ? data['prompt'] as String : pngEx['description'],
+                    negative: data['uc'] != null ? data['uc'] as String : null,
+                    steps: data['steps'] as int,
+                    sampler: data['sampler'] as String,
+                    cfgScale: data['cfg_rescale'] != null ? data['cfg_rescale'] as double : null,
+                    seed: data['seed'] as int,
+                    size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
+                    checkpointType: pngEx['source'] != null ? pngEx['source'].startsWith('Stable Diffusion') ? CheckpointType.model : CheckpointType.unknown : CheckpointType.unknown,
+                    checkpoint: pngEx['source'],
+                    checkpointHash: null,
+                    version: null,
+                    rawData: jsonEncode(data),
+                    params: data
+                );
+              }
             }
           } else if(pngEx['software'] == 'Adobe ImageReady') {
             pngEx['softwareType'] = Software.adobeImageReady;
@@ -679,9 +700,9 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         dateModified: creationDate ?? fileStat.modified,
         size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : const ImageSize(width: 500, height: 500),
         specific: specific,
-        generationParams: gp,
         other: pngEx
     );
+    i.generationParams = gp;
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
     // print(text);
@@ -858,9 +879,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         dateModified: fileStat.changed,
         size: error == null ? ImageSize(width: originalImage!.width, height: originalImage.height) : const ImageSize(width: 500, height: 500),
         specific: specific,
-        generationParams: gp,
         other: jpgEx
-    );
+    )..generationParams = gp;
     if(error == null ) await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if(['webp'].contains(e)) {
@@ -965,9 +985,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         dateModified: fileStat.modified,
         size: ImageSize(width: originalImage.width, height: originalImage.height),
         specific: specific,
-        generationParams: gp,
         other: webpEx
-    );
+    )..generationParams = gp;
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if('gif' == e) {
@@ -986,9 +1005,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         dateModified: fileStat.modified,
         size: ImageSize(width: originalImage.width, height: originalImage.height),
         specific: specific,
-        generationParams: gp,
         other: gifEx
-    );
+    )..generationParams = gp;
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else if('vnd.adobe.photoshop' == e) {
@@ -1008,9 +1026,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         dateModified: fileStat.modified,
         size: ImageSize(width: originalImage!.width, height: originalImage.height),
         specific: specific,
-        generationParams: gp,
         other: psdEx
-    );
+    )..generationParams = gp;
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
   } else {
@@ -1288,38 +1305,122 @@ String getCompression(int type){
 final DateFormat dateFormatter = DateFormat('yyyy-MM-dd HH:mm:ss.mmm');
 RegExp dateRegex = RegExp(r"[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 
+@Entity()
 class ImageMeta {
+  int id;
   // Main
+  @Index()
   String keyup = '';
   //Network
+  @Transient()
   bool get isLocal => host == null;
   String? host;
   // Other
+  @Transient()
   String? error;
+
+  @Transient()
   RenderEngine re;
+
+  int get dbRe {
+    _ensureReEnumValues();
+    return re.index;
+  }
+  set dbRe(int value) {
+    _ensureReEnumValues();
+    re = value >= 0 && value < RenderEngine.values.length ? RenderEngine.values[value] : RenderEngine.unknown;
+  }
+  void _ensureReEnumValues() {
+    assert(RenderEngine.unknown.index == 0);
+    assert(RenderEngine.txt2img.index == 1);
+    assert(RenderEngine.img2img.index == 2);
+    assert(RenderEngine.inpaint.index == 3);
+    assert(RenderEngine.txt2imgGrid.index == 4);
+    assert(RenderEngine.img2imgGrid.index == 5);
+    assert(RenderEngine.extra.index == 6);
+    assert(RenderEngine.comfUI.index == 7);
+    assert(RenderEngine.characterCard.index == 8);
+  }
+
   String? mine;
   final String fileTypeExtension;
+  @Property(type: PropertyType.date)
+  @Index(type: IndexType.value)
   DateTime? dateModified;
   int? fileSize;
   String fileName = '';
+
+  @Transient()
   ImageSize? size;
+  List<int>? get dbSize {
+    return size != null ? [
+      size!.width,
+      size!.height
+    ] : null;
+  }
+  set dbSize(List<int>? value) {
+    size = value != null && value.length == 2 ? ImageSize(width: value[0], height: value[1]) : null;
+  }
+
   String pathHash = '';
   String? fullPath;
   String? fullNetworkPath;
   String? tempFilePath;
-  GenerationParams? generationParams;
-  String? thumbnail;
-  String? cachedImage;
+  String? cacheFilePath;
+
+  // @Transient()
+  // GenerationParams? generationParams;
+  final dbGenerationParams = ToOne<GenerationParams>();
+  @Transient()
+  GenerationParams? get generationParams {
+    return dbGenerationParams.target;
+  }
+  @Transient()
+  set generationParams(GenerationParams? value) {
+    dbGenerationParams.target = value;
+  }
+
+  @Transient()
+  Uint8List? thumbnail;
+  String? get dbThumbnail {
+    return thumbnail != null ? base64Encode(thumbnail!) : null;
+  }
+  set dbThumbnail(String? value) {
+    thumbnail = value != null ? base64Decode(value) : null;
+  }
+
   String? networkThumbnail;
+
+  @Transient()
   Map<String, dynamic>? other = {};
+  String get dbOther {
+    return other != null ? jsonEncode(other) : '{}';
+  }
+  set dbOther(String value) {
+    try{
+      other = json.decode(value);
+    } catch (e) {
+      other = null;
+    }
+  }
+
+  @Transient()
   Map<String, dynamic>? specific = {};
-  bool isNSFW = false;
-  ContentRating rating = ContentRating.G;
+  String get dbSpecific {
+    return specific != null ? jsonEncode(specific) : '{}';
+  }
+  set dbSpecific(String value) {
+    try{
+      specific = json.decode(value);
+    } catch (e) {
+      specific = null;
+    }
+  }
 
   ImageMeta({
     this.error,
     this.host,
-    required this.re,
+    this.re = RenderEngine.unknown,
     this.mine,
     required this.fileTypeExtension,
     this.fileSize,
@@ -1328,11 +1429,10 @@ class ImageMeta {
     this.specific,
     this.fullPath,
     this.fullNetworkPath,
-    this.generationParams,
     this.thumbnail,
-    this.cachedImage,
     this.networkThumbnail,
     this.other,
+    this.id = 0
   }){
     if(fullPath != null){
       final String parentFolder = p.basename(File(fullPath!).parent.path);
@@ -1398,8 +1498,7 @@ class ImageMeta {
       'size': size.toString(),
       'specific': jsonEncode(specific),
       // 'generationParams': generationParams != null ? forSQL ? jsonEncode(generationParams?.toMap()) : generationParams?.toMap() : null, // Нахуй не нужно оно мне в базе
-      'thumbnail': thumbnail,
-      'cached_image': cachedImage,
+      'thumbnail': thumbnail != null ? base64Encode(thumbnail!) : null,
       'other': jsonEncode(other)
     };
   }
@@ -1414,7 +1513,7 @@ class ImageMeta {
   }
 
   Future<void> makeImage({Uint8List? fileBytes, bool makeThumbnail = true, bool makeCacheImage = false}) async {
-    if((makeThumbnail && thumbnail == null) || (makeCacheImage && cachedImage == null)){
+    if((makeThumbnail && thumbnail == null) || (makeCacheImage)){
       String? uri = isLocal ? fullPath : tempFilePath;
       if(uri == null) return;
       img.Image? data;
@@ -1439,23 +1538,25 @@ class ImageMeta {
       }
       bool hasAnim = specific != null && (specific!['hasAnimation'] ?? false);
       if(makeThumbnail && thumbnail == null) {
-        thumbnail = data != null ? base64Encode(
-          hasAnim ?
-            await compute(img.encodePng, img.copyResize(data, width: 256)) :
-            await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 50})
-        ) : null;
+        thumbnail = data != null ? hasAnim ?
+          await compute(img.encodePng, img.copyResize(data, width: 256)) :
+          await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 50}) : null;
       }
-      if(makeCacheImage && cachedImage == null) {
-        cachedImage = data != null ? base64Encode(
+      if(makeCacheImage && data != null) {
+        String cacheFolder = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+        Uint8List cachedImage = (
           hasAnim ?
             await compute(img.encodePng, data) :
             await compute(_encodeJpg, {'data': data, 'quality': 80})
-        ) : null;
+        );
+        File(p.join(cacheFolder, '${host ?? 'unknown'}_$keyup.$fileTypeExtension}')).writeAsBytes(cachedImage).then((file){
+
+        });
       }
     }
   }
 
-  Future<Uint8List> _encodeJpg(map) async => img.encodeJpg(img.copyResize(map['data'], width: 256), quality: map['quality']);
+  Future<Uint8List> _encodeJpg(map) async => img.encodeJpg(map['data'], quality: map['quality']);
 
   Future<void> parseNetworkImage({bool makeCachedImage = false}) async {
     if(!isLocal && fullNetworkPath != null){
@@ -1493,7 +1594,6 @@ class ImageMeta {
           mine = im.mine;
           re = im.re;
           thumbnail ??= im.thumbnail;
-          cachedImage ??= im.cachedImage;
           final String parentFolder = p.basename(File(fullPath ?? tempFilePath ?? '').parent.path);
           keyup = genHash(re, parentFolder, fileName, host: host);
           // Try right date
@@ -1701,6 +1801,7 @@ String humanizeSamplerName(String name, {bool showOriginal = true}){ // https://
     'euler_a': 'Euler A',
     'euler_ancestral': 'Euler A',
     'k_euler_a': 'Euler A Karras',
+    'k_euler_ancestral': 'Euler A Karras',
     'heun': 'Heun',
     'heunpp2': 'Heun++2',
     'dpm_2': 'DPM 2',
@@ -1746,14 +1847,17 @@ class ImageSize {
     return '${width}x$height';
   }
 
+  @Transient()
   int totalPixels(){
     return width*height;
   }
 
+  @Transient()
   double aspectRatio(){
     return width / height;
   }
 
+  @Transient()
   String withMultiply(double hiresUpscale) {
     return '${(width * hiresUpscale).round()}x${(height * hiresUpscale).round()}';
   }

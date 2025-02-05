@@ -384,7 +384,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               getter: f['fullpath'],
               type: FolderType.path,
               name: f['name'],
-              files: Future.delayed(Duration(milliseconds: 1), () => folderFiles)
+              files: folderFiles
           ));
           i++;
         }
@@ -476,14 +476,14 @@ class OnRemote extends ChangeNotifier implements AbMain{
                   port: parse.port,
                   path: '/View/local/$folderPath/${file['src']}'
               );
-              folderFiles.add(FolderFile(fullPath: full.toString(), isLocal: false, thumbnail: thumb.toString()));
+              folderFiles.add(FolderFile(fullPath: full.toString(), isLocal: false, networkThumbnail: thumb.toString()));
             }
             list.add(Folder(
                 index: i,
                 getter: folderPath,
                 type: FolderType.path,
                 name: folderPath,
-                files: Future.delayed(Duration(milliseconds: 1), () => folderFiles)
+                files: folderFiles
             ));
           } on Exception catch(e){
             int notID = notificationManager!.show(

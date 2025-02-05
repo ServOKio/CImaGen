@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cimagen/Utils.dart';
-import 'package:cimagen/components/GalleryImageFullView.dart';
+import 'package:cimagen/components/GalleryImageMiniView.dart';
 import 'package:cimagen/components/ImageInfo.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
@@ -299,15 +299,13 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
     return CarouselSlider.builder(
       itemCount: widget.images.length,
       carouselController: carouselController,
-      itemBuilder: (ctx, index, realIdx) {
-        return GalleryImageFullView(
-          imageMeta: widget.images[index],
-          onImageTap: () {
-            carouselController.jumpToPage(index);
-            _pageController.jumpToPage(index);
-          }
-        );
-      },
+      itemBuilder: (ctx, index, realIdx) => GalleryImageMiniView(
+        imageMeta: widget.images[index],
+        onImageTap: () {
+          carouselController.jumpToPage(index);
+          _pageController.jumpToPage(index);
+        }
+      ),
       options: CarouselOptions(
         aspectRatio: 1/1,
         enableInfiniteScroll: false,
@@ -334,22 +332,20 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
         ImageMeta im = widget.images[index];
         ImageProvider? provider;
         if(!im.isLocal){
-          provider = NetworkImage(im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im));
+          String net = im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im);
+          provider = net == '' ? FileImage(File(im.cacheFilePath ?? '')) : NetworkImage(im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im));
         } else {
-          provider = FileImage(File(im.fullPath!));
+          provider = FileImage(File(im.fullPath ?? im.cacheFilePath ?? ''));
         }
         return PhotoViewGalleryPageOptions(
           scaleStateController: scaleStateController,
           imageProvider: provider,
           errorBuilder: (context, error, stackTrace) {
-            return im.cachedImage != null ? AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image.memory(
-              base64Decode(im.cachedImage ?? ''),
-              gaplessPlayback: true,
-            )) : Stack(
+            return Stack(
               alignment: Alignment.center,
               children: [
                 im.thumbnail != null ? AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image.memory(
-                  base64Decode(im.thumbnail ?? ''),
+                  im.thumbnail!,
                   filterQuality: FilterQuality.low,
                   gaplessPlayback: true,
                 )) : !im.isLocal && im.networkThumbnail != null ? CachedNetworkImage(
@@ -360,7 +356,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                 ) : const Text('Error'),
                 Transform.rotate(
                     angle: 45 * math.pi / 180,
-                    child: Text('Deleted ${im.host} ${im.isLocal}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
+                    child: Text('Deleted ${im.isLocal} ${im.cacheFilePath}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
                 )
               ],
             );

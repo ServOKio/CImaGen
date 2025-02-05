@@ -28,3 +28,5 @@ doc/api/
 /.idea
 inno.iss
 /android/.idea
+lib/objectbox.g.dart
+lib/objectbox-model.json

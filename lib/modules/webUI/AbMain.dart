@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
@@ -78,7 +79,7 @@ class Folder {
   final FolderType type;
   final String getter;
   final String name;
-  Future<List<FolderFile>>? files;
+  final List<FolderFile> files;
   bool? isLocal = true;
 
   Folder({
@@ -97,12 +98,14 @@ class FolderFile {
   String? host;
   String fileName = '';
   final String fullPath;
-  String? thumbnail;
+  Uint8List? thumbnail;
+  String? networkThumbnail;
 
   FolderFile({
     required this.fullPath,
     required this.isLocal,
     this.thumbnail,
+    this.networkThumbnail,
     this.host
   }){
     fileName = p.basename(fullPath);

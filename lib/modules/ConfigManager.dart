@@ -19,6 +19,9 @@ class ConfigManager with ChangeNotifier {
   String _tempDir = './temp';
   String get tempDir => _tempDir;
 
+  String _imagesCacheDir = './temp/images';
+  String get imagesCacheDir => _imagesCacheDir;
+
   bool _isNull = false;
   bool get isNull => _isNull;
 
@@ -32,14 +35,15 @@ class ConfigManager with ChangeNotifier {
   }
 
   Future<String> updateCacheLocation() async {
+    // Global cache
     if(cacheTimer != null) cacheTimer!.cancel();
-    String? customCacheDir = prefs!.getString('custom_cache_dir');
+    String? customCacheDir = prefs.getString('custom_cache_dir');
     Directory tDir;
     if(customCacheDir != null){
       tDir = Directory(customCacheDir);
     } else {
       Directory appTempDir = await getTemporaryDirectory();
-      tDir = Directory(p.join(appTempDir.path, 'cImagen'));
+      tDir = Directory(p.join(appTempDir.path, 'CImaGen', 'UCanDeleteMe'));
     }
 
     if(!tDir.existsSync()){
@@ -49,12 +53,25 @@ class ConfigManager with ChangeNotifier {
     cacheTimer = Timer.periodic(const Duration(minutes: 10), (timer) => checkCasheDir());
     checkCasheDir();
 
+    // Images cache
+    customCacheDir = prefs.getString('custom_images_cache_dir');
+    if(customCacheDir != null){
+      tDir = Directory(customCacheDir);
+    } else {
+      Directory appTempDir = await getTemporaryDirectory();
+      tDir = Directory(p.join(appTempDir.path, 'CImaGen', 'ImagesBackup'));
+    }
+    if(!tDir.existsSync()){
+      tDir.createSync(recursive: true);
+    }
+    _imagesCacheDir = tDir.path;
+
     return _tempDir;
   }
 
   void checkCasheDir(){
     getDirSize(Directory(_tempDir)).then((size){
-      if(size >= ((prefs!.getDouble('max_cache_size') ?? 5) * 1073741824)){
+      if(size >= ((prefs.getDouble('max_cache_size') ?? 5) * 1073741824)){
         if (kDebugMode) {
           print(_tempDir);
         }

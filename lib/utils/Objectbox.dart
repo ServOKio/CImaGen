@@ -1,0 +1,239 @@
+import 'dart:async';
+import 'dart:collection';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:audioplayers/audioplayers.dart';
+import 'package:cimagen/Utils.dart';
+import 'package:cimagen/main.dart';
+import 'package:cimagen/utils/ImageManager.dart';
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import 'package:path/path.dart' as p;
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+
+import '../modules/ConfigManager.dart';
+import '../modules/webUI/AbMain.dart';
+import '../objectbox.g.dart';
+import 'NavigationService.dart'; // flutter pub run build_runner build
+
+class ObjectboxDB {
+  late final Store _store;
+  Store get store => _store;
+  late final Admin _admin;
+
+  late Timer timer;
+  List<Job> toBatchOne = [];
+  List<Job> toBatchTwo = [];
+  bool use = false;
+  bool inProgress = false;
+
+  late final Box<ImageMeta> _imageMetaBox;
+  Box<ImageMeta> get imageMetaBox => _imageMetaBox;
+  late final Box<GenerationParams> _generationParamsBox;
+  Box<GenerationParams> get generationParamsBox => _generationParamsBox;
+
+  static Future<ObjectboxDB> create() async {
+    Directory dD = await getApplicationDocumentsDirectory();
+    Directory dbPath = Directory(p.join(dD.path, 'CImaGen', 'databases'));
+    if (!await dbPath.exists()) {
+      await dbPath.create(recursive: true);
+    }
+
+    final store = await openStore(
+      directory: dbPath.absolute.path,
+      maxDBSizeInKB: prefs.containsKey('max_db_size') ? prefs.getInt('max_db_size')! * 1048576 : 524288000 // 500gb
+    );
+    return ObjectboxDB._create(store);
+  }
+
+
+  ObjectboxDB._create(this._store) {
+    if (Admin.isAvailable()) {
+      _admin = Admin(_store);
+    } else {
+      print('web panel not awailable');
+    }
+
+    _imageMetaBox = Box<ImageMeta>(_store);
+    _generationParamsBox = Box<GenerationParams>(_store);
+
+    timer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      try{
+        List<Job> send = use ? toBatchTwo : toBatchOne;
+        if(send.isNotEmpty){
+          use = !use;
+          inProgress = true;
+          if (kDebugMode) print('Sending ${send.length}...');
+          List<Job> imList = send.where((job) => job.to == 'images').toList();
+          if(imList.isNotEmpty) objectbox.imageMetaBox.putManyAsync(imList.map((job) => job.obj as ImageMeta).toList());
+          List<Job> gpList = send.where((job) => job.to == 'generation_params').toList();
+          if(gpList.isNotEmpty) objectbox.generationParamsBox.putManyAsync(gpList.map((job) => job.obj as GenerationParams).toList());
+
+          if (kDebugMode) print('Done');
+          !use ? toBatchTwo.clear() : toBatchOne.clear();
+          inProgress = false;
+        }
+      } on Exception catch(e) {
+        if (kDebugMode){
+          print('toBatch error');
+          print(e);
+        }
+      }
+    });
+  }
+
+  // DB
+  HashMap<String, List<Folder>> foldersCache = HashMap();
+  Future<List<Folder>> getFolders({String? host}) async{
+    if (kDebugMode) {
+      print('getFolders $host');
+    }
+    List<dynamic> args = [];
+    if(host != null) args.add(host);
+    if(foldersCache.containsKey(host ?? 'null')) return foldersCache[host ?? 'null']!;
+
+    Query<ImageMeta> query = objectbox.imageMetaBox.query(ImageMeta_.host.equals('web')).order(ImageMeta_.dateModified).build();
+    Map<String, List<ImageMeta>> folders = groupBy(query.find(), (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
+    query.close();
+
+    List<Folder> fi = [];
+    for(String day in folders.keys){
+      fi.add(Folder(
+          index: fi.length,
+          name: day,
+          getter: day,
+          type: FolderType.byDay,
+          files: folders[day]!.map((im) => FolderFile(
+            fullPath: im.fullPath!,
+            isLocal: im.isLocal,
+            thumbnail: im.thumbnail
+          )).toList(growable: false)
+      ));
+    }
+    if (kDebugMode) {
+      print('getFolders ${fi.length}');
+    }
+    foldersCache[host ?? 'null'] = fi;
+    return fi;
+  }
+
+  Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
+    String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+    if (kDebugMode) {
+      print('getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');
+    }
+    DateTime dayDate = DateFormat("yyyy-MM-dd").parse(day);
+    Query<ImageMeta> query = objectbox.imageMetaBox.query(
+        (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull())
+        .and(ImageMeta_.dateModified.betweenDate(dayDate, dayDate.add(Duration(hours: 23, minutes: 59, seconds: 59))))).build();
+    List<ImageMeta> fi = query.find();
+    fi = fi.map((im) => im..cacheFilePath = p.join(cacheDir, '${im.host}_${im.keyup}.${im.specific?['hasAnimation'] == true ? 'png' : 'jpg'}')).toList(growable: false);
+    query.close();
+    return fi;
+  }
+
+  Future<void> updateImages({required RenderEngine renderEngine, required ImageMeta imageMeta, bool fromWatch = false}) async {
+    List<ImageMeta> list = objectbox.imageMetaBox.query(
+        (imageMeta.host != null ? ImageMeta_.host.equals(imageMeta.host!) : ImageMeta_.host.isNull())
+          .and(ImageMeta_.keyup.equals(imageMeta.keyup))
+    ).build().find();
+    if (list.isNotEmpty) {
+      //toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
+    } else {
+      //Insert
+      if(use){
+        toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
+      } else {
+        toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
+      }
+    }
+  }
+
+  Future<void> fixDB(DBErrorsForFix type) async {
+    if(type == DBErrorsForFix.image_size_missmatch){
+      // 1. Find.
+      // Get keyups from dir
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.broken_image_outlined, color: Colors.lightBlueAccent, size: 64),
+          title: 'Finding images...',
+          description: 'Give us a few seconds...'
+      );
+      String cacheFolder = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+      Stream<FileSystemEntity> stream = Directory(cacheFolder).list();
+      Map<String, String> sizes = {};
+      List<FileSystemEntity> files = [];
+      stream.listen((ent) {
+        files.add(ent);
+      }, onDone: () async {
+        print('Loaded files: ${files.length}');
+        // 2. Get files WxH
+        int i = 0;
+        for(FileSystemEntity ent in files){
+          try{
+            final Uint8List bytes = await compute(readAsBytesSync, ent.path);
+            img.Image? data = await compute(img.decodeImage, bytes);
+            if(data != null){
+              String basename = p.basename(ent.path);
+              List<String> pa = p.basename(ent.path).replaceRange(basename.length - p.extension(basename).length, basename.length, '').split('_');
+              String host = pa[0];
+              String keyup = pa[1];
+              sizes[keyup] = '${data.width}x${data.height}';
+              if (kDebugMode) {
+                print('ok $i / ${files.length - i}');
+              }
+              notificationManager!.update(notID, 'description', 'ok $i / ${files.length - i}');
+            } else if (kDebugMode) {
+              print('Can\'t parse ${ent.path}');
+            }
+          } catch (e) {
+            int d2 = notificationManager!.show(
+                thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+                title: 'Error in for',
+                description: 'Error: $e\nFile: ${ent.path}'
+            );
+            audioController!.player.play(AssetSource('audio/error.wav'));
+          }
+          i++;
+        }
+        Directory dD = await getApplicationDocumentsDirectory();
+        Directory dbPath = Directory(p.join(dD.path, 'CImaGen', 'databases'));
+        if (!await dbPath.exists()) {
+          await dbPath.create(recursive: true);
+        }
+        // 3. Save to json
+        File file = File(p.join(dbPath.absolute.path, 'broken_sizes_images.json'));
+        await file.writeAsString(jsonEncode(sizes));
+        notificationManager!.update(notID, 'description', 'Loaded, check ${file.path}');
+        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+      });
+    }
+  }
+}
+
+class Job{
+  final String to;
+  final JobType type;
+  final dynamic obj;
+
+  const Job({
+    required this.to,
+    required this.type,
+    required this.obj
+  });
+}
+
+enum JobType{
+  insert,
+  update,
+  delete
+}
+
+enum DBErrorsForFix{
+  image_size_missmatch
+}

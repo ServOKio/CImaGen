@@ -155,7 +155,7 @@ class _DBExtraState extends State<DBExtra>{
                     ),
                     SettingsTile(
                       leading: const Icon(Icons.upgrade, color: Colors.yellow),
-                      title: const Text('Update db to version 3'),
+                      title: const Text('Fix db'),
                       description: const Text('Parse rawData and put result to params column\nSELECT * FROM generation_params WHERE params IS NULL AND rawData IS NOT NULL;\n...\nUPDATE generation_params SET vae = ?, vaeHash = ?, params = ? WHERE keyup = ? and host = ?'),
                       onPressed: (context){
                         showDialog<String>(
