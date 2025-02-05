@@ -61,9 +61,9 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   @override
   Future<void> init() async {
     // 'root', 'output', 'remote'
-    String useMethod = prefs?.getString('remote_version_method') ?? 'remote';
+    String useMethod = prefs.getString('remote_version_method') ?? 'remote';
     if(useMethod == 'root'){
-      String sdWebuiFolder = prefs!.getString('sd_remote_webui_folder') ?? '';
+      String sdWebuiFolder = prefs.getString('remote_webui_folder') ?? '';
       if(sdWebuiFolder.isNotEmpty){
         _webui_root = sdWebuiFolder;
         final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
@@ -75,8 +75,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         String t2iOut = p.join(_webui_root, _config['outdir_txt2img_samples']);
         String eiOut = p.join(_webui_root, _config['outdir_extras_samples']);
 
-        bool hasOutputsFolder = prefs!.containsKey('sd_remote_webui_outputs_folder');
-        String outBase = hasOutputsFolder ? normalizePath(p.join(prefs!.getString('sd_remote_webui_outputs_folder')!.split('outputs')[0], 'outputs')) : '';
+        bool hasOutputsFolder = prefs.containsKey('remote_webui_outputs_folder');
+        String outBase = hasOutputsFolder ? normalizePath(p.join(prefs.getString('remote_webui_outputs_folder')!.split('outputs')[0], 'outputs')) : '';
         String t = '';
 
         // img2img grid
@@ -429,7 +429,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
           if(thumbnail != null) {
             notificationManager!.update(notID, 'thumbnail', Image.memory(
-              base64Decode(thumbnail),
+              thumbnail,
               filterQuality: FilterQuality.low,
               gaplessPlayback: true,
             ));
@@ -497,7 +497,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
             notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
             if(thumbnail != null) {
               notificationManager!.update(notID, 'thumbnail', Image.memory(
-                base64Decode(thumbnail),
+                thumbnail,
                 filterQuality: FilterQuality.low,
                 gaplessPlayback: true,
               ));

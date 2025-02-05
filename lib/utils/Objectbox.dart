@@ -54,10 +54,12 @@ class ObjectboxDB {
 
 
   ObjectboxDB._create(this._store) {
-    if (Admin.isAvailable()) {
-      _admin = Admin(_store);
-    } else {
-      print('web panel not awailable');
+    if (kDebugMode) {
+      if (Admin.isAvailable()) {
+        _admin = Admin(_store);
+      } else {
+        print('web panel not awailable');
+      }
     }
 
     _imageMetaBox = Box<ImageMeta>(_store);
@@ -69,11 +71,21 @@ class ObjectboxDB {
         if(send.isNotEmpty){
           use = !use;
           inProgress = true;
-          if (kDebugMode) print('Sending ${send.length}...');
+          if (kDebugMode) print('OB: Sending ${send.length}...');
           List<Job> imList = send.where((job) => job.to == 'images').toList();
-          if(imList.isNotEmpty) objectbox.imageMetaBox.putManyAsync(imList.map((job) => job.obj as ImageMeta).toList());
+          if(imList.isNotEmpty) {
+            List<int> res = await objectbox.imageMetaBox.putManyAsync(imList.map((job) => job.obj as ImageMeta).toList());
+            if (kDebugMode) {
+              print(res);
+            }
+          }
           List<Job> gpList = send.where((job) => job.to == 'generation_params').toList();
-          if(gpList.isNotEmpty) objectbox.generationParamsBox.putManyAsync(gpList.map((job) => job.obj as GenerationParams).toList());
+          if(gpList.isNotEmpty){
+            List<int> res = await objectbox.generationParamsBox.putManyAsync(gpList.map((job) => job.obj as GenerationParams).toList());
+            if (kDebugMode) {
+              print(res);
+            }
+          }
 
           if (kDebugMode) print('Done');
           !use ? toBatchTwo.clear() : toBatchOne.clear();
@@ -92,13 +104,15 @@ class ObjectboxDB {
   HashMap<String, List<Folder>> foldersCache = HashMap();
   Future<List<Folder>> getFolders({String? host}) async{
     if (kDebugMode) {
-      print('getFolders $host');
+      print('OB: getFolders $host');
     }
     List<dynamic> args = [];
     if(host != null) args.add(host);
     if(foldersCache.containsKey(host ?? 'null')) return foldersCache[host ?? 'null']!;
 
-    Query<ImageMeta> query = objectbox.imageMetaBox.query(ImageMeta_.host.equals('web')).order(ImageMeta_.dateModified).build();
+    Query<ImageMeta> query = imageMetaBox.query(
+        host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()
+    ).order(ImageMeta_.dateModified).build();
     Map<String, List<ImageMeta>> folders = groupBy(query.find(), (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
     query.close();
 
@@ -123,13 +137,22 @@ class ObjectboxDB {
     return fi;
   }
 
+  Future<List<String>> getFolderHashes(String folder, {String? host}) async {
+    Query<ImageMeta> query = imageMetaBox.query(
+        host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()
+    ).build();
+    List<String> list = query.property(ImageMeta_.pathHash).find();
+    query.close();
+    return list;
+  }
+
   Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
     String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
     if (kDebugMode) {
       print('getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');
     }
     DateTime dayDate = DateFormat("yyyy-MM-dd").parse(day);
-    Query<ImageMeta> query = objectbox.imageMetaBox.query(
+    Query<ImageMeta> query = imageMetaBox.query(
         (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull())
         .and(ImageMeta_.dateModified.betweenDate(dayDate, dayDate.add(Duration(hours: 23, minutes: 59, seconds: 59))))).build();
     List<ImageMeta> fi = query.find();
@@ -139,7 +162,7 @@ class ObjectboxDB {
   }
 
   Future<void> updateImages({required RenderEngine renderEngine, required ImageMeta imageMeta, bool fromWatch = false}) async {
-    List<ImageMeta> list = objectbox.imageMetaBox.query(
+    List<ImageMeta> list = imageMetaBox.query(
         (imageMeta.host != null ? ImageMeta_.host.equals(imageMeta.host!) : ImageMeta_.host.isNull())
           .and(ImageMeta_.keyup.equals(imageMeta.keyup))
     ).build().find();
@@ -151,6 +174,9 @@ class ObjectboxDB {
         toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
       } else {
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
+      }
+      if(foldersCache.containsKey(imageMeta.host)) {
+        foldersCache.remove(imageMeta.host);
       }
     }
   }

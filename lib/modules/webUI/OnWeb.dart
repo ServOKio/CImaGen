@@ -230,7 +230,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
           notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
           if (thumbnail != null) {
             notificationManager!.update(notID, 'thumbnail', Image.memory(
-              base64Decode(thumbnail),
+              thumbnail,
               filterQuality: FilterQuality.low,
               gaplessPlayback: true,
             ));
@@ -382,7 +382,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
               notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
               if(thumbnail != null) {
                 notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  base64Decode(thumbnail),
+                  thumbnail,
                   filterQuality: FilterQuality.low,
                   gaplessPlayback: true,
                 ));
@@ -487,7 +487,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
               notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
               if(thumbnail != null) {
                 notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  base64Decode(thumbnail),
+                  thumbnail,
                   filterQuality: FilterQuality.low,
                   gaplessPlayback: true,
                 ));

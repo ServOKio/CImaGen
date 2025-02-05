@@ -73,8 +73,8 @@ class ImageManager extends ChangeNotifier {
   }
 
   void switchGetterAuto(){
-    if(prefs?.getBool('use_remote_version') ?? false){
-      String useMethod = prefs?.getString('remote_version_method') ?? 'remote';
+    if(prefs.getBool('use_remote_version') ?? false){
+      String useMethod = prefs.getString('remote_version_method') ?? 'remote';
       switch (useMethod) {
         case 'root':
           changeGetter(2, exit: false);
@@ -216,7 +216,7 @@ class ParseJob {
     return _jobID;
   }
 
-  void run({Null Function()? onDone, Null Function(int total, int current, String? thumbnail)? onProcess}) {
+  void run({Null Function()? onDone, Null Function(int total, int current, Uint8List? thumbnail)? onProcess}) {
     if (kDebugMode) {
       print('Run job $_jobID');
     }
@@ -276,7 +276,6 @@ class ParseJob {
         } else {
           // Если изображение в сети
           JobImageFile jf = raw as JobImageFile;
-
           ImageMeta im = ImageMeta(
               host: host,
               re: RenderEngine.unknown,
@@ -343,7 +342,7 @@ class ParseJob {
 DateFormat format = DateFormat("yyyy-MM-dd");
 
 final listEqual = const ListEquality().equals;
-Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fileBytes, bool makeCachedImage = false}) async {
+Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fileBytes, bool makeCachedImage = false, String? host}) async {
   bool debug = false;
 
   GenerationParams? gp;
@@ -691,16 +690,17 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     }
 
     ImageMeta i = ImageMeta(
-        error: error,
-        fullPath: imagePath,
-        re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
-        mine: mine,
-        fileTypeExtension: e,
-        fileSize: fileStat.size,
-        dateModified: creationDate ?? fileStat.modified,
-        size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : const ImageSize(width: 500, height: 500),
-        specific: specific,
-        other: pngEx
+      host: host,
+      error: error,
+      fullPath: imagePath,
+      re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
+      mine: mine,
+      fileTypeExtension: e,
+      fileSize: fileStat.size,
+      dateModified: creationDate ?? fileStat.modified,
+      size: error == null ? ImageSize(width: bdata.getInt32(0), height: bdata.getInt32(4)) : const ImageSize(width: 500, height: 500),
+      specific: specific,
+      other: pngEx
     );
     i.generationParams = gp;
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
@@ -870,6 +870,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     if(jpgEx['softwareType'] != null) jpgEx['softwareType'] = jpgEx['softwareType'].index;
 
     ImageMeta i = ImageMeta(
+        host: host,
         error: error,
         fullPath: imagePath,
         re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
@@ -977,6 +978,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     });
 
     ImageMeta i = ImageMeta(
+        host: host,
         fullPath: imagePath,
         re: re,
         mine: mine,
@@ -997,6 +999,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     if(originalImage!.hasAnimation) specific['hasAnimation'] = true;
 
     ImageMeta i = ImageMeta(
+        host: host,
         fullPath: imagePath,
         re: re,
         mine: mine,
@@ -1018,6 +1021,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     psdEx['softwareType'] = Software.photoshop.index;
 
     ImageMeta i = ImageMeta(
+        host: host,
         fullPath: imagePath,
         re: re,
         mine: mine,
@@ -1315,6 +1319,8 @@ class ImageMeta {
   @Transient()
   bool get isLocal => host == null;
   String? host;
+  @Transient()
+  String? hostMD5;
   // Other
   @Transient()
   String? error;
@@ -1446,7 +1452,7 @@ class ImageMeta {
       pathHash = genPathHash(uri.path);
       keyup = genHash(re, 'undefined', fileName, host: host);
     }
-
+    if(host != null) hostMD5 = md5.convert(utf8.encode(host!)).toString();
     // if(fullNetworkPath == null && host != null && dateModified != null){
     //   Uri parse = Uri.parse(host!);
     //   Uri thumb = Uri(
@@ -1513,26 +1519,26 @@ class ImageMeta {
   }
 
   Future<void> makeImage({Uint8List? fileBytes, bool makeThumbnail = true, bool makeCacheImage = false}) async {
-    if((makeThumbnail && thumbnail == null) || (makeCacheImage)){
+    if((makeThumbnail && thumbnail == null) || makeCacheImage){
       String? uri = isLocal ? fullPath : tempFilePath;
-      if(uri == null) return;
+      if(uri == null && fileBytes == null) return;
       img.Image? data;
       if(fileBytes != null){
         data = await compute(img.decodeImage, fileBytes);
       } else {
         switch (mine?.split('/').last) {
           case 'png':
-            data = await compute(img.decodePngFile, uri);
+            data = await compute(img.decodePngFile, uri!);
             break;
           case 'jpg':
           case 'jpeg':
-            data = await compute(img.decodeJpgFile, uri);
+            data = await compute(img.decodeJpgFile, uri!);
             break;
           case 'gif':
-            data = await compute(img.decodeGifFile, uri);
+            data = await compute(img.decodeGifFile, uri!);
             break;
           case 'webp':
-            data = await compute(img.decodeWebPFile, uri);
+            data = await compute(img.decodeWebPFile, uri!);
             break;
         }
       }
@@ -1543,15 +1549,13 @@ class ImageMeta {
           await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 50}) : null;
       }
       if(makeCacheImage && data != null) {
-        String cacheFolder = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+        String imagesCacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
         Uint8List cachedImage = (
           hasAnim ?
             await compute(img.encodePng, data) :
             await compute(_encodeJpg, {'data': data, 'quality': 80})
         );
-        File(p.join(cacheFolder, '${host ?? 'unknown'}_$keyup.$fileTypeExtension}')).writeAsBytes(cachedImage).then((file){
-
-        });
+        await File(p.join(imagesCacheDir, '${host != null ? hostMD5 : 'unknown'}_$keyup.$fileTypeExtension')).writeAsBytes(cachedImage);
       }
     }
   }
@@ -1584,7 +1588,7 @@ class ImageMeta {
       }
 
       if(tempFilePath != null){
-        ImageMeta? im = await parseImage(RenderEngine.unknown, pa, fileBytes: bytes, makeCachedImage: makeCachedImage);
+        ImageMeta? im = await parseImage(RenderEngine.unknown, pa, fileBytes: bytes, makeCachedImage: makeCachedImage, host: host);
         stat ??= f.statSync();
         if(im != null){
           size = im.size;

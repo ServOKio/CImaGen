@@ -330,6 +330,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                                               _remote_webui_address = f;
                                             });
                                             checkRemoteStatus();
+                                            context.read<ImageManager>().switchGetterAuto();
                                             Navigator.pop(context, 'Ok');
                                           }
                                         },

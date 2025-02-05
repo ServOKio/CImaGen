@@ -114,7 +114,7 @@ class SQLite with ChangeNotifier{
               inProgress = true;
               NavigationService.navigatorKey.currentContext?.read<ImageManager>().updateJobCount(send.length);
               Batch batch = db.batch();
-              if (kDebugMode) print('Sending ${send.length}...');
+              if (kDebugMode) print('SQL: Sending ${send.length}...');
               for (var e in send) {
                 if(e.type == JobType.insert){
                   batch.insert(e.to, e.obj);

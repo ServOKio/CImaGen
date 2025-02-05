@@ -78,7 +78,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     _userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
     // 1. We need to know the system we are working with.
-    if(!prefs!.containsKey('remote_webui_address')){
+    if(!prefs.containsKey('remote_webui_address')){
       int notID = 0;
       notID = notificationManager!.show(
           thumbnail: const Icon(Icons.error, color: Colors.redAccent),
@@ -99,7 +99,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
       audioController!.player.play(AssetSource('audio/error.wav'));
       return;
     }
-    _remoteAddress = prefs!.getString('remote_webui_address')!;
+    _remoteAddress = prefs.getString('remote_webui_address')!;
     Uri parse = Uri.parse(_remoteAddress);
 
     // Checking if Stable Diffusion
@@ -173,6 +173,15 @@ class OnRemote extends ChangeNotifier implements AbMain{
             software = Software.stableDiffusionWebUI;
             _tabs = ['txt2img', 'img2img'];
             loaded = true;
+            int notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
+              title: 'Welcome to remote Stable Diffusion',
+              description: 'Connected to $_remoteAddress'
+            );
+            audioController!.player.play(AssetSource('audio/info.wav'));
+            Future.delayed(const Duration(milliseconds: 10000), () {
+              notificationManager!.close(notID);
+            });
           } else {
             if (kDebugMode) {
               print('idi naxyi ${res.statusCode}');
@@ -325,7 +334,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolders(host: _host);
+    return objectbox.getFolders(host: _host);
   }
 
   @override
@@ -353,31 +362,31 @@ class OnRemote extends ChangeNotifier implements AbMain{
         for (var i = 0; i < files.length; i++) {
           var f = files[i];
           //Read Folder
-          // base = Uri(
-          //     scheme: parse.scheme,
-          //     host: parse.host,
-          //     port: parse.port,
-          //     path: '/infinite_image_browsing/files',
-          //     queryParameters: {'folder_path': f['fullpath']}
-          // );
-          // res = await http.Client().get(base).timeout(const Duration(seconds: 5));
-          // var folderFilesRaw = await json.decode(res.body)['files'].where((e) => ['.png', 'jpg', '.jpeg', '.gif', '.webp'].contains(p.extension(e['name']))).toList();
+          base = Uri(
+              scheme: parse.scheme,
+              host: parse.host,
+              port: parse.port,
+              path: '/infinite_image_browsing/files',
+              queryParameters: {'folder_path': f['fullpath']}
+          );
+          res = await http.Client().get(base).timeout(const Duration(seconds: 5));
+          var folderFilesRaw = await json.decode(res.body)['files'].where((e) => ['.png', 'jpg', '.jpeg', '.gif', '.webp'].contains(p.extension(e['name']))).toList();
           List<FolderFile> folderFiles = [];
-          // for (var i2 = 0; i2 < folderFilesRaw.length; i2++) {
-          //   var file = folderFilesRaw[i2];
-          //   Uri thumb = Uri(
-          //       scheme: parse.scheme,
-          //       host: parse.host,
-          //       port: parse.port,
-          //       path: '/infinite_image_browsing/image-thumbnail',
-          //       queryParameters: {
-          //         'path': file['fullpath'],
-          //         'size': '512x512',
-          //         't': file['date']
-          //       }
-          //   );
-          //   folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, thumbnail: thumb.toString()));
-          // }
+          for (var i2 = 0; i2 < folderFilesRaw.length; i2++) {
+            var file = folderFilesRaw[i2];
+            Uri thumb = Uri(
+                scheme: parse.scheme,
+                host: parse.host,
+                port: parse.port,
+                path: '/infinite_image_browsing/image-thumbnail',
+                queryParameters: {
+                  'path': file['fullpath'],
+                  'size': '512x512',
+                  't': file['date']
+                }
+            );
+            folderFiles.add(FolderFile(fullPath: file['fullpath'], isLocal: false, networkThumbnail: thumb.toString()));
+          }
           list.add(
               Folder(
               index: i,
@@ -517,11 +526,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
     // SELECT DATE(dateModified) AS dates, count(keyup) as total FROM images GROUP BY DATE(dateModified) ORDER BY dates;
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
-    if(software == Software.swarmUI) {
-      return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
-    } else {
-      return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day);
-    }
+    return objectbox.getImagesByDay(day, host: host);
   }
 
   @override
@@ -625,7 +630,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
       ));
       int d = 0;
-      for(var f in fo){
+      for(Folder f in fo){
         // То что уже есть, чтобы не трогать
         List<String> ima = await getFolderHashes(normalizePath(f.getter), host: host);
         StreamController co = await indexFolder(f, hashes: ima);
@@ -652,7 +657,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderHashes(folder, host: _host);
+    return objectbox.getFolderHashes(folder, host: _host);
   }
 
   @override
@@ -715,7 +720,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
             fullNetworkPath: full.toString(),
             networkThumbhail: thumb.toString()
           );
-        }), host: _host);
+        }).toList(), host: _host);
 
         int notID = -1;
         if(folderFilesRaw.isNotEmpty) {
@@ -741,7 +746,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
               if(thumbnail != null) {
                 notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  base64Decode(thumbnail),
+                  thumbnail,
                   filterQuality: FilterQuality.low,
                   gaplessPlayback: true,
                 ));
@@ -784,7 +789,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
       if(res.statusCode == 200){
         List<String> folderFilesPaths = List<String>.from(await json.decode(res.body)['files'].map((e) => e['src'])).where((e) => ['.png', '.jpg', '.jpeg', '.gif', '.webp'].contains('.${e.split('.').last}')).toList(growable: false);
         if(hashes != null && hashes.isNotEmpty){
-          folderFilesPaths = folderFilesPaths.where((e) => !hashes.contains(genPathHash(normalizePath('${folder.getter}/$e')))).toList(growable: false);
+          folderFilesPaths = folderFilesPaths.where((path) => !hashes.contains(genPathHash(normalizePath(path)))).toList(growable: false);
           if (kDebugMode) {
             print('to send: ${folderFilesPaths.length}');
           }
@@ -846,7 +851,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
               if(thumbnail != null) {
                 notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  base64Decode(thumbnail),
+                  thumbnail,
                   filterQuality: FilterQuality.low,
                   gaplessPlayback: true,
                 ));

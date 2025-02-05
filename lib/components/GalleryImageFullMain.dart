@@ -199,12 +199,10 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                 child: Stack(
                     children: <Widget> [
                       BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0), //this is dependent on the import statment above
-                          child: Container(
-                              decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.5))
-                          )
+                          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                          child: Container(decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.5)))
                       ),
-                     Theme(
+                      Theme(
                         data: theme.getTheme,
                         child: SingleChildScrollView(
                           child: Container(
@@ -214,9 +212,9 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                                 im != null ? MyImageInfo(im!) : const Text('None'),
                                 const Text('Error')
                               ][gpState]
-                          ),
+                          )
                         )
-                     )
+                      )
                     ]
                 )
             )
@@ -323,7 +321,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
 
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
 
-  // ТУТ МЫ ЕБАШИМ ВЕРХ
+  // Center image
   PhotoViewGallery _buildPhotoViewGallery(Function changeScale) {
     changeScale(scaleStateController);
     return PhotoViewGallery.builder(
@@ -350,13 +348,11 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                   gaplessPlayback: true,
                 )) : !im.isLocal && im.networkThumbnail != null ? CachedNetworkImage(
                     imageUrl: im.networkThumbnail!,
-                    imageBuilder: (context, imageProvider) {
-                      return AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image(image: imageProvider, gaplessPlayback: true));
-                    }
+                    imageBuilder: (context, imageProvider) => AspectRatio(aspectRatio: im.size!.width / im.size!.height, child: Image(image: imageProvider, gaplessPlayback: true))
                 ) : const Text('Error'),
                 Transform.rotate(
                     angle: 45 * math.pi / 180,
-                    child: Text('Deleted ${im.isLocal} ${im.cacheFilePath}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
+                    child: Text('Deleted ${im.isLocal}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
                 )
               ],
             );
@@ -373,7 +369,15 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
       enableRotation: true,
       scrollPhysics: const BouncingScrollPhysics(),
       pageController: _pageController,
-      loadingBuilder: (context, event) => const Center(child: CircularProgressIndicator(),),
+      loadingBuilder: (context, event){
+        ImageMeta imageMeta = widget.images[_currentIndex];
+        return Stack(
+          children: [
+            if(imageMeta.cacheFilePath != null) Image.file(File(imageMeta.cacheFilePath!)),
+            Center(child: CircularProgressIndicator(value: event == null ? null : event.expectedTotalBytes != null ? event.cumulativeBytesLoaded / event.expectedTotalBytes! : null))
+          ],
+        );
+      },
       onPageChanged: (int index) => setState(() { _currentIndex = index; })
     );
   }
