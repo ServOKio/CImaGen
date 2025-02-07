@@ -100,13 +100,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, 0);
           _imagesList.then((listRes){
             if(listRes.isEmpty){
-              context.read<ImageManager>().getter.indexFolder(value[0]).then((controller){
-                if(mounted) {
-                  setState(() {
-                    imagesList = controller.stream;
-                  });
-                }
-              });
+              // context.read<ImageManager>().getter.indexFolder(value[0]).then((controller){
+              //   if(mounted) {
+              //     setState(() {
+              //       imagesList = controller.stream;
+              //     });
+              //   }
+              // });
             } else if(mounted) {
               setState(() {
                 imagesList = _imagesList;
@@ -251,13 +251,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       print('changeTab:$folder/${f.name}');
       imagesList?.then((List<ImageMeta> value) {
         bool force = false; //listValue.length-1 == index;
-        context.read<ImageManager>().getter.indexFolder(f, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
-          if(value.isEmpty || force){
-            setState(() {
-              imagesList = controller.stream;
-            });
-          }
-        });
+        // context.read<ImageManager>().getter.indexFolder(f, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
+        //   if(value.isEmpty || force){
+        //     setState(() {
+        //       imagesList = controller.stream;
+        //     });
+        //   }
+        // });
       });
     });
   }
@@ -468,7 +468,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 itemBuilder: (context, index) {
                   var it = snapshot.data[index];
                   return PreviewImage(
-                    key: Key(it.keyup),
+                    // key: Key(it.keyup),
                     imagesList: snapshot.data,
                     imageMeta: it,
                     selectedModel: model,
