@@ -336,7 +336,25 @@ class _SettingsState extends State<Settings>{
                   leading: const Icon(Icons.dashboard_sharp),
                   title: Text('Gallery style'),
                   onPressed: (context){
-
+                    showDialog<String>(
+                      context: context,
+                      builder: (BuildContext context) => AlertDialog(
+                        title: const Text('Select gallery view style'),
+                        content: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: (){
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                padding: EdgeInsets.all(14),
+                                child: Icon(Icons.grid_view, size: 56),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -358,11 +376,11 @@ class _SettingsState extends State<Settings>{
                           content: const Text('The application will take some time to read all the images again'),
                           actions: <Widget>[
                             TextButton(
-                              onPressed: () => context.read<SQLite>().clearMeta().then((value) => Navigator.pop(context, 'Ok')),
+                              onPressed: () => context.read<SQLite>().clearMeta().then((value) => Navigator.pop(context)),
                               child: const Text('Okay'),
                             ),
                             TextButton(
-                              onPressed: () => Navigator.pop(context, 'Cancel'),
+                              onPressed: () => Navigator.pop(context),
                               child: const Text('Cancel'),
                             ),
                           ],

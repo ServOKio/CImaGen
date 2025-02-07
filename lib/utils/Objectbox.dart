@@ -109,7 +109,6 @@ class ObjectboxDB {
     List<dynamic> args = [];
     if(host != null) args.add(host);
     if(foldersCache.containsKey(host ?? 'null')) return foldersCache[host ?? 'null']!;
-
     Query<ImageMeta> query = imageMetaBox.query(
         host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()
     ).order(ImageMeta_.dateModified).build();
@@ -175,8 +174,8 @@ class ObjectboxDB {
       } else {
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
       }
-      if(foldersCache.containsKey(imageMeta.host)) {
-        foldersCache.remove(imageMeta.host);
+      if(foldersCache.containsKey(imageMeta.host ?? 'null')) {
+        foldersCache.remove(imageMeta.host ?? 'null');
       }
     }
   }

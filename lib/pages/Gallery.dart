@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
@@ -29,7 +28,6 @@ import '../components/CustomMenuItem.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/DataManager.dart';
 import '../modules/webUI/AbMain.dart';
-import '../utils/NavigationService.dart';
 import '../utils/SQLite.dart';
 import '../utils/ThemeManager.dart';
 import 'Settings.dart';
@@ -37,7 +35,7 @@ import 'Settings.dart';
 import 'package:path/path.dart' as p;
 
 Future<List<Folder>> _loadMenu(int index) async {
-  return NavigationService.navigatorKey.currentContext!.read<ImageManager>().getter.getFolders(index);
+  return objectbox.getFolders();
 }
 
 Future<List<FileSystemEntity>> dirContents(Directory dir) {
@@ -449,6 +447,68 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     return (renderBox.size.width / 200).round();
   }
 
+  Widget GalleryList({
+    required AsyncSnapshot<dynamic> snapshot
+  }){
+    int type = prefs.getInt('gallery_view_style') ?? 0;
+    return type == 1 ? MasonryGridView.count(
+        physics: const BouncingScrollPhysics(),
+        itemCount: snapshot.data.length,
+        mainAxisSpacing: 5,
+        crossAxisSpacing: 5,
+        crossAxisCount: _getCount(),
+        itemBuilder: (context, index) {
+          var it = snapshot.data[index];
+          return PreviewImage(
+            // key: Key(it.keyup),
+            imagesList: snapshot.data,
+            imageMeta: it,
+            selectedModel: model,
+            index: index,
+            onHover: (PointerHoverEvent event, ImageMeta im){
+              _updateFloat(event, im);
+            },
+            onImageTap: () {
+              Navigator.push(
+                  context,
+                  _createGalleryDetailRoute(
+                      snapshot.data,
+                      index
+                  )
+              );
+            },
+          );
+        }
+    ) : AlignedGridView.count(
+        physics: const BouncingScrollPhysics(),
+        itemCount: snapshot.data.length,
+        mainAxisSpacing: 5,
+        crossAxisSpacing: 5,
+        crossAxisCount: _getCount(),
+        itemBuilder: (context, index) {
+          var it = snapshot.data[index];
+          return PreviewImage(
+            // key: Key(it.keyup),
+            imagesList: snapshot.data,
+            imageMeta: it,
+            selectedModel: model,
+            index: index,
+            onHover: (PointerHoverEvent event, ImageMeta im){
+              _updateFloat(event, im);
+            },
+            onImageTap: () {
+              Navigator.push(
+                  context,
+                  _createGalleryDetailRoute(
+                      snapshot.data,
+                      index
+                  )
+              );
+            },
+          );
+        }
+    );
+  }
 
   Widget _buildMainSection(){
     return Stack(
@@ -459,35 +519,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
             Widget children;
             if (snapshot.hasData) {
-              children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : AlignedGridView.count(
-                physics: const BouncingScrollPhysics(),
-                itemCount: snapshot.data.length,
-                mainAxisSpacing: 5,
-                crossAxisSpacing: 5,
-                crossAxisCount: _getCount(),
-                itemBuilder: (context, index) {
-                  var it = snapshot.data[index];
-                  return PreviewImage(
-                    // key: Key(it.keyup),
-                    imagesList: snapshot.data,
-                    imageMeta: it,
-                    selectedModel: model,
-                    index: index,
-                    onHover: (PointerHoverEvent event, ImageMeta im){
-                      _updateFloat(event, im);
-                    },
-                    onImageTap: () {
-                      Navigator.push(
-                          context,
-                          _createGalleryDetailRoute(
-                              snapshot.data,
-                              index
-                          )
-                      );
-                    },
-                  );
-                }
-              );
+              children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : GalleryList(snapshot: snapshot);
             } else if (snapshot.hasError) {
               children = Padding(
                 padding: const EdgeInsets.all(18),
@@ -579,65 +611,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                       )
                   );
                 case ConnectionState.active:
-                  children = AlignedGridView.count(
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: snapshot.data!.length,
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 5,
-                      crossAxisCount: _getCount(),
-                      itemBuilder: (context, index) {
-                        var it = snapshot.data![index];
-                        return PreviewImage(
-                          key: Key(it.keyup),
-                          imagesList: snapshot.data!,
-                          imageMeta: it,
-                          selectedModel: model,
-                          index: index,
-                          onImageTap: () {
-                            Navigator.push(
-                                context,
-                                _createGalleryDetailRoute(
-                                    snapshot.data!,
-                                    index
-                                )
-                            );
-                          },
-                          onHover: (PointerHoverEvent event, ImageMeta im){
-                            _updateFloat(event, im);
-                          },
-                        );
-                      }
-                  );
+                  children = GalleryList(snapshot: snapshot);
                 case ConnectionState.done:
-                  children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : AlignedGridView.count(
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: snapshot.data!.length,
-                      mainAxisSpacing: 5,
-                      crossAxisSpacing: 5,
-                      crossAxisCount: _getCount(),
-                      itemBuilder: (context, index) {
-                        var it = snapshot.data![index];
-                        return PreviewImage(
-                          key: Key(it.keyup),
-                          imagesList: snapshot.data!,
-                          imageMeta: it,
-                          selectedModel: model,
-                          index: index,
-                          onHover: (PointerHoverEvent event, ImageMeta im){
-                            _updateFloat(event, im);
-                          },
-                          onImageTap: () {
-                            Navigator.push(
-                                context,
-                                _createGalleryDetailRoute(
-                                    snapshot.data!,
-                                    index
-                                )
-                            );
-                          },
-                        );
-                      }
-                  );
+                  children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : GalleryList(snapshot: snapshot);
               }
             }
             return AnimatedSwitcher(
