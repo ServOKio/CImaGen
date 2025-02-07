@@ -46,7 +46,7 @@ class _HomeState extends State<Home> {
 
   final ScrollController _scrollController = ScrollController();
 
-  void pushToHistory(ImageMeta im){
+  void pushToHistory(dynamic im){
     _readHistory.add(im);
     setState(() {
       c = c+1;
@@ -138,7 +138,7 @@ class _HomeState extends State<Home> {
           if(await isJson(value)){
             var data = jsonDecode(value);
           } else {
-            _readHistory.add(UnknownFile(
+            pushToHistory(UnknownFile(
                 file: p.basename(file.path),
                 icon: Icons.error_outline,
                 color: Color(0xFFE15454),
@@ -148,7 +148,7 @@ class _HomeState extends State<Home> {
           }
         });
       } else {
-        _readHistory.add(UnknownFile(
+        pushToHistory(UnknownFile(
           file: p.basename(file.path),
           icon: Icons.question_mark,
           color: Color(0xFFF8CA84),
@@ -389,9 +389,20 @@ class _HomeState extends State<Home> {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: TextField(
                         onSubmitted: (value) async {
-                          ImageMeta? im = await parseUrlImage(value);
-                          if(im != null){
-                            pushToHistory(im);
+                          try{
+                            ImageMeta? im = await parseUrlImage(value);
+                            if(im != null){
+                              pushToHistory(im);
+                            }
+                          } catch(e){
+                            pushToHistory(UnknownFile(
+                              file: value,
+                              icon: Icons.error,
+                              color: Color(0xFFEE7C7C),
+                              title: 'Error retrieving data',
+                              message: 'Looks like the link is broken or something is blocking access',
+                              details: 'E: $e'
+                            ));
                           }
                         },
                         textInputAction: TextInputAction.done,

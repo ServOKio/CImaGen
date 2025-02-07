@@ -13,7 +13,6 @@ import 'package:settings_ui/settings_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
-import '../../Utils.dart';
 import '../../modules/DataManager.dart';
 
 class RemoteVersionSettings extends StatefulWidget{
@@ -27,9 +26,6 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
   bool _use_remote_version = false;
   String _useMethod = 'remote';
   String _appVersion = '-';
-
-  List<String> _system = ['sd', 'forge', 'comfui', 'swarm'];
-  List<String> _methods = ['root', 'output', 'remote'];
 
   String _remote_webui_folder = '';
   String _remote_webui_outputs_folder = '';
@@ -56,7 +52,6 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
     _appVersion = packageInfo.version;
     setState(() {
       _use_remote_version = prefs.getBool('use_remote_version') ?? false;
-      _useMethod = prefs.getString('remote_version_method') ?? 'remote';
 
       _remote_webui_folder = prefs.getString('remote_webui_folder') ?? '';
       _remote_webui_outputs_folder = prefs.getString('remote_webui_outputs_folder') ?? '';
@@ -223,57 +218,57 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                         },
                         initialValue: _use_remote_version,
                       ),
-                      SettingsTile.navigation(
-                        leading: const Icon(Icons.settings_input_svideo),
-                        title: const Text('The application will use the method:'),
-                        value: DropdownButton(
-                          focusColor: Colors.transparent,
-                          underline: const SizedBox.shrink(),
-                          value: _useMethod,
-                          itemHeight: 50,
-                          items: const [
-                            DropdownMenuItem<String>(
-                              value: 'root',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Network root', style: TextStyle(fontWeight: FontWeight.w600)),
-                                  Text('Maximum functionality (example: Windows SMB + USB for output folder)', style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                            ),
-                            DropdownMenuItem<String>(
-                              value: 'output',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Network output', style: TextStyle(fontWeight: FontWeight.w600)),
-                                  Text('Only view and manage images (example: only output folder)', style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                            ),
-                            DropdownMenuItem<String>(
-                              value: 'remote',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Remote Panel', style: TextStyle(fontWeight: FontWeight.w600)),
-                                  Text('Full functionality, but several addons are required (example: provide just://your.url:7860/)', style: TextStyle(color: Colors.grey)),
-                                ],
-                              ),
-                            )
-                          ],
-                          onChanged: (String? value) {
-                            if(value != null){
-                              prefs.setString('remote_version_method', value);
-                              setState(() {
-                                _useMethod = value;
-                              });
-                              context.read<ImageManager>().switchGetterAuto();
-                            }
-                          },
-                        ),
-                      ),
+                      // SettingsTile.navigation(
+                      //   leading: const Icon(Icons.settings_input_svideo),
+                      //   title: const Text('The application will use the method:'),
+                      //   value: DropdownButton(
+                      //     focusColor: Colors.transparent,
+                      //     underline: const SizedBox.shrink(),
+                      //     value: _useMethod,
+                      //     itemHeight: 50,
+                      //     items: const [
+                      //       DropdownMenuItem<String>(
+                      //         value: 'root',
+                      //         child: Column(
+                      //           crossAxisAlignment: CrossAxisAlignment.start,
+                      //           children: [
+                      //             Text('Network root', style: TextStyle(fontWeight: FontWeight.w600)),
+                      //             Text('Maximum functionality (example: Windows SMB + USB for output folder)', style: TextStyle(color: Colors.grey)),
+                      //           ],
+                      //         ),
+                      //       ),
+                      //       DropdownMenuItem<String>(
+                      //         value: 'output',
+                      //         child: Column(
+                      //           crossAxisAlignment: CrossAxisAlignment.start,
+                      //           children: [
+                      //             Text('Network output', style: TextStyle(fontWeight: FontWeight.w600)),
+                      //             Text('Only view and manage images (example: only output folder)', style: TextStyle(color: Colors.grey)),
+                      //           ],
+                      //         ),
+                      //       ),
+                      //       DropdownMenuItem<String>(
+                      //         value: 'remote',
+                      //         child: Column(
+                      //           crossAxisAlignment: CrossAxisAlignment.start,
+                      //           children: [
+                      //             Text('Remote Panel', style: TextStyle(fontWeight: FontWeight.w600)),
+                      //             Text('Full functionality, but several addons are required (example: provide just://your.url:7860/)', style: TextStyle(color: Colors.grey)),
+                      //           ],
+                      //         ),
+                      //       )
+                      //     ],
+                      //     onChanged: (String? value) {
+                      //       if(value != null){
+                      //         prefs.setString('remote_version_method', value);
+                      //         setState(() {
+                      //           _useMethod = value;
+                      //         });
+                      //         context.read<ImageManager>().switchGetterAuto();
+                      //       }
+                      //     },
+                      //   ),
+                      // ),
                     ],
                   ),
                   SettingsSection(
@@ -290,7 +285,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                       SettingsTile.navigation(
                         leading: const Icon(Icons.web),
                         title: const Text('Web panel address'),
-                        value: Text('The address that you use in the browser, for example: http://192.168.1.5:7860${_remote_webui_address.isNotEmpty ? '\n\nNow: '+_remote_webui_address : ''}'),
+                        value: Text('The address that you use in the browser, for example: http://192.168.1.5:7860${_remote_webui_address.isNotEmpty ? '\nNow: '+_remote_webui_address : ''}'),
                         onPressed: (context) async {
                           var addressController = TextEditingController();
                           addressController.text = _remote_webui_address;
@@ -345,16 +340,16 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     ],
                   ),
                   SettingsSection(
-                    title: const Text('UI'),
+                    title: const Text('SMB/remove folder'),
                     tiles: <SettingsTile>[
                       SettingsTile.navigation(
                         leading: const Icon(Icons.settings_system_daydream),
                         title: const Text('Root path'),
-                        value: Text('The main folder is where they are .bat files, .json configs and more${_remote_webui_folder.isNotEmpty ? '\n\nNow: '+_remote_webui_folder : ''}'),
+                        value: Text('The main folder is where they are .bat files, .json configs and more${_remote_webui_folder.isNotEmpty ? '\nNow: '+_remote_webui_folder : ''}'),
                         onPressed: (context) async {
                           String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                           if (selectedDirectory != null) {
-                            prefs.setString('sd_remote_webui_folder', selectedDirectory);
+                            prefs.setString('remote_webui_folder', selectedDirectory);
                             setState(() {
                               _remote_webui_folder = selectedDirectory;
                             });
@@ -368,7 +363,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                         onPressed: (context) async {
                           String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                           if (selectedDirectory != null) {
-                            prefs.setString('sd_remote_webui_outputs_folder', selectedDirectory);
+                            prefs.setString('remote_webui_outputs_folder', selectedDirectory);
                             setState(() {
                               _remote_webui_outputs_folder = selectedDirectory;
                             });

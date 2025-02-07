@@ -108,6 +108,9 @@ class OnWeb extends ChangeNotifier implements AbMain{
     for (var e in watchList) {
       e.cancel();
     }
+    for(int id in _jobs.keys){
+      _jobs[id]!.forceStop();
+    }
   }
 
   List<String> looked = [];

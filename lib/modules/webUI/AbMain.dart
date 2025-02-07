@@ -80,7 +80,7 @@ class Folder {
   final String getter;
   final String name;
   final List<FolderFile> files;
-  bool? isLocal = true;
+  bool isLocal;
 
   Folder({
     required this.index,
@@ -88,7 +88,7 @@ class Folder {
     required this.getter,
     required this.name,
     required this.files,
-    this.isLocal
+    this.isLocal = true
   });
 }
 

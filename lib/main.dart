@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/P404.dart';
-import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
@@ -411,7 +410,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   title: 'Render History',
                   icon: Icon(Icons.account_tree_sharp),
                   floatyActionButton: FloatyActionButton(
-                    icon: const Icon(Icons.photo_size_select_large),
+                    icon: const Icon(Icons.auto_graph),
                     onTap: (){
 
                     },

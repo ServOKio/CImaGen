@@ -38,14 +38,23 @@ class _P404State extends State<P404> {
       children: [
         Stack(children: loaded ? ci.map<Positioned>((ent){
           return Positioned(
-              left: ent.x,
-              top: ent.y,
-              child: Container(width: ent.s, height: ent.s, decoration:
-              BoxDecoration(
+            left: ent.x,
+            top: ent.y,
+            child: SizedBox(
+              width: ent.s,
+              child: LinearProgressIndicator(
                 color: ent.c,
-                shape: BoxShape.circle,
-                backgroundBlendMode: BlendMode.screen
-              ))
+              ),
+            )
+            //   Container(
+            //   width: ent.s,
+            //   height: ent.s,
+            //   decoration: BoxDecoration(
+            //     color: ent.c,
+            //     shape: BoxShape.circle,
+            //     backgroundBlendMode: BlendMode.screen
+            //   )
+            // )
           );
         }).toList() : []),
         const Positioned.fill(

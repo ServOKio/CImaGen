@@ -60,7 +60,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   @override
   Future<void> init() async {
-    String? webuiFolder = prefs!.getString('webui_folder');
+    String? webuiFolder = prefs.getString('webui_folder');
     if(webuiFolder == null) {
       int notID = notificationManager!.show(
           thumbnail: const Icon(Icons.error, color: Colors.redAccent),
@@ -181,6 +181,9 @@ class OnLocal extends ChangeNotifier implements AbMain{
   void exit() {
     for (var e in watchList) {
       e.cancel();
+    }
+    for(int id in _jobs.keys){
+      _jobs[id]!.forceStop();
     }
   }
 

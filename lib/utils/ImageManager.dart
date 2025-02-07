@@ -74,15 +74,7 @@ class ImageManager extends ChangeNotifier {
 
   void switchGetterAuto(){
     if(prefs.getBool('use_remote_version') ?? false){
-      String useMethod = prefs.getString('remote_version_method') ?? 'remote';
-      switch (useMethod) {
-        case 'root':
-          changeGetter(2, exit: false);
-        case 'output':
-          changeGetter(2, exit: false);
-        default: // remote
-          changeGetter(1, exit: false);
-      }
+      changeGetter(1, exit: false);
     } else {
       changeGetter(0, exit: false);
     }
@@ -101,9 +93,6 @@ class ImageManager extends ChangeNotifier {
         if(exit) _getter.exit();
         _getter = OnRemote()..init();
       case 2:
-        if(exit) _getter.exit();
-        _getter = OnNetworkLocation()..init();
-      case 3:
         if(exit) _getter.exit();
         _getter = OnWeb()..init();
       default:
@@ -258,18 +247,23 @@ class ParseJob {
       }
       if(yes){
         if(host == null){
-          ImageMeta? value = await parseImage(RenderEngine.unknown, path);
-          if(value != null){
-            _done.add(value);
-            _controller.add(finished);
-            objectbox.updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+          try{
+            ImageMeta? value = await parseImage(RenderEngine.unknown, path);
+            if(value != null){
+              _done.add(value);
+              _controller.add(finished);
+              objectbox.updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+                _doneTotal++;
+                _isDone();
+              });
+            } else {
               _doneTotal++;
               _isDone();
-            }).catchError((onError){
-              _doneTotal++;
-              _isDone();
-            });
-          } else {
+            }
+          } catch(e){
+            if (kDebugMode) {
+              print(e);
+            }
             _doneTotal++;
             _isDone();
           }

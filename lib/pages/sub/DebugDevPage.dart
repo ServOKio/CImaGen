@@ -59,7 +59,7 @@ class _DebugDevPageState extends State<DebugDevPage> {
                 ),
                 TextButton(
                   onPressed: (){
-                    context.read<ImageManager>().changeGetter(3);
+                    context.read<ImageManager>().changeGetter(2);
                   },
                   child: Text('Change getter to OnWeb'),
                 ),

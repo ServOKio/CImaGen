@@ -142,7 +142,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.resetActions();
       appBarController!.setActions([
-        CustomActionButton(getIcon: () => [Icons.grid_view, Icons.move_up, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
+        CustomActionButton(getIcon: () => [Icons.grid_view, Icons.branding_watermark_outlined, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
           setState(() {
             previewType = previewType + 1 >= 3 ? 0 : previewType + 1;
           });
@@ -455,83 +455,84 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       key: _key,
       children: [
         imagesList.runtimeType.toString().startsWith('Future<List<') ? FutureBuilder(
-            future: imagesList,
-            builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-              Widget children;
-              if (snapshot.hasData) {
-                children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : AlignedGridView.count(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: snapshot.data.length,
-                    mainAxisSpacing: 5,
-                    crossAxisSpacing: 5,
-                    crossAxisCount: _getCount(),
-                    itemBuilder: (context, index) {
-                      var it = snapshot.data[index];
-                      return PreviewImage(
-                        key: Key(it.keyup),
-                        imagesList: snapshot.data,
-                        imageMeta: it,
-                        selectedModel: model,
-                        index: index,
-                        onHover: (PointerHoverEvent event, ImageMeta im){
-                          _updateFloat(event, im);
-                        },
-                        onImageTap: () {
-                          Navigator.push(
-                              context,
-                              _createGalleryDetailRoute(
-                                  snapshot.data,
-                                  index
-                              )
-                          );
-                        },
+          future: imagesList,
+          builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+            Widget children;
+            if (snapshot.hasData) {
+              children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : AlignedGridView.count(
+                physics: const BouncingScrollPhysics(),
+                itemCount: snapshot.data.length,
+                mainAxisSpacing: 5,
+                crossAxisSpacing: 5,
+                crossAxisCount: _getCount(),
+                itemBuilder: (context, index) {
+                  var it = snapshot.data[index];
+                  return PreviewImage(
+                    key: Key(it.keyup),
+                    imagesList: snapshot.data,
+                    imageMeta: it,
+                    selectedModel: model,
+                    index: index,
+                    onHover: (PointerHoverEvent event, ImageMeta im){
+                      _updateFloat(event, im);
+                    },
+                    onImageTap: () {
+                      Navigator.push(
+                          context,
+                          _createGalleryDetailRoute(
+                              snapshot.data,
+                              index
+                          )
                       );
-                    }
-                );
-              } else if (snapshot.hasError) {
-                children = Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: [
-                      const Text('Oops, there seems to be a error.'),
-                      ExpansionTile(
-                        title: const Text('Error Information'),
-                        subtitle: const Text('Use this information to solve the problem'),
-                        children: <Widget>[
-                          Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                  color: Theme.of(context).scaffoldBackgroundColor,
-                                  borderRadius: const BorderRadius.all(Radius.circular(4))
-                              ),
-                              child: SelectableText(
-                                  snapshot.error.toString(),
-                                  style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
-                              )
+                    },
+                  );
+                }
+              );
+            } else if (snapshot.hasError) {
+              children = Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    const Text('Oops, there seems to be a error.'),
+                    ExpansionTile(
+                      title: const Text('Error Information'),
+                      subtitle: const Text('Use this information to solve the problem'),
+                      children: <Widget>[
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            borderRadius: const BorderRadius.all(Radius.circular(4))
                           ),
-                        ],
-                      )
-                    ],
-                  ),
-                );
-              } else {
-                children = Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(debug ? 'Future<List<ImageMeta>> hasData:${snapshot.hasData} hasError:${snapshot.hasError}' : 'Loading...'),
-                        const Gap(8),
-                        const LinearProgressIndicator()
+                          child: SelectableText(
+                            snapshot.error.toString(),
+                            style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
+                          )
+                        ),
                       ],
                     )
-                );
-              }
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 500),
-                child: children,
+                  ],
+                ),
               );
-            }) : imagesList.runtimeType.toString().startsWith('_') && imagesList.runtimeType.toString().contains('<List<')? StreamBuilder<List<ImageMeta>>(
+            } else {
+              children = Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(debug ? 'Future<List<ImageMeta>> hasData:${snapshot.hasData} hasError:${snapshot.hasError}' : 'Loading...'),
+                    const Gap(8),
+                    const LinearProgressIndicator()
+                  ],
+                )
+              );
+            }
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: children,
+            );
+          }
+        ) : imagesList.runtimeType.toString().startsWith('_') && imagesList.runtimeType.toString().contains('<List<')? StreamBuilder<List<ImageMeta>>(
           stream: imagesList,
           builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
             Widget children;
@@ -646,13 +647,16 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           },
         ) : Padding(
             padding: const EdgeInsets.only(top: 16),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SelectableText(debug ? 'other ${imagesList.runtimeType.toString()}' : 'Loading...'),
-                const Gap(8),
-                const LinearProgressIndicator()
-              ],
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.list_alt, size: 50, color: Colors.white),
+                  Gap(4),
+                  Text('Online free without registration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  Text('Select the section on the side that you want to view', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             )
         ),
         if(previewType == 1) FloatPreview(

@@ -58,7 +58,7 @@ class ObjectboxDB {
       if (Admin.isAvailable()) {
         _admin = Admin(_store);
       } else {
-        print('web panel not awailable');
+        print('OB: web panel not awailable');
       }
     }
 
@@ -87,13 +87,13 @@ class ObjectboxDB {
             }
           }
 
-          if (kDebugMode) print('Done');
+          if (kDebugMode) print('OB: Done');
           !use ? toBatchTwo.clear() : toBatchOne.clear();
           inProgress = false;
         }
       } on Exception catch(e) {
         if (kDebugMode){
-          print('toBatch error');
+          print('OB: toBatch error');
           print(e);
         }
       }

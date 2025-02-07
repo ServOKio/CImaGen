@@ -332,6 +332,13 @@ class _SettingsState extends State<Settings>{
                     prefs.setBool('gallery_display_id', v);
                   }, initialValue: _gallery_display_id,
                 ),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.dashboard_sharp),
+                  title: Text('Gallery style'),
+                  onPressed: (context){
+
+                  },
+                ),
               ],
             ),
             SettingsSection(
