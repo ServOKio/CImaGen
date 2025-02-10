@@ -193,13 +193,6 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
     return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
   }
 
-  @override
-  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day, host: host);
-  }
-
   Map<RenderEngine, String> ke = {
     RenderEngine.txt2img: 'outdir_txt2img-images',
     RenderEngine.txt2imgGrid: 'outdir_txt2img_grids',

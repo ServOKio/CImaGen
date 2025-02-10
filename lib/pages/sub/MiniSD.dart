@@ -38,7 +38,7 @@ class _MiniSDState extends State<MiniSD> {
   @override
   void initState(){
     sessionHash = getRandomString(11);
-    networkAccess = Uri.parse(prefs!.getString('sd_remote_webui_address') ?? '');
+    networkAccess = Uri.parse(prefs.getString('sd_remote_webui_address') ?? '');
     // if (hfToken != null && spaceID != null) {
     //   jwt = await get_jwt(space_id, hf_token);
     // }

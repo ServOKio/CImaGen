@@ -305,10 +305,17 @@ class ParseJob {
           if(okay != true && attempts >= 3){
             _doneTotal++;
             _isDone();
+            // Save broken image
+            bool s = false;
+            if(im.tempFilePath != null){
+              s = true;
+              String imagesErrorDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesErrorDir;
+              File(im.tempFilePath!).copy(p.join(imagesErrorDir, im.fileName));
+            }
             int notID = notificationManager!.show(
                 thumbnail: const Icon(Icons.error, color: Colors.redAccent),
                 title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
-                description: 'We were unable to process the image, 3 attempts were made\n$path\nError: $err\nJob ID: $jobID'
+                description: 'We were unable to process the image, 3 attempts were made\n$path${s ? ', save to error folder':''}\nError: $err\nJob ID: $jobID'
             );
             audioController!.player.play(AssetSource('audio/error.wav'));
             Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
@@ -452,38 +459,57 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       }
 
       if(iTXt != null) {
+        // http://www.libpng.org/pub/png/spec/1.2/PNG-Chunks.html
+
+        // Keyword:             1-79 bytes (character string)
+        // Null separator:      1 byte
+        // Compression flag:    1 byte
+        // Compression method:  1 byte
+        // Language tag:        0 or more bytes (character string)
+        // Null separator:      1 byte
+        // Translated keyword:  0 or more bytes
+        // Null separator:      1 byte
+        // Text:                0 or more bytes
+
         var we = BufferReader(data: iTXt);
         String main = we.getNullTerminatedByteString();
         int compressionFlag = we.getUint8();
         int compressionMethod = we.getUint8();
         String languageTag = we.getNullTerminatedByteString();
         String translatedKeyword = we.getNullTerminatedByteString();
-        String text = utf8.decode(Uint8List.fromList(we.get(null)));
+        String? text;
+        try{
+          text = utf8.decode(Uint8List.fromList(we.get(null)));
+        } on FormatException catch(e){ // TODO
+
+        }
         if(debug) print('m:$main cf:$compressionFlag cm:$compressionMethod l:$languageTag t:$translatedKeyword t:$text');
-        if(main == 'XML:com.adobe.xmp'){
-          try{
-            final document = XmlDocument.parse(text);
-            Map<String, dynamic> t = {};
-            document.findAllElements('rdf:Description').first.attributes.forEach((p0) {
-              t['${p0.name.prefix != null ? '${p0.name.prefix}:' : ''}${p0.name.local}'] = p0.value;
-            });
-            if(t['xmp:CreatorTool'] != null){
-              specific['xmpCreatorTool'] = t['xmp:CreatorTool'];
-              if(t['xmp:CreatorTool']!.startsWith('Adobe Photoshop')) pngEx['softwareType'] = Software.photoshop;
+        if(text != null){
+          if(main == 'XML:com.adobe.xmp'){
+            try{
+              final document = XmlDocument.parse(text);
+              Map<String, dynamic> t = {};
+              document.findAllElements('rdf:Description').first.attributes.forEach((p0) {
+                t['${p0.name.prefix != null ? '${p0.name.prefix}:' : ''}${p0.name.local}'] = p0.value;
+              });
+              if(t['xmp:CreatorTool'] != null){
+                specific['xmpCreatorTool'] = t['xmp:CreatorTool'];
+                if(t['xmp:CreatorTool']!.startsWith('Adobe Photoshop')) pngEx['softwareType'] = Software.photoshop;
+              }
+              if(t['xmp:CreateDate'] != null) specific['xmpCreateDate'] = t['xmp:CreateDate'];
+              if(t['xmp:ModifyDate'] != null) specific['xmpModifyDate'] = t['xmp:ModifyDate'];
+              if(t['xmp:MetadataDate'] != null) specific['xmpMetadataDate'] = t['xmp:MetadataDate'];
+              if(t['dc:format'] != null) specific['xmpDcFormat'] = t['dc:format'];
+              if(t['photoshop:ColorMode'] != null) specific['xmpPhotoshopColorMode'] = int.parse(t['photoshop:ColorMode']); // https://helpx.adobe.com/photoshop/using/color-modes.html
+            } catch (e) {
+              // No specified type, handles all
+              if(debug) print('Something really unknown: $e');
             }
-            if(t['xmp:CreateDate'] != null) specific['xmpCreateDate'] = t['xmp:CreateDate'];
-            if(t['xmp:ModifyDate'] != null) specific['xmpModifyDate'] = t['xmp:ModifyDate'];
-            if(t['xmp:MetadataDate'] != null) specific['xmpMetadataDate'] = t['xmp:MetadataDate'];
-            if(t['dc:format'] != null) specific['xmpDcFormat'] = t['dc:format'];
-            if(t['photoshop:ColorMode'] != null) specific['xmpPhotoshopColorMode'] = int.parse(t['photoshop:ColorMode']); // https://helpx.adobe.com/photoshop/using/color-modes.html
-          } catch (e) {
-            // No specified type, handles all
-            if(debug) print('Something really unknown: $e');
+          } else if(main == 'parameters'){
+            // hello 1.5
+            re = RenderEngine.txt2img;
+            gp = parseSDParameters(text);
           }
-        } else if(main == 'parameters'){
-          // hello 1.5
-          re = RenderEngine.txt2img;
-          gp = parseSDParameters(text);
         }
         // String text = utf8.decode(Uint8List.fromList(iTXt));
         // print(text);
@@ -513,11 +539,16 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
           }
           if(await isJson(pngEx['parameters'])){
             var data = jsonDecode(pngEx['parameters']);
-            if(data['sui_image_params'] != null){
-              pngEx['softwareType'] = Software.swarmUI;
-              gp = parseSwarmUIParameters(pngEx['parameters']);
-              // Data check
-              if(data['sui_extra_data'] != null) creationDate = format.parse(data['sui_extra_data']['date']);
+            if(data.runtimeType == String){ // BLYATTTTTT
+              re = RenderEngine.txt2img;
+              gp = parseSDParameters(data);
+            } else {
+              if(data['sui_image_params'] != null){
+                pngEx['softwareType'] = Software.swarmUI;
+                gp = parseSwarmUIParameters(pngEx['parameters']);
+                // Data check
+                if(data['sui_extra_data'] != null) creationDate = format.parse(data['sui_extra_data']['date']);
+              }
             }
           } else {
             re = RenderEngine.txt2img;
@@ -557,21 +588,30 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
               if(await isJson(pngEx['generation_data'])){
                 var data = jsonDecode(pngEx['generation_data']);
                 String modelType = data['baseModel']['type'] as String;
-                re = RenderEngine.txt2img;
+                if(data['inpaint'] != null){
+                  re = RenderEngine.inpaint;
+                } else {
+                  re = RenderEngine.txt2img;
+                }
+                print(pngEx);
                 gp = GenerationParams(
-                    positive: data['prompt'] as String,
-                    negative: data['negativePrompt'] as String,
-                    steps: data['steps'] as int,
-                    sampler: data['samplerName'] as String,
-                    cfgScale: double.parse(data['cfgScale'].toString()),
-                    seed: int.parse(data['seed'] as String),
-                    size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
-                    checkpointType: modelType == 'BASE_MODEL' ? CheckpointType.model : CheckpointType.unknown,
-                    checkpoint: data['baseModel']['modelFileName'] as String,
-                    checkpointHash: data['baseModel']['hash'] as String,
-                    version: data['workEngine'] != null ? data['workEngine'] as String : null,
-                    rawData: jsonEncode(data),
-                    params: data
+                  positive: von<String>(data['prompt']),
+                  negative: von<String>(data['negativePrompt']),
+                  steps: data['steps'] as int,
+                  sampler: data['ksamplerName'] != null ? '${data['ksamplerName']}_${data['schedule']}' : data['samplerName'] as String,
+                  cfgScale: double.parse(data['cfgScale'].toString()),
+                  seed: int.parse(data['seed'] as String),
+                  size: data['width'] != null ? ImageSize(width: data['width'], height: data['height']) : null,
+                  checkpointType: modelType == 'BASE_MODEL' ? CheckpointType.model : CheckpointType.unknown,
+                  checkpoint: data['baseModel']['modelFileName'] as String,
+                  checkpointHash: data['baseModel']['hash'] as String,
+                  version: data['workEngine'] != null ? data['workEngine'] as String : null,
+                  rawData: jsonEncode(data),
+                  params: data,
+
+                  denoisingStrength: von<double>(data['denoisingStrength']),
+                  hiresUpscaler: von<String>(data['hrUpscaler']),
+                  hiresUpscale: data['hrResizeX'] != null && data['width'] != null ? data['hrResizeX'] / data['width'] : null
                 );
               }
             }
@@ -1592,10 +1632,14 @@ class ImageMeta {
           mine = im.mine;
           re = im.re;
           thumbnail ??= im.thumbnail;
-          final String parentFolder = p.basename(File(fullPath ?? tempFilePath ?? '').parent.path);
+          final String parentFolder = p.basename(File(fullPath!).parent.path);
           keyup = genHash(re, parentFolder, fileName, host: host);
           // Try right date
-          dateModified ??= dateRegex.hasMatch(parentFolder) ? format.parse(parentFolder) : dateModified = stat.modified;
+          if(dateRegex.hasMatch(parentFolder)){
+            dateModified = format.parse(parentFolder);
+          } else {
+            dateModified = stat.modified;
+          }
           fileSize = stat.size;
         }
       }

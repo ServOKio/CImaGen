@@ -22,6 +22,9 @@ class ConfigManager with ChangeNotifier {
   String _imagesCacheDir = './temp/images';
   String get imagesCacheDir => _imagesCacheDir;
 
+  String _imagesErrorDir = './temp/error';
+  String get imagesErrorDir => _imagesErrorDir;
+
   bool _isNull = false;
   bool get isNull => _isNull;
 
@@ -65,6 +68,14 @@ class ConfigManager with ChangeNotifier {
       tDir.createSync(recursive: true);
     }
     _imagesCacheDir = tDir.path;
+
+    // For test images
+    customCacheDir = prefs.getString('custom_images_cache_dir');
+    tDir = Directory(p.join(tDir.parent.path, 'CantRead'));
+    if(!tDir.existsSync()){
+      tDir.createSync(recursive: true);
+    }
+    _imagesErrorDir = tDir.path;
 
     return _tempDir;
   }

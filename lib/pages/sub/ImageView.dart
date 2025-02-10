@@ -41,13 +41,12 @@ class ImageView extends StatefulWidget{
 }
 
 class _ImageViewState extends State<ImageView> {
-  double _scale = 0;
   final TransformationController _transformationController = TransformationController();
 
   bool showOriginalSize = true;
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
 
-  late final lotsOfData = _readImageFile(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath);
+  late final lotsOfData = _readImageFile(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath);
   final photoSender = Rx<String>("");
 
   @override
@@ -213,8 +212,9 @@ class _ImageViewState extends State<ImageView> {
             child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? ContextMenuRegion(
                 contextMenu: contextMenu,
                 child: Image.file(
-                  File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? ''),
+                  File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
                   gaplessPlayback: true,
+                  filterQuality: FilterQuality.none,
                   errorBuilder: (context, exception, stack) => Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

@@ -109,12 +109,15 @@ class ObjectboxDB {
     List<dynamic> args = [];
     if(host != null) args.add(host);
     if(foldersCache.containsKey(host ?? 'null')) return foldersCache[host ?? 'null']!;
+    print('quering...');
     Query<ImageMeta> query = imageMetaBox.query(
         host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()
     ).order(ImageMeta_.dateModified).build();
-    Map<String, List<ImageMeta>> folders = groupBy(query.find(), (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
+    List<ImageMeta> list = query.find();
     query.close();
-
+    print('finded');
+    Map<String, List<ImageMeta>> folders = groupBy(list, (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
+    print('grouped');
     List<Folder> fi = [];
     for(String day in folders.keys){
       fi.add(Folder(
@@ -148,7 +151,7 @@ class ObjectboxDB {
   Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
     String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
     if (kDebugMode) {
-      print('getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');
+      print('OB: getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');
     }
     DateTime dayDate = DateFormat("yyyy-MM-dd").parse(day);
     Query<ImageMeta> query = imageMetaBox.query(
@@ -177,6 +180,13 @@ class ObjectboxDB {
       if(foldersCache.containsKey(imageMeta.host ?? 'null')) {
         foldersCache.remove(imageMeta.host ?? 'null');
       }
+    }
+  }
+
+  Future<void> deleteAllFromHost(String? host) async {
+    List<int> list = imageMetaBox.query(host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()).build().property(ImageMeta_.id).find();
+    if (list.isNotEmpty) {
+      imageMetaBox.removeMany(list);
     }
   }
 

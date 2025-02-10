@@ -330,9 +330,9 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
         ImageProvider? provider;
         if(!im.isLocal){
           String net = im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im);
-          provider = net == '' ? FileImage(File(im.cacheFilePath ?? '')) : NetworkImage(im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im));
+          provider = net == '' ? FileImage(File(im.tempFilePath ?? im.cacheFilePath ?? 'e.png')) : NetworkImage(im.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(im));
         } else {
-          provider = FileImage(File(im.fullPath ?? im.cacheFilePath ?? ''));
+          provider = FileImage(File(im.fullPath ?? im.tempFilePath ?? im.cacheFilePath ?? 'e.png'));
         }
         return PhotoViewGalleryPageOptions(
           scaleStateController: scaleStateController,

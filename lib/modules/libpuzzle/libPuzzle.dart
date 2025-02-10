@@ -1,4 +1,8 @@
+import 'dart:ffi';
 import 'dart:io';
+
+import 'dvec.dart';
+import 'dart:math' as math;
 
 int PUZZLE_VERSION_MAJOR = 0;
 int PUZZLE_VERSION_MINOR = 11;
@@ -95,14 +99,14 @@ class LibPuzzle {
     );
   }
 // START FROM THIS
-  int puzzle_fill_cvec_from_file(File file) {
+  Future<int> puzzle_fill_cvec_from_file(File file) async {
     int ret = -1;
 
     puzzle_init_dvec();
     // TODO
-    // if ((ret = puzzle_fill_dvec_from_file(context, dvec, file)) == 0) {
-    //   ret = puzzle_fill_cvec_from_dvec(context, cvec, dvec);
-    // }
+    if ((ret = await puzzle_fill_dvec_from_file(context!, dvec!, file)) == 0) {
+      ret = puzzle_fill_cvec_from_dvec(context!, cvec!, dvec!);
+    }
     // puzzle_free_dvec(context, &dvec);
 
     return ret;
@@ -243,26 +247,26 @@ class PuzzleView {
   int width;
   int height;
   int sizeof_map;
-  List<String> map;
+  Pointer<Char>? map;
 
 
   PuzzleView({
     this.width = 0,
     this.height = 0,
     this.sizeof_map = 0,
-    required this.map
+    this.map
   });
 }
 
 class PuzzleAvgLvls {
-  int? lambdas;
-  int? sizeof_lvls;
-  double? lvls;
+  int lambdas;
+  int sizeof_lvls;
+  Pointer<Double>? lvls;
 
 
   PuzzleAvgLvls({
-    this.lambdas,
-    this.sizeof_lvls,
+    this.lambdas = 0,
+    this.sizeof_lvls = 0,
     this.lvls
   });
 }

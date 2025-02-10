@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:cimagen/components/CustomActionButton.dart';
 import 'package:cimagen/main.dart';
@@ -6,7 +7,9 @@ import 'package:cimagen/modules/webUI/NNancy.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:gap/gap.dart';
 import 'package:image_compare_slider/image_compare_slider.dart';
@@ -18,6 +21,8 @@ import '../components/ImageInfo.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
 import '../utils/NavigationService.dart';
+
+import 'package:path/path.dart' as p;
 
 SliderDirection direction = SliderDirection.leftToRight;
 Color dividerColor = Colors.white;
@@ -327,6 +332,7 @@ class _ViewBlockState extends State<ViewBlock> {
           key: stickyKey,
           onHover: _updateLocation,
           child: InteractiveViewer(
+            boundaryMargin: const EdgeInsets.all(double.infinity),
             transformationController: _transformationController,
             panEnabled: true,
             scaleFactor: 1000,
@@ -459,29 +465,24 @@ class _ImageListStateStateful extends State<ImageList>{
                   final imageManager = Provider.of<ImageManager>(context);
                   final dataModel = Provider.of<DataModel>(context, listen: false);
                   final entries = <ContextMenuEntry>[
-                    MenuItem.submenu(
-                      label: 'Comparison',
-                      icon: Icons.edit,
-                      items: [
-                        MenuItem(
-                          label: 'As main',
-                          value: 'comparison_as_main',
-                          icon: Icons.swipe_left,
-                          onSelected: () {
-                            dataModel.comparisonBlock.changeSelected(0, im);
-                            // implement redo
-                          },
-                        ),
-                        MenuItem(
-                          label: 'As test',
-                          value: 'comparison_as_test',
-                          icon: Icons.swipe_right,
-                          onSelected: () {
-                            dataModel.comparisonBlock.changeSelected(1, im);
-                          },
-                        ),
-                      ],
+                    MenuItem(
+                      label: 'As main',
+                      value: 'comparison_as_main',
+                      icon: Icons.swipe_left,
+                      onSelected: () {
+                        dataModel.comparisonBlock.changeSelected(0, im);
+                        // implement redo
+                      },
                     ),
+                    MenuItem(
+                      label: 'As test',
+                      value: 'comparison_as_test',
+                      icon: Icons.swipe_right,
+                      onSelected: () {
+                        dataModel.comparisonBlock.changeSelected(1, im);
+                      },
+                    ),
+                    const MenuDivider(),
                     MenuItem(
                       label: imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like',
                       icon: imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline,
@@ -491,13 +492,45 @@ class _ImageListStateStateful extends State<ImageList>{
                     ),
                     const MenuDivider(),
                     MenuItem(
-                      label: 'Send to MiniSD',
-                      value: 'send_to_minisd',
-                      icon: Icons.web_rounded,
+                      label: 'View render tree',
+                      icon: Icons.account_tree_sharp,
                       onSelected: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: im)));
-                        // implement redo
+                        // implement copy
                       },
+                    ),
+                    // MenuItem.submenu(
+                    //   label: 'Send to comparison',
+                    //   icon: Icons.edit,
+                    //   items: [
+                    //     // MenuItem( // TODO I WANT
+                    //     //   label: 'View only favorite',
+                    //     //   value: 'comparison_view_favorite',
+                    //     //   icon: Icons.compare,
+                    //     //   onSelected: () {
+                    //     //     if(sp.selectedCo == 0){
+                    //     //       dataModel.comparisonBlock.addAllImages(imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)).toList());
+                    //     //     }
+                    //     //     dataModel.jumpToTab(3);
+                    //     //   },
+                    //     // ),
+                    //     const MenuDivider(),
+                    //
+                    //   ],
+                    // ),
+                    if(im.generationParams?.seed != null ) MenuItem.submenu(
+                      label: 'View in timeline',
+                      icon: Icons.view_timeline_outlined,
+                      items: [
+                        MenuItem(
+                          label: 'by seed',
+                          value: 'timeline_by_seed',
+                          icon: Icons.compare,
+                          onSelected: () {
+                            dataModel.timelineBlock.setSeed(im.generationParams!.seed!);
+                            dataModel.jumpToTab(2);
+                          },
+                        ),
+                      ],
                     ),
                     const MenuDivider(),
                     MenuItem(
@@ -507,6 +540,57 @@ class _ImageListStateStateful extends State<ImageList>{
                       onSelected: () {
                         showInExplorer(im.fullPath!);
                       },
+                    ),
+                    MenuItem.submenu(
+                      label: 'Copy...',
+                      icon: Icons.copy,
+                      items: [
+                        if(im.generationParams?.seed != null) MenuItem(
+                          label: 'Seed',
+                          icon: Icons.abc,
+                          onSelected: () async {
+                            String seed = im.generationParams!.seed.toString();
+                            Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Seed $seed copied'),
+                            )));
+                          },
+                        ),
+                        MenuItem(
+                          label: 'Folder/file.name',
+                          icon: Icons.arrow_forward,
+                          onSelected: () {
+                            Clipboard.setData(ClipboardData(text: '${File(im.fullPath!).parent}/${im.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('Copied'),
+                            )));
+                          },
+                        ),
+                        MenuItem(
+                          label: 'Favorite images to folder...',
+                          icon: Icons.star,
+                          onSelected: () async {
+                            // imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)
+                            String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                            if (selectedDirectory != null) {
+                              Iterable<ImageMeta> l = widget.images.where((el) => imageManager.favoritePaths.contains(el.fullPath));
+                              if(l.isNotEmpty){
+                                int notID = notificationManager!.show(
+                                    title: 'Copying files',
+                                    description: 'Now we will copy ${l.length} files to\n$selectedDirectory',
+                                    content: Container(
+                                      margin: const EdgeInsets.only(top: 7),
+                                      width: 100,
+                                      child: const LinearProgressIndicator(),
+                                    )
+                                );
+                                for(ImageMeta m in l){
+                                  await File(m.fullPath!).copy(p.join(selectedDirectory, m.fileName));
+                                }
+                                notificationManager!.close(notID);
+                              }
+                            }
+                          },
+                        )
+                      ],
                     ),
                   ];
 

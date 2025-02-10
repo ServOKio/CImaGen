@@ -100,6 +100,10 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
 
     // Generation params
     List<String> lines = rawData.trim().split('\n');
+    if(lines.length == 1 && lines[0].contains('Steps: ')){
+      lines = rawData.trim().split(' Steps:');
+      lines.last = 'Steps:${lines.last}';
+    }
 
     bool doneWithPrompt = false;
     bool doneWithNegative = false;
@@ -255,9 +259,9 @@ List<dynamic> parseComfUIParameters(String rawData){
     myData = jsonDecode(rawData);
   } on FormatException catch(e){
     try{
-      myData = jsonDecode(rawData.replaceAll('[NaN]', '[]'));
+      myData = jsonDecode(rawData.replaceAll('[NaN]', '[]').replaceAll(': NaN', ': []'));
     } on FormatException catch(e){
-      // ne eby
+      print(e);
     }
   }
   if(myData['nodes'] != null){
@@ -786,8 +790,10 @@ String genPathHash(String path){
 
 bool isImage(dynamic file){
   final String e = p.extension(file.path);
-  return ['png', 'jpg', 'webp', 'jpeg', 'psd'].contains(e.replaceFirst('.', ''));
+  return ['png', 'jpg', 'webp', 'jpeg', 'psd'].contains(e.replaceFirst('.', '').toLowerCase());
 }
+
+T? von<T>(x) => x is T ? x : null;
 
 List<String> _image_types = [
   'jpg',

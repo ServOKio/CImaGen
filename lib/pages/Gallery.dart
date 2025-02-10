@@ -34,10 +34,6 @@ import 'Settings.dart';
 
 import 'package:path/path.dart' as p;
 
-Future<List<Folder>> _loadMenu(int index) async {
-  return objectbox.getFolders();
-}
-
 Future<List<FileSystemEntity>> dirContents(Directory dir) {
   var files = <FileSystemEntity>[];
   var completer = Completer<List<FileSystemEntity>>();
@@ -214,6 +210,29 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
               },
             ),
+            PopupMenuItem<int>(
+              child: const Text('Delete all from this host'),
+              onTap: (){
+                showDialog<String>(
+                  context: context,
+                  builder: (BuildContext context) => AlertDialog(
+                    icon: const Icon(Icons.warning_amber_outlined),
+                    title: const Text('Are you sure you want to delete all records?'),
+                    content: const Text('The application will take some time to delete all'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => objectbox.deleteAllFromHost(context.read<ImageManager>().getter.host).then((v) => Navigator.pop(context)),
+                        child: const Text('Okay'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ],
         )
       ]);
@@ -232,8 +251,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   void reloadTab(){
-    _lists[_tabController!.index] = _loadMenu(_tabController!.index);
-    setState(() {});
+    setState(() {
+      _lists[_tabController!.index] = _loadMenu(_tabController!.index);
+    });
   }
 
   void changeFolder(int folder, int index) {
@@ -245,20 +265,27 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     _lists[folder]?.then((listValue) {
       Folder f = listValue[index];
-      imagesList = context.read<ImageManager>().getter.getFolderFiles(folder, index);
       print('changeTab:$folder/${f.name}');
-      imagesList?.then((List<ImageMeta> value) {
-        bool force = false; //listValue.length-1 == index;
-        // context.read<ImageManager>().getter.indexFolder(f, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
-        //   if(value.isEmpty || force){
-        //     setState(() {
-        //       imagesList = controller.stream;
-        //     });
-        //   }
-        // });
+      setState(() {
+        imagesList = context.read<ImageManager>().getter.getFolderFiles(folder, index);
       });
+      // imagesList?.then((List<ImageMeta> value) {
+      //   bool force = false; //listValue.length-1 == index;
+      //   // context.read<ImageManager>().getter.indexFolder(f, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
+      //   //   if(value.isEmpty || force){
+      //   //     setState(() {
+      //   //       imagesList = controller.stream;
+      //   //     });
+      //   //   }
+      //   // });
+      // });
     });
   }
+
+  Future<List<Folder>> _loadMenu(int index) async {
+    return objectbox.getFolders(host: context.read<ImageManager>().getter.host);
+  }
+
 
   Widget _buildNavigationRail() {
     return SizedBox(
@@ -1284,7 +1311,7 @@ class PreviewImage extends StatelessWidget {
                 ),
               ],
             ),
-            if(imageMeta.generationParams?.seed != null )MenuItem.submenu(
+            if(imageMeta.generationParams?.seed != null ) MenuItem.submenu(
               label: 'View in timeline',
               icon: Icons.view_timeline_outlined,
               items: [

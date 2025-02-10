@@ -9,6 +9,7 @@ import 'package:snowflake_dart/snowflake_dart.dart';
 import '../../modules/libpuzzle/libPuzzle.dart';
 import '../../utils/ImageManager.dart';
 import '../../utils/SQLite.dart';
+import '../../utils/Tokenizer.dart';
 
 class DebugDevPage extends StatefulWidget {
   DebugDevPage({Key? key}) : super(key: key);
@@ -20,6 +21,7 @@ class DebugDevPage extends StatefulWidget {
 class _DebugDevPageState extends State<DebugDevPage> {
   bool loaded = false;
   Snowflake snowflake = Snowflake(epoch: 1420070400000, nodeId: 0);
+  TokenizerModule tokenizerModule = TokenizerModule();
 
   LibPuzzle puzzle = LibPuzzle();
 
@@ -28,7 +30,6 @@ class _DebugDevPageState extends State<DebugDevPage> {
     super.initState();
     puzzle.puzzle_init_context();
     puzzle.puzzle_init_cvec();
-    int res = puzzle.puzzle_fill_cvec_from_file(File('W:/00906-3163105554.png'));
   }
 
   @override
@@ -78,6 +79,20 @@ class _DebugDevPageState extends State<DebugDevPage> {
                     objectbox.fixDB(DBErrorsForFix.image_size_missmatch);
                   },
                   child: Text('Fix db: broken cached image size'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    int res = await puzzle.puzzle_fill_cvec_from_file(File('W:/00906-3163105554.png'));
+                    print(res);
+                  },
+                  child: Text('Test libpuzzle'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    List<Map<String, dynamic>> res = await tokenizerModule.tokenize('runwayml/stable-diffusion-v1-5', 'by blotch, by (darkgem:1.3), by mystikfox61, by strange-fox, by (nawka:0.7), (by rayliicious:0.8)');
+                    print(res);
+                  },
+                  child: Text('Test tokenizerModule'),
                 ),
                 Text("Jobs"),
                 Column(

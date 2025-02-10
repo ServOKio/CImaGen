@@ -485,9 +485,6 @@ class SQLite with ChangeNotifier{
     return List.generate(maps.length, (i) => maps[i]['pathHash']);
   }
 
-  // THIS
-  T? von<T>(x) => x is T ? x : null;
-
   Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
     if (kDebugMode) {
       print('getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');

@@ -16,7 +16,6 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
-import '../../utils/SQLite.dart';
 import '../DataManager.dart';
 import '../swarmUI/swarmModule.dart';
 
@@ -778,13 +777,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day, host: host);
-  }
-
-  @override
   String getFullUrlImage(ImageMeta im) {
     Uri parse = Uri.parse(_remoteAddress);
     if(software == Software.stableDiffusionWebUI) {
@@ -1205,3 +1197,19 @@ class OnRemote extends ChangeNotifier implements AbMain{
     }
   }
 }
+
+// await fetch("http://foxwebui.ddns.net:7860/API/DeleteImage", {
+// "credentials": "include",
+// "headers": {
+// "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0",
+// "Accept": "*/*",
+// "Accept-Language": "en,en-US;q=0.5",
+// "Content-Type": "application/json",
+// "Sec-GPC": "1",
+// "Priority": "u=0"
+// },
+// "referrer": "http://foxwebui.ddns.net:7860/Text2Image",
+// "body": "{\"path\":\"raw/2024-12-30/0951-905300696.png\",\"session_id\":\"F0ED6196F00B3C5A9E3E6909194CDD561D187AEC\"}",
+// "method": "POST",
+// "mode": "cors"
+// });

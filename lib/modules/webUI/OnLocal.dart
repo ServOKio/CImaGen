@@ -129,7 +129,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return getAllFolders(index);
+    return objectbox.getFolders();
   }
 
   @override
@@ -162,14 +162,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
   Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day);
-  }
-
-  @override
-  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day);
+    return objectbox.getImagesByDay(day);
   }
 
   @override
@@ -228,9 +221,6 @@ class OnLocal extends ChangeNotifier implements AbMain{
       for(var f in fo){
         List<ImageMeta> ima = await getFolderFiles(index, d);
         StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
-        print(getJobCountActive());
-        print(_jobs);
-        print(_jobs.keys.map((key) => _jobs[key]!.controller.isClosed));
         bool done = await _isDone(co);
         d++;
         notificationManager!.update(notID, 'content', Container(
@@ -267,12 +257,6 @@ class OnLocal extends ChangeNotifier implements AbMain{
     //print('total: ${fe.length}');
 
     if(hashes != null && hashes.isNotEmpty){
-      print(hashes.first);
-      for(FileSystemEntity te in fe){
-        print(te.path);
-        print(normalizePath(p.normalize(te.path)));
-        print(genPathHash(normalizePath(p.normalize(te.path))));
-      }
       fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       if (kDebugMode) {

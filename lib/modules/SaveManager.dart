@@ -47,3 +47,38 @@ class Category {
     this.thumbnail
   });
 }
+
+class Project {
+  final int id;
+  String title;
+  String? description = '';
+  Color? color = Colors.redAccent;
+  Image? thumbnail;
+  List<Node> nodes;
+
+  Project({
+    required this.id,
+    required this.title,
+    this.description,
+    this.thumbnail,
+    this.nodes = const []
+  });
+}
+
+class Node {
+  final int id;
+  double x;
+  double y;
+  int width;
+  int height;
+  dynamic content;
+
+  Node({
+    required this.id,
+    this.x = 0,
+    this.y = 0,
+    this.width = 200,
+    this.height = 300,
+    required this.content
+  });
+}

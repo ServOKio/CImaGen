@@ -160,13 +160,6 @@ class OnWeb extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<List<FolderFile>> getFolderThumbnails(int section, int index) async{
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderThumbnails(day, host: host);
-  }
-
-  @override
   String getFullUrlImage(ImageMeta im) {
     return im.fullNetworkPath ?? '';
   }
@@ -177,6 +170,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   }
 
   RegExp ex = RegExp(r'(attachments/[0-9]+/([0-9]+)/)');
+
   Future<StreamController<List<ImageMeta>>> indexUrls(List<String> urls) async {
     // 1. Check if this is discord
     urls = urls.where((url) => ['cdn.discordapp.com', 'media.discordapp.net'].contains(Uri.parse(url).host)).toList();
