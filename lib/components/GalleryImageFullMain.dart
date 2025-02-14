@@ -5,13 +5,13 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/components/DevicePreview.dart';
 import 'package:cimagen/components/GalleryImageMiniView.dart';
 import 'package:cimagen/components/ImageInfo.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
 import 'package:provider/provider.dart';
-import 'package:gap/gap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
@@ -106,7 +106,6 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
               });
             }
         ),
-        const Gap(6),
         IconButton(
             icon: Icon(
               imageManager.favoritePaths.contains(widget.images[_currentIndex].fullPath) ? Icons.star : Icons.star_outline,
@@ -115,7 +114,6 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
               imageManager.toogleFavorite(widget.images[_currentIndex].fullPath, host: widget.images[_currentIndex].host);
             }
         ),
-        const Gap(6),
         IconButton(
             icon: const Icon(
               Icons.info_outline,
@@ -132,7 +130,10 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
               //requestInfo(widget.images[_currentIndex]);
             }
         ),
-        const Gap(6),
+        IconButton(
+            icon: const Icon(Icons.devices_other),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.images[_currentIndex])))
+        ),
         IconButton(
             icon: const Icon(
               Icons.open_in_new,
@@ -166,7 +167,6 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
               // await OpenFile.open('$dir\\');
             }
         ),
-        const Gap(6),
         IconButton(
             icon: const Icon(
               Icons.more_vert,

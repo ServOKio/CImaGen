@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../Utils.dart';
+import '../../components/DevicePreview.dart';
 import '../../components/ImageInfo.dart';
 import '../../utils/DataModel.dart';
 
@@ -78,6 +79,10 @@ class _ImageViewState extends State<ImageView> {
                 }
               }
           ) : const SizedBox.shrink(),
+          IconButton(
+              icon: const Icon(Icons.devices_other),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.imageMeta!)))
+          ),
           IconButton(
               icon: Icon(
                 showOriginalSize ? Icons.photo_size_select_large_rounded : Icons.photo_size_select_actual_rounded,

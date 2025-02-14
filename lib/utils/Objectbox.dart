@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/webUI/AbMain.dart';
 import '../objectbox.g.dart';
+import 'DataModel.dart';
 import 'NavigationService.dart'; // flutter pub run build_runner build
 
 class ObjectboxDB {
@@ -163,10 +164,48 @@ class ObjectboxDB {
     return fi;
   }
 
-  Future<void> updateImages({required RenderEngine renderEngine, required ImageMeta imageMeta, bool fromWatch = false}) async {
+  Future<void> updateIfNado(String path, {String? host}) async{
+    path = normalizePath(path); // windows suck
+    // Check file type
+    final String e = p.extension(path);
+    if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', '').toLowerCase())) return;
+    final String b = p.basename(path);
+    for(String d in ['mask', 'before']){
+      if(b.contains(d)) {
+        if (kDebugMode) print('skip $b');
+        return;
+      }
+    }
+    String pathHash = genPathHash(path);
+
+    List<ImageMeta> list = imageMetaBox.query(
+        (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull())
+            .and(ImageMeta_.pathHash.equals(pathHash))
+    ).build().find();
+    if (list.isNotEmpty) {
+      //toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
+    } else {
+      ImageMeta? im = await parseImage(RenderEngine.unknown, path);
+      if(im != null){
+        objectbox.updateImages(imageMeta: im, fromWatch: true);
+        if(false){ // _useLastAsTest
+          Future.delayed(const Duration(milliseconds: 1000), () {
+            DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
+            if(d != null){
+              d.comparisonBlock.moveTestToMain();
+              d.comparisonBlock.changeSelected(1, im);
+              d.comparisonBlock.addImage(im);
+            }
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> updateImages({required ImageMeta imageMeta, bool fromWatch = false}) async {
     List<ImageMeta> list = imageMetaBox.query(
         (imageMeta.host != null ? ImageMeta_.host.equals(imageMeta.host!) : ImageMeta_.host.isNull())
-          .and(ImageMeta_.keyup.equals(imageMeta.keyup))
+            .and(ImageMeta_.keyup.equals(imageMeta.keyup))
     ).build().find();
     if (list.isNotEmpty) {
       //toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));

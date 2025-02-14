@@ -403,6 +403,7 @@ class _HomeState extends State<Home> {
                               message: 'Looks like the link is broken or something is blocking access',
                               details: 'E: $e'
                             ));
+                            rethrow;
                           }
                         },
                         textInputAction: TextInputAction.done,

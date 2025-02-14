@@ -21,6 +21,7 @@ import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../components/CustomActionButton.dart';
+import '../components/DevicePreview.dart';
 import '../components/GalleryImageFullMain.dart';
 import '../components/XYZBuilder.dart';
 import '../main.dart';
@@ -1357,6 +1358,11 @@ class PreviewImage extends StatelessWidget {
               onSelected: () {
                 showInExplorer(imageMeta.fullPath!);
               },
+            ),
+            MenuItem(
+              label: 'Show devices preview',
+              icon: Icons.devices_other,
+              onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
             ),
             MenuItem.submenu(
               label: 'Copy...',

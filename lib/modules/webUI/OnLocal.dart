@@ -190,7 +190,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
     Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: true);
     watchList.add(te.listen((event) {
       if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
-        NavigationService.navigatorKey.currentContext!.read<ImageManager>().updateIfNado(re, event.destination ?? 'jri govno dart');
+        objectbox.updateIfNado(event.destination!, host: null);
       }
     }));
   }

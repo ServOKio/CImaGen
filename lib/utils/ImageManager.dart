@@ -119,7 +119,7 @@ class ImageManager extends ChangeNotifier {
         ImageMeta? value = await parseImage(re, imagePath);
         updateLastJob(imagePath);
         if(value != null) {
-          objectbox.updateImages(renderEngine: re, imageMeta: value, fromWatch: true);
+          objectbox.updateImages(imageMeta: value, fromWatch: true);
           if(_useLastAsTest){
             Future.delayed(const Duration(milliseconds: 1000), () {
               DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
@@ -252,7 +252,7 @@ class ParseJob {
             if(value != null){
               _done.add(value);
               _controller.add(finished);
-              objectbox.updateImages(renderEngine: value.re, imageMeta: value, fromWatch: false).then((value){
+              objectbox.updateImages(imageMeta: value, fromWatch: false).then((value){
                 _doneTotal++;
                 _isDone();
               });
@@ -289,7 +289,7 @@ class ParseJob {
               _done.add(im);
               if(!_controller.isClosed) _controller.add(finished);
               okay = true;
-              objectbox.updateImages(renderEngine: im.re, imageMeta: im, fromWatch: false).then((value){
+              objectbox.updateImages(imageMeta: im, fromWatch: false).then((value){
                 _doneTotal++;
                 _isDone();
               });
@@ -1632,7 +1632,7 @@ class ImageMeta {
           mine = im.mine;
           re = im.re;
           thumbnail ??= im.thumbnail;
-          final String parentFolder = p.basename(File(fullPath!).parent.path);
+          final String parentFolder = fullPath != null ? p.basename(File(fullPath!).parent.path) : '';
           keyup = genHash(re, parentFolder, fileName, host: host);
           // Try right date
           if(dateRegex.hasMatch(parentFolder)){
