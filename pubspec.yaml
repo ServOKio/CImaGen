@@ -43,7 +43,7 @@ dependencies:
   share_plus: ^10.0.2
   permission_handler: ^11.3.1
   external_path: ^2.0.1
-  device_info_plus: ^10.0.1
+  device_info_plus: ^11.3.0
   pie_chart: ^5.4.0
   flutter_localizations:
     sdk: flutter
@@ -67,7 +67,7 @@ dependencies:
   win32: ^5.5.0
   ffi: ^2.1.2
   sqlite3_flutter_libs: ^0.5.21
-  super_drag_and_drop: ^0.8.16
+  super_drag_and_drop: ^0.9.0-dev.6
   flutter_staggered_animations: ^1.1.1
   fast_csv: ^0.2.11
   csv: ^6.0.0
