@@ -55,7 +55,8 @@ class ComparisonBlock {
   List<ImageMeta> get getImages => _images;
 
   void addAllImages(List<ImageMeta> images){
-    _images = images;
+    _images.clear();
+    _images.addAll(images);
     notify();
   }
 

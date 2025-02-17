@@ -207,7 +207,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<List<Folder>> getFolders(int index) async {
+  Future<List<Folder>> getFolders(int index, {String? host}) async {
     if(useAddon.contains(index)) return getNetworkFolders(index);
     List<Folder> f = [];
     int ind = 0;

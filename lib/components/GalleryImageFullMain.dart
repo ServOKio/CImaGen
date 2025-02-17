@@ -372,7 +372,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
         ImageMeta imageMeta = widget.images[_currentIndex];
         return Stack(
           children: [
-            if(imageMeta.cacheFilePath != null) Image.file(File(imageMeta.cacheFilePath!)),
+            if(!imageMeta.isLocal && imageMeta.cacheFilePath != null) Image.file(File(imageMeta.cacheFilePath!)),
             Center(child: CircularProgressIndicator(value: event == null ? null : event.expectedTotalBytes != null ? event.cumulativeBytesLoaded / event.expectedTotalBytes! : null))
           ],
         );

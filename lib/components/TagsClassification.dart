@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../Utils.dart';
 import '../modules/Animations.dart';
 import 'package:path/path.dart' as p;
 
@@ -78,18 +77,38 @@ class _TagsClassificationState extends State<TagsClassification> {
           allTags.remove(tag);
         }
 
+
+
         for(String key in allTags.keys){
           TagInfo t = allTags[key]!;
           if([1,3,4,5].contains(t.category)){
             current['G']!.add(t.name);
             // allTags.remove(key);
           }
-          for (var e in ['sex', 'cum', 'vaginal', 'masturbation', 'penetration', 'anus', 'penis']) {
+          if(t.count <= 1){
+            current['G']!.add(t.name);
+            print(t.name);
+          }
+          for (var e in ['feces']) {
             if(t.name.startsWith('${e}_') || t.name.endsWith('_${e}')){
-              current['X']!.add(t.name);
+              current['XXX']!.add(t.name);
+              //allTags.remove(t.name);
+              print(t.name);
             }
           }
         }
+
+        //Fix
+        // for(String key in current['G']!){
+        //   for (var e in ['cucumber', 'cumpunk', 'criminal_scum', 'janus_kenobi', 'documentary', 'document', 'documents', 'uranus_(planet)', 'voynich_manuscript', 'cumulonimbus', 'viscum', 'manuscript', 'eridanus_(constellation)', 'document_holder', 'cumming_feces', 'synapturanus_danta', 'cumming_fart', 'holding_cucumber', 'cummycoyotea', 'shitcum', 'ms._cumberland', 'holding_document'
+        //       'cumception', 'encumberment', 'uranus_symbol', 'janus_(disambiguation)', 'illuminated_manuscript']) {
+        //     if(key.contains(e)){
+        //       current['X']!.remove(key);
+        //       //current['G']!.remove(key);
+        //       print(key);
+        //     }
+        //   }
+        // }
 
         jsonPath.writeAsStringSync(json.encode(current));
 
@@ -141,79 +160,84 @@ class _TagsClassificationState extends State<TagsClassification> {
             actions: []
         ),
         body: SafeArea(
-            child: c != null ? Column(
-              children: [
-                Row(
-                  children: [
-                    Column(
-                      children: [
-                        loaded ? const Icon(Icons.check, color: Colors.greenAccent) : const CircularProgressIndicator(),
-                        Text('Total: ${allTags.keys.length + done.length}'),
-                        Text('Rated: ${done.length}'),
-                        Text('Not rated: ${allTags.keys.length}'),
-                      ],
-                    )
-                  ],
-                ),
-                TextButton(
-                  onPressed: () async {
-                    final Uri _url = Uri(
-                        scheme: 'https',
-                        host: 'e621.net',
-                        path: '/posts',
-                        queryParameters: {'tags': c.name}
-                    );
-                    if (!await launchUrl(_url)) {
-                      throw Exception('Could not launch $_url');
-                    }
-                  },
-                  child: Text(c.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w500)),
-                ),
-                Text(c.id.toString()),
-                Text('usage: ${c.count.toString()}'),
-                Text(categoryToString(c.category)),
-                const Gap(28),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: ([2,4,5,6].contains(c.category) ? [ContentRating.G] : [
-                    ContentRating.Unknown,
-                    ContentRating.G,
-                    ContentRating.PG,
-                    ContentRating.PG_13,
-                    ContentRating.R,
-                    ContentRating.NC_17,
-                    ContentRating.X,
-                    ContentRating.XXX,
-                  ]).map((r) => ElevatedButton.icon(
-                    icon: Container(
-                      width: 18,
-                      height: 18,
-                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                      decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.all(Radius.circular(2)),
-                          color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff)
+            child: c != null ? SingleChildScrollView(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Column(
+                        children: [
+                          loaded ? const Icon(Icons.check, color: Colors.greenAccent) : const CircularProgressIndicator(),
+                          Text('Total: ${allTags.keys.length + done.length}'),
+                          Text('Rated: ${done.length}'),
+                          Text('Not rated: ${allTags.keys.length}'),
+                        ],
+                      )
+                    ],
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final Uri _url = Uri(
+                          scheme: 'https',
+                          host: 'e621.net',
+                          path: '/posts',
+                          queryParameters: {'tags': c.name}
+                      );
+                      if (!await launchUrl(_url)) {
+                        throw Exception('Could not launch $_url');
+                      }
+                    },
+                    child: Text(c.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w500)),
+                  ),
+                  Text(c.id.toString()),
+                  Text('usage: ${c.count.toString()}'),
+                  Text(categoryToString(c.category)),
+                  const Gap(28),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: ([2,4,5,6].contains(c.category) ? [ContentRating.G] : [
+                      ContentRating.Unknown,
+                      ContentRating.G,
+                      ContentRating.PG,
+                      ContentRating.PG_13,
+                      ContentRating.R,
+                      ContentRating.NC_17,
+                      ContentRating.X,
+                      ContentRating.XXX,
+                    ]).map((r) => ElevatedButton.icon(
+                      icon: Container(
+                        width: 18,
+                        height: 18,
+                        padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                        decoration: BoxDecoration(
+                            borderRadius: const BorderRadius.all(Radius.circular(2)),
+                            color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff)
+                        ),
+                        child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
+                          0xff5500ff,
+                          0xff006835,
+                          0xfff15a24,
+                          0xff803d99,
+                          0xffd8121a,
+                          0xff1b3e9b,
+                          0xffffffff,
+                          0xffffffff
+                        ][r.index]), fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                      child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
-                        0xff5500ff,
-                        0xff006835,
-                        0xfff15a24,
-                        0xff803d99,
-                        0xffd8121a,
-                        0xff1b3e9b,
-                        0xffffffff,
-                        0xffffffff
-                      ][r.index]), fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                    label: Text(r.name),
-                    onPressed: () => rate(r),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(32.0),
+                      label: Text(r.name),
+                      onPressed: () => rate(r),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: c.count <= 1 && r == ContentRating.G ? Colors.grey : null,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(32.0),
+                        ),
                       ),
-                    ),
-                  )).toList(growable: false)
-                )
-              ],
+                    )).toList(growable: false),
+                  ),
+                  Gap(5),
+                  SelectableText(allTags.keys.take(10).join(', '))
+                ],
+              ),
             ) : const Text('tags db not found')
         )
     );

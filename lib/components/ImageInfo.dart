@@ -365,8 +365,28 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                             )
                         )
                     ),
-                    gp.hiresUpscale != null ? const Gap(4) : const SizedBox.shrink(),
-                    gp.hiresUpscale != null ? Container(
+                    if(gp.params?['rp_active'] != null) const Gap(4),
+                    if(gp.params?['rp_active'] != null) Container(
+                        decoration: const BoxDecoration(
+                            color: Color(0xff303030),
+                            borderRadius: BorderRadius.all(Radius.circular(4))
+                        ),
+                        child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Regional Prompter', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                                const Gap(6),
+                                Column(
+                                  children: gp.params!.keys.where((k) => k.startsWith('rp_')).map((k) => InfoBox(one: numanizeKey(k), two: gp!.params![k], inner: true)).toList()
+                                )
+                              ],
+                            )
+                        )
+                    ),
+                    if(gp.hiresUpscale != null) const Gap(4),
+                    if(gp.hiresUpscale != null) Container(
                         decoration: const BoxDecoration(
                             color: Color(0xff303030),
                             borderRadius: BorderRadius.all(Radius.circular(4))
@@ -389,7 +409,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                               ],
                             )
                         )
-                    ) : const SizedBox.shrink(),
+                    ),
                     InfoBox(one: 'Seed', two: '${gp.seed}'),
                     if(gp.size != null) InfoBox(one: 'Width and height', two: '${gp.size!.width}x${gp.size!.height}'),
                     isWebuiForge ? Container(

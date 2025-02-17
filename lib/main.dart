@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/P404.dart';
+import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
@@ -346,7 +347,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                 ],
               ) : const Home() : LoadingState(loaded: loaded, error: error),
               loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
-              loaded ? P404() : LoadingState(loaded: loaded, error: error),
+              loaded ? Timeline() : LoadingState(loaded: loaded, error: error),
               loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
               // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
               // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),

@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/components/CustomActionButton.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/NNancy.dart';
 import 'package:cimagen/pages/Timeline.dart';
-import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -51,13 +49,10 @@ class Comparison extends StatefulWidget{
 }
 
 class _ComparisonState extends State<Comparison> {
-  GlobalKey stickyKey = GlobalKey();
-
   bool _snowJpeg = true;
 
   @override
   void initState(){
-    super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
         CustomActionButton(
@@ -82,9 +77,6 @@ class _ComparisonState extends State<Comparison> {
 
   @override
   void dispose(){
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appBarController!.resetActions();
-    });
     super.dispose();
   }
 
@@ -283,7 +275,21 @@ class _ViewBlockState extends State<ViewBlock> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: difference!.map((ent){
-                    return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
+                    return Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: ['positive', 'negative'].contains(ent.key) ?
+                          TagBox(text: keysMap[ent.key] ?? ent.key) :
+                          Container(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(ent.oldValue),
+                                Text(ent.key),
+                                Text(ent.newValue)
+                              ],
+                            ),
+                          )
+                    );
                   }).toList()
                 ),
                 actions: <Widget>[
@@ -441,9 +447,19 @@ class ImageList extends StatefulWidget {
 }
 
 class _ImageListStateStateful extends State<ImageList>{
-  bool loaded = false;
 
   final ScrollController controller = ScrollController();
+
+  @override
+  void initState(){
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.animateTo(
+        controller.position.maxScrollExtent,
+        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 300),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext ctx){

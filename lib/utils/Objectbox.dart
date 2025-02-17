@@ -103,22 +103,24 @@ class ObjectboxDB {
 
   // DB
   HashMap<String, List<Folder>> foldersCache = HashMap();
-  Future<List<Folder>> getFolders({String? host}) async{
+  Future<List<Folder>> getFolders({String? host, RenderEngine? re}) async{
     if (kDebugMode) {
       print('OB: getFolders $host');
     }
     List<dynamic> args = [];
     if(host != null) args.add(host);
-    if(foldersCache.containsKey(host ?? 'null')) return foldersCache[host ?? 'null']!;
-    print('quering...');
+    String k = (host ?? 'null')+(re != null ? re.toString() : 'all');
+    if(foldersCache.containsKey(k)) return foldersCache[k]!;
+
+    Condition<ImageMeta> c = (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull());
+
     Query<ImageMeta> query = imageMetaBox.query(
-        host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()
+            re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c
     ).order(ImageMeta_.dateModified).build();
     List<ImageMeta> list = query.find();
+
     query.close();
-    print('finded');
     Map<String, List<ImageMeta>> folders = groupBy(list, (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
-    print('grouped');
     List<Folder> fi = [];
     for(String day in folders.keys){
       fi.add(Folder(
@@ -136,7 +138,7 @@ class ObjectboxDB {
     if (kDebugMode) {
       print('getFolders ${fi.length}');
     }
-    foldersCache[host ?? 'null'] = fi;
+    foldersCache[k] = fi;
     return fi;
   }
 
@@ -149,15 +151,30 @@ class ObjectboxDB {
     return list;
   }
 
-  Future<List<ImageMeta>> getImagesByDay(String day, {int? type, String? host}) async {
+  Future<List<ImageMeta>> getImagesByDay(String day, {String? host, RenderEngine? re}) async {
     String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
     if (kDebugMode) {
-      print('OB: getImagesByDay: $day ${type ?? 'null'} ${host ?? 'null'}');
+      print('OB: getImagesByDay: $day ${re ?? 'null'} ${host ?? 'null'}');
     }
     DateTime dayDate = DateFormat("yyyy-MM-dd").parse(day);
+    Condition<ImageMeta> c = (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()).and(ImageMeta_.dateModified.betweenDate(dayDate, dayDate.add(Duration(hours: 23, minutes: 59, seconds: 59))));
     Query<ImageMeta> query = imageMetaBox.query(
-        (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull())
-        .and(ImageMeta_.dateModified.betweenDate(dayDate, dayDate.add(Duration(hours: 23, minutes: 59, seconds: 59))))).build();
+      re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c
+    ).build();
+    List<ImageMeta> fi = query.find();
+    fi = fi.map((im) => im..cacheFilePath = p.join(cacheDir, '${im.host}_${im.keyup}.${im.specific?['hasAnimation'] == true ? 'png' : 'jpg'}')).toList(growable: false);
+    query.close();
+    return fi;
+  }
+
+  Future<List<ImageMeta>> getImagesBySeed(int seed, {String? host}) async {
+    String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+    if (kDebugMode) {
+      print('OB: getImagesBySeed: $seed ${host ?? 'null'}');
+    }
+    QueryBuilder<ImageMeta> builder = imageMetaBox.query((host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()));
+    builder.link(ImageMeta_.dbGenerationParams, GenerationParams_.seed.equals(seed));
+    Query<ImageMeta> query = builder.build();
     List<ImageMeta> fi = query.find();
     fi = fi.map((im) => im..cacheFilePath = p.join(cacheDir, '${im.host}_${im.keyup}.${im.specific?['hasAnimation'] == true ? 'png' : 'jpg'}')).toList(growable: false);
     query.close();
@@ -188,7 +205,7 @@ class ObjectboxDB {
       ImageMeta? im = await parseImage(RenderEngine.unknown, path);
       if(im != null){
         objectbox.updateImages(imageMeta: im, fromWatch: true);
-        if(false){ // _useLastAsTest
+        if(NavigationService.navigatorKey.currentContext!.read<ImageManager>().useLastAsTest){
           Future.delayed(const Duration(milliseconds: 1000), () {
             DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
             if(d != null){

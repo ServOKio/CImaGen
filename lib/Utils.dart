@@ -1043,3 +1043,9 @@ Future<int> getDirSize(Directory dir) async {
   var dirSize = files.fold(0, (int sum, file) => sum + file.statSync().size);
   return dirSize;
 }
+
+String numanizeKey(String key){
+  List<String> s = key.split('_');
+  s[0] = '${s[0][0].toUpperCase()}${s[0].substring(1).toLowerCase()}';
+  return s.join(' ');
+}

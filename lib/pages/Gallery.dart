@@ -92,7 +92,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       reloadTabs();
       _lists[0]?.then((value){
         if(mounted && value.isNotEmpty) {
-          Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, 0);
+          // Try restore position
+          Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, value.length-1);
           _imagesList.then((listRes){
             if(listRes.isEmpty){
               // context.read<ImageManager>().getter.indexFolder(value[0]).then((controller){
@@ -113,6 +114,16 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     }
   }
 
+  void downMe(int index){
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollControllers[index]!.animateTo(
+          _scrollControllers[index]!.position.maxScrollExtent,
+          curve: Curves.easeOut,
+          duration: const Duration(milliseconds: 500)
+      );
+    });
+  }
+
   void reloadTabs(){
     //Clear
     if(_tabController != null) _tabController!.dispose();
@@ -127,7 +138,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     for (int i = 0; i < _tabs.length; i++) {
       // Scroll
-      _scrollControllers[i] = ScrollController();
+      _scrollControllers[i] = ScrollController(
+        onAttach: (ScrollPosition position) => downMe(i),
+      );
       // Lists
       _lists[i] = _loadMenu(i);
       // Selected
@@ -135,7 +148,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      appBarController!.resetActions();
       appBarController!.setActions([
         CustomActionButton(getIcon: () => [Icons.grid_view, Icons.branding_watermark_outlined, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
           setState(() {
@@ -247,7 +259,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       _scrollControllers[k]!.dispose();
     }
     _scrollControllers.clear();
-    WidgetsBinding.instance.addPostFrameCallback((_) => appBarController!.resetActions());
     super.dispose();
   }
 
@@ -284,7 +295,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   Future<List<Folder>> _loadMenu(int index) async {
-    return objectbox.getFolders(host: context.read<ImageManager>().getter.host);
+    return context.read<ImageManager>().getter.getFolders(index);
   }
 
 
@@ -1592,15 +1603,15 @@ class PreviewImage extends StatelessWidget {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             ratingBlock,
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 3),
-                                              padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                              decoration: BoxDecoration(
-                                                  borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                  color: Colors.grey.withOpacity(0.7)
-                                              ),
-                                              child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                            ),
+                                            // Container(
+                                            //   margin: const EdgeInsets.only(bottom: 3),
+                                            //   padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                            //   decoration: BoxDecoration(
+                                            //       borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                            //       color: Colors.grey.withOpacity(0.7)
+                                            //   ),
+                                            //   child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
+                                            // ),
                                             Container(
                                               margin: const EdgeInsets.only(bottom: 3),
                                               padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),

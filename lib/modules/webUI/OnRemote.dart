@@ -870,7 +870,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
       for(Folder f in fo){
         try{
           // То что уже есть, чтобы не трогать
-          List<String> ima = await getFolderHashes(normalizePath(f.getter), host: host);
+          List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
           StreamController co = await indexFolder(f, hashes: ima);
           print('jobs co $getJobCountActive()');
           bool cont = await _isDone(co);

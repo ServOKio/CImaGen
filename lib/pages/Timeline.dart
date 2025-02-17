@@ -4,8 +4,10 @@ import 'dart:io';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/components/TimeLineLine.dart';
+import 'package:cimagen/main.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../modules/DataManager.dart';
@@ -36,9 +38,7 @@ class _TimelineState extends State<Timeline> {
       sr = true;
     } else {
       final dataModel = Provider.of<DataModel>(context, listen: false);
-      context.read<SQLite>().getImagesBySeed(
-          dataModel.timelineBlock.getSeed
-      ).then((v2) {
+      objectbox.getImagesBySeed(dataModel.timelineBlock.getSeed).then((v2) {
         ImageRow row = ImageRow();
         for (var image in v2) {
           if(debug){
@@ -231,10 +231,19 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
 
-  if(o.params?['hires_steps'] != t.params?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.params?['hires_steps'] ?? '-').toString(), newValue: (t.params?['hires_steps'] ?? '-').toString()));
+  // if(o.params?['hires_steps'] != t.params?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.params?['hires_steps'] ?? '-').toString(), newValue: (t.params?['hires_steps'] ?? '-').toString()));
   // final Map<String, String>? tiHashes;
   // final String version;
-  if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
+  // if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
+
+  if(o.params != null && t.params != null){
+    List<String> allKeys = [];
+    allKeys.addAll(o.params!.keys);
+    allKeys.addAll(t.params!.keys.where((k) => !allKeys.contains(k)));
+    for (String key in allKeys) {
+      if(o.params?[key] != t.params?[key]) d.add(Difference(key: key, oldValue: (o.params?[key] ?? '-').toString(), newValue: (t.params?[key] ?? '-').toString()));
+    }
+  }
 
   return d;
 }

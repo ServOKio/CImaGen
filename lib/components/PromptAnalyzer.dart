@@ -1,4 +1,5 @@
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/components/TagSearcher.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_charts/flutter_charts.dart';
@@ -156,7 +157,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
         } else {
           (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.warn, text: 'Tag "$tag" has a duplicate'));
         }
-        _tagsAndWeights[tag] = element[1];
+        _tagsAndWeights[tag] = element[1].toDouble();
         if(!(tag.startsWith('<') && tag.endsWith('>'))){
           if(!_tags.containsKey(tag)){
             (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.error, text: 'Tag "$tag" is invalid'));
@@ -379,6 +380,23 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                   Row(
                     children: [
                       const Spacer(),
+                      MaterialButton(onPressed: () => showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
+                          icon: const Icon(Icons.search),
+                          iconColor: Colors.blue,
+                          title: const Text('Search'),
+                          content: TagSearcher(),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: (){
+                                Navigator.pop(context, 'ok');
+                              },
+                              child: const Text('Okay'),
+                            ),
+                          ],
+                        ),
+                      ), child: const Text('Tag finder')),
                       MaterialButton(onPressed: () => analyzePrompt(0), child: const Text('Analyze'))
                     ],
                   ),

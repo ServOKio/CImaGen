@@ -8,12 +8,9 @@ import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
-import '../../utils/NavigationService.dart';
-import '../../utils/SQLite.dart';
 import 'AbMain.dart';
 
 class OnLocal extends ChangeNotifier implements AbMain{
@@ -38,6 +35,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   @override
   String? get host => null;
+  String hostHash = '';
 
   Map<String, String> _webuiPaths = {};
   @override
@@ -56,10 +54,18 @@ class OnLocal extends ChangeNotifier implements AbMain{
   List<String> _tabs = [];
   @override
   List<String> get tabs => _tabs;
+  List<RenderEngine> _internalTabs = [];
 
 
   @override
   Future<void> init() async {
+    for (var e in watchList) {
+      e.cancel();
+    }
+    _tabs.clear();
+    _internalTabs.clear();
+    _webuiPaths.clear();
+
     String? webuiFolder = prefs.getString('webui_folder');
     if(webuiFolder == null) {
       int notID = notificationManager!.show(
@@ -102,6 +108,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
         'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
       });
       _tabs = ['txt2img', 'img2img'];
+      _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
       loaded = true;
       int notID = notificationManager!.show(
           thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
@@ -129,7 +136,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return objectbox.getFolders();
+    return objectbox.getFolders(host: host, re: _internalTabs[index]);
   }
 
   @override
@@ -162,7 +169,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
   Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
-    return objectbox.getImagesByDay(day);
+    return objectbox.getImagesByDay(day, host: host, re: _internalTabs[section]);
   }
 
   @override
@@ -195,6 +202,10 @@ class OnLocal extends ChangeNotifier implements AbMain{
     }));
   }
 
+  Future<List<String>> getFolderHashes(String folder, {String? host}) async {
+    return objectbox.getFolderHashes(folder, host: host);
+  }
+
   @override
   bool indexAll(int index) {
     int notID = notificationManager!.show(
@@ -202,7 +213,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
         title: 'Starting indexing',
         description: 'Give us a few seconds...'
     );
-    getFolders(index).then((fo) async {
+    getAllFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
       notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
@@ -219,15 +230,27 @@ class OnLocal extends ChangeNotifier implements AbMain{
       ));
       int d = 0;
       for(var f in fo){
-        List<ImageMeta> ima = await getFolderFiles(index, d);
-        StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
-        bool done = await _isDone(co);
-        d++;
-        notificationManager!.update(notID, 'content', Container(
-            margin: const EdgeInsets.only(top: 7),
-            width: 100,
-            child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
-        ));
+        try{
+          // То что уже есть, чтобы не трогать
+          List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
+          StreamController co = await indexFolder(f, hashes: ima);
+          print('jobs co $getJobCountActive()');
+          bool cont = await _isDone(co);
+          d++;
+          notificationManager!.update(notID, 'content', Container(
+              margin: const EdgeInsets.only(top: 7),
+              width: 100,
+              child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
+          ));
+        } catch(e){
+          int notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+              title: 'Error processing folder ${f.getter}',
+              description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e'
+          );
+          audioController!.player.play(AssetSource('audio/error.wav'));
+          Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+        }
       }
       if(notID != -1) notificationManager!.close(notID);
       isIndexingAll = false;
