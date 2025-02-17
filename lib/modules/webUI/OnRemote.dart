@@ -540,8 +540,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
     // flutter: FileSystemModifyEvent('K:/pictures/sd/outputs/txt2img-images\2024-04-13', isDirectory=true, contentChanged=true)
     Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: true);
     watchList.add(te.listen((event) {
-      if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
-        objectbox.updateIfNado(event.destination!, host: _host);
+      if (event is FileSystemCreateEvent && !event.isDirectory) {
+        Future.delayed(const Duration(seconds: 7), () =>  objectbox.updateIfNado(event.path, host: _host));
       }
     }));
   }

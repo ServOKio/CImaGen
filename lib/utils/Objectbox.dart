@@ -220,10 +220,12 @@ class ObjectboxDB {
   }
 
   Future<void> updateImages({required ImageMeta imageMeta, bool fromWatch = false}) async {
-    List<ImageMeta> list = imageMetaBox.query(
+    Query<ImageMeta> query = imageMetaBox.query(
         (imageMeta.host != null ? ImageMeta_.host.equals(imageMeta.host!) : ImageMeta_.host.isNull())
             .and(ImageMeta_.keyup.equals(imageMeta.keyup))
-    ).build().find();
+    ).build();
+    List<ImageMeta> list = query.find();
+    query.close();
     if (list.isNotEmpty) {
       //toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
     } else {
@@ -233,8 +235,9 @@ class ObjectboxDB {
       } else {
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
       }
-      if(foldersCache.containsKey(imageMeta.host ?? 'null')) {
-        foldersCache.remove(imageMeta.host ?? 'null');
+      String k = (imageMeta.host ?? 'null')+(imageMeta.re.toString());
+      if(foldersCache.containsKey(k)) {
+        foldersCache.remove(k);
       }
     }
   }
