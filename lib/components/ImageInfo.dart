@@ -538,7 +538,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                           minimumSize: Size.zero, // Set this
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                         ),
-                        onPressed: ()=> Navigator.push(context, MaterialPageRoute(builder: (context) => PromptAnalyzer(generationParams: gp!))),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PromptAnalyzer(generationParams: gp!))),
                         child: const Text("Analyze prompt", style: TextStyle(fontSize: 12))
                     ),
                   ],
@@ -559,7 +559,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                             style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
                         )
                     ),
-                    if(prefs!.getBool('debug') ?? false) ElevatedButton(child: const Text('Parse'), onPressed: (){
+                    if(prefs.getBool('debug') ?? false) ElevatedButton(child: const Text('Parse'), onPressed: (){
                       GenerationParams? gpP = parseSDParameters(gp?.rawData ?? '');
                       if(gpP != null){
 

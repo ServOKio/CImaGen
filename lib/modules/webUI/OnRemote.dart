@@ -548,7 +548,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return objectbox.getFolders(host: _host);
+    return objectbox.getFolders(host: _host, re: software != Software.swarmUI ? _internalTabs[index] : null);
   }
 
   Map<RenderEngine, String> ke = {
@@ -773,7 +773,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
     // SELECT DATE(dateModified) AS dates, count(keyup) as total FROM images GROUP BY DATE(dateModified) ORDER BY dates;
     List<Folder> f = await getFolders(section);
     String day = f[index].name;
-    return objectbox.getImagesByDay(day, host: host);
+    return objectbox.getImagesByDay(day, host: host, re: software != Software.swarmUI ? _internalTabs[section] : null);
   }
 
   @override

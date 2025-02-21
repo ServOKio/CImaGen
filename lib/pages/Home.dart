@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cimagen/components/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/MiniWorld.dart';
@@ -137,6 +138,19 @@ class _HomeState extends State<Home> {
         jsFile.readAsString().then((value) async {
           if(await isJson(value)){
             var data = jsonDecode(value);
+            // CharacterCard ?
+
+            if(isRPCard(data)){
+              pushToHistory(CharacterCardFile(data: data));
+            } else {
+              pushToHistory(UnknownFile(
+                  file: p.basename(file.path),
+                  icon: Icons.warning,
+                  color: Color(0xFF8C54E1),
+                  title: 'Some json data...',
+                  message: 'It seems we don\'t know what exactly this file contains.'
+              ));
+            }
           } else {
             pushToHistory(UnknownFile(
                 file: p.basename(file.path),
@@ -306,6 +320,71 @@ class _HomeState extends State<Home> {
                               )
                             ]
                         )
+                    ) : element.runtimeType == CharacterCardFile ? LayoutBuilder(
+                        builder: (BuildContext context, BoxConstraints constraints) {
+                          return Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                color: Theme.of(context).scaffoldBackgroundColor
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(7.0),
+                                      child: Stack(
+                                        children: [
+                                          SizedBox(
+                                            width: constraints.maxWidth / 2,
+                                            child: AspectRatio(
+                                              aspectRatio: 1/1,
+                                              child: DottedBorder(
+                                                dashPattern: const [6, 6],
+                                                color: Colors.redAccent,
+                                                borderType: BorderType.RRect,
+                                                strokeWidth: 2,
+                                                radius: const Radius.circular(12),
+                                                child: const Center(child: Icon(Icons.chat, color: Colors.blueAccent)),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Gap(7),
+                                    SizedBox(
+                                      width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          InfoBox(one: 'RE', two: 'sdf'),
+                                        ],
+                                      ),
+                                    )
+                                  ],
+                                ),
+                                const Gap(7),
+                                Row(
+                                  children: [
+                                    ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: Size.zero, // Set this
+                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                        ),
+                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => CharacterCardFullView(jsonData: element.data))),
+                                        child: const Text("View", style: TextStyle(fontSize: 12))
+                                    ),
+                                  ],
+                                )
+                              ],
+                            ),
+                          );
+                        }
                     ) : FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element),
                   );
                 },
@@ -561,12 +640,10 @@ class _HomeState extends State<Home> {
                                             color: ii.item.color.withOpacity(0.3),
                                             boxShadow: const [
                                               BoxShadow(color: Colors.black, spreadRadius: 3),
-                                            ],
+                                            ]
                                           ),
                                           padding: const EdgeInsets.all(4),
-                                          child: Center(
-                                            child: Icon(ii.item.icon, color: ii.item.color, size: 21),
-                                          ),
+                                          child: Center(child: Icon(ii.item.icon, color: ii.item.color, size: 21),)
                                         ),
                                         const Spacer(),
                                         Text(ii.item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 21)),
@@ -575,12 +652,10 @@ class _HomeState extends State<Home> {
                                         Row(
                                           children: [
                                             TextButton(
-                                              onPressed: () async {
-                                                Navigator.push(context, MaterialPageRoute(builder: (context) => const MiniWorld()));
-                                              },
+                                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MiniWorld())),
                                               child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
-                                            ),
-                                          ],
+                                            )
+                                          ]
                                         )
                                       ],
                                     ),
@@ -952,6 +1027,14 @@ class InfoBox extends StatelessWidget{
   }
 }
 
+class CharacterCardFile {
+  final dynamic data;
+
+  const CharacterCardFile({
+    required this.data
+  });
+}
+
 class UnknownFile {
   final IconData? icon;
   final Color? color;
@@ -968,11 +1051,4 @@ class UnknownFile {
     required this.file,
     this.details
   });
-}
-
-enum FileTypes {
-  Unknown,
-  ImageMeta,
-  ConfUIWorkflow,
-  KoboldAISave
 }

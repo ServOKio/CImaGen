@@ -1025,6 +1025,27 @@ Future<String> getDeviceInfo() async {
   return f;
 }
 
+bool isRPCard(dynamic d){
+  bool y = false;
+  if(d['spec'] != null){
+    // yes, character
+    if(['2.0', '3.0'].contains(d['spec_version'])){
+      y = true;
+    }
+  } else {
+    // spec v1 ?
+    if(d['name'] != null && d['first_mes']){
+      y = true;
+    } else {
+      // kobold ?
+      if(d['savedsettings'] != null){
+        y = true;
+      }
+    }
+  }
+  return y;
+}
+
 String normalizePath(String path){
   bool isWindowsPath = path.startsWith('\\\\') || path[1] == ':';
   return p.normalize(isWindowsPath ? path.replaceAll('/', '\\') : path.replaceAll('\\', '/'));

@@ -118,8 +118,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollControllers[index]!.animateTo(
           _scrollControllers[index]!.position.maxScrollExtent,
-          curve: Curves.easeOut,
-          duration: const Duration(milliseconds: 500)
+          curve: Curves.linear,
+          duration: const Duration(seconds: 1)
       );
     });
   }
@@ -1189,9 +1189,7 @@ class _XYZPlotForHiResState extends State<XYZPlotForHiRes> {
   Widget build(BuildContext context) {
     final imageManager = Provider.of<ImageManager>(context);
     return loaded ? ListView.separated(
-      separatorBuilder: (BuildContext context, int index){
-        return const Divider(height: 17, color: Colors.red,);
-      },
+      separatorBuilder: (BuildContext context, int index) => const Divider(height: 17, color: Colors.red),
       itemCount: hashes.keys.length,
       itemBuilder: (BuildContext context, int index) {
         List<ImageMeta> l = hashes[hashes.keys.toList(growable: false)[index]]!;
@@ -1206,15 +1204,7 @@ class _XYZPlotForHiResState extends State<XYZPlotForHiRes> {
                 mainAxisSpacing: 3,
                 crossAxisCount: 2,
                 children: l.map((e) => GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        _createGalleryDetailRoute(
-                            [e],
-                            0
-                        )
-                    );
-                  },
+                  onTap: () => Navigator.push(context, _createGalleryDetailRoute([e], 0)),
                   child: ImageWidget(e),
                 )).toList(),
               ),

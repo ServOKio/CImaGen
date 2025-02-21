@@ -138,6 +138,7 @@ class ObjectboxDB {
     if (kDebugMode) {
       print('getFolders ${fi.length}');
     }
+    print('getFolders: key $k'); // nullall
     foldersCache[k] = fi;
     return fi;
   }
@@ -236,6 +237,7 @@ class ObjectboxDB {
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
       }
       String k = (imageMeta.host ?? 'null')+(imageMeta.re.toString());
+      print('updateImages: key $k');
       if(foldersCache.containsKey(k)) {
         foldersCache.remove(k);
       }
