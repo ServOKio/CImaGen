@@ -1070,3 +1070,38 @@ String numanizeKey(String key){
   s[0] = '${s[0][0].toUpperCase()}${s[0].substring(1).toLowerCase()}';
   return s.join(' ');
 }
+
+List<double> rgb2cmyk(int r, int g, int b) {
+  double computedC = 0;
+  double computedM = 0;
+  double computedY = 0;
+
+  if (r < 0 || g < 0 || b < 0 || r > 255 || g > 255 || b > 255) {
+    throw Exception('RGB values must be in the range 0 to 255.');
+  }
+
+  if (r == 0 && g == 0 && b == 0) {
+    return [0, 0, 0, 1];
+  }
+
+  computedC = 1 - (r / 255);
+  computedM = 1 - (g / 255);
+  computedY = 1 - (b / 255);
+
+  var minCMY = math.min(computedC, math.min(computedM, computedY));
+  return [
+    ((computedC - minCMY) / (1 - minCMY) * 100).roundToDouble(),
+    ((computedM - minCMY) / (1 - minCMY) * 100).roundToDouble(),
+    ((computedY - minCMY) / (1 - minCMY) * 100).roundToDouble(),
+    (minCMY * 100)
+  ];
+}
+
+List<int> cmykToRgb(double c, double m, double y, double k) {
+  if(c == 0 && m == 0 && y == 0 && k == 1) return [0, 0, 0];
+  int r = (255 * (1 - c / 100.0) * (1 - k / 100.0)).round();
+  int g = ((255 * (1 - m / 100.0) * (1 - k / 100.0))).round();
+  int b = ((255 * (1 - y / 100.0) * (1 - k / 100.0))).round();
+
+  return [r, g, b];
+}

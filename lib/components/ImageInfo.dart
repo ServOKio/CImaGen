@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:cimagen/components/CharacterCard.dart';
 import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/components/PromptAnalyzer.dart';
+import 'package:cimagen/components/TestActivity.dart';
 import 'package:cimagen/components/Vectorscope.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -171,6 +172,14 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                     im.specific?['profileName'] != null ? InfoBox(one: 'Profile Name', two: im.specific?['profileName'], inner: true) : const SizedBox.shrink(),
                                     im.specific?['pixelUnits'] != null ? InfoBox(one: 'Pixel units', two: im.specific?['pixelUnits'] == 1 ? 'Meters' : 'Not specified', inner: true) : const SizedBox.shrink(),
                                     im.specific?['pixelsPerUnitX'] != null ? InfoBox(one: 'Pixels per unit X/Y', two: '${im.specific?['pixelsPerUnitX']}x${im.specific?['pixelsPerUnitY']}', inner: true) : const SizedBox.shrink(),
+                                    ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: Size.zero, // Set this
+                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                        ),
+                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TestActity())),
+                                        child: const Text("View in ICM", style: TextStyle(fontSize: 12))
+                                    ),
                                   ],
                                 )
                               ],

@@ -119,7 +119,6 @@ class _HistogramState extends State<Histogram> {
               double toAdd = constraints.maxWidth / (maxColors-1);
               // //R
               for(int i = 0; i <= (maxColors-1); i++) {
-
                 Color colour = Colors.red;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['r'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['r'] as List<int>)[i] * pixelsPerUnit;

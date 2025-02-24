@@ -1,10 +1,8 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:get/get.dart';
-
-import 'dart:math' as math;
 
 import '../Utils.dart';
 import '../components/ImageInfo.dart';
@@ -187,6 +185,10 @@ class _CharacterCardFullViewState extends State<CharacterCardFullView> {
             you = settings['chatname'];
             opponent = settings['chatopponent'];
             actions = List<String>.from(d['actions']);
+            if(opMode == OperationMode.story){
+              actions = actions.join('').split('\n').map((e) => e.trim()).toList();
+              opponent ??= tryGuessOpponent(actions);
+            }
           }
           if(d['savedaestheticsettings'] != null){
             dynamic saes = d['savedaestheticsettings'];
@@ -208,10 +210,10 @@ class _CharacterCardFullViewState extends State<CharacterCardFullView> {
   @override
   Widget build(BuildContext context) {
     AppBar appBar = AppBar(
-        title: ShowUp(
+        title: Center(child: ShowUp(
           delay: 100,
           child: Text('Character Card ${opMode.toString()}', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
-        ),
+        )),
     );
 
     return Scaffold(
@@ -245,7 +247,13 @@ class _CharacterCardFullViewState extends State<CharacterCardFullView> {
                     },
                     separatorBuilder: (context, index) => Gap(6),
                     itemCount: actions.length
-                  ) : Text('')
+                  ) : opMode == OperationMode.story ? ListView.builder(
+                    itemBuilder: (context, index){
+                      String raw = actions[index];
+                      return SelectableText(raw);
+                    },
+                    itemCount: actions.length
+                  ) : Text('Unknown OperationMode: $opMode')
                 ),
                 Right()
               ],
@@ -335,6 +343,27 @@ class _CharacterCardFullViewState extends State<CharacterCardFullView> {
   }
 }
 
+String? tryGuessOpponent(List<String> actions){
+  // 1. Top keys
+  Map<String, int> ma = {};
+  for(String a in actions){
+    String f = a.split(' ')[0];
+    if(!ma.containsKey(f)){
+      ma[f] = 1;
+    } else {
+      ma[f] = ma[f]! + 1;
+    }
+  }
+  final sortedValuesAsc = SplayTreeMap<String, int>.from(ma, (keys1, keys2) => ma[keys1]!.compareTo(ma[keys2]!));
+  ma.clear();
+  // 2. Top words in all story
+  List<String> wl = actions.join(' ').split(' ');
+  for(String w in wl){
+
+  }
+  return sortedValuesAsc.keys.first;
+}
+
 class OpponentDescription{
   final String keyRaw;
   final String title;
@@ -349,11 +378,13 @@ class OpponentDescription{
 
 enum OperationMode{
   unknown,
+  story,
   chat
 }
 
 OperationMode opToOP(int op){
   return {
+    1: OperationMode.story,
     3: OperationMode.chat
   }[op] ?? OperationMode.unknown;
 }
