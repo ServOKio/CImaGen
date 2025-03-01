@@ -212,20 +212,21 @@ class _HomeState extends State<Home> {
       )
     ]
     ) : Scaffold(
-        body: _buildMainSection(),
-        // use SizedBox to contrain the AppMenu to a fixed width
-        drawer: Theme(
-          data: ThemeData.dark(useMaterial3: false).copyWith(
-            canvasColor: Theme.of(context).scaffoldBackgroundColor,
+      body: _buildMainSection(),
+      // use SizedBox to contrain the AppMenu to a fixed width
+      drawer: Theme(
+        data: ThemeData.dark(useMaterial3: false).copyWith(
+          canvasColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
+        child: Drawer(
+          width: 350,
+          child: Theme(
+            data: theme.getTheme,
+            child:  _buildMenu(),
           ),
-          child: Drawer(
-            width: 350,
-            child: Theme(
-              data: theme.getTheme,
-              child:  _buildMenu(),
-            ),
-          )
         )
+      ),
+      drawerEdgeDragWidth: MediaQuery.of(context).size.width / 2,
     );
   }
 
@@ -902,7 +903,7 @@ class FileInfoPreview extends StatelessWidget{
                             width: constraints.maxWidth / 2,
                             child: AspectRatio(
                               aspectRatio: im?.error == null ? im!.size!.aspectRatio() : 1/1,
-                              child: im?.error == null ? im?.thumbnail != null ? Image.memory(im!.thumbnail!, gaplessPlayback: true) : Icon(Icons.error) : DottedBorder(
+                              child: im?.error == null ? im?.thumbnail != null ? Hero(tag: im!.fileName, child: Image.memory(im.thumbnail!, gaplessPlayback: true)) : Icon(Icons.error) : DottedBorder(
                                 dashPattern: const [6, 6],
                                 color: Colors.redAccent,
                                 borderType: BorderType.RRect,

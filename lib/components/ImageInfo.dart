@@ -8,6 +8,7 @@ import 'package:cimagen/components/TestActivity.dart';
 import 'package:cimagen/components/Vectorscope.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
@@ -30,24 +31,27 @@ class MyImageInfo extends StatefulWidget {
 }
 
 class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin {
-  PaletteGenerator? paletteGenerator;
 
-  @override
-  void initState(){
-    load();
+  late Future<PaletteGenerator?> paletteGenerator;
+
+  Future<PaletteGenerator> getPa(String path) async {
+    return await PaletteGenerator.fromImageProvider(
+      FileImage(File(path)),
+      maximumColorCount: 28,
+    );
   }
 
-  Future<void> load() async {
-    String? path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath;
-    if(path != null){
-      paletteGenerator = await PaletteGenerator.fromImageProvider(
-        FileImage(File(path)),
-        maximumColorCount: 28,
-      );
-      setState(() {
-
-      });
+  Future<PaletteGenerator?> genPalette() async {
+    String path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath ?? '';
+    if(path == ''){
+      PaletteGenerator pa =  await compute(getPa, path);
+      return pa;
     }
+    return null;
+  }
+
+  void initState(){
+    paletteGenerator = genPalette();
   }
 
   @override
@@ -96,7 +100,20 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                   children: [
                     AspectRatio(aspectRatio: 16/9, child: Histogram(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath!)),
                     AspectRatio(aspectRatio: 1/1, child: Vectorscope(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath!)),
-                    if(paletteGenerator != null) PaletteSwatches(generator: paletteGenerator),
+                    FutureBuilder(
+                        future: paletteGenerator,
+                        builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+                          Widget content;
+                          if(snapshot.data != null){
+                            content = PaletteSwatches(generator: snapshot.data);
+                          } else if(snapshot.hasError){
+                            content = Text('Error');
+                          } else {
+                            content = LinearProgressIndicator();
+                          }
+                          return content;
+                        }
+                    ),
                     InfoBox(one: 'Extension/mine', two: '${im.fileTypeExtension} (${im.mine})'),
                     InfoBox(one: 'Render engine', two: renderEngineToString(im.re)),
                     const Gap(6),

@@ -50,5 +50,5 @@ configurations {
 }
 
 dependencies {
-    debugImplementation("io.objectbox:objectbox-android-objectbrowser:4.0.3")
+    debugImplementation("io.objectbox:objectbox-android-objectbrowser:4.1.0")
 }

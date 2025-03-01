@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
 import 'dart:io' as Io;
 
@@ -227,7 +228,33 @@ class ContentRatingModule {
   List<String> XXX = [];
 
   Future<void> loadCRTags() async {
-    Directory dD = await getApplicationDocumentsDirectory();
+    Directory? dD;
+    if(Platform.isAndroid){
+      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
+    } else if(Platform.isWindows){
+      dD = await getApplicationDocumentsDirectory();
+    }
+    if(dD == null){
+      int notID = 0;
+      notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+          title: 'Documents folder not found',
+          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                loadCRTags();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          ))
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+      return;
+    }
     dynamic jsonPath = Directory(p.join(dD.path, 'CImaGen', 'json'));
     if (!jsonPath.existsSync()) {
       await jsonPath.create(recursive: true);

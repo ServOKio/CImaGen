@@ -1,7 +1,7 @@
 import 'dart:io';
 
+import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
-import 'package:cimagen/pages/P404.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/utils/AppBarController.dart';
@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
 import 'package:cimagen/Utils.dart';
@@ -59,7 +60,6 @@ Future<void> main() async {
     WidgetsFlutterBinding.ensureInitialized();
 
     prefs = await SharedPreferences.getInstance();
-    objectbox = await ObjectboxDB.create();
 
     await SystemTheme.accentColor.load();
     if (Platform.isWindows) {
@@ -184,7 +184,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   bool loaded = false;
   bool hasError = false;
-  String? error;
+  String error = '';
 
   @override
   void initState() {
@@ -244,11 +244,23 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       if (info.version.sdkInt > 32) {
         permissionStatus = await Permission.photos.request().isGranted;
         if(permissionStatus){
-          next();
+          permissionStatus = await Permission.storage.request().isGranted;
+          if(permissionStatus){
+            next();
+          } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
+            await openAppSettings();
+          } else if (await Permission.manageExternalStorage.request().isDenied) {
+            setState(() {
+              hasError = true;
+              error = 'The application does not have rights to read and write files';
+              permissionRequired = true;
+            });
+          }
         } else if (await Permission.photos.request().isPermanentlyDenied) {
           await openAppSettings();
         } else if (await Permission.photos.request().isDenied) {
           setState(() {
+            hasError = true;
             error = 'The application does not have rights to read and write media files';
             permissionRequired = true;
           });
@@ -261,6 +273,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           await openAppSettings();
         } else if (await Permission.manageExternalStorage.request().isDenied) {
           setState(() {
+            hasError = true;
             error = 'The application does not have rights to read and write files';
             permissionRequired = true;
           });
@@ -278,28 +291,40 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   void next(){
     context.read<ConfigManager>().init().then((v){
       onDone();
-      context.read<SQLite>().init().then((v){
-        context.read<ImageManager>().init(context);
-        context.read<DataManager>().init().then((v){
-          context.read<SaveManager>().init(context).then((v){
+      ObjectboxDB.create().then((db) {
+        objectbox = db;
+        context.read<SQLite>().init().then((v){
+          context.read<ImageManager>().init(context);
+          context.read<DataManager>().init().then((v){
+            context.read<SaveManager>().init(context).then((v){
+              setState(() {
+                loaded = true;
+              });
+            });
+          }).catchError((e){
+            if (kDebugMode) print(e);
             setState(() {
-              loaded = true;
+              error = 'Database loading error\n$e';
+              hasError = true;
             });
           });
         }).catchError((e){
           if (kDebugMode) print(e);
+          setState(() {
+            error = 'Database loading error\n$e';
+            hasError = true;
+          });
         });
-      }).catchError((e){
-        if (kDebugMode) print(e);
-        error = 'Database loading error\n$e';
+      }).catchError((e) {
         setState(() {
+          error = e.toString();
           hasError = true;
         });
       });
     }).catchError((e){
       if (kDebugMode) print(e);
-      error = 'The configuration cannot be loaded';
-      setState(() {
+      setState((){
+        error = 'The configuration cannot be loaded';
         hasError = true;
       });
     });
@@ -333,167 +358,186 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
     bool changeNotify = MediaQuery.of(context).size.width < 720;
 
-    return Scaffold(
-      appBar: CAppBar(),
-      body: Stack(
-        children: [
-          PageView(
-            physics: const NeverScrollableScrollPhysics(),
-            controller: _pageViewController,
-            children: <Widget>[
-              loaded ? debug ? Column(
-                children: [
-                  Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
-                ],
-              ) : const Home() : LoadingState(loaded: loaded, error: error),
-              loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
-              loaded ? Timeline() : LoadingState(loaded: loaded, error: error),
-              loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
-              // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-              // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-              const Settings()
-            ],
-          ),
-          Positioned(
-            bottom: 90,
-            right: 14,
-            child: Container(
-              // color: Colors.red,
-              constraints: BoxConstraints(
-                  maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720,
-                  maxHeight: MediaQuery.of(context).size.height - (changeNotify ? 220 : 156)
-              ),
-              child: ChangeNotifierProvider(
-                  create: (context) => notificationManager,
-                  child:  Consumer<NotificationManager>(
-                      builder: (context, manager, child) => SingleChildScrollView(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
-                        ),
-                      )
-                  )
-              )
-            )
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: FloatyNavBar(
-              selectedTab: _currentPageIndex,
-              tabs: [
-                FloatyTab(
-                  isSelected: _currentPageIndex == 0,
-                  onTap: () => _updateCurrentPageIndex(0),
-                  title: 'Home',
-                  icon: Icon(Icons.inbox),
-                  floatyActionButton: FloatyActionButton(
-                    icon: const Icon(Icons.file_open),
-                    onTap: (){
-
-                    },
-                  ),
-                ),
-                FloatyTab(
-                  isSelected: _currentPageIndex == 1,
-                  onTap: () => _updateCurrentPageIndex(1),
-                  title: 'Gallery',
-                  icon: Icon(Icons.auto_awesome_mosaic_outlined),
-                  floatyActionButton: FloatyActionButton(
-                    icon: const Icon(Icons.autorenew),
-                    onTap: (){
-
-                    },
-                  ),
-                ),
-                FloatyTab(
-                  isSelected: _currentPageIndex == 2,
-                  onTap: () => _updateCurrentPageIndex(2),
-                  title: 'Render History',
-                  icon: Icon(Icons.account_tree_sharp),
-                  floatyActionButton: FloatyActionButton(
-                    icon: const Icon(Icons.auto_graph),
-                    onTap: (){
-
-                    },
-                  ),
-                ),
-                FloatyTab(
-                  isSelected: _currentPageIndex == 3,
-                  onTap: () => _updateCurrentPageIndex(3),
-                  title: 'Comparison',
-                  icon: Icon(Icons.compare),
-                  floatyActionButton: FloatyActionButton(
-                    icon: const Icon(Icons.share),
-                    onTap: (){
-
-                    },
-                  ),
-                ),
-                FloatyTab(
-                  isSelected: _currentPageIndex == 4,
-                  onTap: () => _updateCurrentPageIndex(4),
-                  title: 'Settings',
-                  icon: Icon(Icons.settings),
-                ),
+    return AnimatedSizeAndFade(
+      child: loaded ? Scaffold(
+        appBar: CAppBar(),
+        body: Stack(
+          children: [
+            PageView(
+              physics: const NeverScrollableScrollPhysics(),
+              controller: _pageViewController,
+              children: <Widget>[
+                loaded ? debug ? Column(
+                  children: [
+                    Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
+                  ],
+                ) : const Home() : LoadingState(loaded: loaded, error: error),
+                loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
+                loaded ? Timeline() : LoadingState(loaded: loaded, error: error),
+                loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
+                // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+                // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+                const Settings()
               ],
             ),
-          )
-        ],
+            Positioned(
+                bottom: 90,
+                right: 14,
+                child: Container(
+                  // color: Colors.red,
+                    constraints: BoxConstraints(
+                        maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720,
+                        maxHeight: MediaQuery.of(context).size.height - (changeNotify ? 220 : 156)
+                    ),
+                    child: ChangeNotifierProvider(
+                        create: (context) => notificationManager,
+                        child:  Consumer<NotificationManager>(
+                            builder: (context, manager, child) => SingleChildScrollView(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
+                              ),
+                            )
+                        )
+                    )
+                )
+            ),
+            if(Platform.isWindows || Platform.isLinux) Align(
+              alignment: Alignment.bottomCenter,
+              child: FloatyNavBar(
+                selectedTab: _currentPageIndex,
+                tabs: [
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 0,
+                    onTap: () => _updateCurrentPageIndex(0),
+                    title: 'Home',
+                    icon: Icon(Icons.inbox),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.file_open),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 1,
+                    onTap: () => _updateCurrentPageIndex(1),
+                    title: 'Gallery',
+                    icon: Icon(Icons.auto_awesome_mosaic_outlined),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.autorenew),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 2,
+                    onTap: () => _updateCurrentPageIndex(2),
+                    title: 'Render History',
+                    icon: Icon(Icons.account_tree_sharp),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.auto_graph),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 3,
+                    onTap: () => _updateCurrentPageIndex(3),
+                    title: 'Comparison',
+                    icon: Icon(Icons.compare),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.share),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 4,
+                    onTap: () => _updateCurrentPageIndex(4),
+                    title: 'Settings',
+                    icon: Icon(Icons.settings),
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed:(){
+            _showModalBottomSheet(context);
+            //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
+          },
+          tooltip: 'Notes',
+          child: const Icon(Icons.note),
+        ),
+        bottomNavigationBar: !(Platform.isWindows || Platform.isLinux) ? NavigationBar(
+          height: 70,
+          backgroundColor: Theme.of(context).colorScheme.background,
+          indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+          surfaceTintColor: Colors.transparent,
+          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+          selectedIndex: _currentPageIndex,
+          onDestinationSelected: (int index) {
+            _updateCurrentPageIndex(index);
+          },
+          destinations: const <Widget>[
+            NavigationDestination(
+              icon: Icon(Icons.inbox),
+              selectedIcon: Icon(Icons.all_inbox),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_awesome_mosaic_outlined),
+              selectedIcon: Icon(Icons.auto_awesome_mosaic),
+              label: 'Gallery',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.account_tree_outlined),
+              selectedIcon: Icon(Icons.account_tree_sharp),
+              label: 'Render History',
+              enabled: false,
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.add_to_photos_outlined),
+              selectedIcon: Icon(Icons.add_to_photos),
+              label: 'Comparison',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+        ) : null,
+      ) : Scaffold(
+        body: SafeArea(
+          child: hasError ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(Icons.error_outline, size: 50, color: Colors.redAccent),
+                  ],
+                ),
+                const Gap(4),
+                Text('Oops, there seems to be a error', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(error, style: TextStyle(color: Colors.grey)),
+                const Gap(7),
+                MaterialButton(onPressed: (){
+                  print(context.read<DataManager>().error);
+                }, child: Text('Retry'))
+              ],
+            ),
+          ) : Center(
+            child: LinearProgressIndicator(),
+          ),
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed:(){
-          _showModalBottomSheet(context);
-          //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
-        },
-        tooltip: 'Notes',
-        child: const Icon(Icons.note),
-      ),
-      // NavigationBar(
-      //   height: 70,
-      //   backgroundColor: Theme.of(context).colorScheme.background,
-      //   indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-      //   surfaceTintColor: Colors.transparent,
-      //   labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-      //   selectedIndex: _currentPageIndex,
-      //   onDestinationSelected: (int index) {
-      //     _updateCurrentPageIndex(index);
-      //   },
-      //   destinations: const <Widget>[
-      //     NavigationDestination(
-      //       icon: Icon(Icons.inbox),
-      //       selectedIcon: Icon(Icons.all_inbox),
-      //       label: 'Home',
-      //     ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.auto_awesome_mosaic_outlined),
-      //       selectedIcon: Icon(Icons.auto_awesome_mosaic),
-      //       label: 'Gallery',
-      //     ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.account_tree_outlined),
-      //       selectedIcon: Icon(Icons.account_tree_sharp),
-      //       label: 'Render History',
-      //       enabled: false,
-      //     ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.add_to_photos_outlined),
-      //       selectedIcon: Icon(Icons.add_to_photos),
-      //       label: 'Comparison',
-      //     ),
-      //     // NavigationDestination(
-      //     //   icon: Icon(Icons.border_all_sharp),
-      //     //   label: 'Grid rebuild',
-      //     // ),
-      //     // NavigationDestination(
-      //     //   icon: Icon(Icons.amp_stories),
-      //     //   label: 'Maybe',
-      //     // ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.settings),
-      //       label: 'Settings',
-      //     ),
-      //   ],
-      // ),
     );
   }
 

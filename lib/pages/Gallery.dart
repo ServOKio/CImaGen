@@ -461,22 +461,23 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           ),
         ]
       ) : Scaffold(
-          body: _buildMainSection(),
-          // use SizedBox to contrain the AppMenu to a fixed width
-          drawer: Theme(
-            data: ThemeData.dark(useMaterial3: false).copyWith(
-              canvasColor: Theme.of(context).scaffoldBackgroundColor,
-            ),
-            child: SizedBox(
-              width: 200,
-              child: Drawer(
-                child: Theme(
-                    data: theme.getTheme,
-                    child: _buildNavigationRail()
-                ),
+        body: _buildMainSection(),
+        // use SizedBox to contrain the AppMenu to a fixed width
+        drawer: Theme(
+          data: ThemeData.dark(useMaterial3: false).copyWith(
+            canvasColor: Theme.of(context).scaffoldBackgroundColor,
+          ),
+          child: SizedBox(
+            width: 200,
+            child: Drawer(
+              child: Theme(
+                  data: theme.getTheme,
+                  child: _buildNavigationRail()
               ),
             ),
-          )
+          ),
+        ),
+        drawerEdgeDragWidth: MediaQuery.of(context).size.width / 2
       )
     );
   }
@@ -996,14 +997,13 @@ class _FloatPreviewState extends State<FloatPreview> {
           children: [
             Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
             Gap(4),
-            Text('Well well well...',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            Text('Just hover over the image to see it',
-                style: TextStyle(color: Colors.grey)),
+            Text('Well well well...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text('Just hover over the image to see it', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
     }
+
     return AnimatedAlign(
         alignment: top && left ? Alignment.bottomLeft : top && !left ? Alignment.bottomRight : !top && left ? Alignment.topLeft : Alignment.topRight,
         duration: const Duration(milliseconds: 50),
@@ -1273,7 +1273,6 @@ class PreviewImage extends StatelessWidget {
               items: [
                 MenuItem(
                   label: 'Go to viewer',
-                  value: 'comparison_view',
                   icon: Icons.compare,
                   onSelected: () {
                     if(sp.selectedCo == 0){
@@ -1284,7 +1283,6 @@ class PreviewImage extends StatelessWidget {
                 ),
                 MenuItem(
                   label: 'View only favorite',
-                  value: 'comparison_view_favorite',
                   icon: Icons.compare,
                   onSelected: () {
                     if(sp.selectedCo == 0){
@@ -1296,7 +1294,6 @@ class PreviewImage extends StatelessWidget {
                 const MenuDivider(),
                 MenuItem(
                   label: 'As main',
-                  value: 'comparison_as_main',
                   icon: Icons.swipe_left,
                   onSelected: () {
                     dataModel.comparisonBlock.changeSelected(0, imageMeta);
@@ -1305,7 +1302,6 @@ class PreviewImage extends StatelessWidget {
                 ),
                 MenuItem(
                   label: 'As test',
-                  value: 'comparison_as_test',
                   icon: Icons.swipe_right,
                   onSelected: () {
                     dataModel.comparisonBlock.changeSelected(1, imageMeta);
@@ -1319,7 +1315,6 @@ class PreviewImage extends StatelessWidget {
               items: [
                 MenuItem(
                   label: 'by seed',
-                  value: 'timeline_by_seed',
                   icon: Icons.compare,
                   onSelected: () {
                     dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed!);
@@ -1331,7 +1326,6 @@ class PreviewImage extends StatelessWidget {
             const MenuDivider(),
             MenuItem(
               label: 'Send to MiniSD',
-              value: 'send_to_minisd',
               icon: Icons.web_rounded,
               onSelected: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));
@@ -1354,7 +1348,6 @@ class PreviewImage extends StatelessWidget {
             const MenuDivider(),
             MenuItem(
               label: 'Show in explorer',
-              value: 'show_in_explorer',
               icon: Icons.compare,
               onSelected: () {
                 showInExplorer(imageMeta.fullPath!);
@@ -1418,7 +1411,6 @@ class PreviewImage extends StatelessWidget {
             ),
             if(sp.hasSelected) CustomMenuItem(
               label: 'Delete selected',
-              value: 'delete_selected',
               icon: Icons.delete,
               iconColor: Colors.redAccent,
               onSelected: () {
@@ -1447,7 +1439,6 @@ class PreviewImage extends StatelessWidget {
             ),
             CustomMenuItem(
               label: 'Delete',
-              value: 'delete',
               icon: Icons.delete,
               iconColor: Colors.redAccent,
               onSelected: () {
@@ -1602,24 +1593,27 @@ class PreviewImage extends StatelessWidget {
                                             //   ),
                                             //   child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                             // ),
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 3),
-                                              padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                              decoration: BoxDecoration(
-                                                  borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                  color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                            Tooltip(
+                                              message: imageMeta.fileName,
+                                              child: Container(
+                                                margin: const EdgeInsets.only(bottom: 3),
+                                                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                                decoration: BoxDecoration(
+                                                    borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                    color: const Color(0xFF5fa9b5).withOpacity(0.7)
+                                                ),
+                                                child: Text(renderEngineToString(imageMeta.re), style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                               ),
-                                              child: Text(renderEngineToString(imageMeta.re), style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                             ),
                                             imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Tooltip(
-                                              message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}',
+                                              message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}${imageMeta.generationParams?.hiresSampler != null ? '\n${imageMeta.generationParams?.hiresSampler}' : ''}',
                                               child: Container(
                                                 padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                                 decoration: BoxDecoration(
                                                     borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                    color: const Color(0xff5f55a6).withOpacity(0.7)
+                                                    color: (imageMeta.generationParams?.hiresSampler != null ? Color(0xffa69955) : Color(0xff5f55a6)).withAlpha(180)
                                                 ),
-                                                child: const Text('Hi-Res', style: TextStyle(color: Color(0xffc8c4f5), fontSize: 12)),
+                                                child: Text('Hi-Res', style: TextStyle(color: imageMeta.generationParams?.hiresSampler != null ? Color(0xfff5e7c4) : Color(0xffc8c4f5), fontSize: 12)),
                                               ),
                                             ) : const SizedBox.shrink(),
                                           ],

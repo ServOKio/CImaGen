@@ -97,6 +97,7 @@ class _ImageViewState extends State<ImageView> {
         ],
       ),
       endDrawer: screenWidth >= breakpoint ? null : _buildMenu(),
+      drawerEdgeDragWidth: screenWidth >= breakpoint ? null : MediaQuery.of(context).size.width / 2,
       body: SafeArea(
         child: screenWidth >= breakpoint ? Row(
           children: [
@@ -216,7 +217,7 @@ class _ImageViewState extends State<ImageView> {
         child: Center(
             child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? ContextMenuRegion(
                 contextMenu: contextMenu,
-                child: Image.file(
+                child: Hero(tag: widget.imageMeta!.fileName, child: Image.file(
                   File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
                   gaplessPlayback: true,
                   filterQuality: FilterQuality.none,
@@ -246,7 +247,7 @@ class _ImageViewState extends State<ImageView> {
                     }
                   },
                 )
-            ) : FutureBuilder(
+            )) : FutureBuilder(
               future: lotsOfData,
               builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
                 Widget children;

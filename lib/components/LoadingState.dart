@@ -1,10 +1,8 @@
-import 'package:cimagen/Utils.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
 import '../modules/DataManager.dart';
-import '../utils/ImageManager.dart';
 
 class LoadingState extends StatefulWidget{
   final bool loaded;
@@ -45,7 +43,6 @@ class _LoadingStateState extends State<LoadingState> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final dataManager = Provider.of<DataManager>(context);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -69,8 +66,8 @@ class _LoadingStateState extends State<LoadingState> with TickerProviderStateMix
           ],
         ),
         const Gap(4),
-        Text(dataManager.error != null ? 'Oops, there seems to be a error' : 'Configuration required', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        Text(dataManager.error != null ? dataManager.error! : 'To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
+        Text(widget.error != null ? 'Oops, there seems to be a error' : 'Configuration required', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        Text(widget.error != null ? widget.error! : 'To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
         // widget.webui ? const Text('WebUI folder', style: TextStyle(color: Colors.grey)) : const SizedBox.shrink(),
         // widget.comfyui ? const Text('ComfyUI folder') : const SizedBox.shrink(),
         const Gap(7),

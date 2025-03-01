@@ -675,10 +675,9 @@ class _ImageListStateStateful extends State<ImageList>{
                                                 padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                                 decoration: BoxDecoration(
                                                     borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                    color: const Color(0xff5f55a6).withOpacity(0.7)
+                                                    color: (im.generationParams?.hiresSampler != null ? Color(0xffa69955) : Color(0xff5f55a6)).withAlpha(180)
                                                 ),
-                                                child: const Text('Hi-Res', style: TextStyle(color: Color(
-                                                    0xffc8c4f5), fontSize: 8)),
+                                                child: Text('Hi-Res', style: TextStyle(color: im.generationParams?.hiresSampler != null ? Color(0xfff5e7c4) : Color(0xffc8c4f5), fontSize: 8)),
                                               ) : const SizedBox.shrink(),
                                               im.generationParams!.denoisingStrength != null && im.generationParams?.hiresUpscale != null ? const Gap(3) : const SizedBox.shrink(),
                                               Text(im.generationParams!.size.toString(), style: const TextStyle(fontSize: 10, color: Colors.white))

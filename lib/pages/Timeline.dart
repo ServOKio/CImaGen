@@ -4,19 +4,16 @@ import 'dart:io';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/components/TimeLineLine.dart';
-import 'package:cimagen/main.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
 import '../modules/DataManager.dart';
 import '../utils/DataModel.dart';
 import '../utils/ImageManager.dart';
-import '../utils/SQLite.dart';
 
 class Timeline extends StatefulWidget{
-  const Timeline({ Key? key }): super(key: key);
+  const Timeline({ super.key });
 
   @override
   _TimelineState createState() => _TimelineState();
@@ -38,96 +35,96 @@ class _TimelineState extends State<Timeline> {
       sr = true;
     } else {
       final dataModel = Provider.of<DataModel>(context, listen: false);
-      objectbox.getImagesBySeed(dataModel.timelineBlock.getSeed).then((v2) {
-        ImageRow row = ImageRow();
-        for (var image in v2) {
-          if(debug){
-            row.addExtraMain(image);
-            rows.add(row);
-            row = ImageRow();
-            continue;
-          }
-          if(image.re == RenderEngine.txt2img){
-            bool isHiRes = image.generationParams?.denoisingStrength != null;
-
-            if(row.hasMain()){ //Если есть главная
-              // ok
-              if(row.hasExtraMain()){ //Если есть хайрес
-                //ну и похуй, скипаем
-                rows.add(row);
-                row = ImageRow();
-                if(isHiRes){ //Если хайрес
-                  row.addExtraMain(image);
-                } else row.addMain(image);
-              } else { // если нет хайреса
-                if(isHiRes){ //Если хайрес
-                  if(!isIdenticalPromt(row.main, image)){ //если промты разные у рава и хая
-                    rows.add(row);
-                    row = ImageRow();
-                  }
-                  row.addExtraMain(image);
-                } else { //если нет - дальше
-                  rows.add(row);
-                  row = ImageRow();
-                  row.addMain(image);
-                }
-              }
-            } else { //Если нет главной
-              if(isHiRes){ //Если хайрес - дебик с pnginfo (бля сука)
-                if(row.hasSecond()){ //Если там уже есть что-то дальше т.е. тупо лежит img2img
-                  rows.add(row);
-                  row = ImageRow();
-                } else if(row.hasExtraMain()){
-                  rows.add(row);
-                  row = ImageRow();
-                }
-                row.addExtraMain(image);
-              } else { //Если не хайрес
-                if(row.hasExtraMain()){ //Если уже есть hires куда ещё пихать
-                  rows.add(row);
-                  row = ImageRow();
-                  row.addMain(image);
-                } else { //Если есть куда пихать
-                  if(row.hasSecond()){
-                    rows.add(row);
-                    row = ImageRow();
-                  }
-                  row.addMain(image);
-                }
-              }
-            }
-          } else if(image.re == RenderEngine.img2img){
-            if(row.hasMain() && row.hasExtraMain()){// Есть оба
-              // Бля, а вот тут боль - при сохранение, допустим картинка отрендерилась, можно написать хуйню и оно сохранит в хуйней, а не с тем что рендерило
-              bool shit = false;
-
-              if(!isIdenticalPromt(row.extraMain, image)) shit = true;
-              // TODO потом
-              // if(row.extraMain != null && row.extraMain?.size.aspectRatio() != image.size.aspectRatio()) shit = true;
-              if(shit){ //Получается онли img2img
-                rows.add(row);
-                row = ImageRow();
-              }
-              row.addSecond(image);
-            } else {
-              if(row.hasMain() && !row.hasExtraMain()){ //Есть основное, но нет хайреса
-                // Кидаем в новое
-                rows.add(row);
-                row = ImageRow();
-                row.addSecond(image);
-              } else if(!row.hasMain() && row.hasExtraMain()){ // Нет основного, но есть хайрес
-                //Продолжаем
-                row.addSecond(image);
-              }
-            }
-          }
-        }
-        if(mounted) {
-          setState(() {
-          loaded = true;
-        });
-        }
-      });
+      // objectbox.getImagesBySeed(dataModel.timelineBlock.getSeed).then((v2) {
+      //   ImageRow row = ImageRow();
+      //   for (var image in v2) {
+      //     if(debug){
+      //       row.addExtraMain(image);
+      //       rows.add(row);
+      //       row = ImageRow();
+      //       continue;
+      //     }
+      //     if(image.re == RenderEngine.txt2img){
+      //       bool isHiRes = image.generationParams?.denoisingStrength != null;
+      //
+      //       if(row.hasMain()){ //Если есть главная
+      //         // ok
+      //         if(row.hasExtraMain()){ //Если есть хайрес
+      //           //ну и похуй, скипаем
+      //           rows.add(row);
+      //           row = ImageRow();
+      //           if(isHiRes){ //Если хайрес
+      //             row.addExtraMain(image);
+      //           } else row.addMain(image);
+      //         } else { // если нет хайреса
+      //           if(isHiRes){ //Если хайрес
+      //             if(!isIdenticalPromt(row.main, image)){ //если промты разные у рава и хая
+      //               rows.add(row);
+      //               row = ImageRow();
+      //             }
+      //             row.addExtraMain(image);
+      //           } else { //если нет - дальше
+      //             rows.add(row);
+      //             row = ImageRow();
+      //             row.addMain(image);
+      //           }
+      //         }
+      //       } else { //Если нет главной
+      //         if(isHiRes){ //Если хайрес - дебик с pnginfo (бля сука)
+      //           if(row.hasSecond()){ //Если там уже есть что-то дальше т.е. тупо лежит img2img
+      //             rows.add(row);
+      //             row = ImageRow();
+      //           } else if(row.hasExtraMain()){
+      //             rows.add(row);
+      //             row = ImageRow();
+      //           }
+      //           row.addExtraMain(image);
+      //         } else { //Если не хайрес
+      //           if(row.hasExtraMain()){ //Если уже есть hires куда ещё пихать
+      //             rows.add(row);
+      //             row = ImageRow();
+      //             row.addMain(image);
+      //           } else { //Если есть куда пихать
+      //             if(row.hasSecond()){
+      //               rows.add(row);
+      //               row = ImageRow();
+      //             }
+      //             row.addMain(image);
+      //           }
+      //         }
+      //       }
+      //     } else if(image.re == RenderEngine.img2img){
+      //       if(row.hasMain() && row.hasExtraMain()){// Есть оба
+      //         // Бля, а вот тут боль - при сохранение, допустим картинка отрендерилась, можно написать хуйню и оно сохранит в хуйней, а не с тем что рендерило
+      //         bool shit = false;
+      //
+      //         if(!isIdenticalPromt(row.extraMain, image)) shit = true;
+      //         // TODO потом
+      //         // if(row.extraMain != null && row.extraMain?.size.aspectRatio() != image.size.aspectRatio()) shit = true;
+      //         if(shit){ //Получается онли img2img
+      //           rows.add(row);
+      //           row = ImageRow();
+      //         }
+      //         row.addSecond(image);
+      //       } else {
+      //         if(row.hasMain() && !row.hasExtraMain()){ //Есть основное, но нет хайреса
+      //           // Кидаем в новое
+      //           rows.add(row);
+      //           row = ImageRow();
+      //           row.addSecond(image);
+      //         } else if(!row.hasMain() && row.hasExtraMain()){ // Нет основного, но есть хайрес
+      //           //Продолжаем
+      //           row.addSecond(image);
+      //         }
+      //       }
+      //     }
+      //   }
+      //   if(mounted) {
+      //     setState(() {
+      //     loaded = true;
+      //   });
+      //   }
+      // });
     }
     //load();
   }
@@ -227,7 +224,7 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   // final String? hiresSampler;
   if(o.hiresSampler != t.hiresSampler) d.add(Difference(key: 'hiresSampler', oldValue: o.hiresSampler ?? '-', newValue: t.hiresSampler ?? '-'));
 
-  if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscaler', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
+  //if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscaler', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
 

@@ -19,8 +19,8 @@ class TestActity extends StatefulWidget{
 class _TestActityState extends State<TestActity> {
   bool loaded = false;
   Uint8List? bytes;
-  String path = 'F:\\PC2\\РабСто\\тестировать\\6543949048.jpg';
-  String icc_path = 'C:\\Windows\\System32\\spool\\drivers\\color\\CN_PRO-200_S1_PhotoPaperPlusGlossyIIA.icc';
+  String path = 'C:\\Users\\Admin\\Downloads\\fef7e51b4aa35616f34593405deb0573.jpg';
+  String icc_path = 'C:\\Windows\\System32\\spool\\drivers\\color\\EPSON L8050 Series Premium Semigloss.icc';
 
   Future<void> rebuild() async {
     setState(() {
@@ -57,7 +57,7 @@ class _TestActityState extends State<TestActity> {
       while (range.moveNext()) {
 
         final pixel = range.current;
-        List<double> cmyk = rgb2cmyk(pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt());
+        List<double> cmyk = rgb2cmyk(pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt()).map((e) => e == 0 ? 0.0 : 1 / e).toList();
 
         final rgb = cmm.apply(finalTransformations, Float64List.fromList(cmyk)).map((e) => (e * 255).round().clamp(0, 255)).toList();
 

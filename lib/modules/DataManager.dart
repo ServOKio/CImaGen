@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -42,7 +43,33 @@ class DataManager with ChangeNotifier {
 
   // https://e621.net/db_export/
   Future<void> loadE621Tags() async {
-    Directory dD = await getApplicationDocumentsDirectory();
+    Directory? dD;
+    if(Platform.isAndroid){
+      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
+    } else if(Platform.isWindows){
+      dD = await getApplicationDocumentsDirectory();
+    }
+    if(dD == null){
+      int notID = 0;
+      notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+          title: 'Documents folder not found',
+          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                loadE621Tags();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          ))
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+      return;
+    }
     dynamic csvPath = Directory(p.join(dD.path, 'CImaGen', 'csv'));
     if (!csvPath.existsSync()) {
       await csvPath.create(recursive: true);
