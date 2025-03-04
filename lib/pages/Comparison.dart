@@ -271,27 +271,54 @@ class _ViewBlockState extends State<ViewBlock> {
                 icon: const Icon(Icons.remove_red_eye),
                 iconColor: Colors.yellowAccent,
                 title: const Text('The images have differences'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: difference!.map((ent){
-                    return Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: ['positive', 'negative'].contains(ent.key) ?
-                          TagBox(text: keysMap[ent.key] ?? ent.key) :
-                          Container(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(ent.oldValue),
-                                Text(ent.key),
-                                Text(ent.newValue)
-                              ],
-                            ),
-                          )
-                    );
-                  }).toList()
+                content: DataTable(
+                    columns: const <DataColumn>[
+                      DataColumn(
+                        label: Text(
+                          'From',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'Key',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(
+                          'To',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    rows: difference!.map((ent){
+                      return DataRow(
+                          cells: [
+                            DataCell(Text(ent.oldValue, textAlign: TextAlign.left)),
+                            DataCell(Text(ent.key, maxLines: 1, textAlign: TextAlign.center)),
+                            DataCell(Text(ent.newValue, textAlign: TextAlign.right)),
+                          ]
+                      );
+                    }).toList()
                 ),
+                  // difference!.map((ent){
+                  //   return Padding(
+                  //       padding: const EdgeInsets.only(bottom: 4),
+                  //       child: ['positive', 'negative'].contains(ent.key) ?
+                  //         TagBox(text: keysMap[ent.key] ?? ent.key) :
+                  //         Container(
+                  //           child: Row(
+                  //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //             children: [
+                  //               Text(ent.oldValue),
+                  //               Text(ent.key),
+                  //               Text(ent.newValue)
+                  //             ],
+                  //           ),
+                  //         )
+                  //   );
+                  // }).toList()
                 actions: <Widget>[
                   TextButton(
                     onPressed: () => Navigator.pop(context, 'OK'),
@@ -332,6 +359,8 @@ class _ViewBlockState extends State<ViewBlock> {
       padding: const EdgeInsets.all(8.0),
     );
 
+    double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+
     return Stack(
       children: [
         MouseRegion(
@@ -350,17 +379,16 @@ class _ViewBlockState extends State<ViewBlock> {
               });
             },
             child: SizedBox(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height,
               child: Center(
                 child: ContextMenuRegion(
                   contextMenu: contextMenu,
                   child: _asSplit ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                    Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                    Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
-                  ]) : _showImageDifference ? Stack(
+                        Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
+                        Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                      ]
+                  ) : _showImageDifference ? Stack(
                     children: [
                       Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
                       BlendMask(

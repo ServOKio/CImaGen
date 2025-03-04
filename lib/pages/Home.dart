@@ -22,6 +22,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import '../Utils.dart';
 import '../components/CustomMasonryView.dart';
 import '../components/ImageInfo.dart';
+import '../main.dart';
 import '../modules/Animations.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
@@ -192,6 +193,9 @@ class _HomeState extends State<Home> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.resetActions();
+    });
     loadCaregories();
   }
 

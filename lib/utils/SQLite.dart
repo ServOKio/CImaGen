@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:cimagen/components/NotesSection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import '../main.dart';
@@ -36,7 +37,12 @@ class SQLite with ChangeNotifier{
       databaseFactory = databaseFactoryFfi;
     }
 
-    Directory dD = await getApplicationDocumentsDirectory();
+    Directory? dD;
+    if(Platform.isAndroid){
+      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
+    } else {
+      dD = await getApplicationDocumentsDirectory();
+    }
     dynamic dbPath = Directory(path.join(dD.path, 'CImaGen', 'databases'));
     if (!await dbPath.exists()) {
       await dbPath.create(recursive: true);

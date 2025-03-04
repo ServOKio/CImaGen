@@ -203,8 +203,6 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   if(o.negative != t.negative) d.add(Difference(key: 'negative', oldValue: o.negative ?? '-', newValue: t.negative ?? '-'));
   // final int steps;
   if(o.steps != t.steps) d.add(Difference(key: 'steps', oldValue: o.steps.toString(), newValue: t.steps.toString()));
-  // final String sampler;
-  if(o.sampler != t.sampler) d.add(Difference(key: 'sampler', oldValue: o.sampler ?? '-', newValue: t.sampler ?? '-'));
   // final double cfgScale;
   if(o.cfgScale != t.cfgScale) d.add(Difference(key: 'cfgScale', oldValue: o.cfgScale.toString(), newValue: t.cfgScale.toString()));
   // final int seed;

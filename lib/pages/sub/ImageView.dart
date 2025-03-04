@@ -48,7 +48,7 @@ class _ImageViewState extends State<ImageView> {
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
 
   late final lotsOfData = _readImageFile(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath);
-  final photoSender = Rx<String>("");
+  final photoSender = Rx<String>('1.00');
 
   @override
   Widget build(BuildContext context) {
@@ -203,6 +203,8 @@ class _ImageViewState extends State<ImageView> {
       padding: const EdgeInsets.all(8.0),
     );
 
+    double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+
     return InteractiveViewer(
       transformationController: _transformationController,
       boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -218,6 +220,7 @@ class _ImageViewState extends State<ImageView> {
             child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? ContextMenuRegion(
                 contextMenu: contextMenu,
                 child: Hero(tag: widget.imageMeta!.fileName, child: Image.file(
+                  width: widget.imageMeta!.size!.width / devicePixelRatio,
                   File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
                   gaplessPlayback: true,
                   filterQuality: FilterQuality.none,

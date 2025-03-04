@@ -8,6 +8,7 @@ import 'package:cimagen/Utils.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:collection/collection.dart';
+import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -40,7 +41,12 @@ class ObjectboxDB {
   Box<GenerationParams> get generationParamsBox => _generationParamsBox;
 
   static Future<ObjectboxDB> create() async {
-    Directory dD = await getApplicationDocumentsDirectory();
+    Directory? dD;
+    if(Platform.isAndroid){
+      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
+    } else {
+      dD = await getApplicationDocumentsDirectory();
+    }
     Directory dbPath = Directory(p.join(dD.path, 'CImaGen', 'databases'));
     if (!await dbPath.exists()) {
       await dbPath.create(recursive: true);

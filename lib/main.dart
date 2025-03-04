@@ -186,6 +186,14 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   bool hasError = false;
   String error = '';
 
+  bool _storagePass = false;
+  bool _configPass = false;
+  bool _obPass = false;
+  bool _sqlPass = false;
+  bool _imgManagerPass = false;
+  bool _dataManagerPass = false;
+  bool _saveManagerPass = false;
+
   @override
   void initState() {
     super.initState();
@@ -244,7 +252,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       if (info.version.sdkInt > 32) {
         permissionStatus = await Permission.photos.request().isGranted;
         if(permissionStatus){
-          permissionStatus = await Permission.storage.request().isGranted;
+          permissionStatus = await Permission.manageExternalStorage.request().isGranted;
           if(permissionStatus){
             next();
           } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
@@ -289,15 +297,32 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   }
 
   void next(){
+    setState(() {
+      _storagePass = true;
+    });
     context.read<ConfigManager>().init().then((v){
       onDone();
+      setState(() {
+        _configPass = true;
+      });
       ObjectboxDB.create().then((db) {
         objectbox = db;
+        setState(() {
+          _obPass = true;
+        });
         context.read<SQLite>().init().then((v){
+          setState(() {
+            _sqlPass = true;
+          });
           context.read<ImageManager>().init(context);
           context.read<DataManager>().init().then((v){
+            setState(() {
+              _imgManagerPass = true;
+              _dataManagerPass = true;
+            });
             context.read<SaveManager>().init(context).then((v){
               setState(() {
+                _saveManagerPass = true;
                 loaded = true;
               });
             });
@@ -534,12 +559,31 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
               ],
             ),
           ) : Center(
-            child: LinearProgressIndicator(),
+            child: Column(
+              children: [
+                Text('Storage $_storagePass\n'
+                    'Config: $_configPass\n'
+                    'ObjectBox: $_obPass\n'
+                    'SQL: $_sqlPass\n'
+                    'ImageManager: $_imgManagerPass\n'
+                    'DataManager: $_dataManagerPass\n'
+                    'SaveManager: $_saveManagerPass'),
+                LinearProgressIndicator()
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  // bool _storagePass = false;
+  // bool _configPass = false;
+  // bool _obPass = false;
+  // bool _sqlPass = false;
+  // bool _imgManagerPass = false;
+  // bool _dataManagerPass = false;
+  // bool _saveManagerPass = false;
 
   void _updateCurrentPageIndex(int index) {
     setState(() {
