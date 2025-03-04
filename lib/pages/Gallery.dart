@@ -1594,7 +1594,7 @@ class PreviewImage extends StatelessWidget {
                                             //   child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
                                             // ),
                                             Tooltip(
-                                              message: imageMeta.fileName,
+                                              message: '${imageMeta.fileName}\n${imageMeta.generationParams?.sampler ?? '-'}',
                                               child: Container(
                                                 margin: const EdgeInsets.only(bottom: 3),
                                                 padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),

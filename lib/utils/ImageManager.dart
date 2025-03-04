@@ -1838,7 +1838,7 @@ String softwareToString(Software re){
 }
 
 String humanizeSamplerName(String name, {bool showOriginal = true}){ // https://github.com/comfyanonymous/ComfyUI/blob/cb8d0ebccc93d3df6e00da1a57718a86d3dde300/comfy/samplers.py#L507C19-L509C116
-  return '${{
+  return name.contains('_') ? '${{
     'euler': 'Euler',
     'euler_a': 'Euler A',
     'euler_ancestral': 'Euler A',
@@ -1861,7 +1861,7 @@ String humanizeSamplerName(String name, {bool showOriginal = true}){ // https://
     'dpmpp_3m_sde_gpu': 'DPM++ 3M SDE GPU',
     'ddpm': 'DDPM',
     'lcm': 'LCM'
-  }[name.toLowerCase().replaceAll(' ', '_')] ?? 'Unknown*'} ($name)';
+  }[name.toLowerCase().replaceAll(' ', '_')] ?? 'Unknown*'} ($name)' : name;
 }
 
 String humanizeSchedulerName(String name, {bool showOriginal = true}){

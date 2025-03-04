@@ -6,10 +6,11 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:external_path/external_path.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:io' as Io;
 
-import 'package:image/image.dart' as Il;
+import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
 import '../components/PromptAnalyzer.dart';
@@ -123,79 +124,90 @@ class ComparisonBlock {
     } else {
       path = s;
     }
-    Io.File(path).readAsBytes().then((b) {
-        Il.Image? de = Il.decodeImage(b);
-        if(de != null) {
-          // ok
-          if(type == 0){
-            firstImageSize = ImageSize(width: de.width, height: de.height);
-            firstCache = b;
-          } else {
-            secondImageSize = ImageSize(width: de.width, height: de.height);
-            secondCache = b;
-          }
-          //Ура, прочитали, теперь сверяем и потом скейлим
-          //Блять, надо узнать что скейлить
-          if([firstSelected, secondSelected][type == 0 ? 1 : 0] == null){
-            //Если пустое и мы нихера не знаем о втором
+    final Uint8List bytes = await compute(readAsBytesSync, path);
+    img.Image? de = await compute(img.decodeImage, bytes);
+    if(de != null) {
+      // ok
+      if(type == 0){
+        firstImageSize = ImageSize(width: de.width, height: de.height);
+        firstCache = bytes;
+      } else {
+        secondImageSize = ImageSize(width: de.width, height: de.height);
+        secondCache = bytes;
+      }
+      //Ура, прочитали, теперь сверяем и потом скейлим
+      //Блять, надо узнать что скейлить
+      if([firstSelected, secondSelected][type == 0 ? 1 : 0] == null){
+        //Если пустое и мы нихера не знаем о втором
 
-            //Создаём новое
-            final image = Il.Image(width: de.width, height: de.height);
-            //Рисуем херню
-            for (var pixel in image) {
-              pixel..r = pixel.x
-                ..g = pixel.y;
-            }
-
-            if(type == 0){
-              secondCache = Il.encodePng(image);
-              secondImageSize =  ImageSize(width: de.width, height: de.height);
+        //Создаём новое
+        final image = img.Image(width: de.width, height: de.height);
+        //Рисуем херню
+        int limit = 20;
+        for (img.Pixel pixel in image) {
+          if(pixel.x%(limit*2) > limit){
+            if(pixel.y%(limit*2) < limit){
+              pixel.setRgb(255, 255, 255);
             } else {
-              firstCache = Il.encodePng(image);
-              firstImageSize =  ImageSize(width: de.width, height: de.height);
+              pixel.setRgb(137, 137, 137);
             }
-            notify();
           } else {
-            // Если размеры есть, но нужно узнать кого наебать
-            // А похуй, пусть сверяет с сеткой
-            // 😭 не хочууууууу
-            // Просто нужно понять что надо изменит и всё, а так всё равно придётся
-            if(firstImageSize.toString() == secondImageSize.toString()){
-              //Срать
-              notify();
+            if(pixel.y%(limit*2) > limit){
+              pixel.setRgb(255, 255, 255);
             } else {
-              //flutter: comparison_as_main
-              //[ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: Null check operator used on a null value
-              bool what = secondImageSize!.totalPixels() < firstImageSize!.totalPixels();
-              s = what ? secondSelected : firstSelected;
-              if(s.runtimeType == ImageMeta){
-                ImageMeta im = s as ImageMeta;
-                if(im.isLocal){
-                  path = im.fullPath!;
-                } else if(im.tempFilePath != null){
-                  path = im.tempFilePath!;
-                }
-              } else {
-                path = s;
-              }
-              Io.File(path).readAsBytes().then((b) {
-                de = Il.decodeImage(b);
-                if(de != null) {
-                  Il.Image d = Il.copyResize(de!, width: [firstImageSize, secondImageSize][what ? 0 : 1]?.width);
-                  if(what){
-                    secondCache = Il.encodePng(d);
-                    secondImageSize = firstImageSize;
-                  } else {
-                    firstCache = Il.encodePng(d);
-                    firstImageSize = secondImageSize;
-                  }
-                }
-                notify();
-              });
+              pixel.setRgb(137, 137, 137);
             }
           }
         }
-    });
+
+        if(type == 0){
+          secondCache = img.encodePng(image);
+          secondImageSize =  ImageSize(width: de.width, height: de.height);
+        } else {
+          firstCache = img.encodePng(image);
+          firstImageSize =  ImageSize(width: de.width, height: de.height);
+        }
+        notify();
+      } else {
+        // Если размеры есть, но нужно узнать кого наебать
+        // А похуй, пусть сверяет с сеткой
+        // 😭 не хочууууууу
+        // Просто нужно понять что надо изменит и всё, а так всё равно придётся
+        if(firstImageSize.toString() == secondImageSize.toString()){
+          //Срать
+          notify();
+        } else {
+          //flutter: comparison_as_main
+          //[ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: Null check operator used on a null value
+          bool what = secondImageSize!.totalPixels() < firstImageSize!.totalPixels();
+          s = what ? secondSelected : firstSelected;
+          if(s.runtimeType == ImageMeta){
+            ImageMeta im = s as ImageMeta;
+            if(im.isLocal){
+              path = im.fullPath!;
+            } else if(im.tempFilePath != null){
+              path = im.tempFilePath!;
+            }
+          } else {
+            path = s;
+          }
+          Io.File(path).readAsBytes().then((b) {
+            de = img.decodeImage(b);
+            if(de != null) {
+              img.Image d = img.copyResize(de!, width: [firstImageSize, secondImageSize][what ? 0 : 1]?.width);
+              if(what){
+                secondCache = img.encodePng(d);
+                secondImageSize = firstImageSize;
+              } else {
+                firstCache = img.encodePng(d);
+                firstImageSize = secondImageSize;
+              }
+            }
+            notify();
+          });
+        }
+      }
+    }
   }
 }
 

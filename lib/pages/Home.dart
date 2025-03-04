@@ -67,7 +67,7 @@ class _HomeState extends State<Home> {
       try{
         ImageMeta? im = await parseImage(RenderEngine.unknown, file.path);
         if(im != null){
-          pushToHistory(im);
+          if(mounted) pushToHistory(im);
         }
       } catch(e, s){
         if (kDebugMode) {

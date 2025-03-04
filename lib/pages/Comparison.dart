@@ -271,37 +271,7 @@ class _ViewBlockState extends State<ViewBlock> {
                 icon: const Icon(Icons.remove_red_eye),
                 iconColor: Colors.yellowAccent,
                 title: const Text('The images have differences'),
-                content: DataTable(
-                    columns: const <DataColumn>[
-                      DataColumn(
-                        label: Text(
-                          'From',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Text(
-                          'Key',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      DataColumn(
-                        label: Text(
-                          'To',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                    rows: difference!.map((ent){
-                      return DataRow(
-                          cells: [
-                            DataCell(Text(ent.oldValue, textAlign: TextAlign.left)),
-                            DataCell(Text(ent.key, maxLines: 1, textAlign: TextAlign.center)),
-                            DataCell(Text(ent.newValue, textAlign: TextAlign.right)),
-                          ]
-                      );
-                    }).toList()
-                ),
+                content: differenceBlock(difference!),
                   // difference!.map((ent){
                   //   return Padding(
                   //       padding: const EdgeInsets.only(bottom: 4),
@@ -433,6 +403,75 @@ class _ViewBlockState extends State<ViewBlock> {
             )
         ),
       ],
+    );
+  }
+
+  Widget differenceBlock(List<Difference> difference){
+    return DataTable(
+        dataRowMaxHeight: double.infinity,
+        columns: const <DataColumn>[
+          DataColumn(
+            label: Text(
+              'From',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'Key',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'To',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+        rows: difference.map((ent){
+          if(['positive', 'negative'].contains(ent.key)){
+            Color c = ent.key == 'positive' ? Colors.green : Colors.redAccent;
+            return DataRow(
+                cells: [
+                  DataCell(Container(
+                      padding: const EdgeInsets.all(4.0),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: c.withAlpha(40),
+                        border: Border.all(color: c, width: 1),
+                        borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                      ),
+                      child: FractionallySizedBox(
+                          widthFactor: 1.0,
+                          child: SelectableText(ent.oldValue ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 12))
+                      )
+                  )),
+                  DataCell(SelectableText(ent.key, maxLines: 1, textAlign: TextAlign.center)),
+                  DataCell(Container(
+                      padding: const EdgeInsets.all(4.0),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: c.withAlpha(40),
+                        border: Border.all(color: c, width: 1),
+                        borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                      ),
+                      child: FractionallySizedBox(
+                          widthFactor: 1.0,
+                          child: SelectableText(ent.newValue ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 12))
+                      )
+                  )),
+                ]
+            );
+          }
+          return DataRow(
+              cells: [
+                DataCell(SelectableText(ent.oldValue)),
+                DataCell(SelectableText(ent.key, maxLines: 1, textAlign: TextAlign.center)),
+                DataCell(SelectableText(ent.newValue)),
+              ]
+          );
+        }).toList()
     );
   }
 }
