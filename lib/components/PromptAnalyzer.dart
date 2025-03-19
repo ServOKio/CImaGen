@@ -1,4 +1,5 @@
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/components/ArtistDefaultStypeFinder.dart';
 import 'package:cimagen/components/TagSearcher.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
@@ -177,11 +178,11 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
       loaded = true;
       if(id == 0) {
         posChart = [
-        fi.map((e) => _tagsAndWeights[e.name]!).toList(),
-        fi.map((e) => e.name).toList(),
-        fi.map((e) => e.count.toDouble()).toList(),
-        fi.map((e) => e.count * _tagsAndWeights[e.name]!).toList(),
-      ];
+          fi.map((e) => _tagsAndWeights[e.name]!).toList(),
+          fi.map((e) => e.name).toList(),
+          fi.map((e) => e.count.toDouble()).toList(),
+          fi.map((e) => e.count * _tagsAndWeights[e.name]!).toList(),
+        ];
       }
     });
   }
@@ -193,7 +194,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
     Widget artistWeights;
 
     if(posChart.isNotEmpty){
-      artistRawWeights = VerticalBarChart(
+      artistRawWeights = posChart[0].isNotEmpty ? VerticalBarChart(
         painter: VerticalBarChartPainter(
           verticalBarChartContainer: VerticalBarChartTopContainer(
             chartData: ChartData(
@@ -211,9 +212,9 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
             ),
           ),
         ),
-      );
+      ) : Text('f');
 
-      artistCount = VerticalBarChart(
+      artistCount = posChart[2].isNotEmpty ? VerticalBarChart(
         painter: VerticalBarChartPainter(
           verticalBarChartContainer: VerticalBarChartTopContainer(
             chartData: ChartData(
@@ -239,9 +240,9 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
             ),
           ),
         ),
-      );
+      ) : Text('f');
 
-      artistWeights = VerticalBarChart(
+      artistWeights = posChart[3].isNotEmpty ? VerticalBarChart(
         painter: VerticalBarChartPainter(
           verticalBarChartContainer: VerticalBarChartTopContainer(
             chartData: ChartData(
@@ -264,7 +265,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
             ),
           ),
         ),
-      );
+      ) : Text('f');
     } else {
       artistRawWeights = const CircularProgressIndicator();
       artistCount = const CircularProgressIndicator();
@@ -383,10 +384,32 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                       MaterialButton(onPressed: () => showDialog<String>(
                         context: context,
                         builder: (BuildContext context) => AlertDialog(
+                          content: SizedBox(
+                            width: 500,
+                            height: 500,
+                            child: ArtistDefaultStyleSearcher(),
+                          ),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: (){
+                                Navigator.pop(context, 'ok');
+                              },
+                              child: const Text('Okay'),
+                            ),
+                          ],
+                        ),
+                      ), child: const Text('Main artist finder')),
+                      MaterialButton(onPressed: () => showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
                           icon: const Icon(Icons.search),
                           iconColor: Colors.blue,
                           title: const Text('Search'),
-                          content: TagSearcher(),
+                          content: SizedBox(
+                            width: 500,
+                            height: 500,
+                            child: TagSearcher(),
+                          ),
                           actions: <Widget>[
                             TextButton(
                               onPressed: (){

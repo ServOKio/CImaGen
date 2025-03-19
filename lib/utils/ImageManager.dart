@@ -588,12 +588,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
               if(await isJson(pngEx['generation_data'])){
                 var data = jsonDecode(pngEx['generation_data']);
                 String modelType = data['baseModel']['type'] as String;
-                if(data['inpaint'] != null){
-                  re = RenderEngine.inpaint;
-                } else {
-                  re = RenderEngine.txt2img;
-                }
-                print(pngEx);
+                re = data['inpaint'] != null ? RenderEngine.inpaint : RenderEngine.txt2img;
                 gp = GenerationParams(
                   positive: von<String>(data['prompt']),
                   negative: von<String>(data['negativePrompt']),
@@ -1924,10 +1919,10 @@ String genHash(RenderEngine re, String parent, String name, {String? host}){
 
 String cleanUpSDPrompt(String prompt){
   return prompt
-      .trim()
-      .replaceFirst(RegExp(r',\s*$'), '')
-      .replaceAll('\n', '')
-      .replaceAll(RegExp(r'\s{2,}'), ' ')
-      .replaceAll(RegExp(r',+'), ',')
-      .replaceAllMapped(RegExp(r'(?<!\\)[)\]]\s*(,)\s*\S'), (match) => '${match.group(0)?.replaceAll(' ', '').replaceFirst(match.group(1).toString(), '')}');
+    .trim()
+    .replaceFirst(RegExp(r',\s*$'), '')
+    .replaceAll('\n', '')
+    .replaceAll(RegExp(r'\s{2,}'), ' ')
+    .replaceAll(RegExp(r',+'), ',')
+    .replaceAllMapped(RegExp(r'(?<!\\)[)\]]\s*(,)\s*\S'), (match) => '${match.group(0)?.replaceAll(' ', '').replaceFirst(match.group(1).toString(), '')}');
 }
