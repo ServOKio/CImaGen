@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../main.dart';
 import '../utils/ImageManager.dart';
 import '../utils/ThemeManager.dart';
 
@@ -35,11 +36,12 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
   late PageController _pageController;
   bool _showAppBar = true;
 
-  bool showOriginalSize = true;
+  bool showOriginalSize = false;
   late PhotoViewScaleStateController changeScale;
 
   void backCall(PhotoViewScaleStateController ns){
     changeScale = ns;
+    changeScale.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
     //changeScale.scaleState = PhotoViewScaleState.originalSize;
   }
 
@@ -51,11 +53,10 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
 
   ImageMeta? im;
 
-  late SharedPreferences prefs;
-
   @override
   void initState() {
     super.initState();
+    showOriginalSize = prefs.getBool('imageview_show_original_size') ?? false;
     carouselController = CarouselSliderController();
     _currentIndex = widget.currentIndex;
     _pageController = PageController(initialPage: _currentIndex);
@@ -63,7 +64,6 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
   }
 
   Future<void> load() async {
-    prefs = await SharedPreferences.getInstance();
     if(prefs.getBool('imageview_use_fullscreen') ?? false) await WindowManager.instance.setFullScreen(true);
   }
 
@@ -104,6 +104,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                 showOriginalSize = !showOriginalSize;
                 changeScale.scaleState = showOriginalSize ? PhotoViewScaleState.originalSize : PhotoViewScaleState.initial;
               });
+              prefs.setBool('imageview_show_original_size', showOriginalSize);
             }
         ),
         IconButton(

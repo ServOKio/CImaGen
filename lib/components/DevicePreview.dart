@@ -47,15 +47,15 @@ class _DevicePreviewState extends State<DevicePreview> {
             child: SingleChildScrollView(
               child: Wrap(
                 children: [
-                  IMac(provider),
-                  Samsung(provider),
-                  ViewSonic(provider),
-                  LG(provider),
-                  RedMagic8SPro(provider),
-                  SamsungS20Plus(provider),
-                  WatchFit(provider),
-                  Qin(provider),
-                  SteamDesk(provider)
+                  IMac(provider, widget.imageMeta.size),
+                  Samsung(provider, widget.imageMeta.size),
+                  ViewSonic(provider, widget.imageMeta.size),
+                  LG(provider, widget.imageMeta.size),
+                  RedMagic8SPro(provider, widget.imageMeta.size),
+                  SamsungS20Plus(provider, widget.imageMeta.size),
+                  WatchFit(provider, widget.imageMeta.size),
+                  Qin(provider, widget.imageMeta.size),
+                  SteamDesk(provider, widget.imageMeta.size)
                 ],
               ),
             )
@@ -63,7 +63,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget IMac(ImageProvider provider){
+  Widget IMac(ImageProvider provider, ImageSize? size){
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -96,7 +96,12 @@ class _DevicePreviewState extends State<DevicePreview> {
             Column(
               children: [
                 Text('IMac', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
-                Text('16/10 5120x2880', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b)))
+                Text('16/10 5120x2880', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 5120 && size.height >= 2880 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -104,7 +109,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget ViewSonic(ImageProvider provider){
+  Widget ViewSonic(ImageProvider provider, ImageSize? size){
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -136,7 +141,12 @@ class _DevicePreviewState extends State<DevicePreview> {
             Column(
               children: [
                 Text('ViewSonic', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
-                Text('4/3 1024x768', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b)))
+                Text('4/3 1024x768', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 1024 && size.height >= 768 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -144,7 +154,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget Samsung(ImageProvider provider){
+  Widget Samsung(ImageProvider provider, ImageSize? size){
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -193,7 +203,12 @@ class _DevicePreviewState extends State<DevicePreview> {
             Column(
               children: [
                 Text('Samsung', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
-                Text('16/9 1920x1080', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b)))
+                Text('16/9 1920x1080', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 1920 && size.height >= 1080 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -201,7 +216,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget LG(ImageProvider provider){
+  Widget LG(ImageProvider provider, ImageSize? size){
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -250,7 +265,12 @@ class _DevicePreviewState extends State<DevicePreview> {
             Column(
               children: [
                 Text('LG', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
-                Text('21:9 3440x1440', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b)))
+                Text('21:9 3440x1440', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 3440 && size.height >= 1440 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -258,7 +278,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget RedMagic8SPro(ImageProvider provider) {
+  Widget RedMagic8SPro(ImageProvider provider, ImageSize? size) {
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -301,14 +321,13 @@ class _DevicePreviewState extends State<DevicePreview> {
             ),
             Column(
               children: [
-                Text('RedMagic 8S', style: const TextStyle(fontSize: 21,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff424242))),
-                Text('20/9 2480x1116', style: const TextStyle(fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff5b5b5b)))
+                Text('RedMagic 8S', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
+                Text('20/9 2480x1116', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 2480 && size.height >= 1116 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -316,7 +335,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget SamsungS20Plus(ImageProvider provider) {
+  Widget SamsungS20Plus(ImageProvider provider, ImageSize? size) {
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -365,14 +384,13 @@ class _DevicePreviewState extends State<DevicePreview> {
             ),
             Column(
               children: [
-                Text('Samsung S20+', style: const TextStyle(fontSize: 21,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff424242))),
-                Text('20/9 3200x1440', style: const TextStyle(fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff5b5b5b)))
+                Text('Samsung S20+', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
+                Text('20/9 3200x1440', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 3200 && size.height >= 1440 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -380,7 +398,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget WatchFit(ImageProvider provider) {
+  Widget WatchFit(ImageProvider provider, ImageSize? size) {
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -425,14 +443,13 @@ class _DevicePreviewState extends State<DevicePreview> {
             ),
             Column(
               children: [
-                Text('Watch Fit 3', style: const TextStyle(fontSize: 21,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff424242))),
-                Text('20/17 480х408', style: const TextStyle(fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff5b5b5b)))
+                Text('Watch Fit 3', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
+                Text('20/17 480х408', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 480 && size.height >= 408 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -440,7 +457,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget Qin(ImageProvider provider) {
+  Widget Qin(ImageProvider provider, ImageSize? size) {
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -528,14 +545,13 @@ class _DevicePreviewState extends State<DevicePreview> {
             ),
             Column(
               children: [
-                Text('Qin F22', style: const TextStyle(fontSize: 21,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff424242))),
-                Text('3/2 640x960', style: const TextStyle(fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Montserrat',
-                    color: Color(0xff5b5b5b)))
+                Text('Qin F22', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
+                Text('3/2 640x960', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 640 && size.height >= 960 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],
@@ -543,7 +559,7 @@ class _DevicePreviewState extends State<DevicePreview> {
     );
   }
 
-  Widget SteamDesk(ImageProvider provider){
+  Widget SteamDesk(ImageProvider provider, ImageSize? size){
     return Container(
         padding: EdgeInsets.all(18),
         decoration: BoxDecoration(
@@ -589,7 +605,12 @@ class _DevicePreviewState extends State<DevicePreview> {
             Column(
               children: [
                 Text('Steam Deck', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
-                Text('16/10 1280x800', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b)))
+                Text('16/10 1280x800', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 1280 && size.height >= 800 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
               ],
             )
           ],

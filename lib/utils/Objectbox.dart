@@ -167,7 +167,7 @@ class ObjectboxDB {
     Condition<ImageMeta> c = (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()).and(ImageMeta_.dateModified.betweenDate(dayDate, dayDate.add(Duration(hours: 23, minutes: 59, seconds: 59))));
     Query<ImageMeta> query = imageMetaBox.query(
       re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c
-    ).build();
+    ).order(ImageMeta_.dateModified).build();
     List<ImageMeta> fi = query.find();
     fi = fi.map((im) => im..cacheFilePath = p.join(cacheDir, '${im.host}_${im.keyup}.${im.specific?['hasAnimation'] == true ? 'png' : 'jpg'}')).toList(growable: false);
     query.close();
