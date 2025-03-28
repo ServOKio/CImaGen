@@ -4,6 +4,7 @@ import 'package:cimagen/components/CustomActionButton.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/NNancy.dart';
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/rendering.dart';
 
 import '../Utils.dart';
+import '../components/DevicePreview.dart';
 import '../components/ImageInfo.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
@@ -111,6 +113,7 @@ class _MainBlockState extends State<MainBlock> {
   @override
   Widget build(BuildContext context) {
     final dataModel = Provider.of<DataModel>(context);
+
     return Expanded(
         child: dataModel.comparisonBlock.oneSelected ? Stack(
           children: [
@@ -192,9 +195,14 @@ class ViewBlock extends StatefulWidget {
 
 class _ViewBlockState extends State<ViewBlock> {
   GlobalKey stickyKey = GlobalKey();
+  late DataModel dataModel;
+  late ImageManager imageManager;
+  bool loaded = false;
 
   bool _showImageDifference = false;
   bool _asSplit = false;
+
+  bool left = true;
 
   double _scale = 0;
   final TransformationController _transformationController = TransformationController();
@@ -203,6 +211,21 @@ class _ViewBlockState extends State<ViewBlock> {
   double y = 0.0;
 
   bool toBottom = false;
+
+  @override
+  void initState(){
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            dataModel = Provider.of<DataModel>(context, listen: false);
+            imageManager = Provider.of<ImageManager>(context, listen: false);
+            loaded = true;
+          });
+        }
+      },
+    );
+  }
 
   void _updateLocation(PointerEvent details) {
     final keyContext = stickyKey.currentContext;
@@ -219,11 +242,88 @@ class _ViewBlockState extends State<ViewBlock> {
     }
   }
 
+  ImageMeta getActiveMeta() => !left ? dataModel.comparisonBlock.firstCache != null ? dataModel.comparisonBlock.firstSelected : dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.secondCache != null ? dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.firstSelected;
+
   @override
   Widget build(BuildContext context) {
-    final dataModel = Provider.of<DataModel>(context);
-
-    final entries = <ContextMenuEntry>[
+    ImageMeta? imageMeta = loaded ? getActiveMeta() : null;
+    final entries = imageMeta == null ? <ContextMenuEntry>[] : <ContextMenuEntry>[
+      MenuItem(
+        label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',
+        icon: imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline,
+        onSelected: () {
+          imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host);
+        },
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: 'View render tree',
+        icon: Icons.account_tree_sharp,
+        onSelected: () {
+          // implement copy
+        },
+      ),
+      if(imageMeta.generationParams?.seed != null ) MenuItem.submenu(
+        label: 'View in timeline',
+        icon: Icons.view_timeline_outlined,
+        items: [
+          MenuItem(
+            label: 'by seed',
+            icon: Icons.compare,
+            onSelected: () {
+              dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed!);
+              dataModel.jumpToTab(2);
+            },
+          ),
+        ],
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: 'Send to MiniSD',
+        icon: Icons.web_rounded,
+        onSelected: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));
+          // implement redo
+        },
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: 'Show in explorer',
+        icon: Icons.compare,
+        onSelected: () {
+          showInExplorer(imageMeta.fullPath!);
+        },
+      ),
+      MenuItem(
+        label: 'Show devices preview',
+        icon: Icons.devices_other,
+        onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
+      ),
+      MenuItem.submenu(
+        label: 'Copy...',
+        icon: Icons.copy,
+        items: [
+          if(imageMeta.generationParams?.seed != null) MenuItem(
+            label: 'Seed',
+            icon: Icons.abc,
+            onSelected: () async {
+              String seed = imageMeta.generationParams!.seed.toString();
+              Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Seed $seed copied'),
+              )));
+            },
+          ),
+          MenuItem(
+            label: 'Folder/file.name',
+            icon: Icons.arrow_forward,
+            onSelected: () {
+              Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Copied'),
+              )));
+            },
+          ),
+        ],
+      ),
       MenuItem(
         label: 'Show as split',
         icon: Icons.splitscreen,
@@ -254,17 +354,6 @@ class _ViewBlockState extends State<ViewBlock> {
           bool hasDiff = difference != null && difference.isNotEmpty;
 
           if(hasDiff){
-            Map<String, String> keysMap = {
-              'cfgScale': 'cfgS',
-              'size': 'w&h',
-              'modelHash': 'mHash',
-              'denoisingStrength': 'D.s.',
-              'rng': 'RNG',
-              'hiresSampler': 'hSampler',
-              'hiresUpscale': 'hUpscale',
-              'version': 'v'
-            };
-
             showDialog<String>(
               context: context,
               builder: (BuildContext context) => AlertDialog(
@@ -272,27 +361,10 @@ class _ViewBlockState extends State<ViewBlock> {
                 iconColor: Colors.yellowAccent,
                 title: const Text('The images have differences'),
                 content: differenceBlock(difference!),
-                  // difference!.map((ent){
-                  //   return Padding(
-                  //       padding: const EdgeInsets.only(bottom: 4),
-                  //       child: ['positive', 'negative'].contains(ent.key) ?
-                  //         TagBox(text: keysMap[ent.key] ?? ent.key) :
-                  //         Container(
-                  //           child: Row(
-                  //             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  //             children: [
-                  //               Text(ent.oldValue),
-                  //               Text(ent.key),
-                  //               Text(ent.newValue)
-                  //             ],
-                  //           ),
-                  //         )
-                  //   );
-                  // }).toList()
                 actions: <Widget>[
                   TextButton(
-                    onPressed: () => Navigator.pop(context, 'OK'),
-                    child: const Text('OK'),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Ok'),
                   ),
                 ],
               ),
@@ -313,8 +385,8 @@ class _ViewBlockState extends State<ViewBlock> {
                     child: const Text('Try to find the error'),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.pop(context, 'OK'),
-                    child: const Text('OK'),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Ok'),
                   ),
                 ],
               ),
@@ -343,11 +415,9 @@ class _ViewBlockState extends State<ViewBlock> {
             scaleFactor: 1000,
             minScale: 0.000001,
             maxScale: 10,
-            onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
-              setState(() {
-                _scale = _transformationController.value.getMaxScaleOnAxis();
-              });
-            },
+            onInteractionUpdate: (ScaleUpdateDetails details) => setState(() {
+              _scale = _transformationController.value.getMaxScaleOnAxis();
+            }),
             child: SizedBox(
               child: Center(
                 child: ContextMenuRegion(
@@ -367,12 +437,23 @@ class _ViewBlockState extends State<ViewBlock> {
                         child: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
                       ),
                     ],
-                  ): ImageCompareSlider(
-                      itemOne: Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                      itemTwo: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
-                      dividerWidth: 1.5,
-                      handleSize: const Size(0, 0),
-                      handleRadius: const BorderRadius.all(Radius.circular(0))
+                  ) : ImageCompareSlider(
+                    itemOne: Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
+                    itemTwo: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                    dividerWidth: 1.5,
+                    handleSize: const Size(0, 0),
+                    handleRadius: const BorderRadius.all(Radius.circular(0)),
+                    onPositionChange: (pos){
+                      if(pos > 0.5 && left){
+                        setState(() {
+                          left = false;
+                        });
+                      } else if(pos <= 0.5 && !left){
+                        setState(() {
+                          left = true;
+                        });
+                      }
+                    },
                   ),
                 ),
               ),
@@ -696,10 +777,10 @@ class _ImageListStateStateful extends State<ImageList>{
                             children: [
                               AspectRatio(
                                 aspectRatio: im.size!.width / im.size!.height,
-                                child: im.isLocal ? im.thumbnail != null ? Image.memory(
+                                child: im.thumbnail != null ? Image.memory(
                                     gaplessPlayback: true,
                                     im.thumbnail!
-                                ) : Icon(Icons.error) : Image.network(im.networkThumbnail!),
+                                ) : Icon(Icons.error),
                               ),
                               Positioned(
                                 bottom: 0,
