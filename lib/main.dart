@@ -438,7 +438,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                     title: 'Home',
                     icon: Icon(Icons.inbox),
                     floatyActionButton: FloatyActionButton(
-                      icon: const Icon(Icons.file_open),
+                      icon: const Icon(Icons.chair),
                       onTap: (){
 
                       },

@@ -111,7 +111,7 @@ class ObjectboxDB {
   HashMap<String, List<Folder>> foldersCache = HashMap();
   Future<List<Folder>> getFolders({String? host, RenderEngine? re}) async{
     if (kDebugMode) {
-      print('OB: getFolders $host');
+      print('OB: getFolders $host $re');
     }
     List<dynamic> args = [];
     if(host != null) args.add(host);
@@ -234,8 +234,11 @@ class ObjectboxDB {
     List<ImageMeta> list = query.find();
     query.close();
     if (list.isNotEmpty) {
+      print('has');
+      print(list[0].fullPath);
       //toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
     } else {
+      print('not have');
       //Insert
       if(use){
         toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
@@ -252,6 +255,15 @@ class ObjectboxDB {
 
   Future<void> deleteAllFromHost(String? host) async {
     List<int> list = imageMetaBox.query(host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()).build().property(ImageMeta_.id).find();
+    if (list.isNotEmpty) {
+      imageMetaBox.removeMany(list);
+    }
+  }
+
+  Future<void> cleanUp(String? host) async {
+    print('clean');
+    List<int> list = imageMetaBox.query((host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()).and(ImageMeta_.dbRe.equals(0))).build().property(ImageMeta_.id).find();
+    print('cleanup ${list.length}');
     if (list.isNotEmpty) {
       imageMetaBox.removeMany(list);
     }

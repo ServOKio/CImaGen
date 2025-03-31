@@ -174,6 +174,8 @@ class ParseJob {
   List<ImageMeta> _done = [];
   int _doneTotal = 0;
 
+  RenderEngine? filterByRe;
+
   late StreamController<List<ImageMeta>> _controller;
   StreamController<List<ImageMeta>> get controller => _controller;
 
@@ -187,7 +189,8 @@ class ParseJob {
 
   var rng = Random();
 
-  ParseJob(){
+  ParseJob({RenderEngine? re}){
+    filterByRe = re;
     _controller = StreamController<List<ImageMeta>>();
   }
 
@@ -252,10 +255,22 @@ class ParseJob {
             if(value != null){
               _done.add(value);
               _controller.add(finished);
-              objectbox.updateImages(imageMeta: value, fromWatch: false).then((value){
+              if(filterByRe != null){
+                if(value.re == filterByRe){
+                  objectbox.updateImages(imageMeta: value, fromWatch: false).then((value){
+                    _doneTotal++;
+                    _isDone();
+                  });
+                } else {
+                  _doneTotal++;
+                  _isDone();
+                }
+              } else {
+                objectbox.updateImages(imageMeta: value, fromWatch: false).then((value){
                 _doneTotal++;
                 _isDone();
               });
+              }
             } else {
               _doneTotal++;
               _isDone();
@@ -1364,6 +1379,13 @@ class ImageMeta {
   set dbRe(int value) {
     _ensureReEnumValues();
     re = value >= 0 && value < RenderEngine.values.length ? RenderEngine.values[value] : RenderEngine.unknown;
+    if(fullPath != null){
+      final String parentFolder = p.basename(File(fullPath!).parent.path);
+      keyup = genHash(re, parentFolder, fileName, host: host);
+      // print('$fileName $fullPath');
+    } else {
+      keyup = genHash(re, 'undefined', fileName, host: host);
+    }
   }
   void _ensureReEnumValues() {
     assert(RenderEngine.unknown.index == 0);
@@ -1912,6 +1934,8 @@ enum ContentRating {
 }
 
 String genHash(RenderEngine re, String parent, String name, {String? host}){
+  //print('new Keyup from $re $parent $name $host');
+  //if(re == RenderEngine.unknown) throw Exception('syka');
   List<int> bytes = utf8.encode([host != null ? 'network' : 'local', host ?? 'null', re.index.toString(), parent, name].join());
   String hash = sha256.convert(bytes).toString();
   return hash;

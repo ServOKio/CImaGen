@@ -360,7 +360,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                       )
                                     ],
                                   );
-                                }).toList()
+                                })
                               ],
                             )
                         )
@@ -381,11 +381,13 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 Column(
                                   children: [
                                     InfoBox(one: 'Sampler name', two: gp.sampler != null ? humanizeSamplerName(gp.sampler!) : 'Undefined', inner: true, withGap: false),
-                                    gp.params?['scheduler'] != null ? InfoBox(one: 'Scheduler', two: gp.params!['scheduler'], inner: true, withGap: true) : const SizedBox.shrink(),
+                                    if(gp.params?['scheduler'] != null) InfoBox(one: 'Scheduler', two: gp.params!['scheduler'], inner: true, withGap: true),
+                                    if(gp.params?['schedule_type'] != null) InfoBox(one: 'Schedule type', two: gp.params!['schedule_type'], inner: true, withGap: true),
                                     InfoBox(one: 'Steps', two: gp.steps.toString(), inner: true),
-                                    gp.params?['initimagecreativity'] != null ? InfoBox(one: 'Init Image Creativity', two: gp.params!['initimagecreativity'].toString(), inner: true, withGap: true) : const SizedBox.shrink(),
+                                    if(gp.params?['initimagecreativity'] != null) InfoBox(one: 'Init Image Creativity', two: gp.params!['initimagecreativity'].toString(), inner: true, withGap: true),
                                     InfoBox(one: 'CFG Scale', two: gp.cfgScale.toString(), inner: true),
-                                    gp.denoisingStrength != null && gp.hiresUpscale == null ? InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString(), inner: true) : const SizedBox.shrink(),
+                                    if(gp.denoisingStrength != null && gp.hiresUpscale == null) InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString(), inner: true),
+                                    // Text(gp.params!.keys.join('\n'))
                                   ],
                                 )
                               ],

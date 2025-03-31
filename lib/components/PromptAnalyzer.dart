@@ -402,21 +402,14 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                       MaterialButton(onPressed: () => showDialog<String>(
                         context: context,
                         builder: (BuildContext context) => AlertDialog(
-                          icon: const Icon(Icons.search),
-                          iconColor: Colors.blue,
-                          title: const Text('Search'),
+                          contentPadding: EdgeInsets.zero,
                           content: SizedBox(
                             width: 500,
                             height: 500,
                             child: TagSearcher(),
                           ),
                           actions: <Widget>[
-                            TextButton(
-                              onPressed: (){
-                                Navigator.pop(context, 'ok');
-                              },
-                              child: const Text('Okay'),
-                            ),
+                            IconButton(onPressed: () => Navigator.pop(context), icon: Icon(Icons.close)),
                           ],
                         ),
                       ), child: const Text('Tag finder')),

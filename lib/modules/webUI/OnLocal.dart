@@ -109,6 +109,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
       });
       _tabs = ['txt2img', 'img2img'];
       _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
+      objectbox.cleanUp(host);
       loaded = true;
       int notID = notificationManager!.show(
           thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
@@ -233,8 +234,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
         try{
           // То что уже есть, чтобы не трогать
           List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
-          StreamController co = await indexFolder(f, hashes: ima);
-          print('jobs co $getJobCountActive()');
+          StreamController co = await indexFolder(f, hashes: ima, re: _internalTabs[index]);
           bool cont = await _isDone(co);
           d++;
           notificationManager!.update(notID, 'content', Container(
@@ -271,8 +271,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async {
-    print('indexFolder: ${folder.getter} ${hashes?.length ?? 'null'}');
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
+    print('indexFolder: ${folder.getter} ${hashes?.length ?? 'null'} with re: ${re != null ? re.toString() : 'null'}');
     // Read all files sizes and get hash
     //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
     Directory di = Directory(normalizePath(folder.getter));
@@ -283,7 +283,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
       fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
       if (kDebugMode) {
-        print('onLocal:indexFolder: to send: ${fe.length}');
+        print('onLocal:indexFolder: to send: ${fe.length} with ${hashes.length} hashes');
       }
     }
 
@@ -295,7 +295,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
       }
     }
 
-    ParseJob job = ParseJob();
+    ParseJob job = ParseJob(re: re);
     int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
 
     int notID = -1;
