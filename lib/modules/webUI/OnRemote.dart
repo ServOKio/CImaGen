@@ -124,7 +124,26 @@ class OnRemote extends ChangeNotifier implements AbMain{
     }
 
     // 1. We need to know the system we are working with
-    if(prefs.containsKey('remote_webui_folder')){
+    bool useRemoteFolder = false;
+
+    if(prefs.containsKey('remote_webui_folder')) {
+      String remoteWebuiFolder = prefs.getString('remote_webui_folder')!;
+      bool swarnPS = File('$remoteWebuiFolder/SwarmUI.sln').existsSync();
+      bool sdWebUIConfig = File('$remoteWebuiFolder/config.json').existsSync();
+      if (swarnPS || sdWebUIConfig) {
+        useRemoteFolder = true;
+      } else {
+        int notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.forest_outlined, color: Colors.yellow),
+            title: 'We cannot recognize the system used in the folder $remoteWebuiFolder',
+            description: 'We will try to use remote access to the web panel if it is specified'
+        );
+        audioController!.player.play(AssetSource('audio/wrong.wav'));
+        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+      }
+    }
+
+    if(useRemoteFolder){
       String remoteWebuiFolder = prefs.getString('remote_webui_folder')!;
       bool swarnPS = File('$remoteWebuiFolder/SwarmUI.sln').existsSync();
       bool sdWebUIConfig = File('$remoteWebuiFolder/config.json').existsSync();
@@ -139,9 +158,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
         Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
       } else if(sdWebUIConfig){
         // HAhhDbawey8dQ3EDI7vw673vf6 (died)
-        String sdWebuiFolder = prefs.getString('remote_webui_folder') ?? '';
-        _webui_root = sdWebuiFolder;
-        final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
+        _webui_root = remoteWebuiFolder;
+        final String response = File('$remoteWebuiFolder/config.json').readAsStringSync();
         _config = await json.decode(response);
         // paths
         String i2igOut = p.join(_webui_root, _config['outdir_img2img_grids']);
@@ -275,6 +293,26 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
         if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
         if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
+      } else {
+        int notID = 0;
+        notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+            title: 'Initialization problem',
+            description: 'We cannot recognize the system used in the folder $remoteWebuiFolder',
+            content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                style: ButtonStyle(
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                ),
+                onPressed: (){
+                  notificationManager!.close(notID);
+                  init();
+                },
+                child: const Text("Try again", style: TextStyle(fontSize: 12))
+            ))
+        );
+        audioController!.player.play(AssetSource('audio/error.wav'));
+        return;
       }
     } else {
       if(!prefs.containsKey('remote_webui_address')){
@@ -361,22 +399,23 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
               //reForge has difference
               _webuiPaths.addAll({
-                'outdir_extras-images': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_extras_samples'] ?? 'outputs/extras-images'))),
-                'outdir_img2img-grids': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_img2img_grids'] ?? 'outputs/img2img-grids'))),
-                'outdir_img2img-images': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_img2img_samples'] ?? 'outputs/img2img-images'))),
-                'outdir_txt2img-grids': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_txt2img_grids'] ?? 'outputs/txt2img-grids'))),
-                'outdir_txt2img-images': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_txt2img_samples'] ?? 'outputs/txt2img-images'))),
-                'outdir_save': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_save']))),
-                'outdir_init': normalizePath(p.join(_sd_root, (data['global_setting']['outdir_init_images'])))
+                'outdir_extras-images': data['global_setting']['outdir_extras_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/extras-images')),
+                'outdir_img2img-grids': data['global_setting']['outdir_img2img_grids'] ?? normalizePath(p.join(_sd_root, 'outputs/img2img-grids')),
+                'outdir_img2img-images': data['global_setting']['outdir_img2img_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/img2img-images')),
+                'outdir_txt2img-grids': data['global_setting']['outdir_txt2img_grids'] ?? normalizePath(p.join(_sd_root, 'outputs/txt2img-grids')),
+                'outdir_txt2img-images': data['global_setting']['outdir_txt2img_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/txt2img-images')),
+                'outdir_save': normalizePath(p.join(_sd_root, data['global_setting']['outdir_save'])),
+                'outdir_init': normalizePath(p.join(_sd_root, data['global_setting']['outdir_init_images']))
               });
               software = Software.stableDiffusionWebUI;
               _tabs = ['txt2img', 'img2img'];
               _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
+              useAddon.addAll(_internalTabs);
               loaded = true;
               int notID = notificationManager!.show(
                   thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
                   title: 'Welcome to remote Stable Diffusion',
-                  description: 'Connected to $_remoteAddress'
+                  description: 'Connected to $_remoteAddress\n${useAddon.join(', ')}\n${_webuiPaths.keys.map((k) => _webuiPaths[k]).join('\n')}'
               );
               audioController!.player.play(AssetSource('audio/info.wav'));
               Future.delayed(const Duration(milliseconds: 10000), () {
@@ -763,6 +802,14 @@ class OnRemote extends ChangeNotifier implements AbMain{
         print('idi naxyi ${res.statusCode}');
       }
       Future.delayed(const Duration(seconds: 5), () => notificationManager!.close(notID));
+    } else {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+          title: 'Internal error',
+          description: 'software: ${software.toString()}'
+      );
+      audioController!.player.play(AssetSource('audio/error.wav'));
+      Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
     }
     return list;
   }
@@ -849,7 +896,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
     int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
         title: 'Starting indexing',
-        description: 'Give us a few minutes, you will receive the folder data...'
+        description: 'Give us a few minutes, we will receive the folder data...'
     );
     getAllFolders(index).then((fo) async {
       if(isIndexingAll) return false;
@@ -871,8 +918,10 @@ class OnRemote extends ChangeNotifier implements AbMain{
         try{
           // То что уже есть, чтобы не трогать
           List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
-          StreamController co = await indexFolder(f, hashes: ima);
-          print('jobs co $getJobCountActive()');
+          StreamController co = await indexFolder(f, hashes: ima, re: _internalTabs[index]);
+          if (kDebugMode) {
+            print('jobs co $getJobCountActive()');
+          }
           bool cont = await _isDone(co);
           d++;
           notificationManager!.update(notID, 'content', Container(
@@ -908,7 +957,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async {
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     Uri parse = Uri.parse(_remoteAddress);
     if (kDebugMode) {
       print('indexFolder: ${folder.getter} ${hashes?.length}');
@@ -942,7 +991,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           }
         }
 
-        ParseJob job = ParseJob();
+        ParseJob job = ParseJob(re: re);
         int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
 
         int notID = -1;

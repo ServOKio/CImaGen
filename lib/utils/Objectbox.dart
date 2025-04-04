@@ -54,7 +54,7 @@ class ObjectboxDB {
 
     final store = await openStore(
       directory: dbPath.absolute.path,
-      maxDBSizeInKB: prefs.containsKey('max_db_size') ? prefs.getInt('max_db_size')! * 1048576 : 524288000 // 500gb
+      maxDBSizeInKB: prefs.containsKey('max_db_size') ? prefs.getInt('max_db_size')! * 1048576 : 134217728 // 128gb
     );
     return ObjectboxDB._create(store);
   }
@@ -238,7 +238,6 @@ class ObjectboxDB {
       print(list[0].fullPath);
       //toBatchTwo.add(Job(to: 'images', type: JobType.update, obj: await imageMeta.toMap()));
     } else {
-      print('not have');
       //Insert
       if(use){
         toBatchTwo.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
