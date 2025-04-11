@@ -9,6 +9,7 @@ import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -404,8 +405,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
                 'outdir_img2img-images': data['global_setting']['outdir_img2img_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/img2img-images')),
                 'outdir_txt2img-grids': data['global_setting']['outdir_txt2img_grids'] ?? normalizePath(p.join(_sd_root, 'outputs/txt2img-grids')),
                 'outdir_txt2img-images': data['global_setting']['outdir_txt2img_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/txt2img-images')),
-                'outdir_save': normalizePath(p.join(_sd_root, data['global_setting']['outdir_save'])),
-                'outdir_init': normalizePath(p.join(_sd_root, data['global_setting']['outdir_init_images']))
+                'outdir_save': data['global_setting']['outdir_save'] ?? normalizePath(p.join(_sd_root, data['global_setting']['outdir_save'])),
+                'outdir_init': data['global_setting']['outdir_init_images'] ?? normalizePath(p.join(_sd_root, data['global_setting']['outdir_init_images']))
               });
               software = Software.stableDiffusionWebUI;
               _tabs = ['txt2img', 'img2img'];
@@ -798,15 +799,15 @@ class OnRemote extends ChangeNotifier implements AbMain{
           ));
           await Future.delayed(const Duration(milliseconds: 500), (){});
         }
-      } else {
+      } else if (kDebugMode) {
         print('idi naxyi ${res.statusCode}');
       }
       Future.delayed(const Duration(seconds: 5), () => notificationManager!.close(notID));
     } else {
       int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-          title: 'Internal error',
-          description: 'software: ${software.toString()}'
+        thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+        title: 'Internal error',
+        description: 'software: ${software.toString()}'
       );
       audioController!.player.play(AssetSource('audio/error.wav'));
       Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
@@ -956,6 +957,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
     return objectbox.getFolderHashes(folder, host: _host);
   }
 
+  DateFormat format = DateFormat("yyyy-MM-dd HH:mm:ss");
+
   @override
   Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     Uri parse = Uri.parse(_remoteAddress);
@@ -1053,7 +1056,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
             }
           }
 
-          ParseJob job = ParseJob();
+          ParseJob job = ParseJob(re: re);
           int jobID = await job.putAndGetJobID(folderFilesRaw.map((e){
             Uri thumb = Uri(
                 scheme: parse.scheme,
@@ -1077,9 +1080,10 @@ class OnRemote extends ChangeNotifier implements AbMain{
                 }
             );
             return JobImageFile(
-                fullPath: e['fullpath'],
-                fullNetworkPath: full.toString(),
-                networkThumbhail: thumb.toString()
+              fullPath: e['fullpath'],
+              fullNetworkPath: full.toString(),
+              networkThumbhail: thumb.toString(),
+              dateModified: format.parse(e['date'])
             );
           }).toList(), host: _host);
 

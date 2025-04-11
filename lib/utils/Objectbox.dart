@@ -245,7 +245,9 @@ class ObjectboxDB {
         toBatchOne.add(Job(to: 'images', type: JobType.insert, obj: imageMeta));
       }
       String k = (imageMeta.host ?? 'null')+(imageMeta.re.toString());
-      print('updateImages: key $k');
+      if (kDebugMode) {
+        print('updateImages: key $k');
+      }
       if(foldersCache.containsKey(k)) {
         foldersCache.remove(k);
       }

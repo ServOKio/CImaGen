@@ -320,6 +320,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               reloadTab();
             },
             child: Container(
+              padding: EdgeInsets.symmetric(vertical: 10),
               decoration: const BoxDecoration(
                   color: Color(0xFF000000),
               ),

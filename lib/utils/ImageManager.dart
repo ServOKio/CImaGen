@@ -1640,8 +1640,8 @@ class ImageMeta {
 
       if(tempFilePath != null){
         ImageMeta? im = await parseImage(RenderEngine.unknown, pa, fileBytes: bytes, makeCachedImage: makeCachedImage, host: host);
-        stat ??= f.statSync();
         if(im != null){
+          stat ??= f.statSync();
           size = im.size;
           generationParams = im.generationParams;
           other = im.other;
@@ -1652,10 +1652,12 @@ class ImageMeta {
           final String parentFolder = fullPath != null ? p.basename(File(fullPath!).parent.path) : '';
           keyup = genHash(re, parentFolder, fileName, host: host);
           // Try right date
-          if(dateRegex.hasMatch(parentFolder)){
-            dateModified = format.parse(parentFolder);
-          } else {
-            dateModified = stat.modified;
+          if(dateModified == null){
+            if(dateRegex.hasMatch(parentFolder)){
+              dateModified = format.parse(parentFolder);
+            } else {
+              dateModified = stat.modified;
+            }
           }
           fileSize = stat.size;
         }
