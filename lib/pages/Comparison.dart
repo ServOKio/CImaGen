@@ -195,8 +195,6 @@ class ViewBlock extends StatefulWidget {
 
 class _ViewBlockState extends State<ViewBlock> {
   GlobalKey stickyKey = GlobalKey();
-  late DataModel dataModel;
-  late ImageManager imageManager;
   bool loaded = false;
 
   bool _showImageDifference = false;
@@ -211,21 +209,6 @@ class _ViewBlockState extends State<ViewBlock> {
   double y = 0.0;
 
   bool toBottom = false;
-
-  @override
-  void initState(){
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            dataModel = Provider.of<DataModel>(context, listen: false);
-            imageManager = Provider.of<ImageManager>(context, listen: false);
-            loaded = true;
-          });
-        }
-      },
-    );
-  }
 
   void _updateLocation(PointerEvent details) {
     final keyContext = stickyKey.currentContext;
@@ -242,11 +225,11 @@ class _ViewBlockState extends State<ViewBlock> {
     }
   }
 
-  ImageMeta getActiveMeta() => !left ? dataModel.comparisonBlock.firstCache != null ? dataModel.comparisonBlock.firstSelected : dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.secondCache != null ? dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.firstSelected;
-
   @override
   Widget build(BuildContext context) {
-    ImageMeta? imageMeta = loaded ? getActiveMeta() : null;
+    DataModel dataModel = Provider.of<DataModel>(context);
+    ImageManager imageManager = Provider.of<ImageManager>(context);
+    ImageMeta? imageMeta = !left ? dataModel.comparisonBlock.firstCache != null ? dataModel.comparisonBlock.firstSelected : dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.secondCache != null ? dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.firstSelected;
     final entries = imageMeta == null ? <ContextMenuEntry>[] : <ContextMenuEntry>[
       MenuItem(
         label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',

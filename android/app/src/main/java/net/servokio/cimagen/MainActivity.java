@@ -27,6 +27,7 @@ public class MainActivity extends FlutterActivity {
                 handleSendText(intent); // Handle text being sent
             }
         }
+        intent.putExtra("enable-software-rendering", true);
     }
 
     @Override
