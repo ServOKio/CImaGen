@@ -15,8 +15,6 @@ import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
 import 'package:palette_generator/palette_generator.dart';
 
-import 'dart:ui' as ui;
-
 import '../Utils.dart';
 import '../main.dart';
 import '../modules/ICCProfiles.dart';

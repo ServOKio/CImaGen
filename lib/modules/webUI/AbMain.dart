@@ -48,7 +48,7 @@ abstract class AbMain extends ChangeNotifier{
     return false;
   }
 
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async{
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async{
     // Read all files sizes and get hash
     late final StreamController<List<ImageMeta>> controller;
     controller = StreamController<List<ImageMeta>>(

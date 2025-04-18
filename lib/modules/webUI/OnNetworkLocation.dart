@@ -376,7 +376,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async {
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     // Read all files sizes and get hash
     Directory di = Directory(folder.getter);
     List<FileSystemEntity> fe = await dirContents(di);
@@ -396,7 +396,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       }
     }
 
-    ParseJob job = ParseJob();
+    ParseJob job = ParseJob(re: re);
     int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
 
     int notID = -1;

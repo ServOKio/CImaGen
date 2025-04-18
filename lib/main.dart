@@ -499,7 +499,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           tooltip: 'Notes',
           child: const Icon(Icons.note),
         ),
-        bottomNavigationBar: !changeNotify ? NavigationBar(
+        bottomNavigationBar: changeNotify ? NavigationBar(
           height: 70,
           backgroundColor: Theme.of(context).colorScheme.background,
           indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),

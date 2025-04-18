@@ -294,7 +294,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes}) async {
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     Uri parse = Uri.parse(_remoteAddress);
     if (kDebugMode) {
       print('indexFolder: ${folder.getter} ${hashes?.length}');
@@ -325,7 +325,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
           }
         }
 
-        ParseJob job = ParseJob();
+        ParseJob job = ParseJob(re: re);
         int jobID = await job.putAndGetJobID(folderFilesRaw.map((e){
           Uri thumb = Uri(
               scheme: parse.scheme,

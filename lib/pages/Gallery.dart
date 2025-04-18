@@ -84,6 +84,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   @override
   void initState() {
     super.initState();
+    previewType = prefs.getInt('gallery_preview_mode') ?? 0;
     debug = prefs.getBool('debug') ?? false;
 
     var go = context.read<ImageManager>().getter.loaded;
@@ -150,8 +151,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
         CustomActionButton(getIcon: () => [Icons.grid_view, Icons.branding_watermark_outlined, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
+          int m = previewType + 1 >= 3 ? 0 : previewType + 1;
+          prefs.setInt('gallery_preview_mode', m);
           setState(() {
-            previewType = previewType + 1 >= 3 ? 0 : previewType + 1;
+            previewType = m;
           });
         }, isActive: () => previewType != 0),
         CustomActionButton(getIcon: () => Icons.info, tooltip: 'Database info', onPress: (){
@@ -315,21 +318,43 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               children: _tabs.asMap().map((i, element)=>MapEntry(i, _fBuilder(i))).values.toList()
             )
           ),
-          InkWell(
-            onTap: () {
-              reloadTab();
+          BottomNavigationBar(
+            showUnselectedLabels: false,
+            showSelectedLabels: false,
+            currentIndex: 1,
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(Icons.keyboard_arrow_up),
+                label: 'Up',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.refresh),
+                label: 'Refresh',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.keyboard_arrow_down),
+                label: 'Down',
+              ),
+            ],
+            onTap: (index){
+              switch (index) {
+                case 0:
+                  _scrollControllers[_tabController!.index]!.animateTo(
+                      _scrollControllers[_tabController!.index]!.position.minScrollExtent,
+                      curve: Curves.ease,
+                      duration: const Duration(seconds: 1)
+                  );
+                case 2:
+                  _scrollControllers[_tabController!.index]!.animateTo(
+                      _scrollControllers[_tabController!.index]!.position.maxScrollExtent,
+                      curve: Curves.ease,
+                      duration: const Duration(seconds: 1)
+                  );
+                default :
+                  reloadTab();
+              }
             },
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              decoration: const BoxDecoration(
-                  color: Color(0xFF000000),
-              ),
-              child: const Align(
-                alignment: Alignment.center,
-                child: Text ('Rescan'),
-              ),
-            ),
-          )
+          ),
         ],
       ),
     );
@@ -1328,9 +1353,24 @@ class PreviewImage extends StatelessWidget {
             MenuItem(
               label: 'Send to MiniSD',
               icon: Icons.web_rounded,
+              onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta))),
+            ),
+            MenuItem(
+              label: 'Index current image folder',
+              icon: Icons.find_replace,
               onSelected: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));
-                // implement redo
+                String pa = File(imageMeta.fullPath!).parent.path;
+                context.read<ImageManager>().getter.indexFolder(
+                    Folder(
+                        index: 0,
+                        type: FolderType.path,
+                        getter: pa,
+                        name: p.basename(pa),
+                        files: []
+                    ),
+                    hashes: imagesList.map((im) => im.pathHash).toList(),
+                    re: imageMeta.re
+                );
               },
             ),
             MenuItem.submenu(
@@ -1340,9 +1380,7 @@ class PreviewImage extends StatelessWidget {
                 MenuItem(
                   label: 'XYZ plot',
                   icon: Icons.grid_view,
-                  onSelected: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: imagesList)));
-                  },
+                  onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: imagesList))),
                 )
               ],
             ),
