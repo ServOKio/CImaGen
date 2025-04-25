@@ -40,7 +40,16 @@ class Home extends StatefulWidget {
   State<Home> createState() => _HomeState();
 }
 
-final List<dynamic> _readHistory = [];
+final Map<int, dynamic> _readHistory = {};
+class HistoryObject {
+  final int id;
+  final dynamic content;
+
+  const HistoryObject({
+    required this.id,
+    required this.content
+  });
+}
 
 class _HomeState extends State<Home> {
   double breakpoint = 600.0;
@@ -48,8 +57,8 @@ class _HomeState extends State<Home> {
 
   final ScrollController _scrollController = ScrollController();
 
-  void pushToHistory(dynamic im){
-    _readHistory.add(im);
+  void pushToHistory(HistoryObject obj){
+    _readHistory[obj.id] = obj.content;
     setState(() {
       c = c+1;
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -62,12 +71,19 @@ class _HomeState extends State<Home> {
     });
   }
 
+  void updateObject(HistoryObject obj){
+    _readHistory[obj.id] = obj.content;
+    setState(() {
+      c = c+1;
+    });
+  }
+
   Future<void> readDragged(dynamic file) async {
     if(isImage(file)){
       try{
         ImageMeta? im = await parseImage(RenderEngine.unknown, file.path);
         if(im != null){
-          if(mounted) pushToHistory(im);
+          if(mounted) pushToHistory(HistoryObject(id: getRandomID(), content: im));
         }
       } catch(e, s){
         if (kDebugMode) {
@@ -109,13 +125,13 @@ class _HomeState extends State<Home> {
         var metadataLen = randomAccessFile.read(8);
         if (kDebugMode) print(metadataLen);
 
-        _readHistory.add(UnknownFile(
+        pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
           file: p.basename(file.path),
           icon: Icons.pest_control_rodent_outlined,
           color: Color(0xFFD87CEE),
           title: 'We know what it is, but we\'re not ready to read it',
           message: 'Give us some time and we\'ll deal with this file in a future update.'
-        ));
+        )));
         // int metadata_len = file.elementAt(8);
         // metadata_len = int.from_bytes(metadata_len, "little")
         // int json_start = file.read(2)
@@ -142,35 +158,35 @@ class _HomeState extends State<Home> {
             // CharacterCard ?
 
             if(isRPCard(data)){
-              pushToHistory(CharacterCardFile(data: data));
+              pushToHistory(HistoryObject(id: getRandomID(), content: CharacterCardFile(data: data)));
             } else {
-              pushToHistory(UnknownFile(
+              pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
                   file: p.basename(file.path),
                   icon: Icons.warning,
                   color: Color(0xFF8C54E1),
                   title: 'Some json data...',
                   message: 'It seems we don\'t know what exactly this file contains.'
-              ));
+              )));
             }
           } else {
-            pushToHistory(UnknownFile(
+            pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
                 file: p.basename(file.path),
                 icon: Icons.error_outline,
                 color: Color(0xFFE15454),
                 title: 'Corrupted file?',
                 message: 'We are unable to get the file data because it is incorrect. Is the file corrupted or in the wrong format?'
-            ));
+            )));
           }
         });
       } else {
-        pushToHistory(UnknownFile(
-          file: p.basename(file.path),
-          icon: Icons.question_mark,
-          color: Color(0xFFF8CA84),
-          title: 'We don\'t know what this is',
-          message: 'It looks like it\'s some unknown file type or content that we can\'t read.',
-          details: 'Path: ${file.path}\nBaseName: ${p.basename(file.path)}\nExtension: $e'
-        ));
+        pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+            file: p.basename(file.path),
+            icon: Icons.question_mark,
+            color: Color(0xFFF8CA84),
+            title: 'We don\'t know what this is',
+            message: 'It looks like it\'s some unknown file type or content that we can\'t read.',
+            details: 'Path: ${file.path}\nBaseName: ${p.basename(file.path)}\nExtension: $e'
+        )));
       }
     }
   }
@@ -275,7 +291,7 @@ class _HomeState extends State<Home> {
                 separatorBuilder: (BuildContext context, int index) => const Divider(height: 14),
                 itemCount: _readHistory.length,
                 itemBuilder: (BuildContext context, int index) {
-                  var element = _readHistory[index];
+                  dynamic element = _readHistory[_readHistory.keys.toList()[index]];
                   return ShowUp(
                     child: element.runtimeType == UnknownFile ? Container(
                         padding: const EdgeInsets.all(7),
@@ -390,6 +406,37 @@ class _HomeState extends State<Home> {
                             ),
                           );
                         }
+                    ) : element.runtimeType == FileProcess ? Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            color: Theme.of(context).scaffoldBackgroundColor
+                        ),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(5),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.monitor),
+                                    Gap(3),
+                                    Expanded(child: LinearProgressIndicator(minHeight: 2)),
+                                    Gap(3),
+                                    Icon(Icons.public),
+                                    Gap(3),
+                                    Expanded(child: LinearProgressIndicator(minHeight: 2)),
+                                    Gap(3),
+                                    Icon(Icons.accessibility)
+                                  ],
+                                ),
+                              ),
+                              Gap(7),
+                              Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                              Gap(3),
+                              SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
+                            ]
+                        )
                     ) : FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element),
                   );
                 },
@@ -473,20 +520,26 @@ class _HomeState extends State<Home> {
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: TextField(
                         onSubmitted: (value) async {
+                          int id = getRandomID();
+                          pushToHistory(HistoryObject(id: id, content: FileProcess(
+                              file: value,
+                              title: 'Error retrieving data',
+                              message: 'Looks like the link is broken or something is blocking access'
+                          )));
                           try{
                             ImageMeta? im = await parseUrlImage(value);
                             if(im != null){
-                              pushToHistory(im);
+                              updateObject(HistoryObject(id: id, content: im));
                             }
                           } catch(e){
-                            pushToHistory(UnknownFile(
-                              file: value,
-                              icon: Icons.error,
-                              color: Color(0xFFEE7C7C),
-                              title: 'Error retrieving data',
-                              message: 'Looks like the link is broken or something is blocking access',
-                              details: 'E: $e'
-                            ));
+                            updateObject(HistoryObject(id: id, content: UnknownFile(
+                                file: value,
+                                icon: Icons.error,
+                                color: Color(0xFFEE7C7C),
+                                title: 'Error retrieving data',
+                                message: 'Looks like the link is broken or something is blocking access',
+                                details: 'E: $e'
+                            )));
                             rethrow;
                           }
                         },
@@ -837,7 +890,7 @@ class FileInfoPreview extends StatelessWidget{
             label: 'XYZ plot',
             icon: Icons.grid_view,
             onSelected: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.where((el) => el.runtimeType == ImageMeta).toList(growable: false)))));
+              Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.values.where((el) => el.content.runtimeType == ImageMeta).toList(growable: false)))));
             },
           )
         ],
@@ -973,11 +1026,11 @@ class FileInfoPreview extends StatelessWidget{
               hasICC ? (im.specific?['iccProfileName'] != null) ? InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true) : InfoBox(one: 'Color profile', two: pn) : const SizedBox.shrink(),
               im.generationParams?.checkpoint != null ? InfoBox(one: 'Checkpoint', two: im.generationParams?.checkpoint, inner: true) : const SizedBox.shrink(),
               im.generationParams?.sampler != null ? InfoBox(one: 'Sampler', two: im.generationParams?.sampler, inner: true) : const SizedBox.shrink(),
-              im.specific?['comfUINodes'] != null ? ExpansionTile(
+              if(im.specific?['comfUINodes'] != null) ExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 title: InfoBox(one: 'Node Count', two: im.specific!['comfUINodes'].length.toString()),
                 children: withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>Text(el['type'], style: const TextStyle(fontSize: 12))).toList(), element: const Icon(Icons.arrow_downward, size: 10,)),
-              ) : const SizedBox.shrink(),
+              ),
               const Gap(7),
               Row(
                 children: [
@@ -1055,5 +1108,17 @@ class UnknownFile {
     required this.message,
     required this.file,
     this.details
+  });
+}
+
+class FileProcess {
+  final String file;
+  final String title;
+  final String message;
+
+  const FileProcess({
+    required this.title,
+    required this.message,
+    required this.file
   });
 }

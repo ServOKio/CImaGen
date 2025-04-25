@@ -86,6 +86,10 @@ int getRandomInt(int min, int max) {
   return min + _rnd.nextInt(max - min);
 }
 
+int getRandomID() {
+  return getRandomInt(1000, 100000);
+}
+
 // FS
 Future<Uint8List> readAsBytesSync(String path) async {
   return File(path).readAsBytesSync();

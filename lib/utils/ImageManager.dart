@@ -1623,7 +1623,7 @@ class ImageMeta {
       FileStat? stat;
       if(!f.existsSync()){
         String clean = cleanUpUrl(fullNetworkPath!);
-        http.Response res = await http.get(Uri.parse(clean));
+        http.Response res = await http.get(Uri.parse(clean)).timeout(const Duration(seconds: 10));
         if(res.statusCode == 200){
           bytes = res.bodyBytes;
           await f.writeAsBytes(bytes);

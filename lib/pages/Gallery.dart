@@ -117,11 +117,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   void downMe(int index){
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollControllers[index]!.animateTo(
+      if(mounted) {
+        _scrollControllers[index]!.animateTo(
           _scrollControllers[index]!.position.maxScrollExtent,
           curve: Curves.linear,
           duration: const Duration(seconds: 1)
       );
+      }
     });
   }
 
