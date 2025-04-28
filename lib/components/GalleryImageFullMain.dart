@@ -191,17 +191,17 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
       body: _buildContent(),
       endDrawer: Theme(
           data: ThemeData.dark(useMaterial3: false).copyWith(
-              canvasColor: Colors.black.withOpacity(0.5),
+              canvasColor: Colors.black,
           ),
           child: SizedBox(
             width: 300,
             child: Drawer(
                 child: Stack(
                     children: <Widget> [
-                      BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                          child: Container(decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.5)))
-                      ),
+                      // BackdropFilter(
+                      //     filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                      //     child: Container(decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.5)))
+                      // ),
                       Theme(
                         data: theme.getTheme,
                         child: SingleChildScrollView(

@@ -20,6 +20,7 @@ import '../main.dart';
 import '../modules/ICCProfiles.dart';
 
 import 'dart:math' as math;
+import 'package:image/image.dart' as img;
 
 class MyImageInfo extends StatefulWidget {
   final ImageMeta data;
@@ -33,24 +34,24 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
 
   late Future<PaletteGenerator?> paletteGenerator;
 
-  Future<PaletteGenerator> getPa(String path) async {
-    return await PaletteGenerator.fromImageProvider(
-      FileImage(File(path)),
-      maximumColorCount: 28,
-    );
-  }
-
-  Future<PaletteGenerator?> genPalette() async {
-    String path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath ?? '';
-    if(path == ''){
-      PaletteGenerator pa =  await compute(getPa, path);
-      return pa;
+  Future<PaletteGenerator> genPalette(String path) async {
+    try {
+      final Uint8List bytes = await compute(readAsBytesSync, path);
+      img.Image? data = await compute(img.decodeImage, bytes);
+      if(data != null) data = img.copyResize(data, width: 512);
+      return await PaletteGenerator.fromImageProvider(
+        maximumColorCount: 28,
+        Image.memory(img.encodePng(data!)).image
+      );
+    } on PathNotFoundException catch (e){
+      throw 'We\'ll fix it later.'; // TODO
     }
-    return null;
   }
 
+  @override
   void initState(){
-    paletteGenerator = genPalette();
+    String path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath ?? '';
+    paletteGenerator = genPalette(path);
   }
 
   @override

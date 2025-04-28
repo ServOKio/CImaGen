@@ -523,13 +523,19 @@ class _HomeState extends State<Home> {
                           int id = getRandomID();
                           pushToHistory(HistoryObject(id: id, content: FileProcess(
                               file: value,
-                              title: 'Error retrieving data',
-                              message: 'Looks like the link is broken or something is blocking access'
+                              title: 'Attempting to retrieve data',
+                              message: 'It won\'t take long...'
                           )));
                           try{
                             ImageMeta? im = await parseUrlImage(value);
                             if(im != null){
                               updateObject(HistoryObject(id: id, content: im));
+                            } else {
+                              updateObject(HistoryObject(id: id, content: FileProcess(
+                                  file: value,
+                                  title: 'Failed to read data',
+                                  message: 'The file was downloaded and verified, but the content... well, we can\'t process it'
+                              )));
                             }
                           } catch(e){
                             updateObject(HistoryObject(id: id, content: UnknownFile(

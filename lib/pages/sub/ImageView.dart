@@ -71,10 +71,14 @@ class _ImageViewState extends State<ImageView> {
                 String pa = p.join(appDownloadDir, '${widget.imageMeta?.fileName}');
                 File f = File(pa);
                 if(!f.existsSync()){
-                  String clean = cleanUpUrl(widget.imageMeta!.fullNetworkPath!);
-                  http.Response res = await http.get(Uri.parse(clean));
-                  if(res.statusCode == 200){
-                    await f.writeAsBytes(res.bodyBytes);
+                  if(widget.imageMeta?.tempFilePath != null){
+                    File(widget.imageMeta!.tempFilePath!).copy(pa);
+                  } else {
+                    String clean = cleanUpUrl(widget.imageMeta!.fullNetworkPath!);
+                    http.Response res = await http.get(Uri.parse(clean));
+                    if(res.statusCode == 200){
+                      await f.writeAsBytes(res.bodyBytes);
+                    }
                   }
                 }
               }
