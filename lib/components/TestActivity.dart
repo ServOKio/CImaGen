@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:icc_parser/icc_parser.dart';
@@ -19,8 +17,9 @@ class TestActity extends StatefulWidget{
 class _TestActityState extends State<TestActity> {
   bool loaded = false;
   Uint8List? bytes;
-  String path = 'C:\\Users\\Admin\\Downloads\\fef7e51b4aa35616f34593405deb0573.jpg';
-  String icc_path = 'C:\\Windows\\System32\\spool\\drivers\\color\\EPSON L8050 Series Premium Semigloss.icc';
+  String path = 'F:\\PC2\\РабСто\\тестировать\\58146c24217971.57455a52e5971.png';
+  String icc_path = 'C:\\Windows\\System32\\spool\\drivers\\color\\CN_PRO-1000_500_PhotoPaperPlusGlossyII.icc';
+  String icc_path2 = 'W:\\sRGB_v4_ICC_preference.icc';
 
   Future<void> rebuild() async {
     setState(() {
@@ -38,31 +37,47 @@ class _TestActityState extends State<TestActity> {
     if(data != null){
       img.Image secondImage = img.Image(width: data.width, height: data.height);
 
-      final cmm = ColorProfileCmm();
       final bytes1 = ByteData.view(File(icc_path).readAsBytesSync().buffer);
-      final stream = DataStream(data: bytes1, offset: 0, length: bytes1.lengthInBytes);
-      final profile = ColorProfile.fromBytes(stream);
+      final stream1 = DataStream(data: bytes1, offset: 0, length: bytes1.lengthInBytes);
+      final profile1 = ColorProfile.fromBytes(stream1);
       print('Loading from $icc_path');
+
+      final bytes2 = ByteData.view(File(icc_path2).readAsBytesSync().buffer);
+      final stream2 = DataStream(data: bytes2, offset: 0, length: bytes2.lengthInBytes);
+      final profile2 = ColorProfile.fromBytes(stream2);
+
+      final cmm = ColorProfileCmm();
       final finalTransformations = cmm.buildTransformations([ColorProfileTransform.create(
-        profile: profile,
+        profile: profile1,
         isInput: true,
         intent: ColorProfileRenderingIntent.icRelativeColorimetric,
-        interpolation: ColorProfileInterpolation.tetrahedral,
+        interpolation: ColorProfileInterpolation.linear,
         lutType: ColorProfileTransformLutType.color,
         useD2BTags: true,
       )]);
-      print("Got transformations: $finalTransformations");
+
+      final reverseCMM  = ColorProfileCmm();
+      final finalReverseTransformations  = reverseCMM.buildTransformations([ColorProfileTransform.create(
+        profile: profile1,
+        isInput: false,
+        intent: ColorProfileRenderingIntent.icRelativeColorimetric,
+        interpolation: ColorProfileInterpolation.linear,
+        lutType: ColorProfileTransformLutType.color,
+        useD2BTags: true,
+      )]);
 
       final range = data.clone().getRange(0, 0, data.width, data.height);
       while (range.moveNext()) {
 
         final pixel = range.current;
-        List<double> cmyk = rgb2cmyk(pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt()).map((e) => e == 0 ? 0.0 : 1 / e).toList();
+        List<double> cmyk = rgb2cmyk(pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt()).map((e) => e / 100).toList();
 
-        final rgb = cmm.apply(finalTransformations, Float64List.fromList(cmyk)).map((e) => (e * 255).round().clamp(0, 255)).toList();
+        final rgb = cmm.apply(finalTransformations, Float64List.fromList(cmyk));
+        final norm = reverseCMM.apply(finalReverseTransformations, rgb).map((e) => 255 - ((e * 100) * 255 / 100).round()).toList();
 
-        secondImage.setPixel(pixel.x, pixel.y, img.ColorUint8.rgb(rgb[0], rgb[1], rgb[2]));
+        secondImage.setPixel(pixel.x, pixel.y, img.ColorUint8.rgb(norm[0], norm[1], norm[2]));
       }
+
       setState(() {
         loaded = true;
         bytes = img.encodePng(secondImage);
@@ -95,7 +110,7 @@ class _TestActityState extends State<TestActity> {
         appBar: appBar,
         backgroundColor: Color(0xFFecebe9),
         body: SafeArea(
-            child: Column(
+            child: Row(
               children: [
                 SizedBox(
                   width: 700,
@@ -112,4 +127,12 @@ class _TestActityState extends State<TestActity> {
         )
     );
   }
+}
+
+void printColor(List<double> color) {
+  print(color.map((e) => (e * 255).round().clamp(0, 255)).toList());
+}
+
+void printFloatColor(List<double> color) {
+  print(color);
 }
