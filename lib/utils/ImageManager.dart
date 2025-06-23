@@ -262,6 +262,15 @@ class ParseJob {
                     _isDone();
                   });
                 } else {
+                  if(
+                    (filterByRe == RenderEngine.txt2img && value.re == RenderEngine.img2img) || (filterByRe == RenderEngine.img2img && value.re == RenderEngine.txt2img)
+                  ) {
+                    // Delete // TODO
+                    File file = File(path);
+                    file.delete().then((file) {
+                      print('Deleted $path');
+                    });
+                  }
                   _doneTotal++;
                   _isDone();
                 }

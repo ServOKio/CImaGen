@@ -70,10 +70,10 @@ class _TestActityState extends State<TestActity> {
       while (range.moveNext()) {
 
         final pixel = range.current;
-        List<double> cmyk = rgb2cmyk(pixel.r.toInt(), pixel.g.toInt(), pixel.b.toInt()).map((e) => e / 100).toList();
+        List<double> cmyk = rgb2cmyk((pixel.r / 255).toInt(), (pixel.g / 255).toInt(), (pixel.b / 255).toInt()).map((e) => e / 100).toList();
 
         final rgb = cmm.apply(finalTransformations, Float64List.fromList(cmyk));
-        final norm = reverseCMM.apply(finalReverseTransformations, rgb).map((e) => 255 - ((e * 100) * 255 / 100).round()).toList();
+        final norm = reverseCMM.apply(finalReverseTransformations, rgb).map((e) => 255 - (((e * 255) * 100) * 255 / 100).round()).toList();
 
         secondImage.setPixel(pixel.x, pixel.y, img.ColorUint8.rgb(norm[0], norm[1], norm[2]));
       }
