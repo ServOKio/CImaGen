@@ -41,12 +41,7 @@ class ObjectboxDB {
   Box<GenerationParams> get generationParamsBox => _generationParamsBox;
 
   static Future<ObjectboxDB> create() async {
-    Directory? dD;
-    if(Platform.isAndroid){
-      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
-    } else {
-      dD = await getApplicationDocumentsDirectory();
-    }
+    Directory dD = Platform.isAndroid ? Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS)) : await getApplicationDocumentsDirectory();
     Directory dbPath = Directory(p.join(dD.path, 'CImaGen', 'databases'));
     if (!await dbPath.exists()) {
       await dbPath.create(recursive: true);

@@ -154,6 +154,7 @@ flutter:
 #  languages: en-us, ru-RU
 #  capabilities: internetClient
 
+# dart run build_runner build
 # dart run inno_bundle:build --release
 inno_bundle:
   id: af897610-4fc5-1fe5-a132-3b682fa2ff26

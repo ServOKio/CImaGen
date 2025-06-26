@@ -551,7 +551,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                 ),
                 const Gap(4),
                 Text('Oops, there seems to be a error', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                Text(error, style: TextStyle(color: Colors.grey)),
+                SelectableText(error, style: TextStyle(color: Colors.grey)),
                 const Gap(7),
                 MaterialButton(onPressed: (){
                   print(context.read<DataManager>().error);

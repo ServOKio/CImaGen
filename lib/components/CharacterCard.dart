@@ -264,7 +264,7 @@ class _CharacterCardFullViewState extends State<CharacterCardFullView> {
                   Icon(Icons.error, size: 50, color: Colors.redAccent),
                   Gap(4),
                   Text('Oops, looks like there was an error...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                  Text('E: $error', style: TextStyle(color: Colors.grey)),
+                  SelectableText('E: $error', style: TextStyle(color: Colors.grey)),
                 ],
               ),
             )

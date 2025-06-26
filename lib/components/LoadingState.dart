@@ -67,7 +67,7 @@ class _LoadingStateState extends State<LoadingState> with TickerProviderStateMix
         ),
         const Gap(4),
         Text(widget.error != null ? 'Oops, there seems to be a error' : 'Configuration required', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        Text(widget.error != null ? widget.error! : 'To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
+        SelectableText(widget.error != null ? widget.error! : 'To continue working, you need to configure:', style: TextStyle(color: Colors.grey)),
         // widget.webui ? const Text('WebUI folder', style: TextStyle(color: Colors.grey)) : const SizedBox.shrink(),
         // widget.comfyui ? const Text('ComfyUI folder') : const SizedBox.shrink(),
         const Gap(7),
