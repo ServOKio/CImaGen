@@ -2,6 +2,7 @@ import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/ArtistDefaultStypeFinder.dart';
 import 'package:cimagen/components/TagSearcher.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_charts/flutter_charts.dart';
 import 'package:gap/gap.dart';
@@ -23,6 +24,11 @@ class PromptAnalyzer extends StatefulWidget{
 RegExp reAttention = RegExp(r'\\\(|\\\)|\\\[|\\]|\\\\|\\|\(|\[|:\s*([+-]?[.\d]+)\s*\)|\)|]|[^\\()\[\]:]+|:');
 RegExp reBreak = RegExp(r'\s*\bBREAK\b\s*');
 RegExp reBracketTokens = RegExp(r'(?<!\\)\)\s*(,)\s*\S');
+Map<String, TagInfo> _tags = {};
+Map<int, List<String>> _hasDubl = {
+  0: [],
+  1: []
+};
 
 class _PromptAnalyzerState extends State<PromptAnalyzer> {
   bool loaded = false;
@@ -36,13 +42,19 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
   List<HMessage> posMessages = [];
   List<HMessage> negMessages = [];
 
+  final PromptTextSpanBuilder _promptTextSpanBuilder = PromptTextSpanBuilder();
+
   var posChart = [];
 
   List<String> specialTags = ['score:0', 'score:1', 'score:2', 'score:3', 'score:4', 'score:5', 'score:6', 'score:7', 'score:8', 'score:9', 'rating:s', 'rating:q', 'rating:e'];
 
+
   @override
   void initState(){
     super.initState();
+
+    _tags = context.read<DataManager>().e621Tags;
+
     positiveController = TextEditingController();
     positiveController.text = widget.generationParams.positive ?? '';
     negativeController = TextEditingController();
@@ -57,6 +69,12 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
     analyzePrompt(1);
   }
 
+  @override
+  void dispose() {
+    _tags = {};
+    super.dispose();
+  }
+
   Future<void> analyzePrompt(int id) async {
     setState(() {
       loaded = false;
@@ -66,8 +84,6 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
         negMessages = [];
       }
     });
-
-    var _tags = context.read<DataManager>().e621Tags;
 
     String _text = (id == 0 ? positiveController.text : negativeController.text).replaceAll('\n', ' ');
 
@@ -145,6 +161,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
 
     // because fox ass
     List<String> dubl = [];
+    _hasDubl[id]!.clear();
     for (var element in res) {
       //print((element[0] as String).split(','));
       List<String> tags = (element[0] as String).split(',').map((e) => e.trim().toLowerCase().replaceAll(' ', '_'))
@@ -156,6 +173,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
         if(!dubl.contains(tag)){
           dubl.add(tag);
         } else {
+          _hasDubl[id]!.add(tag);
           (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.warn, text: 'Tag "$tag" has a duplicate'));
         }
         _tagsAndWeights[tag] = element[1].toDouble();
@@ -298,22 +316,40 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                               padding: const EdgeInsets.all(4.0),
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
+                                color: Colors.green.withOpacity(0.05),
                                 border: Border.all(color: Colors.green, width: 1),
                                 borderRadius: const BorderRadius.all(Radius.circular(5.0)),
                               ),
-                              child: TextField(
+                              child:
+                              ExtendedTextField(
+                                // key: _key,
+                                showCursor: true,
+                                strutStyle: const StrutStyle(),
+                                specialTextSpanBuilder: PromptTextSpanBuilder(),
                                 controller: positiveController,
-                                focusNode: _posFocusNode,
-                                keyboardType: TextInputType.multiline,
                                 minLines: 1,
                                 maxLines: null,
                                 style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
+                                // selectionControls: _myExtendedMaterialTextSelectionControls,
+                                // extendedContextMenuBuilder: MyTextSelectionControls.defaultContextMenuBuilder,
                                 decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: InputBorder.none, hintText: '',
-                                ),
+                                   isDense: true,
+                                   border: InputBorder.none, hintText: '',
+                                 ),
+                                //textDirection: TextDirection.rtl,
                               ),
+                              // TextField(
+                              //   controller: positiveController,
+                              //   focusNode: _posFocusNode,
+                              //   keyboardType: TextInputType.multiline,
+                              //   minLines: 1,
+                              //   maxLines: null,
+                              //   style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
+                              //   decoration: const InputDecoration(
+                              //     isDense: true,
+                              //     border: InputBorder.none, hintText: '',
+                              //   ),
+                              // ),
                             ),
                             Container(
                               padding: const EdgeInsets.all(4.0),
@@ -572,4 +608,56 @@ Widget hMTypeToIcon(HMType type){
     const Icon(Icons.error, color: Colors.redAccent),
     const Text('🤡', style: TextStyle(fontSize: 18)),
   ][type.index];
+}
+
+class PromptTextSpanBuilder extends RegExpSpecialTextSpanBuilder {
+
+  @override
+  List<RegExpSpecialText> get regExps => [
+    RegExtraCommaText(),
+    RegBreakText(),
+    RegAttentionText(),
+  ];
+}
+
+class RegExtraCommaText extends RegExpSpecialText {
+  @override
+  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) => SpecialTextSpan(
+      text: toString(),
+    deleteAll: true,
+      style: textStyle?.copyWith(color: Colors.redAccent),
+  );
+  @override
+  RegExp get regExp => reBracketTokens;
+}
+
+class RegAttentionText extends RegExpSpecialText {
+  @override
+  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}){
+    String tag = match.group(0)!.replaceAll('by ', '').trim().replaceAll(' ', '_');
+    return SpecialTextSpan(
+      text: match.group(0)!,
+      style: _hasDubl[0]!.contains(tag) ? textStyle?.copyWith(color: Colors.purple, background: Paint()..color = Colors.purple.withAlpha(25)) :
+      _tags.containsKey(tag) ?
+        _tags[tag]!.count < 50 ?
+          textStyle?.copyWith(color: Colors.yellow, background: Paint()..color = Colors.yellow.withAlpha(25)) :
+          textStyle?.copyWith(color: Colors.green, background: Paint()..color = Colors.green.withAlpha(25)) :
+        textStyle?.copyWith(color: Colors.red, background: Paint()..color = Colors.red.withAlpha(25))
+    );
+  }
+  @override
+  RegExp get regExp => RegExp(r'(\b[^,\\\[\]():|]+)');
+}
+
+class RegBreakText extends RegExpSpecialText {
+  @override
+  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
+    return SpecialTextSpan(
+      text: match.group(0)!,
+      deleteAll: true,
+      style: textStyle?.copyWith(color: Colors.blueGrey),
+    );
+  }
+  @override
+  RegExp get regExp => reBreak;
 }

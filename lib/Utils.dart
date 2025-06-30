@@ -1109,3 +1109,25 @@ List<int> cmykToRgb(double c, double m, double y, double k) {
 
   return [r, g, b];
 }
+
+int getPsValue(double p, List<num> list) {
+  if (p == 0) return list[0].toInt();
+  var kIndex = (list.length * (p / 100)).ceil() - 1;
+  return list[kIndex].toInt();
+}
+
+int percentile(double pro, List<num> list) {
+
+  List<num> newList = List<num>.from(list);
+  newList.sort((a, b) {
+    a = a.isNaN ? -0x8000000000000000 : a;
+    b = b.isNaN ? -0x8000000000000000 : b;
+
+    if (a > b) return 1;
+    if (a < b) return -1;
+
+    return 0;
+  });
+
+  return getPsValue(pro, newList);
+}

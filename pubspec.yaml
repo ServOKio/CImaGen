@@ -89,6 +89,7 @@ dependencies:
       ref: main
   palette_generator: ^0.3.3+5
   icc_parser: ^0.2.0
+  extended_text_field: ^16.0.2
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:

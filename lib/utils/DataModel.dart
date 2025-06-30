@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -40,10 +41,12 @@ class DataModel with ChangeNotifier {
 class ComparisonBlock {
   dynamic firstSelected;
   Uint8List? firstCache; // НЕ ТРОГАТЬ УЕБУ
+  Map<String, Uint8List> firstProcessed = {};
   ImageSize? firstImageSize;
 
   dynamic secondSelected;
   Uint8List? secondCache; // НЕ ТРОГАТЬ УЕБУ
+  Map<String, Uint8List> secondProcessed = {};
   ImageSize? secondImageSize;
 
   late Function notify;
@@ -126,14 +129,18 @@ class ComparisonBlock {
     }
     final Uint8List bytes = await compute(readAsBytesSync, path);
     img.Image? de = await compute(img.decodeImage, bytes);
+
+    // Где-то здесь ещё ебануть обработку
     if(de != null) {
       // ok
       if(type == 0){
         firstImageSize = ImageSize(width: de.width, height: de.height);
         firstCache = bytes;
+        firstProcessed.clear();
       } else {
         secondImageSize = ImageSize(width: de.width, height: de.height);
         secondCache = bytes;
+        secondProcessed.clear();
       }
       //Ура, прочитали, теперь сверяем и потом скейлим
       //Блять, надо узнать что скейлить
@@ -167,6 +174,7 @@ class ComparisonBlock {
           firstCache = img.encodePng(image);
           firstImageSize =  ImageSize(width: de.width, height: de.height);
         }
+        processImage(de, type);
         notify();
       } else {
         // Если размеры есть, но нужно узнать кого наебать
@@ -175,6 +183,7 @@ class ComparisonBlock {
         // Просто нужно понять что надо изменит и всё, а так всё равно придётся
         if(firstImageSize.toString() == secondImageSize.toString()){
           //Срать
+          processImage(de, type).then((onValue) => notify());
           notify();
         } else {
           //flutter: comparison_as_main
@@ -191,8 +200,8 @@ class ComparisonBlock {
           } else {
             path = s;
           }
-          Io.File(path).readAsBytes().then((b) {
-            de = img.decodeImage(b);
+          Io.File(path).readAsBytes().then((b) async {
+            de = await compute(img.decodeImage, b);
             if(de != null) {
               img.Image d = img.copyResize(de!, width: [firstImageSize, secondImageSize][what ? 0 : 1]?.width);
               if(what){
@@ -202,11 +211,47 @@ class ComparisonBlock {
                 firstCache = img.encodePng(d);
                 firstImageSize = secondImageSize;
               }
+              processImage(de!, type).then((onValue) => notify());
             }
             notify();
           });
         }
       }
+    }
+  }
+
+  Future<void> processImage(img.Image orig, int type) async{
+    List<List<num>> channels = [[],[],[],[]];
+    for (var pix in orig) {
+      channels[0].add(pix.r);
+      channels[1].add(pix.g);
+      channels[2].add(pix.b);
+      channels[3].add(pix.a);
+    }
+
+    // AutoColored
+    img.Image image = orig.clone();
+
+    for (var i2 = 0; i2 < 3; i2 += 1) {
+      int lowPercentile = percentile(0.5, channels[i2]);
+      int highPercentile = percentile(99.5, channels[i2]);
+
+      if (highPercentile > lowPercentile) {
+        Iterable<double> stretched = channels[i2].map((e) => (e - lowPercentile) * 255.0 / (highPercentile - lowPercentile));
+        Iterable<int> fixed = stretched.map((e) => (e < 0 ? 0 : e > 255 ? 255 : e).floor());
+        channels[i2] = fixed.toList();
+      }
+    }
+
+    int c = 0;
+    for (var pixel in image) {
+      pixel..r = channels[0][c]..g = channels[1][c]..b = channels[2][c];
+      c++;
+    }
+    if(type == 0){
+      firstProcessed['autocolor'] = img.encodePng(image);
+    } else if(type == 1){
+      secondProcessed['autocolor'] = img.encodePng(image);
     }
   }
 }

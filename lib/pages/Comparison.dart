@@ -199,6 +199,7 @@ class _ViewBlockState extends State<ViewBlock> {
 
   bool _showImageDifference = false;
   bool _asSplit = false;
+  bool _useAutoColor = false;
 
   bool left = true;
 
@@ -234,9 +235,7 @@ class _ViewBlockState extends State<ViewBlock> {
       MenuItem(
         label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',
         icon: imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline,
-        onSelected: () {
-          imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host);
-        },
+        onSelected: () => imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host),
       ),
       const MenuDivider(),
       MenuItem(
@@ -264,10 +263,7 @@ class _ViewBlockState extends State<ViewBlock> {
       MenuItem(
         label: 'Send to MiniSD',
         icon: Icons.web_rounded,
-        onSelected: () {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));
-          // implement redo
-        },
+        onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)))
       ),
       const MenuDivider(),
       MenuItem(
@@ -291,19 +287,13 @@ class _ViewBlockState extends State<ViewBlock> {
             icon: Icons.abc,
             onSelected: () async {
               String seed = imageMeta.generationParams!.seed.toString();
-              Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Seed $seed copied'),
-              )));
+              Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Seed $seed copied'),)));
             },
           ),
           MenuItem(
             label: 'Folder/file.name',
             icon: Icons.arrow_forward,
-            onSelected: () {
-              Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Copied'),
-              )));
-            },
+            onSelected: () => Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied'),))),
           ),
         ],
       ),
@@ -322,6 +312,15 @@ class _ViewBlockState extends State<ViewBlock> {
         onSelected: () {
           setState(() {
             _showImageDifference = !_showImageDifference;
+          });
+        },
+      ),
+      MenuItem(
+        label: 'Show in auticolor + autocontrast',
+        icon: Icons.contrast,
+        onSelected: () {
+          setState(() {
+            _useAutoColor = !_useAutoColor;
           });
         },
       ),
@@ -384,8 +383,6 @@ class _ViewBlockState extends State<ViewBlock> {
       padding: const EdgeInsets.all(8.0),
     );
 
-    double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
-
     return Stack(
       children: [
         MouseRegion(
@@ -408,8 +405,8 @@ class _ViewBlockState extends State<ViewBlock> {
                   child: _asSplit ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                        Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                        Image.memory(_useAutoColor && dataModel.comparisonBlock.firstProcessed['autocolor'] != null ? dataModel.comparisonBlock.firstProcessed['autocolor']! : dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
+                        Image.memory(_useAutoColor && dataModel.comparisonBlock.secondProcessed['autocolor'] != null ? dataModel.comparisonBlock.secondProcessed['autocolor']! : dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
                       ]
                   ) : _showImageDifference ? Stack(
                     children: [
@@ -421,8 +418,8 @@ class _ViewBlockState extends State<ViewBlock> {
                       ),
                     ],
                   ) : ImageCompareSlider(
-                    itemOne: Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                    itemTwo: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                    itemOne: Image.memory(_useAutoColor && dataModel.comparisonBlock.firstProcessed['autocolor'] != null ? dataModel.comparisonBlock.firstProcessed['autocolor']! : dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
+                    itemTwo: Image.memory(_useAutoColor && dataModel.comparisonBlock.secondProcessed['autocolor'] != null ? dataModel.comparisonBlock.secondProcessed['autocolor']! : dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
                     dividerWidth: 1.5,
                     handleSize: const Size(0, 0),
                     handleRadius: const BorderRadius.all(Radius.circular(0)),
