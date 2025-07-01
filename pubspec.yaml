@@ -27,7 +27,7 @@ dependencies:
   feedback: ^3.0.0
   crypto: ^3.0.3
   json_annotation: ^4.8.1
-  window_manager: ^0.4.2
+  window_manager: ^0.5.0
   gap: ^3.0.1
   system_theme: ^3.0.0
   flutter_context_menu: ^0.2.0
