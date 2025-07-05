@@ -57,10 +57,12 @@ Widget AspectPreview(double aspect, String text){
   return SizedBox(
       width: 200,
       child: AspectRatio(aspectRatio: aspect, child: DottedBorder(
-        dashPattern: const [6, 6],
-        borderType: BorderType.RRect,
-        strokeWidth: 2,
-        radius: const Radius.circular(12),
+        options: RectDottedBorderOptions(
+          dashPattern: const [6, 6],
+          //borderType: BorderType.RRect,
+          strokeWidth: 2,
+          //radius: const Radius.circular(12),
+        ),
         child: Center(child: SelectableText(text)),
       ))
   );

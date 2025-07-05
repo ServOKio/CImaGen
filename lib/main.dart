@@ -33,7 +33,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 import 'package:path/path.dart' as p;
 
@@ -41,6 +40,7 @@ import 'components/AppBar.dart';
 import 'components/LoadingState.dart';
 import 'components/NotesSection.dart';
 import 'l10n/all_locales.dart';
+import 'l10n/app_localizations.dart';
 import 'modules/AudioController.dart';
 import 'modules/ConfigManager.dart';
 import 'modules/DataManager.dart';

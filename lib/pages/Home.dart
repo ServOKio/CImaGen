@@ -22,6 +22,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import '../Utils.dart';
 import '../components/CustomMasonryView.dart';
 import '../components/ImageInfo.dart';
+import '../l10n/app_localizations.dart';
 import '../main.dart';
 import '../modules/Animations.dart';
 import '../modules/CheckpointInfo.dart';
@@ -30,8 +31,6 @@ import '../modules/SaveManager.dart' as sm;
 import '../utils/DataModel.dart';
 import '../utils/SQLite.dart';
 import '../utils/ThemeManager.dart';
-
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -364,11 +363,13 @@ class _HomeState extends State<Home> {
                                             child: AspectRatio(
                                               aspectRatio: 1/1,
                                               child: DottedBorder(
-                                                dashPattern: const [6, 6],
-                                                color: Colors.redAccent,
-                                                borderType: BorderType.RRect,
-                                                strokeWidth: 2,
-                                                radius: const Radius.circular(12),
+                                                options: RectDottedBorderOptions(
+                                                  dashPattern: const [6, 6],
+                                                  color: Colors.redAccent,
+                                                  //borderType: BorderType.RRect,
+                                                  strokeWidth: 2,
+                                                  //radius: const Radius.circular(12),
+                                                ),
                                                 child: const Center(child: Icon(Icons.chat, color: Colors.blueAccent)),
                                               ),
                                             ),
@@ -493,11 +494,13 @@ class _HomeState extends State<Home> {
 
   Widget selectBlock(){
     return DottedBorder(
-      dashPattern: const [6, 6],
-      color: const Color(0xFF2d2f32),
-      borderType: BorderType.RRect,
-      strokeWidth: 2,
-      radius: const Radius.circular(12),
+      options: RectDottedBorderOptions(
+        dashPattern: const [6, 6],
+        color: const Color(0xFF2d2f32),
+        // borderType: BorderType.RRect,
+        strokeWidth: 2,
+        // radius: const Radius.circular(12),
+      ),
       child: ClipRRect(
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           child: AspectRatio(
@@ -967,11 +970,11 @@ class FileInfoPreview extends StatelessWidget{
                             child: AspectRatio(
                               aspectRatio: im?.error == null ? im!.size!.aspectRatio() : 1/1,
                               child: im?.error == null ? im?.thumbnail != null ? Hero(tag: im!.fileName, child: Image.memory(im.thumbnail!, gaplessPlayback: true)) : Icon(Icons.error) : DottedBorder(
-                                dashPattern: const [6, 6],
-                                color: Colors.redAccent,
-                                borderType: BorderType.RRect,
-                                strokeWidth: 2,
-                                radius: const Radius.circular(12),
+                                options: RectDottedBorderOptions(
+                                  dashPattern: const [6, 6],
+                                  color: Colors.redAccent,
+                                  strokeWidth: 2,
+                                ),
                                 child: const Center(child: Icon(Icons.error, color: Colors.redAccent)),
                               ),
                             ),

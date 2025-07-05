@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/ArtistDefaultStypeFinder.dart';
 import 'package:cimagen/components/TagSearcher.dart';
@@ -29,6 +31,10 @@ Map<int, List<String>> _hasDubl = {
   0: [],
   1: []
 };
+Map<int, Map<String, double>> _tagsAndWeights = {
+  0: {},
+  1: {}
+};
 
 class _PromptAnalyzerState extends State<PromptAnalyzer> {
   bool loaded = false;
@@ -41,8 +47,6 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
 
   List<HMessage> posMessages = [];
   List<HMessage> negMessages = [];
-
-  final PromptTextSpanBuilder _promptTextSpanBuilder = PromptTextSpanBuilder();
 
   var posChart = [];
 
@@ -86,8 +90,6 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
     });
 
     String _text = (id == 0 ? positiveController.text : negativeController.text).replaceAll('\n', ' ');
-
-    Map<String, double> _tagsAndWeights = {};
 
     List<List<dynamic>> res = [];
     List<int> roundBrackets = [];
@@ -162,6 +164,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
     // because fox ass
     List<String> dubl = [];
     _hasDubl[id]!.clear();
+    _tagsAndWeights[id]!.clear();
     for (var element in res) {
       //print((element[0] as String).split(','));
       List<String> tags = (element[0] as String).split(',').map((e) => e.trim().toLowerCase().replaceAll(' ', '_'))
@@ -176,7 +179,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
           _hasDubl[id]!.add(tag);
           (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.warn, text: 'Tag "$tag" has a duplicate'));
         }
-        _tagsAndWeights[tag] = element[1].toDouble();
+        _tagsAndWeights[id]![tag] = element[1].toDouble();
         if(!(tag.startsWith('<') && tag.endsWith('>'))){
           if(!_tags.containsKey(tag)){
             (id == 0 ? posMessages : negMessages).add(HMessage(type: HMType.error, text: 'Tag "$tag" is invalid'));
@@ -190,16 +193,16 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
       }
     }
 
-    List<TagInfo> fi = _tagsAndWeights.keys.where((tag) => _tags.containsKey(tag) && _tags[tag]?.category == 1).map((e) => _tags[e]!).toList(growable: false);
+    List<TagInfo> fi = _tagsAndWeights[0]!.keys.where((tag) => _tags.containsKey(tag) && _tags[tag]?.category == 1).map((e) => _tags[e]!).toList(growable: false);
 
     setState(() {
       loaded = true;
       if(id == 0) {
         posChart = [
-          fi.map((e) => _tagsAndWeights[e.name]!).toList(),
+          fi.map((e) => _tagsAndWeights[0]![e.name]!).toList(),
           fi.map((e) => e.name).toList(),
           fi.map((e) => e.count.toDouble()).toList(),
-          fi.map((e) => e.count * _tagsAndWeights[e.name]!).toList(),
+          fi.map((e) => e.count * _tagsAndWeights[0]![e.name]!).toList(),
         ];
       }
     });
@@ -322,6 +325,7 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                               ),
                               child:
                               ExtendedTextField(
+                                focusNode: _posFocusNode,
                                 // key: _key,
                                 showCursor: true,
                                 strutStyle: const StrutStyle(),
@@ -338,18 +342,6 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                                  ),
                                 //textDirection: TextDirection.rtl,
                               ),
-                              // TextField(
-                              //   controller: positiveController,
-                              //   focusNode: _posFocusNode,
-                              //   keyboardType: TextInputType.multiline,
-                              //   minLines: 1,
-                              //   maxLines: null,
-                              //   style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
-                              //   decoration: const InputDecoration(
-                              //     isDense: true,
-                              //     border: InputBorder.none, hintText: '',
-                              //   ),
-                              // ),
                             ),
                             Container(
                               padding: const EdgeInsets.all(4.0),
@@ -611,7 +603,6 @@ Widget hMTypeToIcon(HMType type){
 }
 
 class PromptTextSpanBuilder extends RegExpSpecialTextSpanBuilder {
-
   @override
   List<RegExpSpecialText> get regExps => [
     RegExtraCommaText(),
@@ -622,26 +613,50 @@ class PromptTextSpanBuilder extends RegExpSpecialTextSpanBuilder {
 
 class RegExtraCommaText extends RegExpSpecialText {
   @override
-  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) => SpecialTextSpan(
-      text: toString(),
-    deleteAll: true,
-      style: textStyle?.copyWith(color: Colors.redAccent),
+  InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) => SpecialTextSpan(
+    text: m.group(0)!,
+    style: textStyle?.copyWith(color: Colors.pinkAccent, background: Paint()..color = Colors.pink.withAlpha(25)),
   );
   @override
-  RegExp get regExp => reBracketTokens;
+  RegExp get regExp => RegExp(r'(?<!\\)\)\s*(,)\s*\S|,,');
 }
 
 class RegAttentionText extends RegExpSpecialText {
   @override
-  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}){
-    String tag = match.group(0)!.replaceAll('by ', '').trim().replaceAll(' ', '_');
-    return SpecialTextSpan(
-      text: match.group(0)!,
+  InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}){
+    String tag = m.group(0)!.replaceAll('by ', '').trim().replaceAll(' ', '_').toLowerCase();
+    bool ok = !_hasDubl[0]!.contains(tag) && _tags.containsKey(tag) && _tags[tag]!.count >= 50;
+    bool calculated = _tagsAndWeights[0]![tag] != null;
+    return ok ? ExtendedWidgetSpan(
+        actualText: m.group(0)!,
+        child: Tooltip(
+          padding: EdgeInsets.all(7),
+          showDuration: Duration(seconds: 10),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: const BorderRadius.all(Radius.circular(4)),
+          ),
+          textStyle: TextStyle(color: Colors.white),
+          preferBelow: true,
+          richMessage: TextSpan(
+            text: 'Count: ',
+            children: <TextSpan>[
+              TextSpan(text: '${_tags[tag]!.count}\n', style: TextStyle(color: Colors.amberAccent)),
+              if(calculated) TextSpan(text: 'User weight: '),
+              if(calculated) TextSpan(text: '${_tagsAndWeights[0]![tag]!.toStringAsFixed(2)}\n', style: TextStyle(color: Colors.blue)),
+              if(calculated) TextSpan(text: 'Count*weight: '),
+              if(calculated) TextSpan(text: '${(_tags[tag]!.count * _tagsAndWeights[0]![tag]!).toStringAsFixed(2)}\n', style: TextStyle(color: Colors.lightBlueAccent)),
+            ],
+          ),
+          child: Text(m.group(0)!, style: textStyle),
+        )
+    ) : SpecialTextSpan(
+      text: m.group(0)!,
       style: _hasDubl[0]!.contains(tag) ? textStyle?.copyWith(color: Colors.purple, background: Paint()..color = Colors.purple.withAlpha(25)) :
       _tags.containsKey(tag) ?
         _tags[tag]!.count < 50 ?
           textStyle?.copyWith(color: Colors.yellow, background: Paint()..color = Colors.yellow.withAlpha(25)) :
-          textStyle?.copyWith(color: Colors.green, background: Paint()..color = Colors.green.withAlpha(25)) :
+          textStyle :
         textStyle?.copyWith(color: Colors.red, background: Paint()..color = Colors.red.withAlpha(25))
     );
   }
@@ -651,9 +666,9 @@ class RegAttentionText extends RegExpSpecialText {
 
 class RegBreakText extends RegExpSpecialText {
   @override
-  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
+  InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
     return SpecialTextSpan(
-      text: match.group(0)!,
+      text: m.group(0)!,
       deleteAll: true,
       style: textStyle?.copyWith(color: Colors.blueGrey),
     );

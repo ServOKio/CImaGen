@@ -1955,9 +1955,9 @@ String genHash(RenderEngine re, String parent, String name, {String? host}){
 String cleanUpSDPrompt(String prompt){
   return prompt
     .trim()
-    .replaceFirst(RegExp(r',\s*$'), '')
-    .replaceAll('\n', '')
-    .replaceAll(RegExp(r'\s{2,}'), ' ')
-    .replaceAll(RegExp(r',+'), ',')
+    .replaceFirst(RegExp(r',\s*$'), '') // лишние пробелы
+    .replaceAll('\n', '') // переносы
+    .replaceAll(RegExp(r'\s{2,}'), ' ') //двойные запятые
+    .replaceAll(RegExp(r',+'), ',') // фикс запытых
     .replaceAllMapped(RegExp(r'(?<!\\)[)\]]\s*(,)\s*\S'), (match) => '${match.group(0)?.replaceAll(' ', '').replaceFirst(match.group(1).toString(), '')}');
 }
