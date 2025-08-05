@@ -12,7 +12,6 @@ import 'dart:io' as Io;
 
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
-import 'package:matrix2d/matrix2d.dart';
 
 import '../components/PromptAnalyzer.dart';
 
@@ -238,50 +237,77 @@ class ComparisonBlock {
     }
 
     // // AutoColored
-    // img.Image autoColoredImage = orig.clone();
-    // for (var i2 = 0; i2 < 3; i2 += 1) {
-    //   int lowPercentile = percentile(0.5, channels[i2]);
-    //   int highPercentile = percentile(99.5, channels[i2]);
-    //
-    //   if (highPercentile > lowPercentile) {
-    //     Iterable<double> stretched = channels[i2].map((e) => (e - lowPercentile) * 255.0 / (highPercentile - lowPercentile));
-    //     Iterable<int> fixed = stretched.map((e) => (e < 0 ? 0 : e > 255 ? 255 : e).floor());
-    //     channels[i2] = fixed.toList();
-    //   }
-    // }
-    //
-    // int c = 0;
-    // for (var pixel in autoColoredImage) {
-    //   pixel..r = channels[0][c]..g = channels[1][c]..b = channels[2][c];
-    //   c++;
-    // }
-    // if(type == 0){
-    //   firstProcessed['autocolor'] = img.encodePng(autoColoredImage);
-    // } else if(type == 1){
-    //   secondProcessed['autocolor'] = img.encodePng(autoColoredImage);
-    // }
+    img.Image autoColoredImage = orig.clone();
+    for (var i2 = 0; i2 < 3; i2 += 1) {
+      int lowPercentile = percentile(0.5, channels[i2]);
+      int highPercentile = percentile(99.5, channels[i2]);
+
+      if (highPercentile > lowPercentile) {
+        Iterable<double> stretched = channels[i2].map((e) => (e - lowPercentile) * 255.0 / (highPercentile - lowPercentile));
+        Iterable<int> fixed = stretched.map((e) => (e < 0 ? 0 : e > 255 ? 255 : e).floor());
+        channels[i2] = fixed.toList();
+      }
+    }
+
+    int c = 0;
+    for (var pixel in autoColoredImage) {
+      pixel..r = channels[0][c]..g = channels[1][c]..b = channels[2][c];
+      c++;
+    }
+    if(type == 0){
+      firstProcessed['autocolor'] = img.encodePng(autoColoredImage);
+    } else if(type == 1){
+      secondProcessed['autocolor'] = img.encodePng(autoColoredImage);
+    }
 
     // Color match via Linear Histogram Matching
     if(firstDecoded != null && secondDecoded != null){
       // content = kyda
-      List<List<List<int>>> content = imageToHxWxCArray(secondDecoded!);
-      List<List<List<int>>> reference = imageToHxWxCArray(firstDecoded!);
+      // List<List<List<int>>> content = imageToHxWxCArray(secondDecoded!);
+      // List<List<List<int>>> reference = imageToHxWxCArray(firstDecoded!);
 
-      List<dynamic> shape = content.shape;
-      //print(shape);
-      List<dynamic> contentReshaped = content.reshape(content.length, firstDecoded!.width * firstDecoded!.height)[0];
-      List<dynamic> referenceReshaped = reference.reshape(reference.length, secondDecoded!.width * secondDecoded!.height)[0];
-      var mu_content = mean(contentReshaped, axis: 0);
-      var mu_reference = mean(referenceReshaped, axis: 0);
+      // Linear
+      // List<dynamic> shape = content.shape;
+      // //print(shape);
+      // List<dynamic> contentReshaped = content.reshape(content.length, firstDecoded!.width * firstDecoded!.height)[0];
+      // List<dynamic> referenceReshaped = reference.reshape(reference.length, secondDecoded!.width * secondDecoded!.height)[0];
+      // var mu_content = mean(contentReshaped, axis: 0);
+      // var mu_reference = mean(referenceReshaped, axis: 0);
+      //
+      // List<List<double>> cov_content = cov(List<List<int>>.from(contentReshaped), rowvar: false);
+      // //print(cov_content);
+      // List<List<double>> cov_reference = cov(List<List<int>>.from(referenceReshaped), rowvar: false);
+      // // print(cov_content);
+      // // print(cov_reference);
+      // var result = matrixSqrt(cov_reference);
+      // result = matrixDot(result, inverseMatrix(matrixSqrt(cov_reference)));
 
-      List<List<double>> cov_content = cov(List<List<int>>.from(contentReshaped), rowvar: false);
-      //print(cov_content);
-      List<List<double>> cov_reference = cov(List<List<int>>.from(referenceReshaped), rowvar: false);
-      // print(cov_content);
-      // print(cov_reference);
-      var result = matrixSqrt(cov_reference);
-      result = matrixDot(result, inverseMatrix(matrixSqrt(cov_reference)));
+      img.Image transfered = orig.clone();
 
+      var imageLab = convertToLab(secondDecoded!);
+      var originalLab = convertToLab(firstDecoded!);
+
+      var imageAvgStd = getAvgStd(imageLab);
+      var originalAvgStd = getAvgStd(originalLab);
+
+      var imageAvg = imageAvgStd[0];
+      var imageStd = imageAvgStd[1];
+      var originalAvg = originalAvgStd[0];
+      var originalStd = originalAvgStd[1];
+
+      for (var i = 0; i < imageLab.length; i++) {
+        for (var j = 0; j < imageLab[i].length; j++) {
+          for (var k = 0; k < 3; k++) {
+            var t = imageLab[i][j][k];
+            t = ((t - imageAvg[k]) * (originalStd[k] / imageStd[k])) + originalAvg[k];
+            t = t < 0 ? 0 : t > 255 ? 255 : t;
+            imageLab[i][j][k] = t.roundToDouble();
+          }
+        }
+      }
+
+      img.Image outputImage = convertLabToRGB(imageLab);
+      secondProcessed['colortransfer'] = img.encodePng(outputImage);
     }
   }
 }

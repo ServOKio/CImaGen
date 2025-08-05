@@ -200,6 +200,7 @@ class _ViewBlockState extends State<ViewBlock> {
   bool _showImageDifference = false;
   bool _asSplit = false;
   bool _useAutoColor = false;
+  bool _useColorTransfer = false;
 
   bool left = true;
 
@@ -324,6 +325,15 @@ class _ViewBlockState extends State<ViewBlock> {
           });
         },
       ),
+      MenuItem(
+        label: 'Show color transfered',
+        icon: _useColorTransfer ? Icons.color_lens : Icons.color_lens_outlined,
+        onSelected: () {
+          setState(() {
+            _useColorTransfer = !_useColorTransfer;
+          });
+        },
+      ),
       const MenuDivider(),
       MenuItem(
         label: 'Find difference ',
@@ -383,6 +393,16 @@ class _ViewBlockState extends State<ViewBlock> {
       padding: const EdgeInsets.all(8.0),
     );
 
+    Uint8List bytesOne =
+      _useAutoColor && dataModel.comparisonBlock.firstProcessed['autocolor'] != null ?
+        dataModel.comparisonBlock.firstProcessed['autocolor']! :
+        dataModel.comparisonBlock.firstCache!;
+    Uint8List bytesSecond = _useColorTransfer && dataModel.comparisonBlock.secondProcessed['colortransfer'] != null ?
+      dataModel.comparisonBlock.secondProcessed['colortransfer']! :
+      _useAutoColor && dataModel.comparisonBlock.secondProcessed['autocolor'] != null ?
+        dataModel.comparisonBlock.secondProcessed['autocolor']! :
+        dataModel.comparisonBlock.secondCache!;
+
     return Stack(
       children: [
         MouseRegion(
@@ -405,21 +425,21 @@ class _ViewBlockState extends State<ViewBlock> {
                   child: _asSplit ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Image.memory(_useAutoColor && dataModel.comparisonBlock.firstProcessed['autocolor'] != null ? dataModel.comparisonBlock.firstProcessed['autocolor']! : dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                        Image.memory(_useAutoColor && dataModel.comparisonBlock.secondProcessed['autocolor'] != null ? dataModel.comparisonBlock.secondProcessed['autocolor']! : dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                        Image.memory(bytesOne, gaplessPlayback: true),
+                        Image.memory(bytesSecond, gaplessPlayback: true),
                       ]
                   ) : _showImageDifference ? Stack(
                     children: [
-                      Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
+                      Image.memory(bytesOne, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
                       BlendMask(
                         opacity: 1.0,
                         blendMode: BlendMode.difference,
-                        child: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
+                        child: Image.memory(bytesSecond, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
                       ),
                     ],
                   ) : ImageCompareSlider(
-                    itemOne: Image.memory(_useAutoColor && dataModel.comparisonBlock.firstProcessed['autocolor'] != null ? dataModel.comparisonBlock.firstProcessed['autocolor']! : dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                    itemTwo: Image.memory(_useAutoColor && dataModel.comparisonBlock.secondProcessed['autocolor'] != null ? dataModel.comparisonBlock.secondProcessed['autocolor']! : dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
+                    itemOne: Image.memory(bytesOne, gaplessPlayback: true),
+                    itemTwo: Image.memory(bytesSecond, gaplessPlayback: true),
                     dividerWidth: 1.5,
                     handleSize: const Size(0, 0),
                     handleRadius: const BorderRadius.all(Radius.circular(0)),

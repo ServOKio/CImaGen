@@ -263,7 +263,7 @@ class ParseJob {
                   });
                 } else {
                   if(
-                    (filterByRe == RenderEngine.txt2img && value.re == RenderEngine.img2img) || (filterByRe == RenderEngine.img2img && value.re == RenderEngine.txt2img)
+                    (filterByRe == RenderEngine.txt2img && [RenderEngine.inpaint, RenderEngine.img2img].contains(value.re)) || (filterByRe == RenderEngine.img2img && value.re == RenderEngine.txt2img)
                   ) {
                     // Delete // TODO
                     File file = File(path);

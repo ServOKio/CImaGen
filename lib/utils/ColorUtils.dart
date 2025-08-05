@@ -13,6 +13,62 @@ List<List<List<int>>> imageToHxWxCArray(img.Image image){
   return list;
 }
 
+List<List<List<double>>> convertToLab(img.Image image) {
+  img.Image from = image.clone().convert(numChannels: 3);
+  List<List<List<double>>> list = List.generate(image.height, (i) => List.generate(image.width, (j) => [0.0, 0.0, 0.0]));
+  for (img.Pixel pix in from) {
+    list[pix.y][pix.x] = rgb2lab(pix.r, pix.g, pix.b);
+  }
+  return list;
+}
+
+List<List<double>> getAvgStd(List<List<List<double>>> image) {
+  var avg = List<double>.filled(3, 0.0);
+  var std = List<double>.filled(3, 0.0);
+  var height = image.length;
+  var width = image[0].length;
+
+  for (var i = 0; i < height; i++) {
+    for (var j = 0; j < width; j++) {
+      avg[0] += image[i][j][0];
+      avg[1] += image[i][j][1];
+      avg[2] += image[i][j][2];
+    }
+  }
+
+  avg = avg.map((e) => e / (height * width)).toList();
+
+  for (var i = 0; i < height; i++) {
+    for (var j = 0; j < width; j++) {
+      std[0] += (image[i][j][0] - avg[0]) * (image[i][j][0] - avg[0]);
+      std[1] += (image[i][j][1] - avg[1]) * (image[i][j][1] - avg[1]);
+      std[2] += (image[i][j][2] - avg[2]) * (image[i][j][2] - avg[2]);
+    }
+  }
+
+  std = std.map((e) => math.sqrt(e / (height * width))).toList();
+
+  return [avg, std];
+}
+
+img.Image convertToBGR(List<List<List<double>>> image) {
+  // Implement conversion from LAB to BGR
+  // This is a placeholder for the actual conversion logic
+  return img.Image(width: image[0].length, height: image.length);
+}
+
+img.Image convertLabToRGB(List<List<List<double>>> image) {
+  List<List<List<int>>> q = convertLab2Rgb(image);
+  img.Image f = img.Image(width: q[0].length, height: q.length);
+  for (var pixel in f) {
+    pixel
+      ..r = q[pixel.y][pixel.x][0]
+      ..g = q[pixel.y][pixel.x][1]
+      ..b = q[pixel.y][pixel.x][2];
+  }
+  return f;
+}
+
 List<dynamic> mean(var values, {int? axis}) {
   if (values.isEmpty) {
     return [double.nan]; // Return NaN for empty lists
@@ -393,4 +449,122 @@ double matrixMax(List<List<double>> A){
   }
 
   return maxVal;
+}
+
+List<double> bgrToLab(num b, num g, num r) {
+  // 1. BGR to RGB (already done by parameter order)
+  // 2. Normalize RGB
+  double normR = r / 255;
+  double normG = g / 255;
+  double normB = b / 255;
+
+  // 3. Linearize sRGB
+  double linearR = sRGBtoLinearRGB(normR);
+  double linearG = sRGBtoLinearRGB(normG);
+  double linearB = sRGBtoLinearRGB(normB);
+
+  // 4. Convert Linear RGB to XYZ
+  var xyz = linearRGBtoXYZ(linearR, linearG, linearB);
+
+  // 5. Convert XYZ to Lab
+  var lab = xyzToLab(xyz[0], xyz[1], xyz[2]); // Renamed 'b' to 'labB' to avoid conflict
+
+  return [lab[0], lab[1], lab[2]];
+}
+
+List<double> rgb2lab(num r, num g, num b){
+  r = r / 255;
+  g = g / 255;
+  b = b / 255;
+  num x, y, z;
+
+  r = (r > 0.04045) ? math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+  g = (g > 0.04045) ? math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+  b = (b > 0.04045) ? math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+
+  x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+  y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
+  z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+
+  x = (x > 0.008856) ? math.pow(x, 1/3) : (7.787 * x) + 16/116;
+  y = (y > 0.008856) ? math.pow(y, 1/3) : (7.787 * y) + 16/116;
+  z = (z > 0.008856) ? math.pow(z, 1/3) : (7.787 * z) + 16/116;
+
+  return [(116 * y) - 16, (500 * (x - y)).toDouble(), (200 * (y - z)).toDouble()];
+}
+
+List<int> lab2rgb(lab){
+  num y = (lab[0] + 16) / 116,
+      x = lab[1] / 500 + y,
+      z = y - lab[2] / 200,
+      r, g, b;
+
+  x = 0.95047 * ((x * x * x > 0.008856) ? x * x * x : (x - 16/116) / 7.787);
+  y = 1.00000 * ((y * y * y > 0.008856) ? y * y * y : (y - 16/116) / 7.787);
+  z = 1.08883 * ((z * z * z > 0.008856) ? z * z * z : (z - 16/116) / 7.787);
+
+  r = x *  3.2406 + y * -1.5372 + z * -0.4986;
+  g = x * -0.9689 + y *  1.8758 + z *  0.0415;
+  b = x *  0.0557 + y * -0.2040 + z *  1.0570;
+
+  r = (r > 0.0031308) ? (1.055 * math.pow(r, 1/2.4) - 0.055) : 12.92 * r;
+  g = (g > 0.0031308) ? (1.055 * math.pow(g, 1/2.4) - 0.055) : 12.92 * g;
+  b = (b > 0.0031308) ? (1.055 * math.pow(b, 1/2.4) - 0.055) : 12.92 * b;
+
+  return [
+    (math.max(0, math.min(1, r)) * 255).round(),
+    (math.max(0, math.min(1, g)) * 255).round(),
+    (math.max(0, math.min(1, b)) * 255).round()
+  ];
+}
+
+List<List<List<int>>> convertLab2Rgb(List<List<List<double>>> data) {
+  print('W:${data[0].length} H:${data.length}');
+  return List.generate(data.length, (h) => List.generate(data[0].length, (w) => lab2rgb(data[h][w])));
+}
+
+double sRGBtoLinearRGB(color) {
+  if (color <= 0.04045) {
+    return color / 12.92;
+  } else {
+    return math.pow((color + 0.055) / 1.055, 2.4).toDouble();
+  }
+}
+
+List<double> linearRGBtoXYZ(r, g, b) {
+  double X = 0.4124 * r + 0.3576 * g + 0.1805 * b;
+  double Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  double Z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+  return [X, Y, Z];
+}
+
+List<double> xyzToLab(double X, double Y, double Z) {
+  const Xn = 95.047; // D65 reference white
+  const Yn = 100.000;
+  const Zn = 108.883;
+
+  double fx = X / Xn;
+  double fy = Y / Yn;
+  double fz = Z / Zn;
+
+  double f(t) => (t > 0.008856 ? cbrt(t) : (t * 903.3) / 100);
+
+  fx = f(fx);
+  fy = f(fy);
+  fz = f(fz);
+
+  double L = 116 * fy - 16;
+  double a = 500 * (fx - fy);
+  double labB = 200 * (fy - fz);
+
+  return [L, a, labB];
+}
+
+double cbrt(double x){
+  if (x == 0 || x == double.infinity || x == -1 / 0 || x != x) {
+    return x;
+  }
+  var a = x.abs();
+  var y = math.exp(math.log(a) / 3);
+  return (x / a) * (y + (a / (y * y) - y) / 3);
 }
