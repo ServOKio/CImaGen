@@ -52,6 +52,8 @@ Comparison allows you to select several images and compare them with each other.
 | <h4>Connecting to the network UI</h4> You can connect to your computer at home; A1111, SwarmUI, Windows SMB and just parsing, for example, discord - everything in one place and even offline | <img src="preview/gif_6.gif" width="300px"/>  |
 | <h4>XYZ rebuilder</h4> Have a bunch of images, but forgot to create an XYZ table or you can’t? Here you can try to recreate using several options depending on the data | <img src="preview/gif_7.gif" width="300px"/>  |
 | <h4>Prompt analyzer</h4> Beta: Help with building prompt and removing unnecessary tokens, weight charts and more | <img src="preview/8.png" width="300px"/>  |
+| <h4>Transfer of colors</h4> Transferring colors from one image to another | <img src="preview/gif_8.gif" width="300px"/> |
+| <h4>Auto contrast and auto color</h4> Adjust color and contrast along the curve automatically, like in Photoshop | <img src="preview/gif_10.gif" width="300px"/>  |
 
 ### Status
 In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
