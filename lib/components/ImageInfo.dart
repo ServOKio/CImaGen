@@ -9,7 +9,6 @@ import 'package:cimagen/components/Vectorscope.dart';
 import 'package:cimagen/components/popups/AspectSizes.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -33,12 +32,14 @@ class MyImageInfo extends StatefulWidget {
 
 class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin {
 
-  late Future<PaletteGenerator?> paletteGenerator;
+  late Future<PaletteGenerator> paletteGenerator;
+  bool loaded = false;
 
-  Future<PaletteGenerator> genPalette(String path) async {
+  Uint8List? readMe;
+
+  Future<PaletteGenerator> genPalette() async {
     try {
-      final Uint8List bytes = await compute(readAsBytesSync, path);
-      img.Image? data = await compute(img.decodeImage, bytes);
+      img.Image? data = await compute(img.decodeImage, readMe!);
       if(data != null) data = img.copyResize(data, width: 512);
       return await PaletteGenerator.fromImageProvider(
         maximumColorCount: 28,
@@ -51,8 +52,26 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
 
   @override
   void initState(){
-    String path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath ?? '';
-    paletteGenerator = genPalette(path);
+    init();
+  }
+
+  Future<void> init() async {
+    if(widget.data.fullImage != null){
+      setState(() {
+        readMe = widget.data.fullImage;
+        paletteGenerator = genPalette();
+        loaded = true;
+      });
+    } else {
+      String path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath ?? '';
+      readAsBytesSync(path).then((v){
+        setState(() {
+          readMe = v;
+          paletteGenerator = genPalette();
+          loaded = true;
+        });
+      });
+    }
   }
 
   @override
@@ -99,16 +118,44 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AspectRatio(aspectRatio: 16/9, child: Histogram(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath!)),
-                    AspectRatio(aspectRatio: 1/1, child: Vectorscope(path: !im.isLocal && im.tempFilePath != null ? im.tempFilePath! : im.fullPath!)),
-                    FutureBuilder(
+                    if(loaded) GestureDetector(
+                      onTap: () => showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
+                          content: AspectRatio(aspectRatio: 16/9, child: Histogram(readMe!)),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text('Close'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      child: AspectRatio(aspectRatio: 16/9, child: Histogram(readMe!)),
+                    ),
+                    if(loaded) GestureDetector(
+                      onTap: () => showDialog<String>(
+                        context: context,
+                        builder: (BuildContext context) => AlertDialog(
+                          content: AspectRatio(aspectRatio: 1/1, child: Vectorscope(readMe!)),
+                          actions: <Widget>[
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text('Close'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      child: AspectRatio(aspectRatio: 1/1, child: Vectorscope(readMe!)),
+                    ),
+                    if(loaded) FutureBuilder(
                         future: paletteGenerator,
                         builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
                           Widget content;
                           if(snapshot.data != null){
                             content = PaletteSwatches(generator: snapshot.data);
                           } else if(snapshot.hasError){
-                            content = Text('Error');
+                            content = Text('Color palette generation error');
                           } else {
                             content = LinearProgressIndicator();
                           }

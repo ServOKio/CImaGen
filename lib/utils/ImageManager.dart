@@ -18,6 +18,7 @@ import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 import 'package:objectbox/objectbox.dart';
 import 'package:xml/xml.dart';
+import 'package:psd_sdk/psd_sdk.dart' as psd;
 
 import '../Utils.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +34,7 @@ import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
 import 'NavigationService.dart';
+
 
 class ImageManager extends ChangeNotifier {
 
@@ -1069,7 +1071,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
     Map<String, dynamic> specific = {};
     Map<String, dynamic> psdEx = {};
 
-    final originalImage = img.decodePsd(fileBytes!);
+    final originalImage = psd.Document.fromFile(psd.File.fromByteData(fileBytes!));
 
     psdEx['softwareType'] = Software.photoshop.index;
 
@@ -1081,7 +1083,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         fileTypeExtension: e,
         fileSize: fileStat.size,
         dateModified: fileStat.modified,
-        size: ImageSize(width: originalImage!.width, height: originalImage.height),
+        size: ImageSize(width: originalImage.width!, height: originalImage.height!),
         specific: specific,
         other: psdEx
     )..generationParams = gp;
@@ -1456,6 +1458,7 @@ class ImageMeta {
   }
 
   String? networkThumbnail;
+  Uint8List? fullImage;
 
   @Transient()
   Map<String, dynamic>? other = {};
@@ -1496,6 +1499,7 @@ class ImageMeta {
     this.fullPath,
     this.fullNetworkPath,
     this.thumbnail,
+    this.fullImage,
     this.networkThumbnail,
     this.other,
     this.id = 0
@@ -1584,7 +1588,13 @@ class ImageMeta {
       if(uri == null && fileBytes == null) return;
       img.Image? data;
       if(fileBytes != null){
-        data = await compute(img.decodeImage, fileBytes);
+        String m = mine!.split('/').last;
+        if(m == 'vnd.adobe.photoshop'){
+          data = await compute(psdToImageData, fileBytes);
+          fullImage = await compute(img.encodePng, data!);
+        } else {
+          data = await compute(img.decodeImage, fileBytes);
+        }
       } else {
         switch (mine?.split('/').last) {
           case 'png':

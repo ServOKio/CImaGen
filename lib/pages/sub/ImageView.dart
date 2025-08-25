@@ -18,17 +18,24 @@ import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
-Future<Uint8List?> _readImageFile(String? imagePath) async {
-  if(imagePath == null) return null;
+import 'Publish.dart';
+
+Future<Uint8List?> _readImageFile(ImageMeta imageMeta) async {
   Uint8List? fi;
-  try {
-    final Uint8List bytes = await compute(readAsBytesSync, imagePath);
-    img.Image? image = await compute(img.decodeImage, bytes);
-    if(image != null){
-      return img.encodePng(image);
+  if(imageMeta.mine?.split('/')[1] == 'vnd.adobe.photoshop'){
+    fi = imageMeta.fullImage;
+  } else {
+    try {
+      String? pathToImage = imageMeta.fullPath ?? imageMeta.tempFilePath ?? imageMeta.cacheFilePath;
+      if(pathToImage == null) return null;
+      final Uint8List bytes = await compute(readAsBytesSync, pathToImage);
+      img.Image? image = await compute(img.decodeImage, bytes);
+      if(image != null){
+        return img.encodePng(image);
+      }
+    } on PathNotFoundException catch (e){
+      throw 'We\'ll fix it later.'; // TODO
     }
-  } on PathNotFoundException catch (e){
-    throw 'We\'ll fix it later.'; // TODO
   }
   return fi;
 }
@@ -47,7 +54,7 @@ class _ImageViewState extends State<ImageView> {
   bool showOriginalSize = true;
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
 
-  late final lotsOfData = _readImageFile(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath);
+  late final lotsOfData = _readImageFile(widget.imageMeta!);
   final photoSender = Rx<String>('1.00');
 
   @override
@@ -86,6 +93,10 @@ class _ImageViewState extends State<ImageView> {
           IconButton(
               icon: const Icon(Icons.devices_other),
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.imageMeta!)))
+          ),
+          IconButton(
+              icon: const Icon(Icons.share),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Publish(imageMeta: widget.imageMeta)))
           ),
           IconButton(
               icon: Icon(

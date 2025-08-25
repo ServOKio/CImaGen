@@ -8,8 +8,8 @@ import 'package:image/image.dart' as img;
 import '../Utils.dart';
 
 class Histogram extends StatefulWidget {
-  final String path;
-  const Histogram({super.key, required this.path});
+  final Uint8List data;
+  const Histogram(this.data, {super.key});
 
   @override
   State<Histogram> createState() => _HistogramState();
@@ -80,17 +80,12 @@ class _HistogramState extends State<Histogram> {
     };
   }
 
-  Future<img.Image?> _calculation(String imagePath, BoxConstraints constraints) async {
+  Future<img.Image?> _calculation(BoxConstraints constraints) async {
     img.Image? data;
-    if(false){
-      data = await img.decodePngFile(imagePath);
-    } else {
-      try {
-        final Uint8List bytes = await compute(readAsBytesSync, imagePath);
-        data = await compute(img.decodeImage, bytes);
-      } on PathNotFoundException catch (e){
-        throw 'We\'ll fix it later.'; // TODO
-      }
+    try {
+      data = await compute(img.decodeImage, widget.data);
+    } on PathNotFoundException catch (e){
+      throw 'We\'ll fix it later.'; // TODO
     }
     return data;
   }
@@ -101,7 +96,7 @@ class _HistogramState extends State<Histogram> {
       return Container(
         color: Colors.black,
         child: FutureBuilder(
-          future: _calculation(widget.path, constraints), // a previously-obtained Future<String> or null
+          future: _calculation(constraints), // a previously-obtained Future<String> or null
           builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
             Widget children;
             if (snapshot.hasData) {
@@ -122,7 +117,7 @@ class _HistogramState extends State<Histogram> {
                 Color colour = Colors.red;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['r'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['r'] as List<int>)[i] * pixelsPerUnit;
-                lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
+                lines.add(Line(color: colour, width: toAdd, height: columnHeight, x: x, y: boxHeight - columnHeight));
                 x += toAdd;
               }
               x = 0.0;
@@ -131,7 +126,7 @@ class _HistogramState extends State<Histogram> {
                 Color colour = Colors.green;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['g'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['g'] as List<int>)[i] * pixelsPerUnit;
-                lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
+                lines.add(Line(color: colour, width: toAdd, height: columnHeight, x: x, y: boxHeight - columnHeight));
                 x += toAdd;
               }
               x = 0.0;
@@ -141,7 +136,7 @@ class _HistogramState extends State<Histogram> {
                 Color colour = Colors.blue;
                 double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['b'];
                 double columnHeight = (colourFrequencies['colourFrequencies']['b'] as List<int>)[i] * pixelsPerUnit;
-                lines.add(Line(color: colour, width: lineWidth, height: columnHeight, x: x, y: boxHeight - columnHeight));
+                lines.add(Line(color: colour, width: toAdd, height: columnHeight, x: x, y: boxHeight - columnHeight));
                 x += toAdd;
               }
               //lines.add(Line(color: Colors.red, width: 2, height: 50, x: 0, y: 50)); //debug

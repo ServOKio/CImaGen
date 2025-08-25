@@ -36,7 +36,7 @@ class _DevicePreviewState extends State<DevicePreview> {
       String net = widget.imageMeta.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(widget.imageMeta);
       provider = net == '' ? FileImage(File(widget.imageMeta.tempFilePath ?? widget.imageMeta.cacheFilePath ?? 'e.png')) : NetworkImage(widget.imageMeta.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(widget.imageMeta));
     } else {
-      provider = FileImage(File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? widget.imageMeta.cacheFilePath ?? 'e.png'));
+      provider = widget.imageMeta.fullImage != null ? MemoryImage(widget.imageMeta.fullImage!) : FileImage(File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? widget.imageMeta.cacheFilePath ?? 'e.png'));
     }
 
     return Scaffold(

@@ -20,6 +20,8 @@ import 'package:win32/win32.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import 'package:path/path.dart' as p;
+import 'package:image/image.dart' as img;
+import 'package:psd_sdk/psd_sdk.dart' as psd;
 
 String getUserName() {
   const usernameLength = 256;
@@ -1130,4 +1132,64 @@ int percentile(double pro, List<num> list) {
   });
 
   return getPsValue(pro, newList);
+}
+
+img.Image psdToImageData(Uint8List fileBytes){
+  psd.File psdFile = psd.File.fromByteData(fileBytes);
+  psd.Document document = psd.Document.fromFile(psdFile);
+  final sec = document.parseImageDataSection(psdFile)!.getInterleavedImage();
+
+  final image = img.Image(width: document.width!, height: document.height!);
+
+  if(document.channelCount == 3){
+    for (var i = 0; i < document.height!; ++i) {
+      for (var j = 0; j < document.width!; ++j) {
+        final r = sec![(i * document.width! + j) * 4 + 0];
+        final g = sec[(i * document.width! + j) * 4 + 1];
+        final b = sec[(i * document.width! + j) * 4 + 2];
+
+        image.getPixel(j, i).setRgb(r, g, b);
+      }
+    }
+  } else {
+    for (var i = 0; i < document.height!; ++i) {
+      for (var j = 0; j < document.width!; ++j) {
+        final r = sec![(i * document.width! + j) * 4 + 0];
+        final g = sec[(i * document.width! + j) * 4 + 1];
+        final b = sec[(i * document.width! + j) * 4 + 2];
+        final a = sec[(i * document.width! + j) * 4 + 3];
+        image.getPixel(j, i).setRgba(r, g, b, a);
+      }
+    }
+  }
+  return image;
+}
+
+Future<Uint8List> stripExif(Uint8List originalBytes) async {
+  var image = img.decodeImage(originalBytes);
+  image = img.bakeOrientation(image!);
+  final bytesWithExif = img.encodeJpg(image);
+
+  const int APP1 = 0xFFE1; // segment of EXIF data
+
+  final strippedImage = <int>[];
+
+  int i = 0;
+  int end;
+  while (i < bytesWithExif.length) {
+    // segment length is encoded on bytes 2 and 3 of the segment
+    int segmentLength = (bytesWithExif[i + 2] << 8) + bytesWithExif[i + 3];
+
+    if (bytesWithExif[i] == 0xFF && bytesWithExif[i + 1] == APP1) {
+      // Skip APP1 segment
+      i += 2 + segmentLength;
+    } else {
+      // Add segment to new image
+      end = min(i + 2 + segmentLength, bytesWithExif.length);
+      strippedImage.addAll(bytesWithExif.sublist(i, end));
+      i += 2 + segmentLength;
+    }
+  }
+
+  return Uint8List.fromList(strippedImage);
 }

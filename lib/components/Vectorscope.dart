@@ -11,8 +11,8 @@ import 'dart:ui' as ui;
 import '../Utils.dart';
 
 class Vectorscope extends StatefulWidget {
-  final String path;
-  const Vectorscope({super.key, required this.path});
+  final Uint8List data;
+  const Vectorscope(this.data, {super.key});
 
   @override
   State<Vectorscope> createState() => _VectorscopeState();
@@ -31,17 +31,12 @@ class _VectorscopeState extends State<Vectorscope> {
     super.initState();
   }
 
-  Future<Uint8List?> _calculation(String imagePath, BoxConstraints size) async {
+  Future<Uint8List?> _calculation(BoxConstraints size) async {
     img.Image? data;
-    if(false){
-      data = await img.decodePngFile(imagePath);
-    } else {
-      try {
-        final Uint8List bytes = await compute(readAsBytesSync, imagePath);
-        data = await compute(img.decodeImage, bytes);
-      } on PathNotFoundException catch (e){
-        throw 'We\'ll fix it later.'; // TODO
-      }
+    try {
+      data = await compute(img.decodeImage, widget.data);
+    } on PathNotFoundException catch (e){
+      throw 'We\'ll fix it later.'; // TODO
     }
     if(data != null) data = img.copyResize(data, width: 512);
     // Cack
@@ -105,7 +100,7 @@ class _VectorscopeState extends State<Vectorscope> {
       return Container(
         color: Colors.black,
         child: FutureBuilder(
-          future: _calculation(widget.path, constraints), // a previously-obtained Future<String> or null
+          future: _calculation(constraints), // a previously-obtained Future<String> or null
           builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
             Widget children;
             if (snapshot.hasData) {

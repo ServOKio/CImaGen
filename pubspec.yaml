@@ -95,6 +95,8 @@ dependencies:
   ml_linalg: ^13.12.6
   matrix_utils: ^0.1.9
   vector_math: ^2.1.4
+  psd_sdk: ^0.2.3
+  encrypt: ^5.0.3
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
