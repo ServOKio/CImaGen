@@ -50,7 +50,7 @@ dependencies:
   intl: any
   open_file: ^3.3.2
   dio: ^5.4.2+1
-  package_info_plus: ^8.0.0
+  package_info_plus: ^9.0.0
   flutter_colorpicker: ^1.0.3
   marquee: ^2.2.3
   utf_ext: ^0.3.3
