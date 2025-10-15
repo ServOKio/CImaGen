@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:cimagen/pages/sub/DBExtra.dart';
+import 'package:cimagen/pages/sub/settings/DBExtra.dart';
 import 'package:cimagen/pages/sub/GitHubCommits.dart';
-import 'package:cimagen/pages/sub/RemoteVersionSettings.dart';
+import 'package:cimagen/pages/sub/settings/RemoteVersionSettings.dart';
+import 'package:cimagen/pages/sub/settings/SauceNAOSettings.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,6 @@ import 'package:system_theme/system_theme.dart';
 import '../Utils.dart';
 import '../main.dart';
 import '../modules/ConfigManager.dart';
-import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
 class Settings extends StatefulWidget{
@@ -45,6 +45,11 @@ class _SettingsState extends State<Settings>{
   double _maxCacheSize = 5;
   int _maxDBSize = 4;
   int _currentCacheSize = 0;
+
+  String? e621ApiKey;
+
+  String? _toolsOneTrainerDir;
+  String? _toolsLETSDir;
 
   String appDocumentsPath = '';
   String appTempPath = '';
@@ -82,6 +87,9 @@ class _SettingsState extends State<Settings>{
       _debug = prefs.getBool('debug') ?? false;
       _imageview_use_fullscreen = (prefs.getBool('imageview_use_fullscreen') ?? false);
       _gallery_display_id = (prefs.getBool('gallery_display_id') ?? false);
+
+      _toolsOneTrainerDir = prefs.getString('tools_onetrainer_dir');
+
       appDocumentsPath = appDocumentsDir.absolute.path;
       appTempPath = appTempDir.absolute.path;
       appVersion = packageInfo.version;
@@ -96,24 +104,25 @@ class _SettingsState extends State<Settings>{
       _currentCacheSize = value;
     }));
 
-    context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) => {
-      if(mounted) setState(() {
-        dataMap = {
-          'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
-          'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
-          'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
-          'extra (${readableFileSize(value['extraSumSize'] as int)})': (value['extraCount'] as int).toDouble(),
-          'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
-          'Without meta (${readableFileSize(value['unknownSumSize'] as int)})': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
-        };
-      })
-    }).onError((error, stackTrace) => {
-      if(mounted) setState(() {
-        dataMap = {
-          'all': 0
-        };
-      })
-    });
+    // TODO
+    // context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) => {
+    //   if(mounted) setState(() {
+    //     dataMap = {
+    //       'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
+    //       'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
+    //       'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
+    //       'extra (${readableFileSize(value['extraSumSize'] as int)})': (value['extraCount'] as int).toDouble(),
+    //       'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
+    //       'Without meta (${readableFileSize(value['unknownSumSize'] as int)})': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
+    //     };
+    //   })
+    // }).onError((error, stackTrace) => {
+    //   if(mounted) setState(() {
+    //     dataMap = {
+    //       'all': 0
+    //     };
+    //   })
+    // });
   }
 
   @override
@@ -396,6 +405,113 @@ class _SettingsState extends State<Settings>{
                     Navigator.push(context, MaterialPageRoute(builder: (context) => const DBExtra()));
                   },
                 )
+              ],
+            ),
+            SettingsSection(
+              title: const Text('Services'),
+              tiles: [
+                SettingsTile(
+                  enabled: false,
+                  leading: const Icon(Icons.token),
+                  title: Text('HuggingFace access token'),
+                  onPressed: (context){
+
+                  },
+                ),
+                SettingsTile(
+                  leading: const Icon(Icons.token),
+                  title: Text('SauceNAO access token'),
+                  onPressed: (context) =>  Navigator.push(context, MaterialPageRoute(builder: (context) => const SauceNAOSettings()))
+                ),
+                SettingsTile.navigation(
+                  leading: Icon(Icons.token, color: e621ApiKey != null ? Colors.lightGreen : null),
+                  title: const Text('E621 Api Key'),
+                  value: Text('Allows using the API from anywhere regardless of whether the client is logged in, or supports cookies'),
+                  onPressed: (context) async {
+                    var addressController = TextEditingController();
+                    addressController.text = e621ApiKey ?? '';
+                    final formKey = GlobalKey<FormState>();
+                    await showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          content: Form(
+                            key: formKey,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                TextFormField(
+                                  controller: addressController,
+                                  validator: (text) {
+                                    return null;
+                                  },
+                                  decoration: const InputDecoration(
+                                    hintStyle: TextStyle(color: Colors.grey),
+                                    hintText: 'xxxxxxxxxxxooooooooooooooooooooooooooooo',
+                                    labelText: 'Api Key',
+                                  ),
+                                ),
+                                const Gap(12),
+                                ElevatedButton(
+                                  child: const Text('Set'),
+                                  onPressed: () {
+                                    if (formKey.currentState!.validate()) {
+                                      String f = addressController.text.trim();
+                                      if(f.isEmpty){
+                                        prefs.remove('e621_apikey');
+                                        setState(() {
+                                          e621ApiKey = null;
+                                        });
+                                      } else {
+
+                                      }
+                                      prefs.setString('e621_apikey', f);
+                                      setState(() {
+                                        e621ApiKey = f;
+                                      });
+                                      Navigator.pop(context);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                    );
+                  },
+                ),
+              ],
+            ),
+            SettingsSection(
+              title: const Text('Tools'),
+              tiles: [
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.dataset_linked),
+                  title: const Text('OneTrainer'),
+                  value: Text('Root folder with OneTrainer${_toolsOneTrainerDir != null ? '\nNow: $_toolsOneTrainerDir' : ''}'),
+                  onPressed: (context) async {
+                    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      setState(() {
+                        _toolsOneTrainerDir = selectedDirectory;
+                      });
+                      prefs.setString('tools_onetrainer_dir', selectedDirectory);
+                    }
+                  },
+                ),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.dataset_linked),
+                  title: const Text('LoRA Easy Training Scripts'),
+                  value: Text('Root folder with L.E.T.S${_toolsLETSDir != null ? '\nNow: $_toolsLETSDir' : ''}'),
+                  onPressed: (context) async {
+                    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      setState(() {
+                        _toolsLETSDir = selectedDirectory;
+                      });
+                      prefs.setString('tools_lets_dir', selectedDirectory);
+                    }
+                  },
+                ),
               ],
             ),
             SettingsSection(

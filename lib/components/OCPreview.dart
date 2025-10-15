@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../modules/Animations.dart';
+import 'Animations.dart';
 
 class OCPreview extends StatefulWidget{
 

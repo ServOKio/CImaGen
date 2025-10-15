@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cimagen/components/PromptAnalyzer.dart';
+import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../modules/Animations.dart';
 import 'package:path/path.dart' as p;
 
 import '../modules/DataManager.dart';
 import '../utils/ImageManager.dart';
+import 'Animations.dart';
 
 class TagsClassification extends StatefulWidget{
 

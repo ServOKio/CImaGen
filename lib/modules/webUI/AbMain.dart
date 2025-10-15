@@ -35,6 +35,8 @@ abstract class AbMain extends ChangeNotifier{
     return [];
   }
 
+  Future<void> fixLorasMetadata();
+
   // Тут мы ебашим id вкладки и index селектора потому-что ну а хуй пойми из какой системы запрос, пусть сам разбирается
   Future<List<ImageMeta>> getFolderFiles(int section, int index) async{
     return [];

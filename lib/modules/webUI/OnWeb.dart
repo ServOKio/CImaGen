@@ -519,4 +519,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   Map<String, String> get webuiPaths => {};
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/rendering.dart';
 
 import '../Utils.dart';
-import '../components/DevicePreview.dart';
+import 'sub/DevicePreview.dart';
 import '../components/ImageInfo.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';

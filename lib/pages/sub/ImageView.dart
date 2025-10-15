@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:cimagen/modules/SauceNAO.dart';
+import 'package:cimagen/pages/sub/BodySizeCalculation.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
@@ -10,7 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../Utils.dart';
-import '../../components/DevicePreview.dart';
+import 'DevicePreview.dart';
 import '../../components/ImageInfo.dart';
 import '../../utils/DataModel.dart';
 
@@ -18,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 
+import 'JointTaggerProject.dart';
 import 'Publish.dart';
 
 Future<Uint8List?> _readImageFile(ImageMeta imageMeta) async {
@@ -93,6 +96,11 @@ class _ImageViewState extends State<ImageView> {
           IconButton(
               icon: const Icon(Icons.devices_other),
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.imageMeta!)))
+          ),
+          IconButton(
+              icon: const Icon(Icons.accessibility),
+              tooltip: 'Calculate body dimensions',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BodySizeCalculation(imageMeta: widget.imageMeta!)))
           ),
           IconButton(
               icon: const Icon(Icons.share),
@@ -193,9 +201,32 @@ class _ImageViewState extends State<ImageView> {
       //   ],
       // ),
       const MenuDivider(),
+      MenuItem.submenu(
+        label: 'Utils...',
+        icon: Icons.apps,
+        items: [
+          MenuItem(
+            label: 'Make Lora',
+            icon: Icons.auto_graph,
+            onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
+          ),
+          MenuItem(
+            label: 'Joint Tagger Project',
+            icon: Icons.tag,
+            onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: widget.imageMeta!))),
+          ),
+          MenuItem(
+            label: 'SauceNAO',
+            icon: Icons.find_in_page,
+            onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
+          )
+        ],
+      ),
+      const MenuDivider(),
       // MenuItem(
       //   label: 'Send to MiniSD',
       //   value: 'send_to_minisd',
+      //   icon: Icons.web_rounded,
       //   icon: Icons.web_rounded,
       //   onSelected: () {
       //     Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)));

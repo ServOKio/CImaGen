@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 
-import '../Utils.dart';
-import '../components/ImageInfo.dart';
-import '../modules/Animations.dart';
+import '../../Utils.dart';
+import '../../components/Animations.dart';
+import '../../components/ImageInfo.dart';
 
 class CharacterCardImageInfo extends StatefulWidget {
   final String base64;

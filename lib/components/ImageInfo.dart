@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cimagen/components/CharacterCard.dart';
+import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/Histogram.dart';
-import 'package:cimagen/components/PromptAnalyzer.dart';
+import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
 import 'package:cimagen/components/TestActivity.dart';
 import 'package:cimagen/components/Vectorscope.dart';
 import 'package:cimagen/components/popups/AspectSizes.dart';
@@ -111,7 +111,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             ExpansionTile(
-              initiallyExpanded: false, //gp == null && im.specific?['comfUINodes'] == null,
+              initiallyExpanded: gp == null && im.specific?['comfUINodes'] == null,
               tilePadding: EdgeInsets.zero,
               title:  Text('Image info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
               children: <Widget>[

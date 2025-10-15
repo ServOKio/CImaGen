@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/pages/sub/DebugDevPage.dart';
 import 'package:feedback/feedback.dart';
@@ -18,7 +19,7 @@ import '../utils/ImageManager.dart';
 import '../utils/SQLite.dart';
 
 class CAppBar extends StatefulWidget implements PreferredSizeWidget {
-  CAppBar({ Key? key }) : preferredSize = const Size.fromHeight(kToolbarHeight), super(key: key);
+  CAppBar({ Key? key }) : preferredSize = const Size.fromHeight(kToolbarHeight+32), super(key: key);
 
   @override
   final Size preferredSize;
@@ -79,96 +80,100 @@ class _CustomAppBarState extends State<CAppBar>{
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        ListenableBuilder(
-          listenable: appBarController!,
-          builder: (BuildContext context, Widget? child){
-            return AppBar(
-                clipBehavior: Clip.none,
-                surfaceTintColor: Colors.transparent,
-                centerTitle: true,
-                backgroundColor: const Color(0xff0c0c0e),
-                title: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 720,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: const Color(0xff15161a),
+        Positioned(
+            top: 32,
+            left: 0,
+            right: 0,
+            child: ListenableBuilder(
+            listenable: appBarController!,
+            builder: (BuildContext context, Widget? child){
+              return AppBar(
+                  clipBehavior: Clip.none,
+                  surfaceTintColor: Colors.transparent,
+                  centerTitle: true,
+                  backgroundColor: const Color(0xff0c0c0e),
+                  title: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 720,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: myController,
-                            style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: AppLocalizations.of(context)!.appbarSearch,
-                              hintStyle: const TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
-                              labelStyle: const TextStyle(color: Colors.red),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0xff15161a),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: myController,
+                              style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
+                              decoration: InputDecoration(
+                                hintText: AppLocalizations.of(context)!.appbarSearch,
+                                hintStyle: const TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
+                                labelStyle: const TextStyle(color: Colors.red),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                              ),
+                              maxLines: 1,
                             ),
-                            maxLines: 1,
                           ),
-                        ),
-                        const Gap(8),
-                        //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
-                        AnimatedRotation(
-                          turns: turns,
-                          duration: const Duration(seconds: 2),
-                          curve: Curves.ease,
-                          child: UnicornOutlineButton(
-                            strokeWidth: 3,
-                            radius: 24,
-                            gradient: const LinearGradient(
-                                begin: Alignment.topRight,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
-                                stops: [0, 0.5, 0.9, 1]
+                          const Gap(8),
+                          //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
+                          AnimatedRotation(
+                            turns: turns,
+                            duration: const Duration(seconds: 2),
+                            curve: Curves.ease,
+                            child: UnicornOutlineButton(
+                              strokeWidth: 3,
+                              radius: 24,
+                              gradient: const LinearGradient(
+                                  begin: Alignment.topRight,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
+                                  stops: [0, 0.5, 0.9, 1]
+                              ),
+                              child: const SizedBox(
+                                width: 20,
+                                height: 20,
+                              ),
+                              onPressed: () {},
                             ),
-                            child: const SizedBox(
-                              width: 20,
-                              height: 20,
-                            ),
-                            onPressed: () {},
-                          ),
-                        )
-                      ],
+                          )
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                actions: appBarController!.actions.isEmpty ? <Widget>[
-                  IconButton(
-                    icon: const Icon(Icons.stadium_outlined),
-                    tooltip: 'DEBUG PAGE',
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DebugDevPage())),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.bug_report),
-                    tooltip: 'Report bug',
-                    onPressed: () {
-                      BetterFeedback.of(context).show((feedback) async {
-                        final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
-                        await Share.shareXFiles(
-                          [XFile(screenshotFilePath)],
-                          text: feedback.text,
+                  actions: appBarController!.actions.isEmpty ? <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.stadium_outlined),
+                      tooltip: 'DEBUG PAGE',
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DebugDevPage())),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.bug_report),
+                      tooltip: 'Report bug',
+                      onPressed: () {
+                        BetterFeedback.of(context).show((feedback) async {
+                          final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
+                          await Share.shareXFiles(
+                            [XFile(screenshotFilePath)],
+                            text: feedback.text,
+                          );
+                        },
                         );
                       },
-                      );
-                    },
-                  ),
-                  const Gap(8)
-                ] : appBarController!.actions
-            );
-          }
-        ),
+                    ),
+                    const Gap(8)
+                  ] : appBarController!.actions
+              );
+            }
+        )),
         Positioned(
           left: MediaQuery.of(context).size.width / 2 - ((MediaQuery.of(context).size.width - 100) / 2),
-          top: 60,
+          top: 60+32,
             child: AnimatedContainer(
               clipBehavior: Clip.antiAlias,
               width: MediaQuery.of(context).size.width - 100,
@@ -216,6 +221,29 @@ class _CustomAppBarState extends State<CAppBar>{
                   )
               ),
             )
+        ),
+        // Window menu
+        Positioned(
+            top: 0,
+            child: Container(
+                color: const Color(0xff0c0c0e),
+                height: 32, width: MediaQuery.of(context).size.width,
+                child: MoveWindow()
+            )
+        ),
+        Positioned(
+            top: 0,
+            left: Platform.isMacOS ? 0 : null,
+            right: !Platform.isMacOS ? 0 : null,
+            child: Row(children: Platform.isMacOS ? [
+              CloseWindowButton(),
+              MinimizeWindowButton(),
+              MaximizeWindowButton()
+            ] : [
+              MinimizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
+              MaximizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
+              CloseWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary))
+            ])
         )
       ],
     );

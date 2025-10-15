@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
-import '../modules/Animations.dart';
+import '../../components/Animations.dart';
 
 class DevicePreview extends StatefulWidget{
   final ImageMeta imageMeta;

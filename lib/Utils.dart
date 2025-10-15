@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:cimagen/utils/Crc32.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
@@ -15,6 +17,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:objectbox/objectbox.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:win32/win32.dart';
 import 'package:provider/provider.dart';
@@ -22,6 +25,7 @@ import 'dart:math' as math;
 import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import 'package:psd_sdk/psd_sdk.dart' as psd;
+import 'package:http/http.dart' as http;
 
 String getUserName() {
   const usernameLength = 256;
@@ -1192,4 +1196,180 @@ Future<Uint8List> stripExif(Uint8List originalBytes) async {
   }
 
   return Uint8List.fromList(strippedImage);
+}
+
+double percentFromNum(double percent, double num) {
+  return (percent / 100) * num;
+}
+
+var uint8 = Uint8List(4);
+var int32 = Int32List.view(uint8.buffer);
+var uint32 = Uint32List.view(uint8.buffer);
+List<Map<String, dynamic>> recoverAndExtractChunks(Uint8List data) {
+  if (data[0] != 0x89) throw ArgumentError('Invalid .png file header');
+  if (data[1] != 0x50) throw ArgumentError('Invalid .png file header');
+  if (data[2] != 0x4E) throw ArgumentError('Invalid .png file header');
+  if (data[3] != 0x47) throw ArgumentError('Invalid .png file header');
+  if (data[4] != 0x0D) {
+    throw ArgumentError('Invalid .png file header: possibly caused by DOS-Unix line ending conversion?');
+  }
+  if (data[5] != 0x0A) {
+    throw ArgumentError('Invalid .png file header: possibly caused by DOS-Unix line ending conversion?');
+  }
+  if (data[6] != 0x1A) throw ArgumentError('Invalid .png file header');
+  if (data[7] != 0x0A) {
+    throw ArgumentError('Invalid .png file header: possibly caused by DOS-Unix line ending conversion?');
+  }
+
+  var ended = false;
+  var chunks = <Map<String, dynamic>>[];
+  var idx = 8;
+
+  while (idx < data.length) {
+    // Length - 4 bytes
+    // Read the length of the current chunk,
+    // which is stored as a Uint32.
+    uint8[3] = data[idx++];
+    uint8[2] = data[idx++];
+    uint8[1] = data[idx++];
+    uint8[0] = data[idx++];
+
+    // Chunk Type - 4 bytes
+    // Chunk includes name/type for CRC check (see below).
+    var chunkSize = uint32[0];
+    var length = chunkSize + 4;
+    var chunk = Uint8List(length);
+    chunk[0] = data[idx++];
+    chunk[1] = data[idx++];
+    chunk[2] = data[idx++];
+    chunk[3] = data[idx++];
+
+    // Get the name in ASCII for identification.
+    var name = (String.fromCharCode(chunk[0]) + String.fromCharCode(chunk[1]) + String.fromCharCode(chunk[2]) + String.fromCharCode(chunk[3]));
+
+    // The IHDR header MUST come first.
+    if (chunks.isEmpty && name != 'IHDR') {
+      throw UnsupportedError('IHDR header missing');
+    }
+
+    // The IEND header marks the end of the file,
+    // so on discovering it break out of the loop.
+    if (name == 'IEND') {
+      ended = true;
+      chunks.add({
+        'name': name,
+        'data': Uint8List(0),
+      });
+
+      break;
+    }
+
+    // Chunk Data - some bytes
+    // Read the contents of the chunk out of the main buffer.
+    // IHDR, tEXt, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IEND
+    // IHDR, tEXt, IDAT, IDAT, IDAT, IDAT
+    bool broken = false;
+    int start = idx+1;
+    int end = start+length-4;
+    print('start:$start, end:$end}');
+    try{
+      for (var i = 4; i < length; i++) {
+        int f = idx++;
+        //print('$i $length ${data.length} $f');
+        int data1 = data[f];
+        chunk[i] = data1;
+      }
+
+      // CRC - A 4-byte
+      // Read out the CRC value for comparison.
+      // It's stored as an Int32.
+      uint8[3] = data[idx++];
+      uint8[2] = data[idx++];
+      uint8[1] = data[idx++];
+      uint8[0] = data[idx++];
+    } on RangeError catch(e){
+      //rethrow;
+      broken = true;
+    }
+
+    var crcActual = int32[0];
+    var crcExpect = Crc32.getCrc32(chunk);
+    if (crcExpect != crcActual) {
+      // throw UnsupportedError('CRC values for $name header do not match, PNG file is likely corrupted');
+      // Pizda as always
+      var missing = end - idx;
+      print('missing:$missing t:${chunkSize}');
+    }
+
+    // The chunk data is now copied to remove the 4 preceding
+    // bytes used for the chunk name/type.
+
+    var chunkData = Uint8List.fromList(chunk.sublist(4)); // Изначально в чанке сидит только название и данные, размер не тут
+
+    chunks.add({'name': name, 'data': chunkData});
+
+    if(broken){
+      ended = true;
+      chunks.add({
+        'name': 'IEND',
+        'data': Uint8List(0),
+      });
+
+      break;
+    }
+  }
+
+  if (!ended) {
+    throw UnsupportedError('.png file ended prematurely: no IEND header was found');
+  }
+
+  return chunks;
+}
+
+Future<void> downloadToDownloadFolder(String fileName, String uri) async {
+  dynamic appDownloadDir = await getDownloadsDirectory();
+  if(appDownloadDir != null) appDownloadDir = appDownloadDir.path;
+  String pa = p.join(appDownloadDir, fileName);
+  File f = File(pa);
+  if(!f.existsSync()) f.deleteSync();
+  String clean = cleanUpUrl(uri);
+  http.Response res = await http.get(Uri.parse(clean));
+  if(res.statusCode == 200){
+    await f.writeAsBytes(res.bodyBytes);
+  }
+}
+
+Future<void> changeLoraOutputNameMeta(String path, String name) async{
+  // int count = 123123;
+  // Uint32List list = Uint32List(8)..buffer.asInt32List()[0] = count;
+  //
+  // Uint32List uint32 = Uint32List.view(list.buffer);
+  // print(uint32[0]);
+
+  File file = File(path);
+  RandomAccessFile randomAccessFile = await file.open(mode: FileMode.read);
+  Uint8List metadataLen = await randomAccessFile.read(8);
+  Uint32List uint32 = Uint32List.view(metadataLen.buffer);
+  int metaLength = uint32[0];
+  Uint8List chunk = await randomAccessFile.read(metaLength);
+  randomAccessFile.close();
+  String value = utf8.decode(chunk);
+  var data = jsonDecode(value);
+  if(data['__metadata__'] != null) {
+    if (data['__metadata__']['ss_output_name'] != null) {
+      data['__metadata__']['ss_output_name'] = name.replaceAll(' ', '_');
+    }
+    if(data['__metadata__']['modelspec.title'] != null){
+      data['__metadata__']['modelspec.title'] = name.replaceAll(' ', '_');
+    }
+  }
+  String finalData = json.encode(data);
+  Uint8List newDataLength = Uint8List(8)..buffer.asInt32List()[0] = finalData.length;
+
+  List<int> content = List<int>.from(await file.readAsBytes(), growable: true);
+  content.replaceRange(0, 8+metaLength, Uint8List.fromList([
+    ...newDataLength,
+    ...utf8.encode(finalData)
+  ]));
+  await file.writeAsBytes(content);
 }

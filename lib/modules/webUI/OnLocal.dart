@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
@@ -117,7 +118,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
           description: 'Initialization was successful'
       );
       audioController!.player.play(AssetSource('audio/info.wav'));
-      Future.delayed(const Duration(milliseconds: 10000), () {
+      Future.delayed(const Duration(seconds: 10), () {
         notificationManager!.close(notID);
       });
       notifyListeners();
@@ -134,6 +135,99 @@ class OnLocal extends ChangeNotifier implements AbMain{
     RenderEngine.img2imgGrid: 'outdir_img2img_grids',
     RenderEngine.extra: 'outdir_extras_samples'
   };
+
+  @override
+  Future<void> fixLorasMetadata() async {
+    String? webuiFolder = prefs.getString('webui_folder');
+    Directory lorasDir = Directory(p.join(webuiFolder!, 'models', 'Lora'));
+    if (lorasDir.existsSync()) {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+          title: 'Reading metadata',
+          description: 'Give us a few seconds...'
+      );
+      List<FileSystemEntity> loras = (await dirContents(lorasDir)).whereType<File>().toList();
+
+      Map<String, List<String>> metaAndFileName = {};
+      int doned = 0;
+      void checkOne(){
+        if(doned >= loras.length){
+          for(String key in metaAndFileName.keys){
+            if(key != 'None' && metaAndFileName[key]!.length > 1){
+              //print('Broken with key $key:\n${metaAndFileName[key]!.join(',\n')}');
+              int? loraInfoNot;
+              loraInfoNot = notificationManager!.show(
+                thumbnail: const Icon(Icons.warning, color: Colors.yellow),
+                title: 'Too much lore for the keyword "$key"',
+                description: metaAndFileName[key]!.join(',\n'),
+                content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: () async {
+                    if(loraInfoNot != null) notificationManager!.update(loraInfoNot, 'content', null);
+                    for(String path in metaAndFileName[key]!){
+                      await changeLoraOutputNameMeta(path, p.basenameWithoutExtension(path));
+                    }
+                    if(loraInfoNot != null){
+                      notificationManager!.update(loraInfoNot, 'title', 'Done');
+                      notificationManager!.update(loraInfoNot, 'description', 'metadata in\n${metaAndFileName[key]!.join(',\n')}\nhas been corrected. Please index the loras in the web-panel again');
+                      notificationManager!.update(loraInfoNot, 'thumbnail', const Icon(Icons.done, color: Colors.greenAccent, size: 64));
+                    }
+                  },
+                  child: const Text('Fix:Change keys to filenames', style: TextStyle(fontSize: 12))
+                ))
+              );
+              audioController!.player.play(AssetSource('audio/wrong.wav'));
+              //Future.delayed(const Duration(seconds: 10), () => notificationManager!.close(loraInfoNot));
+            }
+          }
+          Future.delayed(const Duration(seconds: 3), () => notificationManager!.close(notID));
+        }
+      }
+      for(FileSystemEntity lora in loras){
+
+        final String ex = p.extension(lora.path);
+        if(ex == '.safetensors'){
+          File(lora.path).open(mode: FileMode.read).then((randomAccessFile) async {
+            Uint8List metadataLen = await randomAccessFile.read(8);
+            var uint32 = Uint32List.view(metadataLen.buffer);
+            int metaLength = uint32[0];
+            Uint8List chunk = await randomAccessFile.read(metaLength);
+            randomAccessFile.close();
+            String value = utf8.decode(chunk);
+            var data = jsonDecode(value);
+            if(data['__metadata__'] != null){
+              Map<String, dynamic> meta = data['__metadata__'];
+              if(meta['ss_output_name'] != null){
+                if(metaAndFileName.containsKey(meta['ss_output_name'])){
+                  metaAndFileName[meta['ss_output_name']]!.add(lora.path);
+                } else {
+                  metaAndFileName[meta['ss_output_name']] = [lora.path];
+                }
+                // int loraInfoNot = notificationManager!.show(
+                //   thumbnail: const Icon(Icons.warning, color: Colors.yellow),
+                //   title: '$name: Output name != real file name',
+                //   description: 'File ${p.basename(lora.path)} has wrong metadata (ss_output_name: ${meta['ss_output_name']} instead of "$name")'
+                // );
+                // audioController!.player.play(AssetSource('audio/wrong.wav'));
+                // Future.delayed(const Duration(seconds: 10), () => notificationManager!.close(loraInfoNot));
+              }
+            }
+            doned++;
+            checkOne();
+          });
+        } else {
+          doned++;
+          checkOne();
+        }
+      }
+
+    } else {
+      print('not');
+    }
+  }
 
   @override
   Future<List<Folder>> getFolders(int index) async {

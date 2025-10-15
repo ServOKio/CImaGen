@@ -923,7 +923,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           if (kDebugMode) {
             print('jobs co $getJobCountActive()');
           }
-          bool cont = await _isDone(co);
+          await _isDone();
           d++;
           notificationManager!.update(notID, 'content', Container(
               margin: const EdgeInsets.only(top: 7),
@@ -946,11 +946,10 @@ class OnRemote extends ChangeNotifier implements AbMain{
     return true;
   }
 
-  Future<bool> _isDone(StreamController co) async{
+  Future<void> _isDone() async{
     while(getJobCountActive() > 10){
       await Future.delayed(const Duration(seconds: 2));
     }
-    return true;
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
@@ -1249,6 +1248,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
       return controller;
     }
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 // await fetch("http://foxwebui.ddns.net:7860/API/DeleteImage", {

@@ -33,6 +33,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:bitsdojo_window/bitsdojo_window.dart';
 
 import 'package:path/path.dart' as p;
 
@@ -67,6 +68,14 @@ Future<void> main() async {
       WindowManager.instance.setMinimumSize(const Size(450, 450));
     }
     runApp(MyApp());
+
+    doWhenWindowReady(() {
+      const initialSize = Size(1280, 720);
+      appWindow.minSize = initialSize;
+      appWindow.size = initialSize;
+      appWindow.alignment = Alignment.center;
+      appWindow.show();
+    });
   }
 }
 
@@ -488,7 +497,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton(

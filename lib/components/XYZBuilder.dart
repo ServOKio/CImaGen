@@ -9,10 +9,10 @@ import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
 import '../Utils.dart';
-import '../modules/Animations.dart';
 import '../pages/Timeline.dart';
 import '../pages/sub/ImageView.dart';
 import '../utils/DataModel.dart';
+import 'Animations.dart';
 
 class XYZBuilder extends StatefulWidget{
   final List<ImageMeta> images;

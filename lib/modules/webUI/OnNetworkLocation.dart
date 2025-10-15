@@ -511,6 +511,9 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       return controller.stream;
     }
   }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 Future<List<FileSystemEntity>> dirContents(Directory dir) {

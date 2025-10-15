@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:cimagen/components/CharacterCard.dart';
+import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
-import 'package:cimagen/pages/sub/MiniWorld.dart';
+import 'package:cimagen/pages/sub/SafetensorsModelView.dart';
+import 'package:cimagen/pages/sub/categories/Main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/modules/SaveManager.dart';
+import 'package:collection/collection.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -20,11 +23,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../Utils.dart';
-import '../components/CustomMasonryView.dart';
+import '../components/Animations.dart';
 import '../components/ImageInfo.dart';
 import '../l10n/app_localizations.dart';
 import '../main.dart';
-import '../modules/Animations.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/SaveManager.dart' as sm;
@@ -50,11 +52,27 @@ class HistoryObject {
   });
 }
 
-class _HomeState extends State<Home> {
+class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   double breakpoint = 600.0;
   int c = 1;
 
+  void appendCategory(CategoryMini category){
+    categoryTop.add(category);
+    setState(() {
+      c = c+1;
+    });
+  }
+
+  List<CategoryMini> categoryTop = [];
+
+  void selectCategory(int index){
+    setState(() {
+      categoryTop = categoryTop.whereIndexed((ind, el) => ind <= index).toList();
+    });
+  }
+
   final ScrollController _scrollController = ScrollController();
+  late AnimationController animatedController;
 
   void pushToHistory(HistoryObject obj){
     _readHistory[obj.id] = obj.content;
@@ -121,16 +139,57 @@ class _HomeState extends State<Home> {
       final String e = p.extension(file.path);
       if(e == '.safetensors'){
         RandomAccessFile randomAccessFile = await File(file.path).open(mode: FileMode.read);
-        var metadataLen = randomAccessFile.read(8);
-        if (kDebugMode) print(metadataLen);
+        Uint8List metadataLen = await randomAccessFile.read(8);
+        var uint32 = Uint32List.view(metadataLen.buffer);
+        int metaLength = uint32[0];
+        if (kDebugMode) print(metaLength);
+        Uint8List chunk = await randomAccessFile.read(metaLength);
+        randomAccessFile.close();
+        String value = utf8.decode(chunk);
+        var data = jsonDecode(value);
+        print(value);
 
-        pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
-          file: p.basename(file.path),
-          icon: Icons.pest_control_rodent_outlined,
-          color: Color(0xFFD87CEE),
-          title: 'We know what it is, but we\'re not ready to read it',
-          message: 'Give us some time and we\'ll deal with this file in a future update.'
-        )));
+        if(data['__metadata__'] != null){
+          // Real safetensors
+
+          var meta = data['__metadata__'];
+          if(meta['sd_merge_recipe'] != null){
+            // Models merge
+            pushToHistory(HistoryObject(id: getRandomID(), content: SafetensorsModel(
+              type: SafetensorsModelType.modelMerge,
+              data: data
+            )));
+          } else if(meta['modelspec.architecture'] != null){
+            if(meta['modelspec.architecture'] == 'stable-diffusion-xl-v1-base/lora'){
+              // XL Lora
+              pushToHistory(HistoryObject(id: getRandomID(), content: SafetensorsModel(
+                type: SafetensorsModelType.lora,
+                data: data
+              )));
+            }
+          } else if(meta['ss_network_module'] != null && meta['ss_network_module'] == 'networks.lora'){
+            // Lora
+            pushToHistory(HistoryObject(id: getRandomID(), content: SafetensorsModel(
+                type: SafetensorsModelType.lora,
+                data: data
+            )));
+          } else {
+            pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+              file: p.basename(file.path),
+              icon: Icons.pest_control_rodent_outlined,
+              color: Color(0xFFD87CEE),
+              title: 'We know what it is, but we\'re not ready to read it',
+              message: 'Give us some time and we\'ll deal with this file in a future update.'
+            )));
+          }
+        }
+        // pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+        //   file: p.basename(file.path),
+        //   icon: Icons.pest_control_rodent_outlined,
+        //   color: Color(0xFFD87CEE),
+        //   title: 'We know what it is, but we\'re not ready to read it',
+        //   message: 'Give us some time and we\'ll deal with this file in a future update.'
+        // )));
         // int metadata_len = file.elementAt(8);
         // metadata_len = int.from_bytes(metadata_len, "little")
         // int json_start = file.read(2)
@@ -177,6 +236,18 @@ class _HomeState extends State<Home> {
             )));
           }
         });
+      } else if(e == '.glb') {
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#glb-file-format-specification-structure
+        RandomAccessFile randomAccessFile = await File(file.path).open(mode: FileMode.read);
+        Uint8List metadataLen = await randomAccessFile.read(12);
+        var uint32 = Uint32List.view(metadataLen.buffer);
+        int metaLength = uint32[0];
+        if (kDebugMode) print(metaLength);
+        Uint8List chunk = await randomAccessFile.read(metaLength);
+        randomAccessFile.close();
+        String value = utf8.decode(chunk);
+        var data = jsonDecode(value);
+        print(value);
       } else {
         pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
             file: p.basename(file.path),
@@ -207,18 +278,23 @@ class _HomeState extends State<Home> {
 
   @override
   void initState() {
+    animatedController = AnimationController.unbounded(vsync: this);
     super.initState();
+    categoryTop = [
+      CategoryMini(name: 'Main', color: Color(0xff00b2ff), widget: MainContent(appendCategory)),
+    ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.resetActions();
     });
-    loadCaregories();
+  }
+
+  @override
+  void dispose() {
+    animatedController.dispose();
+    super.dispose();
   }
 
   late Future<List<sm.Category>> categoriesFuture;
-
-  void loadCaregories(){
-    categoriesFuture = context.read<SQLite>().getCategories();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -383,7 +459,7 @@ class _HomeState extends State<Home> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                                           InfoBox(one: 'RE', two: 'sdf'),
                                         ],
                                       ),
@@ -438,7 +514,76 @@ class _HomeState extends State<Home> {
                               SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
                             ]
                         )
-                    ) : FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element),
+                    ) : element.runtimeType == ImageMeta ? FileInfoPreview(type: 1, data: element)
+                    : element.runtimeType == SafetensorsModel ? LayoutBuilder(
+                        builder: (BuildContext context, BoxConstraints constraints) {
+                          return Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                color: Theme.of(context).scaffoldBackgroundColor
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(7.0),
+                                      child: Stack(
+                                        children: [
+                                          Container(
+                                            color: Colors.blueAccent.withAlpha(50),
+                                            width: constraints.maxWidth / 2,
+                                            child: AspectRatio(
+                                              aspectRatio: 1/1,
+                                              child: DottedBorder(
+                                                options: RectDottedBorderOptions(
+                                                  dashPattern: const [6, 6],
+                                                  color: Colors.blueAccent,
+                                                  //borderType: BorderType.RRect,
+                                                  strokeWidth: 4,
+                                                  //radius: const Radius.circular(12),
+                                                ),
+                                                child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Gap(7),
+                                    SizedBox(
+                                      width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          InfoBox(one: 'Type', two: safetensorsModelTypeToString(element.type)),
+                                        ],
+                                      ),
+                                    )
+                                  ],
+                                ),
+                                const Gap(7),
+                                Row(
+                                  children: [
+                                    ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: Size.zero, // Set this
+                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                        ),
+                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SafetensorsModelView(element.data as Map<String, dynamic>))),
+                                        child: const Text("View", style: TextStyle(fontSize: 12))
+                                    ),
+                                  ],
+                                )
+                              ],
+                            ),
+                          );
+                        }
+                    ) : SelectableText('Unknown object ${element.runtimeType}')
                   );
                 },
               ),
@@ -492,6 +637,8 @@ class _HomeState extends State<Home> {
     );
   }
 
+  TextEditingController urlController = TextEditingController();
+
   Widget selectBlock(){
     return DottedBorder(
       options: RectDottedBorderOptions(
@@ -530,6 +677,7 @@ class _HomeState extends State<Home> {
                               message: 'It won\'t take long...'
                           )));
                           try{
+                            urlController.clear();
                             ImageMeta? im = await parseUrlImage(value);
                             if(im != null){
                               updateObject(HistoryObject(id: id, content: im));
@@ -567,6 +715,7 @@ class _HomeState extends State<Home> {
                               ),
                             )
                         ),
+                        controller: urlController,
                       ),
                     )
                     // Text(, style: TextStyle(fontWeight: FontWeight.w500)),
@@ -588,45 +737,90 @@ class _HomeState extends State<Home> {
           const Gap(12),
           ShowUp(
             delay: 50,
-            child: Row(
-              children: [
-                Text('categories'.toUpperCase(), style: const TextStyle(color: Colors.grey)),
-                const Gap(6),
-                const Text('/', style: TextStyle(color: Colors.grey)),
-                const Gap(6),
-                Row(
-                  children: [
-                    Container(
-                      width: 14,
-                      height: 14,
-                      decoration: const BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(7)),
-                        color: Colors.red,
-                      ),
-                    ),
-                    const Gap(4),
-                    Text('all'.toUpperCase())
-                  ],
-                )
-              ],
-            ),
+            child: SizedBox(
+              height: 20,
+              child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(onTap: () => selectCategory(index), child: index != categoryTop.length - 1 ? Text(categoryTop[index].name.toUpperCase(), style: TextStyle(color: Colors.grey[400])) : Row(
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.circular(7)),
+                              color: categoryTop[index].color,
+                            ),
+                          ),
+                          const Gap(4),
+                          Text(categoryTop[index].name, style: TextStyle(fontWeight: FontWeight.bold))
+                        ],
+                    ));
+                  },
+                  separatorBuilder: (context, index) => Padding(padding: EdgeInsetsGeometry.symmetric(horizontal: 6), child: Text('/', style: TextStyle(color: Colors.grey))),
+                  itemCount: categoryTop.length
+              ),
+            )
           ),
           const Gap(8),
           screenWidth <= breakpoint ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ShowUp(
+              ShowUp(
                 delay: 200,
-                child: Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+                child: AnimatedSwitcher(
+                  duration: Duration(milliseconds: 200),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                          begin: Offset(0.0, -0.5),
+                          end: Offset(0.0, 0.0))
+                          .animate(animation),
+                      child: child,
+                    );
+                  },
+                  child: Text(
+                    categoryTop.last.name,
+                    key: ValueKey<String>(categoryTop.last.name),
+                    style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat'),
+                  ),
+                ),
               ),
               const Gap(4),
               _topButtons(withSpacer: screenWidth <= breakpoint)
             ],
           ) : Row(
             children: [
-              const ShowUp(
+              ShowUp(
                 delay: 200,
-                child: Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+                child: AnimatedBuilder(
+                  animation: animatedController,
+                  builder: (context, child) {
+                    final animatedLetters = categoryTop.last.name.split('');
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: animatedLetters.asMap().map((key, value) => MapEntry(key, AnimatedLetter(key: ValueKey(key), letter: value))).values.toList(),
+                    );
+                  },
+                )
+
+                // AnimatedSwitcher(
+                //   duration: Duration(milliseconds: 200),
+                //   transitionBuilder: (Widget child, Animation<double> animation) {
+                //     return SlideTransition(
+                //       position: Tween<Offset>(
+                //           begin: Offset(0.0, -0.5),
+                //           end: Offset(0.0, 0.0))
+                //           .animate(animation),
+                //       child: child,
+                //     );
+                //   },
+                //   child: Text(
+                //     categoryTop.last.name,
+                //     key: ValueKey<String>(categoryTop.last.name),
+                //     style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat'),
+                //   ),
+                // ),
               ),
               const Spacer(),
               _topButtons()
@@ -634,115 +828,21 @@ class _HomeState extends State<Home> {
           ),
           const Gap(8),
           Expanded(
-            child: FutureBuilder(
-                future: categoriesFuture,
-                builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                  Widget children;
-                  if (snapshot.hasData) {
-                    children = snapshot.data.length == 0 ? Center(
-                        child: Container(
-                          constraints: BoxConstraints(
-                            maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.create_new_folder, size: 50, color: Colors.white),
-                              const Gap(4),
-                              Text(AppLocalizations.of(context)!.home_main_categories_start_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                              Text(AppLocalizations.of(context)!.home_main_categories_start_description, style: const TextStyle(color: Colors.grey)),
-                            ],
-                          ),
-                        )
-                    ) : SingleChildScrollView(
-                      child: CustomMasonryView(
-                        itemRadius: 14,
-                        itemPadding: 4,
-                        listOfItem: snapshot.data,
-                        numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
-                        itemBuilder: (ii) {
-                          return AspectRatio(aspectRatio: 16/9, child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: const Color(0xFF2d2f32),
-                                width: 2,
-                              ),
-                              gradient: RadialGradient(
-                                colors: [ii.item.color, Colors.black],
-                                stops: const [0, 1],
-                                center: Alignment.topCenter,
-                                focalRadius: 2,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black, spreadRadius: 3),
-                              ],
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Stack(
-                                    alignment: Alignment.bottomRight,
-                                    children: [
-                                      Icon(ii.item.icon, color: ii.item.color, size: 205),
-                                      Icon(ii.item.icon, color: Colors.black, size: 200),
-                                    ],
-                                  ),
-                                ),
-                                Positioned(
-                                  left: 0,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(21),
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.start,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(4),
-                                            color: ii.item.color.withOpacity(0.3),
-                                            boxShadow: const [
-                                              BoxShadow(color: Colors.black, spreadRadius: 3),
-                                            ]
-                                          ),
-                                          padding: const EdgeInsets.all(4),
-                                          child: Center(child: Icon(ii.item.icon, color: ii.item.color, size: 21),)
-                                        ),
-                                        const Spacer(),
-                                        Text(ii.item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 21)),
-                                        ii.item.description != null ? Text(ii.item.description, style: const TextStyle(color: Colors.grey, fontSize: 14)) : const SizedBox.shrink(),
-                                        const Spacer(),
-                                        Row(
-                                          children: [
-                                            TextButton(
-                                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MiniWorld())),
-                                              child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
-                                            )
-                                          ]
-                                        )
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              ],
-                            ),
-                          ));
-                        },
-                      ),
-                    );
-                  } else if (snapshot.hasError) {
-                    children = const Text('error');
-                  } else {
-                    children = Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-                  return children;
-                }
+            child: categoryTop.last.widget ?? Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.air, size: 50, color: Colors.white),
+                    const Gap(4),
+                    Text('A mysterious place...', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    Text('There appears to be no content in this category', style: const TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              )
             ),
           )
         ],
@@ -812,8 +912,8 @@ class _HomeState extends State<Home> {
                                     description: description.text.trim()
                                 ).then((category){
                                   context.read<SaveManager>().addCategory(category);
-                                  loadCaregories();
-                                  Navigator.pop(context, 'Ok');
+                                  //loadCaregories();
+                                  Navigator.pop(context);
                                 });
                               }
                             },
@@ -1092,6 +1192,20 @@ class InfoBox extends StatelessWidget{
         )
     );
   }
+}
+
+class CategoryMini {
+  final String name;
+  final Color color;
+  Widget? widget;
+  Widget? buttons;
+
+  CategoryMini({
+    required this.name,
+    required this.color,
+    this.widget,
+    this.buttons
+  });
 }
 
 class CharacterCardFile {

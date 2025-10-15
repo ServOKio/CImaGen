@@ -13,7 +13,7 @@ import 'dart:io' as Io;
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 
-import '../components/PromptAnalyzer.dart';
+import '../pages/sub/PromptAnalyzer.dart';
 
 import 'package:path/path.dart' as p;
 

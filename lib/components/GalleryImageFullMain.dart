@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cimagen/Utils.dart';
-import 'package:cimagen/components/DevicePreview.dart';
+import 'package:cimagen/pages/sub/DevicePreview.dart';
 import 'package:cimagen/components/GalleryImageMiniView.dart';
 import 'package:cimagen/components/ImageInfo.dart';
 import 'package:flutter/material.dart';

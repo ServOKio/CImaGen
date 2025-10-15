@@ -33,6 +33,7 @@ import '../modules/ConfigManager.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
+import 'Crc32.dart';
 import 'NavigationService.dart';
 
 
@@ -384,15 +385,32 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
   DateTime? creationDate;
 
   if(e == 'png') {
-
     String? error;
 
     List<Map<String, dynamic>> chunks = [];
     try{
       chunks = png_extract.extractChunks(fileBytes!);
     } catch(e){
-      if(debug) print(e);
-      error = e.toString();
+      if(e.runtimeType == RangeError){
+        chunks = recoverAndExtractChunks(fileBytes!);
+        // Try recover some
+        // Мы должны трахнуть байты и добавить конец
+        img.OutputBuffer? output = img.OutputBuffer(bigEndian: true);
+        output.writeBytes(fileBytes);
+
+        output
+          ..writeUint32(0)
+          ..writeBytes('IEND'.codeUnits)
+          ..writeBytes([]);
+        final crc = Crc32.getCrc32('IEND'.codeUnits);
+        output.writeUint32(crc);
+        fileBytes = output.getBytes();
+        output = null;
+
+        File('F:\\PC2\\РабСто\\тестировать\\syka.png').writeAsBytes(fileBytes);
+      }
+      // error = e.toString();
+      // rethrow;
     }
 
     Map<String, dynamic> pngEx = {};
@@ -553,7 +571,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
           } on FormatException catch (e) {
             text = latin1.decode(Uint8List.fromList(fix));
           }
-          int idx = text.indexOf(" ");
+          int idx = text.indexOf(' ');
           List parts = [text.substring(0,idx).trim(), text.substring(idx+1).trim()];
           pngEx[parts[0].toLowerCase()] = parts[1];
         }
@@ -646,6 +664,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
             re = RenderEngine.extra;
           } else if(gp.params?['denoising_strength'] != null && gp.params?['hires_upscale'] == null){
             re = RenderEngine.img2img;
+          } else if(gp.params?['script'] != null && gp.params?['script'] == 'X/Y/Z plot'){
+            re = gp.params?['denoising_strength'] != null && gp.params?['hires_upscale'] == null ? RenderEngine.img2imgGrid : RenderEngine.txt2imgGrid;
           }
         } else {
           if(pngEx['postprocessing'] != null){
@@ -744,11 +764,20 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       }
     }
 
+    RenderEngine finalRe =
+      re == RenderEngine.unknown ?
+        gp?.denoisingStrength != null ?
+          gp?.hiresUpscale == null ?
+            RenderEngine.img2img :
+            RenderEngine.txt2img :
+          re :
+        re;
+
     ImageMeta i = ImageMeta(
       host: host,
       error: error,
       fullPath: imagePath,
-      re: re == RenderEngine.unknown ? gp?.denoisingStrength != null ? gp?.hiresUpscale == null ? RenderEngine.img2img : RenderEngine.txt2img : re : re,
+      re: finalRe,
       mine: mine,
       fileTypeExtension: e,
       fileSize: fileStat.size,
@@ -968,7 +997,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
             re = RenderEngine.inpaint;
           } else if(gp.params?['denoising_strength'] != null && gp.params?['hires_upscale'] == null){
             re = RenderEngine.img2img;
-          }
+          } // TODO
         }
       }
 

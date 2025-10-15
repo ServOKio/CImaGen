@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:icc_parser/icc_parser.dart';
 import '../Utils.dart';
-import '../modules/Animations.dart';
 
 import 'package:image/image.dart' as img;
+
+import 'Animations.dart';
 
 class TestActity extends StatefulWidget{
   const TestActity({ super.key });

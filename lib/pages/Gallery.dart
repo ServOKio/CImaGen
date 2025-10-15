@@ -5,6 +5,7 @@ import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/pages/Timeline.dart' as timeline;
+import 'package:cimagen/pages/sub/JointTaggerProject.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -21,7 +22,7 @@ import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../components/CustomActionButton.dart';
-import '../components/DevicePreview.dart';
+import 'sub/DevicePreview.dart';
 import '../components/GalleryImageFullMain.dart';
 import '../components/XYZBuilder.dart';
 import '../main.dart';
@@ -226,6 +227,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               child: const Text('Find incorrectly located files'),
               onTap: (){
 
+              },
+            ),
+            PopupMenuItem<int>(
+              child: const Text('Fix Loras metadata'),
+              onTap: (){
+                context.read<ImageManager>().getter.fixLorasMetadata();
               },
             ),
             PopupMenuItem<int>(
@@ -1383,6 +1390,17 @@ class PreviewImage extends StatelessWidget {
                   label: 'XYZ plot',
                   icon: Icons.grid_view,
                   onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: imagesList))),
+                )
+              ],
+            ),
+            MenuItem.submenu(
+              label: 'Utils...',
+              icon: Icons.apps,
+              items: [
+                MenuItem(
+                  label: 'Joint Tagger Project',
+                  icon: Icons.tag,
+                  onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: imageMeta))),
                 )
               ],
             ),

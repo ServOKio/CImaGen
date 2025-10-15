@@ -7,16 +7,14 @@ import 'package:gap/gap.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:flutter/foundation.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
-import 'package:provider/provider.dart';
 import 'package:settings_ui/settings_ui.dart';
 
 import '../../Utils.dart';
 
 import 'package:image/image.dart' as img;
 
+import '../../components/Animations.dart';
 import '../../main.dart';
-import '../../modules/Animations.dart';
-import '../../utils/ThemeManager.dart';
 
 Future<Uint8List?> _readImageFile(ImageMeta imageMeta) async {
   Uint8List? fi;
@@ -166,7 +164,7 @@ class _PublishState extends State<Publish> {
         child: Center(
             child: Stack(
               children: [
-                ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? Hero(
+                ['png', 'jpeg', 'gif', 'webp', 'bmp', 'bmp'].contains(widget.imageMeta!.fileTypeExtension) ? Hero(
                   tag: widget.imageMeta!.fileName,
                   child: Image.file(
                     File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
