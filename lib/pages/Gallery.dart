@@ -78,7 +78,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   bool sr = false;
 
-  SelectedModel model = SelectedModel();
+  SelectedModel selectionModel = SelectedModel();
+  GalleryManager galleryManager = GalleryManager();
 
   dynamic imagesList;
 
@@ -196,7 +197,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         }, isActive: () => true),
         CustomActionButton(getIcon: () => Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
           _lists[_tabController!.index]?.then((listValue) {
-            Folder f = listValue[_selected[_tabController!.index]!];
+            // Folder f = listValue[_selected[_tabController!.index]!];
             showDialog<String>(
               context: context,
               builder: (BuildContext context) => AlertDialog(
@@ -464,7 +465,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => model),
+        ChangeNotifierProvider(create: (context) => selectionModel),
+        ChangeNotifierProvider(create: (context) => galleryManager),
         ChangeNotifierProvider(create: (_) => context.read<ImageManager>().getter),
       ],
       child: !context.read<ImageManager>().getter.loaded
@@ -485,12 +487,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 color: Colors.white,
               ),
               children: [
-                ResizableChild(
-                  child: _buildMainSection(),
-                ),
-                ResizableChild(
-                  child: _buildPreviewSection(),
-                ),
+                ResizableChild(child: _buildMainSection()),
+                ResizableChild(child: _buildPreviewSection()),
               ],
             ) : _buildMainSection()
           ),
@@ -535,23 +533,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         itemBuilder: (context, index) {
           var it = snapshot.data[index];
           return PreviewImage(
-            // key: Key(it.keyup),
+            key: Key(it.keyup),
             imagesList: snapshot.data,
             imageMeta: it,
-            selectedModel: model,
+            selectedModel: selectionModel,
             index: index,
-            onHover: (PointerHoverEvent event, ImageMeta im){
-              _updateFloat(event, im);
-            },
-            onImageTap: () {
-              Navigator.push(
-                  context,
-                  _createGalleryDetailRoute(
-                      snapshot.data,
-                      index
-                  )
-              );
-            },
+            onHover: (PointerHoverEvent event, ImageMeta im) => _updateFloat(event, im),
+            onImageTap: () => Navigator.push(context, _createGalleryDetailRoute(snapshot.data, index))
           );
         }
     ) : AlignedGridView.count(
@@ -563,23 +551,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         itemBuilder: (context, index) {
           var it = snapshot.data[index];
           return PreviewImage(
-            // key: Key(it.keyup),
+            key: Key(it.keyup),
             imagesList: snapshot.data,
             imageMeta: it,
-            selectedModel: model,
+            selectedModel: selectionModel,
             index: index,
-            onHover: (PointerHoverEvent event, ImageMeta im){
-              _updateFloat(event, im);
-            },
-            onImageTap: () {
-              Navigator.push(
-                  context,
-                  _createGalleryDetailRoute(
-                      snapshot.data,
-                      index
-                  )
-              );
-            },
+            onHover: (PointerHoverEvent event, ImageMeta im) => _updateFloat(event, im),
+            onImageTap: () => Navigator.push(context, _createGalleryDetailRoute(snapshot.data, index))
           );
         }
     );
@@ -1263,13 +1241,14 @@ class PreviewImage extends StatelessWidget {
 
   final bool dontBlink = true;
 
-  const PreviewImage({ super.key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, required this.onHover, this.index = -1});
+
+  PreviewImage({ super.key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, required this.onHover, this.index = -1});
 
   @override
   Widget build(BuildContext context) {
     final imageManager = Provider.of<ImageManager>(context);
-    return Consumer<SelectedModel>(
-        builder: (context, sp, child) {
+    return Consumer2<SelectedModel, GalleryManager>(
+        builder: (context, sp, galleryManager, child) {
           final dataModel = Provider.of<DataModel>(context, listen: false);
 
           final entries = <ContextMenuEntry>[
@@ -1295,11 +1274,9 @@ class PreviewImage extends StatelessWidget {
               },
             ),
             MenuItem(
-              label: 'View only favorites',
-              icon: Icons.hexagon_outlined,
-              onSelected: () {
-                
-              },
+              label: 'Show only favorites ${galleryManager.showOnlyFavorite}',
+              icon: galleryManager.showOnlyFavorite ? Icons.hexagon : Icons.hexagon_outlined,
+              onSelected: () => galleryManager.toogleSOF()
             ),
             const MenuDivider(),
             MenuItem(
@@ -1598,7 +1575,7 @@ class PreviewImage extends StatelessWidget {
                                     scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.ease,
-                                    child: ImageWidget(imageMeta, dontBlink: dontBlink)
+                                    child: AnimatedOpacity(opacity: galleryManager.showOnlyFavorite && !imageManager.favoritePaths.contains(imageMeta.fullPath) ? 0.3 : 1, duration: const Duration(milliseconds: 200), child: ImageWidget(imageMeta, dontBlink: dontBlink))
                                 ),
                                 AnimatedScale(
                                   scale: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 1 : 0,
@@ -1650,15 +1627,6 @@ class PreviewImage extends StatelessWidget {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             ratingBlock,
-                                            // Container(
-                                            //   margin: const EdgeInsets.only(bottom: 3),
-                                            //   padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                            //   decoration: BoxDecoration(
-                                            //       borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                            //       color: Colors.grey.withOpacity(0.7)
-                                            //   ),
-                                            //   child: Text(imageMeta.fileName.split('-').first, style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                            // ),
                                             Tooltip(
                                               message: '${imageMeta.fileName}\n${imageMeta.generationParams?.sampler ?? '-'}',
                                               child: Container(
@@ -1902,5 +1870,15 @@ class SelectedModel extends ChangeNotifier {
   void removeAll() {
     _selectedKeyUp.clear();
     notifyListeners();
+  }
+}
+
+class GalleryManager extends ChangeNotifier {
+  bool showOnlyFavorite = false;
+
+  bool toogleSOF(){
+    showOnlyFavorite = !showOnlyFavorite;
+    notifyListeners();
+    return showOnlyFavorite;
   }
 }

@@ -443,6 +443,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                 tabs: [
                   FloatyTab(
                     isSelected: _currentPageIndex == 0,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(0),
                     title: 'Home',
                     icon: Icon(Icons.inbox),
@@ -455,6 +456,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 1,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(1),
                     title: 'Gallery',
                     icon: Icon(Icons.auto_awesome_mosaic_outlined),
@@ -467,6 +469,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 2,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(2),
                     title: 'Render History',
                     icon: Icon(Icons.account_tree_sharp),
@@ -479,6 +482,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 3,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(3),
                     title: 'Comparison',
                     icon: Icon(Icons.compare),
@@ -491,6 +495,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 4,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(4),
                     title: 'Settings',
                     icon: Icon(Icons.settings),
