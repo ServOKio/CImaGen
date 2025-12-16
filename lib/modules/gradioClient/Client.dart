@@ -15,15 +15,15 @@ class GradioClient {
   Future predict(String s, Map<dynamic, dynamic> map) async {}
 
   Future<void> init() async {
-    if (options['auth'] != null) {
-      await resolve_cookies();
-    }
-
-    await this
-        ._resolve_config()
-        .then(({config}) => this._resolve_heartbeat(config));
-
-    this.api_info = await this.view_api();
-    this.api_map = map_names_to_ids(this.config?.dependencies || []);
+    // if (options['auth'] != null) {
+    //   await resolve_cookies();
+    // }
+    //
+    // await this
+    //     ._resolve_config()
+    //     .then(({config}) => this._resolve_heartbeat(config));
+    //
+    // this.api_info = await this.view_api();
+    // this.api_map = map_names_to_ids(this.config?.dependencies || []);
   }
 }

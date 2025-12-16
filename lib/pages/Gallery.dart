@@ -1294,6 +1294,13 @@ class PreviewImage extends StatelessWidget {
                 imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host);
               },
             ),
+            MenuItem(
+              label: 'View only favorites',
+              icon: Icons.hexagon_outlined,
+              onSelected: () {
+                
+              },
+            ),
             const MenuDivider(),
             MenuItem(
               label: 'View render tree',

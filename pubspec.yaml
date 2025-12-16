@@ -111,7 +111,7 @@ dev_dependencies:
   inno_bundle: ^0.9.0
   build_runner: ^2.0.0
   objectbox_generator: any
-  json_serializable: ^6.9.0
+  json_serializable: 6.8.0
 
 flutter:
   uses-material-design: true
@@ -167,6 +167,7 @@ flutter:
 #  languages: en-us, ru-RU
 #  capabilities: internetClient
 
+# winget install Microsoft.NuGet
 # dart run build_runner build
 # dart run inno_bundle:build --release
 inno_bundle:
