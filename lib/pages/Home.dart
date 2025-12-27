@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
@@ -183,31 +184,6 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
             )));
           }
         }
-        // pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
-        //   file: p.basename(file.path),
-        //   icon: Icons.pest_control_rodent_outlined,
-        //   color: Color(0xFFD87CEE),
-        //   title: 'We know what it is, but we\'re not ready to read it',
-        //   message: 'Give us some time and we\'ll deal with this file in a future update.'
-        // )));
-        // int metadata_len = file.elementAt(8);
-        // metadata_len = int.from_bytes(metadata_len, "little")
-        // int json_start = file.read(2)
-        //
-        // assert metadata_len > 2 and json_start in (b'{"', b"{'"), f"{filename} is not a safetensors file"
-        // json_data = json_start + file.read(metadata_len-2)
-        // json_obj = json.loads(json_data)
-        //
-        // res = {}
-        // for k, v in json_obj.get("__metadata__", {}).items():
-        //   res[k] = v
-        //   if isinstance(v, str) and v[0:1] == '{':
-        //     try:
-        //       res[k] = json.loads(v2
-        //       except Exception:
-        //       pass
-        //
-        // return res
       } else if(e == '.json') {
         File jsFile = File(file.path);
         jsFile.readAsString().then((value) async {
@@ -248,6 +224,19 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         String value = utf8.decode(chunk);
         var data = jsonDecode(value);
         print(value);
+      } else if(e == '.pptx') {
+        // Qwen-Image-Layered or vanilla Power Point presentation
+        File(file.path).readAsBytes().then((bytes) {
+          final Archive archive = ZipDecoder().decodeBytes(bytes);
+          if(archive.files.map((el) => el.name).contains('[Content_Types].xml')){
+            print('ok');
+            for (final entry in archive) {
+              if (entry.isFile) {
+                print(entry.name);
+              }
+            }
+          }
+        });
       } else {
         pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
             file: p.basename(file.path),

@@ -101,6 +101,7 @@ dependencies:
   bitsdojo_window: ^0.1.6
   toml: ^0.16.0
   flutter_3d_controller: ^2.3.0
+  archive: ^4.0.7
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
