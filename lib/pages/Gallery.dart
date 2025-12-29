@@ -93,27 +93,21 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     if (go) {
       getterID = context.read<ImageManager>().getter.hashCode;
       reloadTabs();
-      _lists[0]?.then((value){
-        if(mounted && value.isNotEmpty) {
-          // Try restore position
-          Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, value.length-1);
-          _imagesList.then((listRes){
-            if(listRes.isEmpty){
-              // context.read<ImageManager>().getter.indexFolder(value[0]).then((controller){
-              //   if(mounted) {
-              //     setState(() {
-              //       imagesList = controller.stream;
-              //     });
-              //   }
-              // });
-            } else if(mounted) {
-              setState(() {
-                imagesList = _imagesList;
-              });
-            }
-          });
-        }
-      });
+      _lists[0] = _loadMenu(0);
+      // _lists[0]?.then((value){
+      //   if(mounted && value.isNotEmpty) {
+      //     // Try restore position
+      //     Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, value.length-1);
+      //     _imagesList.then((listRes){
+      //       if(listRes.isEmpty){
+      //       } else if(mounted) {
+      //         setState(() {
+      //           imagesList = _imagesList;
+      //         });
+      //       }
+      //     });
+      //   }
+      // });
     }
   }
 
@@ -143,11 +137,13 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     for (int i = 0; i < _tabs.length; i++) {
       // Scroll
-      _scrollControllers[i] = ScrollController(
-        onAttach: (ScrollPosition position) => downMe(i),
-      );
+      // _scrollControllers[i] = ScrollController(
+      //   onAttach: (ScrollPosition position) => downMe(i),
+      // );
       // Lists
-      _lists[i] = _loadMenu(i);
+      // Future.microtask(() {
+      //   _lists[i] = _loadMenu(i);
+      // });
       // Selected
       _selected[i] = 0;
     }
@@ -308,9 +304,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   Future<List<Folder>> _loadMenu(int index) async {
+    // Allow UI to render loading state
+    await Future<void>.delayed(Duration.zero);
+
     return context.read<ImageManager>().getter.getFolders(index);
   }
-
 
   Widget _buildNavigationRail() {
     return SizedBox(
@@ -374,69 +372,32 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   Widget _fBuilder(int tabIndex){
     return FutureBuilder(
         future: _lists[tabIndex],
-        builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-          Widget c;
-          if (snapshot.hasData) {
-            if(snapshot.data.length == 0){
-              c = const Padding(padding: EdgeInsets.all(14), child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.nights_stay_rounded,
-                    color: Colors.white,
-                    size: 60,
-                  ),
-                  Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Text('It looks like it\'s empty\nTry indexing all'),
-                  ),
-                ],
-              ));
-            } else {
-              c = AnimationLimiter(
-                child: ListView.separated(
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Text('Error: ${snapshot.error}');
+          }
+
+          final folders = snapshot.data!;
+
+          return AnimationLimiter(
+              child: ListView.separated(
                   controller: _scrollControllers[tabIndex],
                   separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
-                  itemCount: snapshot.data.length,
+                  itemCount: folders.length,
                   itemBuilder: (context, index) => FolderBlock(
-                      folder: snapshot.data[index],
+                      folder: folders[index],
                       section: tabIndex,
                       index: index,
                       onTap: () => changeFolder(tabIndex, index),
                       active: _selected[tabIndex] == index
                   )
-                )
-              );
-            }
-          } else if (snapshot.hasError) {
-            c = Padding(padding: const EdgeInsets.all(14), child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: Colors.red,
-                  size: 60,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: Text('Error: ${snapshot.error}'),
-                ),
-              ],
-            ));
-          } else {
-            c = const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: CircularProgressIndicator(),
-                ),
-              ],
-            );
-          }
-          return c;
-        }
+              )
+          );
+        },
     );
   }
 

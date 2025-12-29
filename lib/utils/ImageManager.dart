@@ -370,6 +370,7 @@ class ParseJob {
 DateFormat format = DateFormat("yyyy-MM-dd");
 
 final listEqual = const ListEquality().equals;
+
 Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fileBytes, bool makeCachedImage = false, String? host}) async {
   bool debug = false;
 
@@ -386,31 +387,27 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
 
   if(e == 'png') {
     String? error;
+    bool hasChunkError = false;
+    bool fixThis = false;
 
     List<Map<String, dynamic>> chunks = [];
     try{
       chunks = png_extract.extractChunks(fileBytes!);
     } catch(e){
       if(e.runtimeType == RangeError){
-        chunks = recoverAndExtractChunks(fileBytes!);
-        // Try recover some
-        // Мы должны трахнуть байты и добавить конец
-        img.OutputBuffer? output = img.OutputBuffer(bigEndian: true);
-        output.writeBytes(fileBytes);
-
-        output
-          ..writeUint32(0)
-          ..writeBytes('IEND'.codeUnits)
-          ..writeBytes([]);
-        final crc = Crc32.getCrc32('IEND'.codeUnits);
-        output.writeUint32(crc);
-        fileBytes = output.getBytes();
-        output = null;
-
-        File('F:\\PC2\\РабСто\\тестировать\\syka.png').writeAsBytes(fileBytes);
+        fixThis = true;
       }
       // error = e.toString();
       // rethrow;
+    }
+
+    if(fixThis || chunks.where((e) => e["name"] == 'IHDR').toList(growable: false).isEmpty){
+      Uint8List fixed = fixPng(fileBytes!);
+      chunks = png_extract.extractChunks(fixed);
+      hasChunkError = true;
+      fileBytes = fixed;
+      // print('fixed');
+      // File('F:\\PC2\\РабСто\\TRes\\dartshit.png').writeAsBytes(fixed);
     }
 
     Map<String, dynamic> pngEx = {};
@@ -777,6 +774,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       host: host,
       error: error,
       fullPath: imagePath,
+      fullImage: hasChunkError ? fileBytes : null,
       re: finalRe,
       mine: mine,
       fileTypeExtension: e,

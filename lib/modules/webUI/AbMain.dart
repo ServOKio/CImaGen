@@ -76,7 +76,7 @@ class Folder {
   final int index;
   final FolderType type;
   final String getter;
-  final String name;
+  String name;
   final List<FolderFile> files;
   bool isLocal;
 

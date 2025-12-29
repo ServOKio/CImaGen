@@ -31,7 +31,7 @@ Future<Uint8List?> _readImageFile(ImageMeta imageMeta) async {
     try {
       String? pathToImage = imageMeta.fullPath ?? imageMeta.tempFilePath ?? imageMeta.cacheFilePath;
       if(pathToImage == null) return null;
-      final Uint8List bytes = await compute(readAsBytesSync, pathToImage);
+      final Uint8List bytes = imageMeta.fullImage ?? await compute(readAsBytesSync, pathToImage);
       img.Image? image = await compute(img.decodeImage, bytes);
       if(image != null){
         return img.encodePng(image);
@@ -265,37 +265,70 @@ class _ImageViewState extends State<ImageView> {
         child: Center(
             child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? ContextMenuRegion(
                 contextMenu: contextMenu,
-                child: Hero(tag: widget.imageMeta!.fileName, child: Image.file(
-                  width: widget.imageMeta!.size!.width / devicePixelRatio,
-                  File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
-                  gaplessPlayback: true,
-                  filterQuality: FilterQuality.none,
-                  errorBuilder: (context, exception, stack) => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 60,
+                child: Hero(
+                    tag: widget.imageMeta!.fileName,
+                    child: widget.imageMeta!.fullImage != null ?
+                    Image.memory(
+                      widget.imageMeta!.fullImage!,
+                      width: widget.imageMeta!.size!.width / devicePixelRatio,
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.none,
+                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded) {
+                          return child;
+                        } else {
+                          return AnimatedOpacity(
+                            opacity: frame == null ? 0 : 1,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: child,
+                          );
+                        }
+                      },
+                      errorBuilder: (context, exception, stack) => Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 60,
+                            ),
+                            SelectableText('Error: $exception')
+                          ],
                         ),
-                        Text('Error: $exception')
-                      ],
-                    ),
-                  ),
-                  frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                    if (wasSynchronouslyLoaded) {
-                      return child;
-                    } else {
-                      return AnimatedOpacity(
-                        opacity: frame == null ? 0 : 1,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOut,
-                        child: child,
-                      );
-                    }
-                  },
-                )
+                      ),
+                    ) : Image.file(
+                      width: widget.imageMeta!.size!.width / devicePixelRatio,
+                      File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
+                      gaplessPlayback: true,
+                      filterQuality: FilterQuality.none,
+                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded) {
+                          return child;
+                        } else {
+                          return AnimatedOpacity(
+                            opacity: frame == null ? 0 : 1,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: child,
+                          );
+                        }
+                      },
+                      errorBuilder: (context, exception, stack) => Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 60,
+                            ),
+                            SelectableText('Error: $exception')
+                          ],
+                        ),
+                      ),
+                    )
             )) : FutureBuilder(
               future: lotsOfData,
               builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {

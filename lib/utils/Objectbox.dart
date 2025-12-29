@@ -7,7 +7,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:collection/collection.dart';
+import 'package:cimagen/utils/shit/group_images.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -104,44 +104,59 @@ class ObjectboxDB {
 
   // DB
   HashMap<String, List<Folder>> foldersCache = HashMap();
-  Future<List<Folder>> getFolders({String? host, RenderEngine? re}) async{
-    if (kDebugMode) {
-      print('OB: getFolders $host $re');
-    }
-    List<dynamic> args = [];
-    if(host != null) args.add(host);
-    String k = (host ?? 'null')+(re != null ? re.toString() : 'all');
-    if(foldersCache.containsKey(k)) return foldersCache[k]!;
+  Future<List<Folder>> getFolders({String? host, RenderEngine? re}) async {
+    final key = (host ?? 'null') + (re?.toString() ?? 'all');
+    if (foldersCache.containsKey(key)) return foldersCache[key]!;
 
-    Condition<ImageMeta> c = (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull());
+    final c = host != null
+        ? ImageMeta_.host.equals(host)
+        : ImageMeta_.host.isNull();
 
-    Query<ImageMeta> query = imageMetaBox.query(
-            re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c
-    ).order(ImageMeta_.dateModified).build();
-    List<ImageMeta> list = query.find();
+    final query = imageMetaBox
+        .query(re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c)
+        .order(ImageMeta_.dateModified)
+        .build();
 
+    final raw = query.find();
     query.close();
-    Map<String, List<ImageMeta>> folders = groupBy(list, (im) => DateFormat('yyyy-MM-dd').format(im.dateModified!));
-    List<Folder> fi = [];
-    for(String day in folders.keys){
-      fi.add(Folder(
-          index: fi.length,
-          name: day,
-          getter: day,
+
+    final lite = raw.map((im) => {
+      'dateMillis': im.dateModified!.millisecondsSinceEpoch,
+      'fullPath': im.fullPath!,
+      'isLocal': im.isLocal,
+      'thumbnail': im.thumbnail, // Uint8List OK
+    }).toList();
+
+    final grouped = await compute(processLiteIsolate, lite);
+
+    final folders = <Folder>[];
+    int index = 0;
+
+    for (final g in grouped) {
+      final dayKey = g['dayKey'] as int;
+      final images = g['files'] as List<Map<String, dynamic>>;
+
+      final date = DateTime.fromMillisecondsSinceEpoch(
+        dayKey * Duration.millisecondsPerDay,
+      );
+
+      folders.add(
+        Folder(
+          index: index++,
+          name: DateFormat('yyyy-MM-dd').format(date),
+          getter: dayKey.toString(),
           type: FolderType.byDay,
-          files: folders[day]!.map((im) => FolderFile(
-            fullPath: im.fullPath!,
-            isLocal: im.isLocal,
-            thumbnail: im.thumbnail
-          )).toList(growable: false)
-      ));
+          files: images.map((im) => FolderFile(
+            fullPath: im['fullPath'],
+            isLocal: im['isLocal'],
+            thumbnail: im['thumbnail'],
+          )).toList(growable: false),
+        ),
+      );
     }
-    if (kDebugMode) {
-      print('getFolders ${fi.length}');
-    }
-    print('getFolders: key $k'); // nullall
-    foldersCache[k] = fi;
-    return fi;
+
+    foldersCache[key] = folders;
+    return folders;
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
@@ -346,4 +361,18 @@ enum JobType{
 
 enum DBErrorsForFix{
   image_size_missmatch
+}
+
+class ImageMetaLite {
+  final int dateMillis;
+  final String fullPath;
+  final bool isLocal;
+  final Uint8List? thumbnail;
+
+  ImageMetaLite({
+    required this.dateMillis,
+    required this.fullPath,
+    required this.isLocal,
+    required this.thumbnail,
+  });
 }

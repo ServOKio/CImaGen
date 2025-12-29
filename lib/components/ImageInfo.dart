@@ -118,21 +118,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if(loaded) GestureDetector(
-                      onTap: () => showDialog<String>(
-                        context: context,
-                        builder: (BuildContext context) => AlertDialog(
-                          content: AspectRatio(aspectRatio: 16/9, child: Histogram(readMe!)),
-                          actions: <Widget>[
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: Text('Close'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      child: AspectRatio(aspectRatio: 16/9, child: Histogram(readMe!)),
-                    ),
+                    if(loaded) AspectRatio(aspectRatio: 16/9, child: HistogramWidget(readMe!)),
                     if(loaded) GestureDetector(
                       onTap: () => showDialog<String>(
                         context: context,

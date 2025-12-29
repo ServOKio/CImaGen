@@ -1,221 +1,356 @@
-import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:image/image.dart' as img;
 
-import '../Utils.dart';
-
-class Histogram extends StatefulWidget {
-  final Uint8List data;
-  const Histogram(this.data, {super.key});
-
-  @override
-  State<Histogram> createState() => _HistogramState();
+img.Image decodeImageIsolate(Uint8List data) {
+  final image = img.decodeImage(data);
+  if (image == null) {
+    throw Exception('Failed to decode image');
+  }
+  return image;
 }
 
-class _HistogramState extends State<Histogram> {
-  late img.Image photo;
-  String last = '';
-
-  bool debug = false;
-
-  Future<img.Image?>? data;
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  Map<String, dynamic> getColourFrequencies(img.Image data) {
-
-    int maxF_R = 0;
-    int maxF_G = 0;
-    int maxF_B = 0;
-
-    int maxColors = data.bitsPerChannel == 16 ? 65536 : data.bitsPerChannel == 32 ? 16777216 : 256;
-
-    List<int> cF_R = List<int>.generate(maxColors, (i) => 0);
-    List<int> cF_G = List<int>.generate(maxColors, (i) => 0);
-    List<int> cF_B = List<int>.generate(maxColors, (i) => 0);
-
-    // Iterate bitmap and count frequencies of specified component values
-
-    //fuck
-    final range = data.clone().getRange(0, 0, data.width, data.height);
-    while (range.moveNext()) {
-      final pixel = range.current;
-
-      try{
-        cF_R[pixel.r.toInt()]++;
-        cF_G[pixel.g.toInt()]++;
-        cF_B[pixel.b.toInt()]++;
-      } on RangeError catch(e) {
-        print('Error caught: $e');
-        print(pixel);
-        print(data.bitsPerChannel);
-        print('r: ${pixel.r}');
-        print('g: ${pixel.g}');
-        print('b: ${pixel.b}');
-        throw Exception("Wtf is pixels");
-      }
-
-      if(cF_R[pixel.r.toInt()] > maxF_R) maxF_R++;
-      if(cF_G[pixel.g.toInt()] > maxF_G) maxF_G++;
-      if(cF_B[pixel.b.toInt()] > maxF_B) maxF_B++;
-    }
-
-    return {
-      'colourFrequencies': {
-        'r': cF_R,
-        'g': cF_G,
-        'b': cF_B
-      },
-      'maxFrequency': {
-        'r': maxF_R,
-        'g': maxF_G,
-        'b': maxF_B
-      }
-    };
-  }
-
-  Future<img.Image?> _calculation(BoxConstraints constraints) async {
-    img.Image? data;
-    try {
-      data = await compute(img.decodeImage, widget.data);
-    } on PathNotFoundException catch (e){
-      throw 'We\'ll fix it later.'; // TODO
-    }
-    return data;
-  }
+class HistogramWidget extends StatelessWidget {
+  final Uint8List imageBytes;
+  const HistogramWidget(this.imageBytes, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      return Container(
-        color: Colors.black,
-        child: FutureBuilder(
-          future: _calculation(constraints), // a previously-obtained Future<String> or null
-          builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-            Widget children;
-            if (snapshot.hasData) {
-              if(debug){
-                return const Text('done');
-              }
-              int maxColors = snapshot.data.bitsPerChannel == 16 ? 65536 : snapshot.data.bitsPerChannel == 32 ? 16777216 : 256;
-              List<Line> lines = [];
-              double boxHeight = constraints.maxHeight;
-              double lineWidth = 1;
+    return FutureBuilder<img.Image>(
+      future: compute(decodeImageIsolate, imageBytes),
+      builder: (context, imageSnap) {
+        if (!imageSnap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-              Map<String, dynamic> colourFrequencies = getColourFrequencies(snapshot.data);
-              double x = 0.0;
-
-              double toAdd = constraints.maxWidth / (maxColors-1);
-              // //R
-              for(int i = 0; i <= (maxColors-1); i++) {
-                Color colour = Colors.red;
-                double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['r'];
-                double columnHeight = (colourFrequencies['colourFrequencies']['r'] as List<int>)[i] * pixelsPerUnit;
-                lines.add(Line(color: colour, width: toAdd, height: columnHeight, x: x, y: boxHeight - columnHeight));
-                x += toAdd;
-              }
-              x = 0.0;
-              //G
-              for(int i = 0; i <= (maxColors-1); i++) {
-                Color colour = Colors.green;
-                double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['g'];
-                double columnHeight = (colourFrequencies['colourFrequencies']['g'] as List<int>)[i] * pixelsPerUnit;
-                lines.add(Line(color: colour, width: toAdd, height: columnHeight, x: x, y: boxHeight - columnHeight));
-                x += toAdd;
-              }
-              x = 0.0;
-              //B
-              for(int i = 0; i <= (maxColors-1); i++) {
-
-                Color colour = Colors.blue;
-                double pixelsPerUnit = boxHeight / colourFrequencies['maxFrequency']['b'];
-                double columnHeight = (colourFrequencies['colourFrequencies']['b'] as List<int>)[i] * pixelsPerUnit;
-                lines.add(Line(color: colour, width: toAdd, height: columnHeight, x: x, y: boxHeight - columnHeight));
-                x += toAdd;
-              }
-              //lines.add(Line(color: Colors.red, width: 2, height: 50, x: 0, y: 50)); //debug
-              //print('${widget.path} ${lines[0].height}');
-              children = CustomPaint(painter: DemoPainter(lines));
-            } else if (snapshot.hasError) {
-              children = Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 60,
-                    ),
-                    Text('Error: ${snapshot.error}')
-                  ],
-                ),
-              );
-            } else {
-              children = const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    LinearProgressIndicator(),
-                    Gap(2),
-                    Text('Awaiting result...')
-                  ],
-                ),
-              );
+        return FutureBuilder<HistogramData>(
+          future: compute(computeHistogram, imageSnap.data!),
+          builder: (context, histSnap) {
+            if (!histSnap.hasData) {
+              return const Center(child: CircularProgressIndicator());
             }
-            return children;
+
+            return HistogramView(histSnap.data!);
           },
-        ),
-      ); // Create a function here to adapt to the parent widget's constraints
-    });
+        );
+      },
+    );
   }
 }
 
 
-class DemoPainter extends CustomPainter{
-  final List<Line> lines;
+class HistogramPainter extends CustomPainter {
+  final HistogramData data;
+  final bool logScale;
 
-  DemoPainter(this.lines);
+  HistogramPainter(this.data, {this.logScale = true});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paintObj = Paint();
+    // Background
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF3A3A3A),
+    );
 
-    for(final line in lines){
-      paintObj.blendMode = BlendMode.screen;
-      paintObj.color = line.color;
-      canvas.drawRect(Rect.fromLTWH(
-        line.x,
-        line.y,
-        line.width,
-        line.height,
-      ),paintObj);
+    // Histogram channels
+    _drawChannel(
+      canvas,
+      size,
+      data.r,
+      data.max,
+      const Color.fromARGB(180, 255, 80, 80),
+    );
+    _drawChannel(
+      canvas,
+      size,
+      data.g,
+      data.max,
+      const Color.fromARGB(180, 80, 255, 80),
+    );
+    _drawChannel(
+      canvas,
+      size,
+      data.b,
+      data.max,
+      const Color.fromARGB(180, 80, 80, 255),
+    );
+
+    _drawClipping(canvas, size, data);
+  }
+
+  void _drawChannel(
+      Canvas canvas,
+      Size size,
+      Uint32List src,
+      int max,
+      Color color,
+      ) {
+    final paint = Paint()
+      ..color = color
+      ..blendMode = BlendMode.screen
+      ..style = PaintingStyle.fill;
+
+    final bins = src.length;
+    final columns = size.width.toInt();
+    final binsPerColumn = bins / columns;
+
+    final values = List<double>.filled(columns, 0);
+
+    // Aggregate (MAX per column)
+    for (int x = 0; x < columns; x++) {
+      final start = (x * binsPerColumn).floor();
+      final end = ((x + 1) * binsPerColumn).ceil().clamp(0, bins);
+
+      int peak = 0;
+      for (int i = start; i < end; i++) {
+        if (src[i] > peak) peak = src[i];
+      }
+
+      double v = peak / max;
+      if (logScale && v > 0) {
+        v = math.log(v * 1000 + 1) / math.log(1001);
+      }
+
+      values[x] = v;
+    }
+
+    // Simple horizontal smoothing
+    const radius = 2;
+    final smooth = List<double>.filled(columns, 0);
+    for (int i = 0; i < columns; i++) {
+      double sum = 0;
+      int count = 0;
+      for (int j = i - radius; j <= i + radius; j++) {
+        if (j >= 0 && j < columns) {
+          sum += values[j];
+          count++;
+        }
+      }
+      smooth[i] = sum / count;
+    }
+
+    // Filled path
+    final path = Path()..moveTo(0, size.height);
+    for (int x = 0; x < columns; x++) {
+      final y = size.height * (1 - smooth[x]);
+      path.lineTo(x.toDouble(), y);
+    }
+    path
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawClipping(Canvas canvas, Size size, HistogramData data) {
+    final paint = Paint()..color = Colors.white;
+
+    // Left (shadows clipped)
+    if (data.clipLow) {
+      final path = Path()
+        ..moveTo(6, size.height - 6)
+        ..lineTo(14, size.height - 6)
+        ..lineTo(10, size.height - 14)
+        ..close();
+      canvas.drawPath(path, paint);
+    }
+
+    // Right (highlights clipped)
+    if (data.clipHigh) {
+      final path = Path()
+        ..moveTo(size.width - 6, size.height - 6)
+        ..lineTo(size.width - 14, size.height - 6)
+        ..lineTo(size.width - 10, size.height - 14)
+        ..close();
+      canvas.drawPath(path, paint);
     }
   }
 
   @override
-  bool shouldRepaint(DemoPainter oldDelegate) {
-    return lines != oldDelegate.lines;
+  bool shouldRepaint(HistogramPainter old) =>
+      old.data != data || old.logScale != logScale;
+}
+
+
+class HistogramData {
+  final Uint32List r, g, b;
+  final int max;
+
+  final bool clipLow;
+  final bool clipHigh;
+
+  HistogramData(
+      this.r,
+      this.g,
+      this.b,
+      this.max, {
+        required this.clipLow,
+        required this.clipHigh,
+      });
+}
+
+HistogramData computeHistogram(img.Image image) {
+  final int bins = image.bitsPerChannel == 16
+      ? 65536
+      : image.bitsPerChannel == 32
+      ? 16777216
+      : 256;
+
+  final r = Uint32List(bins);
+  final g = Uint32List(bins);
+  final b = Uint32List(bins);
+
+  int maxVal = 0;
+  bool clipLow = false;
+  bool clipHigh = false;
+
+  for (final p in image) {
+    final ri = p.r.toInt();
+    final gi = p.g.toInt();
+    final bi = p.b.toInt();
+
+    if (ri == 0 || gi == 0 || bi == 0) clipLow = true;
+    if (ri == bins - 1 || gi == bins - 1 || bi == bins - 1) clipHigh = true;
+
+    maxVal = [
+      ++r[ri],
+      ++g[gi],
+      ++b[bi],
+      maxVal
+    ].reduce((a, b) => a > b ? a : b);
+  }
+
+  return HistogramData(
+    r,
+    g,
+    b,
+    maxVal,
+    clipLow: clipLow,
+    clipHigh: clipHigh,
+  );
+}
+
+class HistogramView extends StatefulWidget {
+  final HistogramData data;
+  const HistogramView(this.data, {super.key});
+
+  @override
+  State<HistogramView> createState() => _HistogramViewState();
+}
+
+class _HistogramViewState extends State<HistogramView> {
+  bool logScale = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: ()=> setState(() => logScale = !logScale),
+      child: HistogramCanvas(
+        data: widget.data,
+        logScale: logScale,
+      )
+    );
   }
 }
 
-class Line {
-  final Color color;
-  final double width;
-  final double height;
-  final double x;
-  final double y;
+class HistogramHover {
+  final int bin;
+  final int r, g, b;
+  final double luminance;
 
-  Line({
-    required this.color,
-    required this.width,
-    required this.height,
-    required this.x,
-    required this.y
+  HistogramHover(this.bin, this.r, this.g, this.b, this.luminance);
+}
+
+class HistogramCanvas extends StatefulWidget {
+  final HistogramData data;
+  final bool logScale;
+
+  const HistogramCanvas({
+    super.key,
+    required this.data,
+    required this.logScale,
   });
+
+  @override
+  State<HistogramCanvas> createState() => _HistogramCanvasState();
+}
+
+class _HistogramCanvasState extends State<HistogramCanvas> {
+  HistogramHover? hover;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onHover: (event) {
+        final box = context.findRenderObject() as RenderBox;
+        final local = box.globalToLocal(event.position);
+        final width = box.size.width;
+
+        final bin = ((local.dx / width) * widget.data.r.length)
+            .clamp(0, widget.data.r.length - 1)
+            .toInt();
+
+        final r = widget.data.r[bin];
+        final g = widget.data.g[bin];
+        final b = widget.data.b[bin];
+
+        final lum =
+            0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+        setState(() {
+          hover = HistogramHover(bin, r, g, b, lum);
+        });
+      },
+      onExit: (_) => setState(() => hover = null),
+      child: Stack(
+        children: [
+          CustomPaint(
+            painter: HistogramPainter(
+              widget.data,
+              logScale: widget.logScale,
+            ),
+            size: Size.infinite,
+          ),
+          if (hover != null) _HoverOverlay(hover!)
+        ],
+      ),
+    );
+  }
+}
+
+class _HoverOverlay extends StatelessWidget {
+  final HistogramHover h;
+  const _HoverOverlay(this.h);
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 8,
+      top: 8,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: DefaultTextStyle(
+          style: const TextStyle(color: Colors.white, fontSize: 11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Bin: ${h.bin}'),
+              Text('R: ${h.r}'),
+              Text('G: ${h.g}'),
+              Text('B: ${h.b}'),
+              Text('Lum: ${h.luminance.toStringAsFixed(1)}'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

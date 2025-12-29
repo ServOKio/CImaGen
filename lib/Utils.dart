@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:cimagen/utils/Crc32.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
@@ -1202,129 +1201,311 @@ double percentFromNum(double percent, double num) {
   return (percent / 100) * num;
 }
 
-var uint8 = Uint8List(4);
-var int32 = Int32List.view(uint8.buffer);
-var uint32 = Uint32List.view(uint8.buffer);
-List<Map<String, dynamic>> recoverAndExtractChunks(Uint8List data) {
-  if (data[0] != 0x89) throw ArgumentError('Invalid .png file header');
-  if (data[1] != 0x50) throw ArgumentError('Invalid .png file header');
-  if (data[2] != 0x4E) throw ArgumentError('Invalid .png file header');
-  if (data[3] != 0x47) throw ArgumentError('Invalid .png file header');
-  if (data[4] != 0x0D) {
-    throw ArgumentError('Invalid .png file header: possibly caused by DOS-Unix line ending conversion?');
-  }
-  if (data[5] != 0x0A) {
-    throw ArgumentError('Invalid .png file header: possibly caused by DOS-Unix line ending conversion?');
-  }
-  if (data[6] != 0x1A) throw ArgumentError('Invalid .png file header');
-  if (data[7] != 0x0A) {
-    throw ArgumentError('Invalid .png file header: possibly caused by DOS-Unix line ending conversion?');
+Uint8List fixPng(Uint8List fileContent) {
+  final pngSignature = <int>[
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
+  ];
+
+  if (fileContent.length < 8) {
+    throw Exception('Not a PNG file');
   }
 
-  var ended = false;
-  var chunks = <Map<String, dynamic>>[];
-  var idx = 8;
-
-  while (idx < data.length) {
-    // Length - 4 bytes
-    // Read the length of the current chunk,
-    // which is stored as a Uint32.
-    uint8[3] = data[idx++];
-    uint8[2] = data[idx++];
-    uint8[1] = data[idx++];
-    uint8[0] = data[idx++];
-
-    // Chunk Type - 4 bytes
-    // Chunk includes name/type for CRC check (see below).
-    var chunkSize = uint32[0];
-    var length = chunkSize + 4;
-    var chunk = Uint8List(length);
-    chunk[0] = data[idx++];
-    chunk[1] = data[idx++];
-    chunk[2] = data[idx++];
-    chunk[3] = data[idx++];
-
-    // Get the name in ASCII for identification.
-    var name = (String.fromCharCode(chunk[0]) + String.fromCharCode(chunk[1]) + String.fromCharCode(chunk[2]) + String.fromCharCode(chunk[3]));
-
-    // The IHDR header MUST come first.
-    if (chunks.isEmpty && name != 'IHDR') {
-      throw UnsupportedError('IHDR header missing');
-    }
-
-    // The IEND header marks the end of the file,
-    // so on discovering it break out of the loop.
-    if (name == 'IEND') {
-      ended = true;
-      chunks.add({
-        'name': name,
-        'data': Uint8List(0),
-      });
-
-      break;
-    }
-
-    // Chunk Data - some bytes
-    // Read the contents of the chunk out of the main buffer.
-    // IHDR, tEXt, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IDAT, IEND
-    // IHDR, tEXt, IDAT, IDAT, IDAT, IDAT
-    bool broken = false;
-    int start = idx+1;
-    int end = start+length-4;
-    print('start:$start, end:$end}');
-    try{
-      for (var i = 4; i < length; i++) {
-        int f = idx++;
-        //print('$i $length ${data.length} $f');
-        int data1 = data[f];
-        chunk[i] = data1;
-      }
-
-      // CRC - A 4-byte
-      // Read out the CRC value for comparison.
-      // It's stored as an Int32.
-      uint8[3] = data[idx++];
-      uint8[2] = data[idx++];
-      uint8[1] = data[idx++];
-      uint8[0] = data[idx++];
-    } on RangeError catch(e){
-      //rethrow;
-      broken = true;
-    }
-
-    var crcActual = int32[0];
-    var crcExpect = Crc32.getCrc32(chunk);
-    if (crcExpect != crcActual) {
-      // throw UnsupportedError('CRC values for $name header do not match, PNG file is likely corrupted');
-      // Pizda as always
-      var missing = end - idx;
-      print('missing:$missing t:${chunkSize}');
-    }
-
-    // The chunk data is now copied to remove the 4 preceding
-    // bytes used for the chunk name/type.
-
-    var chunkData = Uint8List.fromList(chunk.sublist(4)); // Изначально в чанке сидит только название и данные, размер не тут
-
-    chunks.add({'name': name, 'data': chunkData});
-
-    if(broken){
-      ended = true;
-      chunks.add({
-        'name': 'IEND',
-        'data': Uint8List(0),
-      });
-
-      break;
+  for (int i = 0; i < 8; i++) {
+    if (fileContent[i] != pngSignature[i]) {
+      throw Exception('Not a PNG file');
     }
   }
 
-  if (!ended) {
-    throw UnsupportedError('.png file ended prematurely: no IEND header was found');
+  int offset = 8;
+  Uint8List? ihdr;
+  final idatData = <int>[];
+  final otherChunks = <int>[];
+
+  while (offset + 8 <= fileContent.length) {
+    final length = ByteData.sublistView(fileContent, offset, offset + 4)
+        .getUint32(0, Endian.big);
+
+    final type = ascii.decode(
+        fileContent.sublist(offset + 4, offset + 8));
+
+    final dataStart = offset + 8;
+    final dataEnd = dataStart + length;
+
+    if (dataEnd + 4 > fileContent.length) break;
+
+    final data = fileContent.sublist(dataStart, dataEnd);
+
+    if (type == 'IHDR') {
+      ihdr = Uint8List.fromList(data);
+    } else if (type == 'IDAT') {
+      idatData.addAll(data);
+    } else if (type != 'IEND') {
+      otherChunks.addAll(_makeChunk(type, data));
+    }
+
+    offset = dataEnd + 4;
   }
 
-  return chunks;
+  if (ihdr == null) {
+    throw Exception('Missing IHDR');
+  }
+
+  final bd = ByteData.sublistView(ihdr);
+  final width = bd.getUint32(0, Endian.big);
+  final height = bd.getUint32(4, Endian.big);
+  final bitDepth = ihdr[8];
+  final colorType = ihdr[9];
+  final interlace = ihdr[12];
+
+  if (interlace != 0) {
+    throw Exception('Interlaced PNG not supported');
+  }
+  if (!(colorType == 2 || colorType == 6)) {
+    throw Exception('Unsupported color type');
+  }
+  if (!(bitDepth == 8 || bitDepth == 10)) {
+    throw Exception('Unsupported bit depth');
+  }
+
+  final channels = colorType == 6 ? 4 : 3;
+  final bytesPerChannel = bitDepth > 8 ? 2 : 1;
+  final bytesPerPixel = channels * bytesPerChannel;
+  final rowSize = 1 + width * bytesPerPixel;
+  final expectedSize = rowSize * height;
+
+  // --- PARTIAL ZLIB DECOMPRESSION ---
+  final inflated = <int>[];
+  try {
+    final decoder = ZLibDecoder();
+    inflated.addAll(decoder.convert(idatData));
+  } catch (_) {
+    // tolerate truncated stream
+  }
+
+  final validRows = inflated.length ~/ rowSize;
+  final recovered = Uint8List(expectedSize);
+
+  // copy valid rows
+  final copyLength = validRows * rowSize;
+  for (int i = 0; i < copyLength; i++) {
+    recovered[i] = inflated[i];
+  }
+
+  // fix filter bytes
+  for (int y = 0; y < validRows; y++) {
+    final idx = y * rowSize;
+    if (recovered[idx] > 4) {
+      recovered[idx] = 0;
+    }
+  }
+
+  // pad missing rows
+  for (int y = validRows; y < height; y++) {
+    recovered[y * rowSize] = 0;
+  }
+
+  final compressed = ZLibEncoder().convert(recovered);
+
+  final output = <int>[];
+  output.addAll(pngSignature);
+  output.addAll(_makeChunk('IHDR', ihdr));
+  output.addAll(otherChunks);
+  output.addAll(_makeChunk('IDAT', Uint8List.fromList(compressed)));
+  output.addAll(_makeChunk('IEND', Uint8List(0)));
+
+  return Uint8List.fromList(output);
 }
+
+Uint8List _makeChunk(String type, Uint8List data) {
+  final typeBytes = ascii.encode(type);
+  final length = ByteData(4)..setUint32(0, data.length, Endian.big);
+
+  final crcInput = <int>[]..addAll(typeBytes)..addAll(data);
+  final crc = _crc32(crcInput);
+  final crcBytes = ByteData(4)..setUint32(0, crc, Endian.big);
+
+  return Uint8List.fromList([
+    ...length.buffer.asUint8List(),
+    ...typeBytes,
+    ...data,
+    ...crcBytes.buffer.asUint8List(),
+  ]);
+}
+
+int _crc32(List<int> data) {
+  const poly = 0xEDB88320;
+  int crc = 0xFFFFFFFF;
+
+  for (final b in data) {
+    crc ^= b;
+    for (int i = 0; i < 8; i++) {
+      crc = (crc & 1) != 0 ? (crc >> 1) ^ poly : crc >> 1;
+    }
+  }
+  return crc ^ 0xFFFFFFFF;
+}
+
+
+// Uint8List fixPng(Uint8List data) {
+//   const pngSig = [
+//     0x89, 0x50, 0x4E, 0x47,
+//     0x0D, 0x0A, 0x1A, 0x0A
+//   ];
+//
+//   if (data.length < 8) {
+//     throw ArgumentError('Not a PNG');
+//   }
+//
+//   for (int i = 0; i < 8; i++) {
+//     if (data[i] != pngSig[i]) {
+//       throw ArgumentError('Not a PNG');
+//     }
+//   }
+//
+//   int offset = 8;
+//   Uint8List? ihdr;
+//   final idatParts = <Uint8List>[];
+//   final otherChunks = <Uint8List>[];
+//
+//   while (offset + 8 <= data.length) {
+//     final length = _readU32(data, offset);
+//     final type =
+//     ascii.decode(data.sublist(offset + 4, offset + 8));
+//     final start = offset + 8;
+//     final end = start + length;
+//
+//     if (end + 4 > data.length) break;
+//
+//     final chunkData = data.sublist(start, end);
+//
+//     if (type == 'IHDR') {
+//       ihdr = chunkData;
+//     } else if (type == 'IDAT') {
+//       idatParts.add(chunkData);
+//     } else if (type != 'IEND') {
+//       otherChunks.add(_makeChunk(type, chunkData));
+//     }
+//
+//     offset = end + 4;
+//   }
+//
+//   if (ihdr == null) {
+//     throw StateError('Missing IHDR');
+//   }
+//
+//   final width = _readU32(ihdr!, 0);
+//   final height = _readU32(ihdr!, 4);
+//   final bitDepth = ihdr![8];
+//   final colorType = ihdr![9];
+//   final interlace = ihdr![12];
+//
+//   if (interlace != 0) {
+//     throw UnsupportedError('Interlaced PNG not supported');
+//   }
+//   if (bitDepth != 8 && bitDepth != 10) {
+//     throw UnsupportedError('Unsupported bit depth');
+//   }
+//   if (colorType != 2 && colorType != 6) {
+//     throw UnsupportedError('Unsupported color type');
+//   }
+//
+//   final channels = colorType == 6 ? 4 : 3;
+//   final bytesPerChannel = bitDepth > 8 ? 2 : 1;
+//   final rowSize =
+//       1 + width * channels * bytesPerChannel;
+//   final expectedSize = rowSize * height;
+//
+//   // --- Partial zlib inflate ---
+//   final inflated = _inflatePartial(_concat(idatParts));
+//
+//   final validRows = inflated.length ~/ rowSize;
+//   final recovered = Uint8List(expectedSize);
+//
+//   recovered.setRange(
+//     0,
+//     validRows * rowSize,
+//     inflated,
+//   );
+//
+//   // Fill missing rows
+//   for (int y = validRows; y < height; y++) {
+//     recovered[y * rowSize] = 0x00; // filter byte
+//   }
+//
+//   final compressed = Uint8List.fromList(
+//     ZLibEncoder().convert(recovered),
+//   );
+//
+//   final out = BytesBuilder();
+//   out.add(pngSig);
+//   out.add(_makeChunk('IHDR', ihdr!));
+//   for (final c in otherChunks) out.add(c);
+//   out.add(_makeChunk('IDAT', compressed));
+//   out.add(_makeChunk('IEND', Uint8List(0)));
+//
+//   return out.toBytes();
+// }
+//
+// Uint8List _inflatePartial(Uint8List input) {
+//   final output = BytesBuilder();
+//
+//   final decoder = ZLibDecoder();
+//   final sink = decoder.startChunkedConversion(
+//     ByteConversionSink.withCallback((bytes) {
+//       output.add(bytes);
+//     }),
+//   );
+//
+//   try {
+//     sink.add(input);
+//     sink.close();
+//   } catch (_) {
+//     // Ignore zlib errors — keep partial output
+//   }
+//
+//   return output.toBytes();
+// }
+//
+//
+// int _readU32(Uint8List b, int o) =>
+//     (b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3];
+//
+// Uint8List _u32(int n) => Uint8List.fromList([
+//   (n >> 24) & 0xff,
+//   (n >> 16) & 0xff,
+//   (n >> 8) & 0xff,
+//   n & 0xff
+// ]);
+//
+// Uint8List _makeChunk(String type, Uint8List data) {
+//   final typeBytes = ascii.encode(type);
+//   final crc = _crc32([...typeBytes, ...data]);
+//   return Uint8List.fromList([
+//     ..._u32(data.length),
+//     ...typeBytes,
+//     ...data,
+//     ..._u32(crc),
+//   ]);
+// }
+//
+// Uint8List _concat(List<Uint8List> parts) {
+//   final b = BytesBuilder();
+//   for (final p in parts) b.add(p);
+//   return b.toBytes();
+// }
+//
+// int _crc32(List<int> data) {
+//   const poly = 0xEDB88320;
+//   int crc = 0xFFFFFFFF;
+//
+//   for (final b in data) {
+//     crc ^= b;
+//     for (int i = 0; i < 8; i++) {
+//       crc = (crc & 1) != 0 ? (crc >> 1) ^ poly : crc >> 1;
+//     }
+//   }
+//   return crc ^ 0xFFFFFFFF;
+// }
 
 Future<void> downloadToDownloadFolder(String fileName, String uri) async {
   dynamic appDownloadDir = await getDownloadsDirectory();
