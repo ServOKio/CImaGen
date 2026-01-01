@@ -56,6 +56,8 @@ Comparison allows you to select several images and compare them with each other.
 | <h4>Auto contrast and auto color</h4> Adjust color and contrast along the curve automatically, like in Photoshop | <img src="preview/gif_10.gif" width="300px"/>  |
 | <h4>Image recovery</h4> Even broken ones that can't be opened by other programs | <img src="preview/gif_11.gif" width="300px"/>  |
 | <h4>LORA manager</h4> Answering simple questions will help you create training configurations + manage existing ones in other systems | <img src="preview/preview_11.png" width="300px"/>  |
+| <h4>JointTaggerProject x SauceNAO</h4> Find original images in the best quality and add missing tags without unnecessary programs | <img src="preview/gif_12.gif" width="300px"/>  |
+| <h4>Preview for devices</h4> See for yourself where your work will look perfect | <img src="preview/preview_13.png" width="300px"/>  |
 
 ### Status
 In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
