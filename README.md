@@ -54,6 +54,8 @@ Comparison allows you to select several images and compare them with each other.
 | <h4>Prompt analyzer</h4> Beta: Help with building prompt and removing unnecessary tokens, weight charts and more | <img src="preview/8.png" width="300px"/>  |
 | <h4>Transfer of colors</h4> Transferring colors from one image to another | <img src="preview/gif_8.gif" width="300px"/> |
 | <h4>Auto contrast and auto color</h4> Adjust color and contrast along the curve automatically, like in Photoshop | <img src="preview/gif_10.gif" width="300px"/>  |
+| <h4>Image recovery</h4> Even broken ones that can't be opened by other programs | <img src="preview/gif_11.gif" width="300px"/>  |
+| <h4>LORA manager</h4> Answering simple questions will help you create training configurations + manage existing ones in other systems | <img src="preview/preview_11.png" width="300px"/>  |
 
 ### Status
 In order not to drown in ideas and bugs, we have a [page](https://github.com/users/ServOKio/projects/6) dedicated to progress.
