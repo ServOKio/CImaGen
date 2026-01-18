@@ -79,36 +79,41 @@ class _TagsClassificationState extends State<TagsClassification> {
 
 
 
-        for(String key in allTags.keys){
-          TagInfo t = allTags[key]!;
-          if([1,3,4,5].contains(t.category)){
-            current['G']!.add(t.name);
-            // allTags.remove(key);
-          }
-          if(t.count <= 1){
-            current['G']!.add(t.name);
-            print(t.name);
-          }
-          for (var e in ['feces']) {
-            if(t.name.startsWith('${e}_') || t.name.endsWith('_${e}')){
-              current['XXX']!.add(t.name);
-              //allTags.remove(t.name);
-              print(t.name);
-            }
-          }
-        }
-
-        //Fix
-        // for(String key in current['G']!){
-        //   for (var e in ['cucumber', 'cumpunk', 'criminal_scum', 'janus_kenobi', 'documentary', 'document', 'documents', 'uranus_(planet)', 'voynich_manuscript', 'cumulonimbus', 'viscum', 'manuscript', 'eridanus_(constellation)', 'document_holder', 'cumming_feces', 'synapturanus_danta', 'cumming_fart', 'holding_cucumber', 'cummycoyotea', 'shitcum', 'ms._cumberland', 'holding_document'
-        //       'cumception', 'encumberment', 'uranus_symbol', 'janus_(disambiguation)', 'illuminated_manuscript']) {
-        //     if(key.contains(e)){
-        //       current['X']!.remove(key);
-        //       //current['G']!.remove(key);
-        //       print(key);
+        // for(String key in allTags.keys){
+        //   TagInfo t = allTags[key]!;
+        //   if([1,3,4,5].contains(t.category)){
+        //     current['G']!.add(t.name);
+        //     // allTags.remove(key);
+        //   }
+        //   if(t.count <= 1){
+        //     current['G']!.add(t.name);
+        //     print(t.name);
+        //   }
+        //   for (var e in ['oviposition']) {
+        //     if(t.name.startsWith('${e}_') || t.name.endsWith('_${e}')){
+        //       current['XXX']!.add(t.name);
+        //       //allTags.remove(t.name);
+        //       print(t.name);
         //     }
         //   }
         // }
+
+        // //Fix
+        List<String> toRemote = [];
+        for(String key in current['X']!){
+          for (var t in ['oviposition']) {
+            if(key.startsWith('${t}_') || key.endsWith('_${t}')){
+              toRemote.add(key);
+              // current['G']!.remove(key);
+              //current['G']!.remove(key);
+              print(key);
+            }
+          }
+        }
+        //
+        current['X']!.removeWhere((tag) => toRemote.contains(tag));
+        current['XXX']!.addAll(toRemote);
+
 
         jsonPath.writeAsStringSync(json.encode(current));
 
@@ -235,7 +240,7 @@ class _TagsClassificationState extends State<TagsClassification> {
                     )).toList(growable: false),
                   ),
                   Gap(5),
-                  SelectableText(allTags.keys.take(10).join(', '))
+                  SelectableText(allTags.keys.take(30000).join('\n'))
                 ],
               ),
             ) : const Text('tags db not found')

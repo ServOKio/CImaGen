@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cimagen/modules/SauceNAO.dart';
 import 'package:cimagen/pages/sub/BodySizeCalculation.dart';
+import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
@@ -12,6 +13,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../Utils.dart';
+import '../../components/ICCPreview.dart';
+import '../../main.dart';
 import 'DevicePreview.dart';
 import '../../components/ImageInfo.dart';
 import '../../utils/DataModel.dart';
@@ -139,46 +142,43 @@ class _ImageViewState extends State<ImageView> {
     final dataModel = Provider.of<DataModel>(context, listen: false);
     final entries = <ContextMenuEntry>[
       MenuItem(
-        label: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? 'UnLike': 'Like',
-        icon: imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? Icons.star : Icons.star_outline,
-        onSelected: () => imageManager.toogleFavorite(widget.imageMeta!.fullPath!, host: widget.imageMeta!.host),
+        label: Text(imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? 'UnLike': 'Like'),
+        icon: Icon(imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? Icons.star : Icons.star_outline),
+        onSelected: (_) => imageManager.toogleFavorite(widget.imageMeta!.fullPath!, host: widget.imageMeta!.host),
       ),
       const MenuDivider(),
       MenuItem(
-        label: 'View render tree',
-        icon: Icons.account_tree_sharp,
-        onSelected: () {
+        label: const Text('View render tree'),
+        icon: const Icon(Icons.account_tree_sharp),
+        onSelected: (_) {
           // TODO
         },
       ),
       MenuItem.submenu(
-        label: 'Send to comparison',
-        icon: Icons.edit,
+        label: const Text('Send to comparison'),
+        icon: const Icon(Icons.edit),
         items: [
           MenuItem(
-            label: 'Go to viewer',
-            value: 'comparison_view',
-            icon: Icons.compare,
-            onSelected: () {
+            label: const Text('Go to viewer'),
+            icon: const Icon(Icons.compare),
+            onSelected: (_) {
               dataModel.jumpToTab(3);
             },
           ),
           const MenuDivider(),
           MenuItem(
-            label: 'As main',
-            value: 'comparison_as_main',
-            icon: Icons.swipe_left,
-            onSelected: () {
+            label: const Text('As main'),
+            icon: const Icon(Icons.swipe_left),
+            onSelected: (_) {
               dataModel.comparisonBlock.addImage(widget.imageMeta!);
               dataModel.comparisonBlock.changeSelected(0, widget.imageMeta);
               // implement redo
             },
           ),
           MenuItem(
-            label: 'As test',
-            value: 'comparison_as_test',
-            icon: Icons.swipe_right,
-            onSelected: () {
+            label: const Text('As test'),
+            icon: const Icon(Icons.swipe_right),
+            onSelected: (_) {
               dataModel.comparisonBlock.addImage(widget.imageMeta!);
               dataModel.comparisonBlock.changeSelected(1, widget.imageMeta);
             },
@@ -202,24 +202,40 @@ class _ImageViewState extends State<ImageView> {
       // ),
       const MenuDivider(),
       MenuItem.submenu(
-        label: 'Utils...',
-        icon: Icons.apps,
+        label: const Text('Utils...'),
+        icon: const Icon(Icons.apps),
         items: [
           MenuItem(
-            label: 'Make Lora',
-            icon: Icons.auto_graph,
-            onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
+            label: const Text('Make Lora'),
+            icon: const Icon(Icons.auto_graph),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
           ),
           MenuItem(
-            label: 'Joint Tagger Project',
-            icon: Icons.tag,
-            onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: widget.imageMeta!))),
+            label: const Text('Joint Tagger Project'),
+            icon: const Icon(Icons.tag),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: widget.imageMeta!))),
           ),
           MenuItem(
-            label: 'SauceNAO',
-            icon: Icons.find_in_page,
-            onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
-          )
+            label: const Text('SauceNAO'),
+            icon: const Icon(Icons.find_in_page),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
+          ),
+          MenuItem(
+            label: const Text('View in ICC profile'),
+            icon: const Icon(Icons.monitor),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ICCPreview(widget.imageMeta!))),
+          ),
+          if(prefs.getBool('debug') ?? false) MenuItem.submenu(
+            label: const Text('Debug'),
+            icon: const Icon(Icons.bug_report),
+            items: [
+              MenuItem(
+                label: const Text('Print raw tags'),
+                icon: const Icon(Icons.text_increase),
+                onSelected: (_) => print(getRawTags(widget.imageMeta!.generationParams!.positive!)),
+              ),
+            ],
+          ),
         ],
       ),
       const MenuDivider(),
@@ -235,10 +251,9 @@ class _ImageViewState extends State<ImageView> {
       // ),
       // const MenuDivider(),
       MenuItem(
-        label: 'Show in explorer',
-        value: 'show_in_explorer',
-        icon: Icons.compare,
-        onSelected: () {
+        label: const Text('Show in explorer'),
+        icon: const Icon(Icons.compare),
+        onSelected: (_) {
           showInExplorer(widget.imageMeta!.fullPath!);
         },
       ),

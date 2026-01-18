@@ -110,7 +110,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
       });
       _tabs = ['txt2img', 'img2img'];
       _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
-      objectbox.cleanUp(host);
+      sqLite.cleanUp(host);
       loaded = true;
       int notID = notificationManager!.show(
           thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
@@ -215,6 +215,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
                 // Future.delayed(const Duration(seconds: 10), () => notificationManager!.close(loraInfoNot));
               }
             }
+            randomAccessFile.close();
             doned++;
             checkOne();
           });
@@ -231,7 +232,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return objectbox.getFolders(host: host, re: _internalTabs[index]);
+    return sqLite.getFolders(host: host, re: _internalTabs[index]);
   }
 
   @override
@@ -261,10 +262,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
-    return objectbox.getImagesByDay(day, host: host, re: _internalTabs[section]);
+  Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
+    return sqLite.getImagesByDay(day, host: host, re: _internalTabs[section]);
   }
 
   @override
@@ -292,13 +291,13 @@ class OnLocal extends ChangeNotifier implements AbMain{
     Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: true);
     watchList.add(te.listen((event) {
       if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
-        objectbox.updateIfNado(event.destination!, host: null);
+        sqLite.updateIfNado(event.destination!, host: null);
       }
     }));
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
-    return objectbox.getFolderHashes(folder, host: host);
+    return sqLite.getFolderHashes(folder, host: host);
   }
 
   @override
@@ -425,5 +424,10 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
     // Return stream
     return job.controller;
+  }
+
+  @override
+  Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) {
+    return sqLite.getFoldersPaged(re: _internalTabs[tabIndex], offset: offset, limit: limit);
   }
 }

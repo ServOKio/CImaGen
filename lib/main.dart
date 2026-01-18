@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
@@ -52,6 +53,7 @@ NotificationManager? notificationManager;
 AudioController? audioController;
 late SharedPreferences prefs;
 late ObjectboxDB objectbox;
+late SQLite sqLite;
 
 Future<void> main() async {
   bool debug = false;
@@ -70,7 +72,7 @@ Future<void> main() async {
     runApp(MyApp());
 
     doWhenWindowReady(() {
-      const initialSize = Size(1280, 720);
+      const initialSize = Size(1280, 968);
       appWindow.minSize = initialSize;
       appWindow.size = initialSize;
       appWindow.alignment = Alignment.center;
@@ -124,7 +126,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DataModel()),
         ChangeNotifierProvider(create: (_) => ConfigManager()),
         ChangeNotifierProvider(create: (_) => DataManager()),
-        ChangeNotifierProvider(create: (_) => SQLite()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
         ChangeNotifierProvider(create: (_) => ThemeManager()),
         ChangeNotifierProvider(create: (_) => SaveManager()),
@@ -319,7 +320,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         setState(() {
           _obPass = true;
         });
-        context.read<SQLite>().init().then((v){
+        sqLite = SQLite();
+        sqLite.init().then((v){
           setState(() {
             _sqlPass = true;
           });
@@ -450,7 +452,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                     floatyActionButton: FloatyActionButton(
                       icon: const Icon(Icons.chair),
                       onTap: (){
-
+                        sqLite.startMigration();
                       },
                     ),
                   ),
@@ -609,4 +611,18 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       curve: Curves.easeInOut,
     );
   }
+}
+
+class MigrationProgress {
+  final int processed;
+  final int total;
+  final double percent;
+  final String stage;
+
+  MigrationProgress({
+    required this.processed,
+    required this.total,
+    required this.percent,
+    required this.stage,
+  });
 }

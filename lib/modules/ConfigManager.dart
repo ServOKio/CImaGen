@@ -81,7 +81,7 @@ class ConfigManager with ChangeNotifier {
   }
 
   void checkCasheDir(){
-    getDirSize(Directory(_tempDir)).then((size){
+    getDirSizeIsolated(Directory(_tempDir)).then((size){
       if(size >= ((prefs.getDouble('max_cache_size') ?? 5) * 1073741824)){
         if (kDebugMode) {
           print(_tempDir);

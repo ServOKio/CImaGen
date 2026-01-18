@@ -39,6 +39,8 @@ class DataManager with ChangeNotifier {
   String? latestE621Tags;
   Map<String, TagInfo> _e621Tags = {};
   Map<String, TagInfo> get e621Tags => _e621Tags;
+  Map<String, List<String>> _contentRatingTags = {};
+  Map<String, List<String>> get contentRatingTags => _contentRatingTags;
 
   String? latestE621Posts;
 
@@ -130,6 +132,76 @@ class DataManager with ChangeNotifier {
             },
             child: const Text("Try again", style: TextStyle(fontSize: 12))
         ))
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+    }
+  }
+
+
+  Future<void> loadContentRatingTags() async {
+    Directory? dD;
+    if(Platform.isAndroid){
+      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
+    } else if(Platform.isWindows){
+      dD = await getApplicationDocumentsDirectory();
+    }
+    if(dD == null){
+      int notID = 0;
+      notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+          title: 'Documents folder not found',
+          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                loadContentRatingTags();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          ))
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+      return;
+    }
+    dynamic jsonPath = Directory(p.join(dD.path, 'CImaGen', 'json'));
+    if (!jsonPath.existsSync()) {
+      await jsonPath.create(recursive: true);
+    }
+
+    File crtFile = File(p.join(dD.path, 'CImaGen', 'csv', 'content-rating.json'));
+    if (crtFile.existsSync()) {
+      crtFile.readAsString().then((v) async {
+        var data = await json.decode(v);
+        _contentRatingTags = {
+          "G": List<String>.from(data['G']),
+          "PG": List<String>.from(data['PG']),
+          "PG_13": List<String>.from(data['PG_13']),
+          "R": List<String>.from(data['R']),
+          "NC_17": List<String>.from(data['NC_17']),
+          "X": List<String>.from(data['X']),
+          "XXX": List<String>.from(data['XXX'])
+        };
+      });
+    } else {
+      int notID = 0;
+      notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+          title: 'Content rating tags not found',
+          description: 'Put the content-rating.json file in folder:\n   "${crtFile.parent.path}"\nYou can ask someone for this file or create it yourself',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                loadContentRatingTags();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          ))
       );
       audioController!.player.play(AssetSource('audio/wrong.wav'));
     }

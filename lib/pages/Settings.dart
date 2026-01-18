@@ -22,7 +22,7 @@ import 'package:system_theme/system_theme.dart';
 import '../Utils.dart';
 import '../main.dart';
 import '../modules/ConfigManager.dart';
-import '../utils/SQLite.dart';
+import '../utils/ImageManager.dart';
 
 class Settings extends StatefulWidget{
   const Settings({ super.key });
@@ -100,29 +100,31 @@ class _SettingsState extends State<Settings>{
       _maxDBSize = (prefs.getInt('max_db_size') ?? 4);
     });
 
-    getDirSize(Directory(_custom_cache_dir)).then((value) => setState(() {
-      _currentCacheSize = value;
-    }));
+    getDirSizeIsolated(Directory(_custom_cache_dir)).then((value) => {
+      if(mounted) setState(() {
+        _currentCacheSize = value;
+      })
+    });
 
     // TODO
-    // context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) => {
-    //   if(mounted) setState(() {
-    //     dataMap = {
-    //       'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
-    //       'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
-    //       'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
-    //       'extra (${readableFileSize(value['extraSumSize'] as int)})': (value['extraCount'] as int).toDouble(),
-    //       'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
-    //       'Without meta (${readableFileSize(value['unknownSumSize'] as int)})': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
-    //     };
-    //   })
-    // }).onError((error, stackTrace) => {
-    //   if(mounted) setState(() {
-    //     dataMap = {
-    //       'all': 0
-    //     };
-    //   })
-    // });
+    sqLite.getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) => {
+      if(mounted) setState(() {
+        dataMap = {
+          'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
+          'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
+          'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
+          'extra (${readableFileSize(value['extraSumSize'] as int)})': (value['extraCount'] as int).toDouble(),
+          'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
+          'Without meta (${readableFileSize(value['unknownSumSize'] as int)})': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
+        };
+      })
+    }).onError((error, stackTrace) => {
+      if(mounted) setState(() {
+        dataMap = {
+          'all': 0
+        };
+      })
+    });
   }
 
   @override
@@ -261,7 +263,7 @@ class _SettingsState extends State<Settings>{
                       Slider(
                         value: _maxCacheSize,
                         min: 5,
-                        max: 50,
+                        max: 2000,
                         divisions: 5,
                         label: '${_maxCacheSize.round()}GB',
                         onChanged: (double v) {
@@ -385,7 +387,7 @@ class _SettingsState extends State<Settings>{
                           content: const Text('The application will take some time to read all the images again'),
                           actions: <Widget>[
                             TextButton(
-                              onPressed: () => context.read<SQLite>().clearMeta().then((value) => Navigator.pop(context)),
+                              onPressed: () => sqLite.clearMeta().then((value) => Navigator.pop(context)),
                               child: const Text('Okay'),
                             ),
                             TextButton(

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:settings_ui/settings_ui.dart';
 
 import '../../../components/Animations.dart';
+import '../../../main.dart';
 import '../../../utils/SQLite.dart';
 
 class DBExtra extends StatefulWidget{
@@ -57,7 +58,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRun([
+                                onPressed: () => sqLite.rawRun([
                                   'Delete from generation_params where keyup in (select keyup from images where fileTypeExtension = \'jpg\')',
                                   'Delete from images where fileTypeExtension = \'jpg\''
                                 ]).then((value) => Navigator.pop(context, 'Ok')),
@@ -84,7 +85,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRun([
+                                onPressed: () => sqLite.rawRun([
                                   'DELETE FROM images where type = 2',
                                   'DELETE FROM generation_params where type = 2'
                                 ]).then((value) => Navigator.pop(context, 'Ok')),
@@ -111,7 +112,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRun([
+                                onPressed: () => sqLite.rawRun([
                                   'DELETE FROM images WHERE thumbnail IS NULL'
                                 ]).then((value) => Navigator.pop(context, 'Ok')),
                                 child: const Text('Okay'),
@@ -137,7 +138,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRun([
+                                onPressed: () => sqLite.rawRun([
                                   'DELETE FROM images WHERE host NOT NULL',
                                   'DELETE FROM generation_params  WHERE host NOT NULL'
                                 ]).then((value) => Navigator.pop(context, 'Ok')),
@@ -166,7 +167,7 @@ class _DBExtraState extends State<DBExtra>{
                             content: LinearProgressIndicator(),
                           ),
                         );
-                        context.read<SQLite>().fixDB().then((value) => Navigator.pop(context, 'ok')).catchError((e) {
+                        sqLite.fixDB().then((value) => Navigator.pop(context, 'ok')).catchError((e) {
                           Navigator.pop(context, 'error');
                           showDialog<String>(
                             context: context,
@@ -197,7 +198,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRun([
+                                onPressed: () => sqLite.rawRun([
                                   'DROP TABLE images',
                                   'DROP TABLE generation_params'
                                 ]).then((value) => Navigator.pop(context, 'ok')),
@@ -229,7 +230,7 @@ class _DBExtraState extends State<DBExtra>{
                             title: const Text('Are you sure you want to delete this?'),
                             actions: <Widget>[
                               TextButton(
-                                onPressed: () => context.read<SQLite>().rawRunConst([
+                                onPressed: () => sqLite.rawRunConst([
                                   'DROP TABLE saved_categories'
                                 ]).then((value) => Navigator.pop(context, 'Ok')),
                                 child: const Text('Okay'),

@@ -497,71 +497,65 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
   }
 }
 
-List<String> getRawTags(String prompt){
+List<String> getRawTags(String prompt) {
+  // Normalize whitespace
   prompt = prompt.replaceAll('\n', ' ');
 
-  List<List<dynamic>> res = [];
-  List<int> roundBrackets = [];
-  List<int> squareBrackets = [];
+  // Remove LoRA / embeddings
+  prompt = prompt.replaceAll(RegExp(r'<[^>]+>'), '');
 
-  for(final m in reAttention.allMatches(prompt)){
-    String text = m.group(0) ?? '';
-    double? weight = m.group(1) != null ? double.parse(m.group(1)!) : null;
+  // Unescape brackets
+  prompt = prompt
+      .replaceAll(r'\(', '(')
+      .replaceAll(r'\)', ')')
+      .replaceAll(r'\[', '[')
+      .replaceAll(r'\]', ']');
 
-    if(text.startsWith('\\')) {
-      res.add([text.substring(1), 1.0]);
-    } else if(text == '('){
-      roundBrackets.add(res.length);
-    } else if(text == '['){
-      squareBrackets.add(res.length);
-    } else if(weight != null && roundBrackets.isNotEmpty){
-      roundBrackets.removeLast();
-    } else if(text == ')' && roundBrackets.isNotEmpty){
-      roundBrackets.removeLast();
-    } else if(text == ']' && squareBrackets.isNotEmpty){
-      squareBrackets.removeLast();
-    } else {
-      var parts = text.split(reBreak);
-      for (int i = 0; i < parts.length; i++){
-        var part = parts[i];
-        if(i > 0){
-          res.add(['BREAK', -1]);
-        }
-        res.add([part.trim(), 1.0]);
+  // Remove weights everywhere: :1.2
+  prompt = prompt.replaceAll(RegExp(r':[+-]?[0-9.]+'), '');
+
+  // Remove "by " prefixes
+  prompt = prompt.replaceAll(RegExp(r'\bby\s+', caseSensitive: false), '');
+
+  // Replace brackets with commas (NOT removal)
+  prompt = prompt
+      .replaceAll('(', ',')
+      .replaceAll(')', ',')
+      .replaceAll('[', ',')
+      .replaceAll(']', ',');
+
+  // Split by BREAK first
+  final blocks = prompt.split(RegExp(r'\bBREAK\b'));
+
+  final seen = <String>{};
+  final result = <String>[];
+
+  for (final block in blocks) {
+    // Split by commas ONLY
+    final tokens = block.split(',');
+
+    for (var token in tokens) {
+      token = token.trim();
+      if (token.isEmpty) continue;
+
+      // Normalize
+      final normalized = token
+          .toLowerCase()
+          .replaceAll(RegExp(r'\s+'), '_')
+          .replaceAll(RegExp(r'_+'), '_')
+          .replaceAll(RegExp(r'^_+|_+$'), '');
+
+      if (normalized.isEmpty) continue;
+
+      if (seen.add(normalized)) {
+        result.add(normalized);
       }
     }
   }
 
-  if(res.isEmpty){
-    res = [['', 1.0]];
-  }
-
-  int i = 0;
-
-  while(i + 1 < res.length) {
-    if (res[i][1] == res[i + 1][1]) {
-      res[i][0] += ',${res[i + 1][0]}';
-      res.removeAt(i + 1);
-    } else {
-      i += 1;
-    }
-  }
-
-  List<String> _tags = [];
-  // because fox ass
-  for (var element in res) {
-    List<String> tags = (element[0] as String).split(',').map((e) =>
-        e.trim().toLowerCase().replaceAll(' ', '_'))
-        .map((e) => e.replaceFirst('by_', '').replaceFirst('art_by_', ''))
-        .where((e) => e != '')
-        .toList(growable: false);
-    for (String tag in tags) {
-      if (!_tags.contains(tag)) _tags.add(tag);
-    }
-  }
-
-  return _tags;
+  return result;
 }
+
 
 String categoryToString(int category){
   return {

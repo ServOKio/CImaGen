@@ -816,11 +816,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
+  Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
     // SELECT DISTINCT DATE(dateModified) AS dates, count(keyup) as total FROM images ORDER BY dates; // fasted
     // SELECT DATE(dateModified) AS dates, count(keyup) as total FROM images GROUP BY DATE(dateModified) ORDER BY dates;
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
     return objectbox.getImagesByDay(day, host: host, re: software != Software.swarmUI ? _internalTabs[section] : null);
   }
 
@@ -1252,19 +1250,3 @@ class OnRemote extends ChangeNotifier implements AbMain{
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
-
-// await fetch("http://foxwebui.ddns.net:7860/API/DeleteImage", {
-// "credentials": "include",
-// "headers": {
-// "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0",
-// "Accept": "*/*",
-// "Accept-Language": "en,en-US;q=0.5",
-// "Content-Type": "application/json",
-// "Sec-GPC": "1",
-// "Priority": "u=0"
-// },
-// "referrer": "http://foxwebui.ddns.net:7860/Text2Image",
-// "body": "{\"path\":\"raw/2024-12-30/0951-905300696.png\",\"session_id\":\"F0ED6196F00B3C5A9E3E6909194CDD561D187AEC\"}",
-// "method": "POST",
-// "mode": "cors"
-// });

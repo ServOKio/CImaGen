@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
+import '../main.dart';
 import '../utils/SQLite.dart';
 
 class NotesSection extends StatefulWidget{
@@ -35,7 +36,7 @@ class _NotesSectionState extends State<NotesSection> {
   }
 
   void loadNotes() async{
-    context.read<SQLite>().getNotes().then((notes){
+    sqLite.getNotes().then((notes){
       setState(() {
         _notes = notes;
       });
@@ -55,7 +56,7 @@ class _NotesSectionState extends State<NotesSection> {
   void saveTitle() async {
     if(_titleHasChanges){
       _notes[_selectedIndex].title = _titleController.text;
-      await context.read<SQLite>().updateNoteTitle(_notes[_selectedIndex].id, _titleController.text);
+      await sqLite.updateNoteTitle(_notes[_selectedIndex].id, _titleController.text);
       _titleHasChanges = false;
     }
   }
@@ -63,7 +64,7 @@ class _NotesSectionState extends State<NotesSection> {
   void saveContent() async {
     if(_contentHasChanges){
       _notes[_selectedIndex].content = _contentController.text;
-      await context.read<SQLite>().updateNoteContent(_notes[_selectedIndex].id, _contentController.text);
+      await sqLite.updateNoteContent(_notes[_selectedIndex].id, _contentController.text);
       _contentHasChanges = false;
     }
   }
@@ -80,7 +81,7 @@ class _NotesSectionState extends State<NotesSection> {
               FloatingActionButton(
                 elevation: 0,
                 onPressed: () {
-                  context.read<SQLite>().createNote().then((note){
+                  sqLite.createNote().then((note){
                     _notes.add(note);
                     setState(() {
                       _selectedIndex = _notes.length-1;
@@ -162,7 +163,7 @@ class _NotesSectionState extends State<NotesSection> {
                               child: const Text('Cancel'),
                             ),
                             TextButton(
-                              onPressed: () => context.read<SQLite>().deleteNote(_notes[_selectedIndex].id).then((f){
+                              onPressed: () => sqLite.deleteNote(_notes[_selectedIndex].id).then((f){
                                 _notes.removeAt(_selectedIndex);
                                 setState((){
                                   _selectedIndex = -1;

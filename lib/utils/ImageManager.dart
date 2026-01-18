@@ -10,13 +10,11 @@ import 'package:cimagen/modules/webUI/OnLocal.dart';
 import 'package:cimagen/modules/webUI/OnWeb.dart';
 import 'package:cimagen/utils/BufferUtils.dart';
 import 'package:cimagen/utils/DataModel.dart';
-import 'package:cimagen/utils/SQLite.dart';
 import 'package:collection/collection.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
-import 'package:objectbox/objectbox.dart';
 import 'package:xml/xml.dart';
 import 'package:psd_sdk/psd_sdk.dart' as psd;
 
@@ -33,7 +31,7 @@ import '../modules/ConfigManager.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
-import 'Crc32.dart';
+import '../objectbox.g.dart';
 import 'NavigationService.dart';
 
 
@@ -72,7 +70,7 @@ class ImageManager extends ChangeNotifier {
 
   void init(BuildContext context){
     switchGetterAuto();
-    context.read<SQLite>().getFavoritePaths().then((v) => _favoritePaths = v);
+    sqLite.getFavoritePaths().then((v) => _favoritePaths = v);
   }
 
   void switchGetterAuto(){
@@ -117,12 +115,12 @@ class ImageManager extends ChangeNotifier {
       }
     }
 
-    NavigationService.navigatorKey.currentContext!.read<SQLite>().shouldUpdate(imagePath).then((doI) async {
+    sqLite.shouldUpdate(imagePath).then((doI) async {
       if(doI){
         ImageMeta? value = await parseImage(re, imagePath);
         updateLastJob(imagePath);
         if(value != null) {
-          objectbox.updateImages(imageMeta: value, fromWatch: true);
+          sqLite.updateImages(imageMeta: value);
           if(_useLastAsTest){
             Future.delayed(const Duration(milliseconds: 1000), () {
               DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
@@ -139,7 +137,7 @@ class ImageManager extends ChangeNotifier {
   }
 
   Future<void> toogleFavorite(String path, {String? host}) async {
-    NavigationService.navigatorKey.currentContext?.read<SQLite>().updateFavorite(path, !_favoritePaths.contains(path), host: host).then((value) {
+    sqLite.updateFavorite(path, !_favoritePaths.contains(path), host: host).then((value) {
       if(_favoritePaths.contains(path)){
         _favoritePaths.remove(path);
       } else {
@@ -178,6 +176,7 @@ class ParseJob {
   int _doneTotal = 0;
 
   RenderEngine? filterByRe;
+  bool _skipCached = false;
 
   late StreamController<List<ImageMeta>> _controller;
   StreamController<List<ImageMeta>> get controller => _controller;
@@ -192,8 +191,9 @@ class ParseJob {
 
   var rng = Random();
 
-  ParseJob({RenderEngine? re}){
+  ParseJob({RenderEngine? re, bool skipCached = false}){
     filterByRe = re;
+    _skipCached = skipCached;
     _controller = StreamController<List<ImageMeta>>();
   }
 
@@ -260,7 +260,7 @@ class ParseJob {
               _controller.add(finished);
               if(filterByRe != null){
                 if(value.re == filterByRe){
-                  objectbox.updateImages(imageMeta: value, fromWatch: false).then((value){
+                  sqLite.updateImages(imageMeta: value).then((value){
                     _doneTotal++;
                     _isDone();
                   });
@@ -278,7 +278,7 @@ class ParseJob {
                   _isDone();
                 }
               } else {
-                objectbox.updateImages(imageMeta: value, fromWatch: false).then((value){
+                sqLite.updateImages(imageMeta: value).then((value){
                 _doneTotal++;
                 _isDone();
               });
@@ -298,13 +298,13 @@ class ParseJob {
           // Если изображение в сети
           JobImageFile jf = raw as JobImageFile;
           ImageMeta im = ImageMeta(
-              host: host,
-              re: RenderEngine.unknown,
-              fileTypeExtension: e.replaceFirst('.', ''),
-              fullPath: path,
-              fullNetworkPath: jf.fullNetworkPath,
-              networkThumbnail: jf.networkThumbhail,
-              dateModified: jf.dateModified
+            host: host,
+            re: RenderEngine.unknown,
+            fileTypeExtension: e.replaceFirst('.', ''),
+            fullPath: path,
+            fullNetworkPath: jf.fullNetworkPath,
+            networkThumbnail: jf.networkThumbhail,
+            dateModified: jf.dateModified
           );
 
           int attempts = 0;
@@ -312,14 +312,20 @@ class ParseJob {
           String? err;
           while(attempts < 3 && okay != true){
             try {
-              await im.parseNetworkImage(makeCachedImage: true);
-              _done.add(im);
-              if(!_controller.isClosed) _controller.add(finished);
-              okay = true;
-              objectbox.updateImages(imageMeta: im, fromWatch: false).then((value){
+              await im.parseNetworkImage(makeCachedImage: true, skipCached: _skipCached);
+              if(!im.skipped){
+                _done.add(im);
+                if(!_controller.isClosed) _controller.add(finished);
+                okay = true;
+                sqLite.updateImages(imageMeta: im).then((value){
+                  _doneTotal++;
+                  _isDone();
+                });
+              } else {
+                okay = true;
                 _doneTotal++;
                 _isDone();
-              });
+              }
             } catch (e, t){
               err = e.toString();
               if (kDebugMode) {
@@ -748,6 +754,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         }
 
         if(debug) print(pngEx);
+      } else {
+        String? t = readStealthInfo(fileBytes!);
+        if(t != null){
+          re = RenderEngine.txt2img;
+          gp = parseSDParameters(t);
+        }
       }
 
       //Remove shit
@@ -926,6 +938,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
 
       //clean
       jpgEx.remove('EXIF UserComment');
+    } else {
+      String? t = readStealthInfo(fileBytes);
+      if(t != null){
+        re = RenderEngine.txt2img;
+        gp = parseSDParameters(t);
+      }
     }
 
     if(error == null  && originalImage!.exif.imageIfd.hasSoftware){
@@ -959,7 +977,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         mine: mine,
         fileTypeExtension: e,
         fileSize: fileStat.size,
-        dateModified: fileStat.changed,
+        dateModified: fileStat.modified,
         size: error == null ? ImageSize(width: originalImage!.width, height: originalImage.height) : const ImageSize(width: 500, height: 500),
         specific: specific,
         other: jpgEx
@@ -1001,6 +1019,12 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
 
       //clean
       webpEx.remove('EXIF UserComment');
+    } else {
+      String? t = readStealthInfo(fileBytes);
+      if(t != null){
+        re = RenderEngine.txt2img;
+        gp = parseSDParameters(t);
+      }
     }
     if(originalImage.hasAnimation) specific['hasAnimation'] = true;
 
@@ -1397,6 +1421,8 @@ class ImageMeta {
   // Main
   @Index()
   String keyup = '';
+  @Index()
+  int dayKey = 0; // YYYYMMDD
   //Network
   @Transient()
   bool get isLocal => host == null;
@@ -1406,6 +1432,9 @@ class ImageMeta {
   // Other
   @Transient()
   String? error;
+
+  @Transient()
+  bool skipped = false;
 
   @Transient()
   RenderEngine re;
@@ -1513,6 +1542,11 @@ class ImageMeta {
     }
   }
 
+  // SQL
+  String? thumbnailBase64;
+  String otherJson;
+  String specificJson;
+
   ImageMeta({
     this.error,
     this.host,
@@ -1530,7 +1564,7 @@ class ImageMeta {
     this.networkThumbnail,
     this.other,
     this.id = 0
-  }){
+  }) : otherJson = '{}', specificJson = '{}' {
     if(fullPath != null){
       final String parentFolder = p.basename(File(fullPath!).parent.path);
       fileName = p.basename(fullPath!);
@@ -1544,61 +1578,79 @@ class ImageMeta {
       keyup = genHash(re, 'undefined', fileName, host: host);
     }
     if(host != null) hostMD5 = md5.convert(utf8.encode(host!)).toString();
-    // if(fullNetworkPath == null && host != null && dateModified != null){
-    //   Uri parse = Uri.parse(host!);
-    //   Uri thumb = Uri(
-    //       scheme: 'http',
-    //       host: parse.host,
-    //       port: parse.port,
-    //       path: '/infinite_image_browsing/image-thumbnail',
-    //       queryParameters: {
-    //         'path': fullPath,
-    //         'size': '512x512',
-    //         't': dateFormatter.format(dateModified!)
-    //       }
-    //   );
-    //   Uri full = Uri(
-    //       scheme: 'http',
-    //       host: parse.host,
-    //       port: parse.port,
-    //       path: '/infinite_image_browsing/file',
-    //       queryParameters: {
-    //         'path': fullPath,
-    //         't': dateFormatter.format(dateModified!)
-    //       }
-    //   );
-    //   fullNetworkPath = full.toString();
-    //   networkThumbnail = thumb.toString();
-    // }
+    if(dateModified != null){
+      final d = dateModified!;
+      dayKey = d.year * 10000 + d.month * 100 + d.day;
+    }
   }
 
-  Future<Map<String, dynamic>> toMap() async {
+  // ======================
+  // SQL MAPPING
+  // ======================
+
+  Future<Map<String, dynamic>> toSqlMap() async {
     final String parentFolder = p.basename(File(fullPath!).parent.path);
     if(thumbnail == null && isLocal){
       await makeImage();
     }
     return {
+      'id': id == 0 ? null : id,
       'keyup': keyup,
-      'isLocal': isLocal ? 1 : 0,
+      'dayKey': dayKey,
+      'isLocal': host == null ? 1 : 0,
       'host': host,
-      'type': re.index,
+      'hostMD5': hostMD5,
       'parent': parentFolder,
+      'dbRe': dbRe,
       'fileName': fileName,
       'pathHash': pathHash,
       'fullPath': fullPath,
-
-      'dateModified': dateModified?.toIso8601String(),
-
+      'fullNetworkPath': fullNetworkPath,
       'mine': mine,
       'fileTypeExtension': fileTypeExtension,
       'fileSize': fileSize,
       'size': size.toString(),
-      'specific': jsonEncode(specific),
-      // 'generationParams': generationParams != null ? forSQL ? jsonEncode(generationParams?.toMap()) : generationParams?.toMap() : null, // Нахуй не нужно оно мне в базе
+      'dateModified': dateModified?.toIso8601String(),
       'thumbnail': thumbnail != null ? base64Encode(thumbnail!) : null,
-      'other': jsonEncode(other)
+      'other': jsonEncode(other),
+      'specific': jsonEncode(specific),
     };
   }
+
+  static ImageMeta fromSqlMap(Map<String, dynamic> map) {
+    final List<String> sizeS = map['size'].split('x');
+    final im = ImageMeta(
+      id: map['id'] ?? 0,
+      size: ImageSize(width: int.parse(sizeS[0]), height: int.parse(sizeS[1])),
+      fileTypeExtension: map['fileTypeExtension'],
+      fullPath: map['fullPath'],
+      fullNetworkPath: map['fullNetworkPath'],
+      host: map['host'],
+      mine: map['mine'],
+      fileSize: map['fileSize'],
+      dateModified: map['dateModified'] != null
+          ? DateTime.parse(map['dateModified'])
+          : null,
+    );
+
+    im.keyup = map['keyup'];
+    im.dayKey = map['dayKey'];
+    im.dbRe = map['dbRe'];
+    im.hostMD5 = map['hostMD5'];
+    im.fileName = map['fileName'];
+    im.pathHash = map['pathHash'];
+    im.thumbnailBase64 = map['thumbnail'];
+    im.otherJson = map['other'] ?? '{}';
+    im.specificJson = map['specific'] ?? '{}';
+
+    im.other = jsonDecode(im.otherJson);
+    im.specific = jsonDecode(im.specificJson);
+    im.thumbnail = im.thumbnailBase64 != null ? base64Decode(im.thumbnailBase64!) : null;
+
+    im.re = RenderEngine.values[im.dbRe];
+    return im;
+  }
+
 
   void updateHost(String host){
     this.host = host;
@@ -1659,7 +1711,12 @@ class ImageMeta {
 
   Future<Uint8List> _encodeJpg(map) async => img.encodeJpg(map['data'], quality: map['quality']);
 
-  Future<void> parseNetworkImage({bool makeCachedImage = false}) async {
+  String getTempFilePath(){
+    String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
+    return p.join(appTempDir, '$keyup${p.extension(fileName)}');
+  }
+
+  Future<void> parseNetworkImage({bool makeCachedImage = false, bool skipCached = false}) async {
     if(!isLocal && fullNetworkPath != null){
       // Download to temp
       String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
@@ -1677,11 +1734,17 @@ class ImageMeta {
           stat = f.statSync();
           fileSize = stat.size;
           dateModified ??= stat.modified;
+          final d = dateModified!;
+          dayKey = d.year * 10000 + d.month * 100 + d.day;
         } else {
           throw Exception('The answer is not 200: ${res.statusCode}\nUri: $clean');
         }
       } else {
         tempFilePath = pa;
+        if(skipCached){
+          skipped = true;
+          return;
+        }
       }
 
       if(tempFilePath != null){
@@ -1704,124 +1767,13 @@ class ImageMeta {
             } else {
               dateModified = stat.modified;
             }
+            final d = dateModified!;
+            dayKey = d.year * 10000 + d.month * 100 + d.day;
           }
           fileSize = stat.size;
         }
       }
     }
-  }
-
-  String toText(TextType type){
-    bool byImageLib = fileTypeExtension != 'png';
-    String fi = '';
-    String prefix = [TextType.discord].contains(type) ? '> ': '';
-    bool b = [TextType.discord, TextType.md].contains(type);
-
-    String? colorType = byImageLib ? numChannelsToString(specific?['numChannels']) : specific?['colorType'] != null ? getColorType(specific?['colorType']) : null;
-
-    bool isWebuiForge = false;
-    String wForgeV = '';
-    String wUIV = '';
-    String parentVersion = '';
-
-    if(generationParams?.version != null){
-      RegExp ex = RegExp(r'(f[0-9]+\.[0-9]+\.[0-9]+)(v[0-9]+\.[0-9]+\.[0-9]+)(.*)');
-      if(ex.hasMatch(generationParams!.version ?? '')){
-        RegExpMatch match = ex.allMatches(generationParams!.version ?? '').first;
-        if(match[1] != null && match[1]!.startsWith('f')){
-          isWebuiForge = true;
-          List<String> pa = match[3]!.split('-');
-          wForgeV = match[1]!;
-          wUIV = '${match[2]}${pa[0]}';
-          parentVersion = pa.getRange(1, pa.length).join('-');
-        }
-      }
-    }
-
-    String tb(String t){
-      return b ? '`$t`' : t;
-    }
-
-    fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Image Info\n';
-    if(mine != null) fi += '${prefix}Mine type: ${tb(mine!)}\n';
-    fi += '${prefix}File size: ${tb(readableFileSize(fileSize ?? 0))}\n';
-    if(size != null) fi += '${prefix}Size: ${tb('${size.toString()} (${aspectRatioFromSize(size!)})')}\n';
-    fi += '\n';
-
-    fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Raw\n';
-    fi += '${prefix}Bit depth: ${tb(byImageLib ? (specific?['bitsPerChannel'].toString() ?? 'None') : specific?['bitDepth'].toString() ?? 'None')}\n';
-    if(colorType != null) fi += '${prefix}Color type: ${tb(colorType)}\n';
-    if(specific?['compression'] != null) fi += '${prefix}Compression: ${tb(getCompression(specific?['compression']))}\n';
-    if(specific?['filter'] != null) fi += '${prefix}Filter: ${tb(getFilterType(specific?['filter']))}\n';
-    if(specific?['colorMode'] != null) fi += '${prefix}Color mode: ${tb(getInterlaceMethod(specific?['colorMode']))}\n';
-    if(specific?['profileName'] != null) fi += '${prefix}Profile name: ${tb(specific?['profileName'])}\n';
-    if(specific?['pixelUnits'] != null) fi += '${prefix}Pixel units: ${tb(specific?['pixelUnits'] == 1 ? 'Meters' : 'Not specified')}\n';
-    if(specific?['pixelsPerUnitX'] != null) fi += '${prefix}Pixels per unit X/Y: ${tb('${specific?['pixelsPerUnitX']}x${specific?['pixelsPerUnitY']}')}\n';
-    fi += '\n';
-
-    if(specific?['hasIccProfile'] != null){
-      fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}ICC Profile\n';
-      if(specific?['iccProfileName'] != null) fi += '${prefix}Raw Profile Name: ${tb(specific!['iccProfileName'])}\n';
-      if(specific?['iccCompressionMethod'] != null) fi += '${prefix}Compression method: ${tb(specific!['iccCompressionMethod'].toString())}\n';
-      if(specific?['iccCmmType'] != null) fi += '${prefix}CMM type: ${tb(getFilterType(specific?['iccCmmType']))}\n';
-      if(specific?['iccVersion'] != null) fi += '${prefix}Version: ${tb(getProfileVersionDescription(specific?['iccVersion']))}\n';
-      if(specific?['iccClass'] != null) fi += '${prefix}Profile Class: ${tb(getProfileClass(specific?['iccClass']))}\n';
-      if(specific?['iccColorSpace'] != null) fi += '${prefix}Color space: ${tb(specific?['iccColorSpace'])}\n';
-      if(specific?['iccConnectionSpace'] != null) fi += '${prefix}Connection space: ${tb(specific?['iccConnectionSpace'])}\n';
-      if(specific?['iccSignature'] != null) fi += '${prefix}Signature: ${tb(specific?['iccSignature'])}\n';
-      if(specific?['iccPlatform'] != null) fi += '${prefix}Platform: ${tb(getPlatform(specific?['iccPlatform']))}\n';
-      if(specific?['iccDeviceMake'] != null) fi += '${prefix}Device make: ${tb(specific?['iccDeviceMake'])}\n';
-      if(specific?['iccRenderingIntent'] != null) fi += '${prefix}Rendering intent: ${tb(getIndexedDescription(specific?['iccRenderingIntent']))}\n';
-      fi += '\n';
-    }
-
-    if(specific?['xmpCreatorTool'] != null){
-      fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Editor\n';
-      fi += '${prefix}Creator tool: ${tb(specific?['xmpCreatorTool'])}\n';
-      if(specific?['xmpPhotoshopColorMode'] != null) fi += '${prefix}Photoshop colormode: ${tb(xmpColorModeToString(specific?['xmpPhotoshopColorMode']))}\n';
-      if(specific?['xmpCreateDate'] != null) fi += '${prefix}Create date: ${tb(specific?['xmpCreateDate'])}\n';
-      if(specific?['xmpModifyDate'] != null) fi += '${prefix}Modify date: ${tb(specific?['xmpModifyDate'])}\n';
-      if(specific?['xmpMetadataDate'] != null) fi += '${prefix}Metadata date: ${tb(specific?['xmpMetadataDate'])}\n';
-      if(specific?['xmpDcFormat'] != null) fi += '${prefix}DC format: ${specific?['xmpDcFormat']}}\n';
-      fi += '\n';
-    }
-
-    if(generationParams != null){
-      fi += '${[TextType.discord, TextType.md].contains(type) ? '### ': ''}Generation Info\n';
-      if(re != RenderEngine.unknown) fi += '${prefix}Render engine: ${tb(renderEngineToString(re))}\n';
-      if(other?['softwareType'] != null) fi += '${prefix}Software: ${tb(softwareToString(Software.values[other?['softwareType']]))}\n';
-      fi += 'Promt:\n```diff\n';
-      if(generationParams?.positive != null) fi += '+ ${(generationParams!.positive ?? '').replaceAll("\n", " ").trim()}\n';
-      if(generationParams?.positive != null && generationParams?.negative != null) fi += '\n';
-      if(generationParams?.negative != null) fi += '- ${(generationParams!.negative ?? '').replaceAll("\n", " ").trim()}\n';
-      fi += '```\n';
-      fi += '${prefix}Checkpoint type: ${tb(checkpointTypeToString(generationParams!.checkpointType ?? CheckpointType.unknown))}\n';
-      fi += '${prefix}Checkpoint: ${tb('${generationParams!.checkpoint}${generationParams!.checkpointHash != null ? ' (${generationParams!.checkpointHash})' : ''}')}\n';
-      if(generationParams?.params?['vae'] != null) fi += '${prefix}VAE: ${generationParams?.params?['vae']+(generationParams?.params?['vae_hash'] != null ? ' (${generationParams?.params?['vae_hash']})' : '')}\n';
-      fi += '$prefix**Sampling**\n';
-      if(generationParams?.sampler != null) fi += '${prefix}Method: ${tb(generationParams!.sampler!)}\n';
-      fi += '${prefix}Steps: ${tb(generationParams!.steps.toString())}\n';
-      fi += '${prefix}CFG Scale: ${tb(generationParams!.cfgScale.toString())}\n';
-      if(generationParams?.denoisingStrength != null && generationParams?.hiresUpscale == null) fi += '${prefix}Denoising strength: ${tb(generationParams!.denoisingStrength.toString())}\n';
-      if(generationParams?.hiresUpscale != null){
-        fi += '$prefix**Hi-res**\n';
-        if(generationParams?.hiresSampler != null) fi += '${prefix}Sampler: ${tb(generationParams?.hiresSampler ?? 'None')}\n';
-        fi += '${prefix}Denoising strength: ${tb(generationParams!.denoisingStrength.toString())}\n';
-        fi += '${prefix}Upscaler: ${tb(generationParams!.hiresUpscaler ?? 'None (Lanczos)')}\n';
-        fi += '${prefix}Upscale: ${tb('${generationParams!.hiresUpscale}(${generationParams!.size != null ? ' (${generationParams!.size!.withMultiply(generationParams!.hiresUpscale ?? 0)})' : ''}')}\n';
-      }
-      fi += '${prefix}Seed: ${tb(generationParams!.seed.toString())}\n';
-      if(generationParams!.size?.width != null && generationParams!.size?.height != null) fi += '${prefix}Width and height: ${tb('${generationParams!.size!.width}x${generationParams!.size!.height}')}\n';
-      if(isWebuiForge){
-        fi += '$prefix**Version**\n';
-        fi += '${prefix}WebUI Forge: ${tb(wForgeV)}\n';
-        fi += '${prefix}Parent version: ${tb(parentVersion)}\n';
-        fi += '${prefix}WebUI: ${tb(wUIV)}';
-      } else {
-        if(generationParams?.version != null) fi += '${prefix}Version: ${tb(generationParams?.version ?? 'Undefined')}';
-      }
-    }
-    return fi;
   }
 }
 

@@ -21,6 +21,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:snow_fall_animation/snow_fall_animation.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../Utils.dart';
@@ -184,6 +185,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
             )));
           }
         }
+        randomAccessFile.close();
       } else if(e == '.json') {
         File jsFile = File(file.path);
         jsFile.readAsString().then((value) async {
@@ -214,16 +216,42 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         });
       } else if(e == '.glb') {
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#glb-file-format-specification-structure
-        RandomAccessFile randomAccessFile = await File(file.path).open(mode: FileMode.read);
-        Uint8List metadataLen = await randomAccessFile.read(12);
-        var uint32 = Uint32List.view(metadataLen.buffer);
-        int metaLength = uint32[0];
-        if (kDebugMode) print(metaLength);
-        Uint8List chunk = await randomAccessFile.read(metaLength);
-        randomAccessFile.close();
-        String value = utf8.decode(chunk);
-        var data = jsonDecode(value);
-        print(value);
+        final raf = await file.open(mode: FileMode.read);
+        try {
+          // Read 12-byte header
+          final header = await raf.read(12);
+          final headerData = ByteData.sublistView(header);
+
+          final magic = headerData.getUint32(0, Endian.little);
+          if (magic != 0x46546C67) {
+            throw FormatException('Not a valid GLB file');
+          }
+
+          final version = headerData.getUint32(4, Endian.little);
+          final length = headerData.getUint32(8, Endian.little);
+
+          final chunkHeader = await raf.read(8);
+          final chunkData = ByteData.sublistView(chunkHeader);
+
+          final chunkLength = chunkData.getUint32(0, Endian.little);
+          final chunkType = chunkData.getUint32(4, Endian.little);
+
+          if (chunkType != 0x4E4F534A) {
+            throw FormatException('First GLB chunk is not JSON');
+          }
+
+          final jsonBytes = await raf.read(chunkLength);
+          final jsonText = utf8.decode(jsonBytes);
+          final jsonMap = jsonDecode(jsonText) as Map<String, dynamic>;
+
+          pushToHistory(HistoryObject(id: getRandomID(), content: GlbMetadata(
+            version: version,
+            length: length,
+            json: jsonMap,
+          )));
+        } finally {
+          await raf.close();
+        }
       } else if(e == '.pptx') {
         // Qwen-Image-Layered or vanilla Power Point presentation
         File(file.path).readAsBytes().then((bytes) {
@@ -349,233 +377,260 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         child: Column(
           children: [
             Expanded(
-              child: ListView.separated(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(20),
-                separatorBuilder: (BuildContext context, int index) => const Divider(height: 14),
-                itemCount: _readHistory.length,
-                itemBuilder: (BuildContext context, int index) {
-                  dynamic element = _readHistory[_readHistory.keys.toList()[index]];
-                  return ShowUp(
-                    child: element.runtimeType == UnknownFile ? Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: Theme.of(context).scaffoldBackgroundColor
-                        ),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(7),
-                                    color: element.color ?? const Color(0x00d75252)
-                                ),
-                                child: Row(
+              child: Stack(
+                children: [
+                  false ? SnowFallAnimation(
+                    config: SnowfallConfig(
+                      numberOfSnowflakes: 200,
+                      speed: 0.5,
+                      useEmoji: true,
+                      customEmojis: ['❅', '❆'],
+                    ),
+                  ) : SizedBox.shrink(),
+                  ListView.separated(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(20),
+                    separatorBuilder: (BuildContext context, int index) => const Divider(height: 14),
+                    itemCount: _readHistory.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      dynamic element = _readHistory[_readHistory.keys.toList()[index]];
+                      return ShowUp(
+                          child: element.runtimeType == UnknownFile ? Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: Theme.of(context).scaffoldBackgroundColor
+                              ),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.all(3),
+                                      padding: const EdgeInsets.all(5),
                                       decoration: BoxDecoration(
-                                        color: Colors.black87,
-                                        borderRadius: BorderRadius.circular(5),
+                                          borderRadius: BorderRadius.circular(7),
+                                          color: element.color ?? const Color(0x00d75252)
                                       ),
-                                      child: Icon(element.icon ?? Icons.question_mark, color: Colors.white),
-                                    ),
-                                    const Gap(7),
-                                    Expanded(
-                                        flex: 1,
-                                        child: Text(element.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontFamily: 'Montserrat'), maxLines: 1, overflow: TextOverflow.ellipsis)
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Gap(7),
-                              Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Gap(3),
-                              SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
-                              if(element.details != null) ExpansionTile(
-                                  expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                                  expandedAlignment: Alignment.topLeft,
-                                  tilePadding: EdgeInsets.zero,
-                                  title:  Text('Details'),
-                                  children: <Widget>[
-                                    SelectableText(element.details)
-                                  ]
-                              )
-                            ]
-                        )
-                    ) : element.runtimeType == CharacterCardFile ? LayoutBuilder(
-                        builder: (BuildContext context, BoxConstraints constraints) {
-                          return Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                color: Theme.of(context).scaffoldBackgroundColor
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(7.0),
-                                      child: Stack(
-                                        children: [
-                                          SizedBox(
-                                            width: constraints.maxWidth / 2,
-                                            child: AspectRatio(
-                                              aspectRatio: 1/1,
-                                              child: DottedBorder(
-                                                options: RectDottedBorderOptions(
-                                                  dashPattern: const [6, 6],
-                                                  color: Colors.redAccent,
-                                                  //borderType: BorderType.RRect,
-                                                  strokeWidth: 2,
-                                                  //radius: const Radius.circular(12),
-                                                ),
-                                                child: const Center(child: Icon(Icons.chat, color: Colors.blueAccent)),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Gap(7),
-                                    SizedBox(
-                                      width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          InfoBox(one: 'RE', two: 'sdf'),
-                                        ],
-                                      ),
-                                    )
-                                  ],
-                                ),
-                                const Gap(7),
-                                Row(
-                                  children: [
-                                    ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          minimumSize: Size.zero, // Set this
-                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-                                        ),
-                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => CharacterCardFullView(jsonData: element.data))),
-                                        child: const Text("View", style: TextStyle(fontSize: 12))
-                                    ),
-                                  ],
-                                )
-                              ],
-                            ),
-                          );
-                        }
-                    ) : element.runtimeType == FileProcess ? Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            color: Theme.of(context).scaffoldBackgroundColor
-                        ),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(5),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.monitor),
-                                    Gap(3),
-                                    Expanded(child: LinearProgressIndicator(minHeight: 2)),
-                                    Gap(3),
-                                    Icon(Icons.public),
-                                    Gap(3),
-                                    Expanded(child: LinearProgressIndicator(minHeight: 2)),
-                                    Gap(3),
-                                    Icon(Icons.accessibility)
-                                  ],
-                                ),
-                              ),
-                              Gap(7),
-                              Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
-                              Gap(3),
-                              SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
-                            ]
-                        )
-                    ) : element.runtimeType == ImageMeta ? FileInfoPreview(type: 1, data: element)
-                    : element.runtimeType == SafetensorsModel ? LayoutBuilder(
-                        builder: (BuildContext context, BoxConstraints constraints) {
-                          return Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                color: Theme.of(context).scaffoldBackgroundColor
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(7.0),
-                                      child: Stack(
+                                      child: Row(
                                         children: [
                                           Container(
-                                            color: Colors.blueAccent.withAlpha(50),
-                                            width: constraints.maxWidth / 2,
-                                            child: AspectRatio(
-                                              aspectRatio: 1/1,
-                                              child: DottedBorder(
-                                                options: RectDottedBorderOptions(
-                                                  dashPattern: const [6, 6],
-                                                  color: Colors.blueAccent,
-                                                  //borderType: BorderType.RRect,
-                                                  strokeWidth: 4,
-                                                  //radius: const Radius.circular(12),
-                                                ),
-                                                child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
-                                              ),
+                                            padding: const EdgeInsets.all(3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black87,
+                                              borderRadius: BorderRadius.circular(5),
                                             ),
+                                            child: Icon(element.icon ?? Icons.question_mark, color: Colors.white),
+                                          ),
+                                          const Gap(7),
+                                          Expanded(
+                                              flex: 1,
+                                              child: Text(element.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontFamily: 'Montserrat'), maxLines: 1, overflow: TextOverflow.ellipsis)
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const Gap(7),
-                                    SizedBox(
-                                      width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
-                                      child: Column(
+                                    Gap(7),
+                                    Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                    Gap(3),
+                                    SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
+                                    if(element.details != null) ExpansionTile(
+                                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                                        expandedAlignment: Alignment.topLeft,
+                                        tilePadding: EdgeInsets.zero,
+                                        title:  Text('Details'),
+                                        children: <Widget>[
+                                          SelectableText(element.details)
+                                        ]
+                                    )
+                                  ]
+                              )
+                          ) : element.runtimeType == CharacterCardFile ? LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
+                                return Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      color: Theme.of(context).scaffoldBackgroundColor
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                          InfoBox(one: 'Type', two: safetensorsModelTypeToString(element.type)),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(7.0),
+                                            child: Stack(
+                                              children: [
+                                                SizedBox(
+                                                  width: constraints.maxWidth / 2,
+                                                  child: AspectRatio(
+                                                    aspectRatio: 1/1,
+                                                    child: DottedBorder(
+                                                      options: RectDottedBorderOptions(
+                                                        dashPattern: const [6, 6],
+                                                        color: Colors.redAccent,
+                                                        //borderType: BorderType.RRect,
+                                                        strokeWidth: 2,
+                                                        //radius: const Radius.circular(12),
+                                                      ),
+                                                      child: const Center(child: Icon(Icons.chat, color: Colors.blueAccent)),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Gap(7),
+                                          SizedBox(
+                                            width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                InfoBox(one: 'RE', two: 'sdf'),
+                                              ],
+                                            ),
+                                          )
                                         ],
                                       ),
-                                    )
-                                  ],
-                                ),
-                                const Gap(7),
-                                Row(
+                                      const Gap(7),
+                                      Row(
+                                        children: [
+                                          ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: Size.zero, // Set this
+                                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                              ),
+                                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => CharacterCardFullView(jsonData: element.data))),
+                                              child: const Text("View", style: TextStyle(fontSize: 12))
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }
+                          ) : element.runtimeType == FileProcess ? Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: Theme.of(context).scaffoldBackgroundColor
+                              ),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          minimumSize: Size.zero, // Set this
-                                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-                                        ),
-                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SafetensorsModelView(element.data as Map<String, dynamic>))),
-                                        child: const Text("View", style: TextStyle(fontSize: 12))
+                                    Container(
+                                      padding: const EdgeInsets.all(5),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.monitor),
+                                          Gap(3),
+                                          Expanded(child: LinearProgressIndicator(minHeight: 2)),
+                                          Gap(3),
+                                          Icon(Icons.public),
+                                          Gap(3),
+                                          Expanded(child: LinearProgressIndicator(minHeight: 2)),
+                                          Gap(3),
+                                          Icon(Icons.accessibility)
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                )
-                              ],
+                                    Gap(7),
+                                    Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                    Gap(3),
+                                    SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
+                                  ]
+                              )
+                          ) : element.runtimeType == ImageMeta ? FileInfoPreview(type: 1, data: element) : element.runtimeType == SafetensorsModel ? LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
+                                return Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      color: Theme.of(context).scaffoldBackgroundColor
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(7.0),
+                                            child: Stack(
+                                              children: [
+                                                Container(
+                                                  color: Colors.blueAccent.withAlpha(50),
+                                                  width: constraints.maxWidth / 2,
+                                                  child: AspectRatio(
+                                                    aspectRatio: 1/1,
+                                                    child: DottedBorder(
+                                                      options: RectDottedBorderOptions(
+                                                        dashPattern: const [6, 6],
+                                                        color: Colors.blueAccent,
+                                                        //borderType: BorderType.RRect,
+                                                        strokeWidth: 4,
+                                                        //radius: const Radius.circular(12),
+                                                      ),
+                                                      child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Gap(7),
+                                          SizedBox(
+                                            width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                InfoBox(one: 'Type', two: safetensorsModelTypeToString(element.type)),
+                                              ],
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                      const Gap(7),
+                                      Row(
+                                        children: [
+                                          ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: Size.zero, // Set this
+                                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                              ),
+                                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SafetensorsModelView(element.data as Map<String, dynamic>))),
+                                              child: const Text("View", style: TextStyle(fontSize: 12))
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }
+                          ) : element.runtimeType == GlbMetadata ? generalBuilder(main: [
+                            InfoBoxInfo(one: 'Version', two: element.version.toString()),
+                            InfoBoxInfo(one: 'Scenes', two: element.json['scenes']?.length.toString()),
+                            if(element.json['materials'] != null) InfoBoxInfo(one: 'Materials', two: element.json['materials']?.length.toString()),
+                          ], other: [
+                            InfoBoxInfo(one: 'Generator', two: element.json['asset']?['generator']),
+                            if(element.json['extensionsUsed'] != null) InfoBoxInfo(one: 'Extensions', two: element.json['extensionsUsed'])
+                          ], footer: [
+                            ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: Size.zero, // Set this
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                ),
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SafetensorsModelView(element.data as Map<String, dynamic>))),
+                                child: const Text("View", style: TextStyle(fontSize: 12))
                             ),
-                          );
-                        }
-                    ) : SelectableText('Unknown object ${element.runtimeType}')
-                  );
-                },
-              ),
+                          ]) : SelectableText('Unknown object ${element.runtimeType}')
+                      );
+                    },
+                  ),
+                ],
+              )
             ),
             Container(
               height: 1,
@@ -627,6 +682,72 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   }
 
   TextEditingController urlController = TextEditingController();
+
+  Widget generalBuilder({
+    dynamic thumbnail,
+    required List<InfoBoxInfo> main,
+    required List<InfoBoxInfo> other,
+    List<Widget>? footer
+  }){
+      return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: Theme.of(context).scaffoldBackgroundColor
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(7.0),
+                        child: Stack(
+                          children: [
+                            Container(
+                              color: Colors.blueAccent.withAlpha(50),
+                              width: constraints.maxWidth / 2,
+                              child: AspectRatio(
+                                aspectRatio: 1/1,
+                                child: DottedBorder(
+                                  options: RectDottedBorderOptions(
+                                    dashPattern: const [6, 6],
+                                    color: Colors.blueAccent,
+                                    //borderType: BorderType.RRect,
+                                    strokeWidth: 4,
+                                    //radius: const Radius.circular(12),
+                                  ),
+                                  child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Gap(7),
+                      SizedBox(
+                        width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: main.map((el) => InfoBox(one: el.one, two: el.two)).toList(growable: false),
+                        ),
+                      )
+                    ],
+                  ),
+                  ...other.map((el) => InfoBox(one: el.one, two: el.two)),
+                  if(footer != null) ...[
+                    const Gap(7),
+                    Row(children: footer)
+                  ]
+                ],
+              ),
+            );
+          }
+      );
+  }
 
   Widget selectBlock(){
     return DottedBorder(
@@ -896,7 +1017,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                             child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create),
                             onPressed: () {
                               if (formKey.currentState!.validate()) {
-                                context.read<SQLite>().createCategory(
+                                sqLite.createCategory(
                                     title: title.text.trim(),
                                     description: description.text.trim()
                                 ).then((category){
@@ -947,33 +1068,30 @@ class FileInfoPreview extends StatelessWidget{
     final dataModel = Provider.of<DataModel>(context, listen: false);
     final entries = <ContextMenuEntry>[
       MenuItem.submenu(
-        label: 'Send to comparison',
-        icon: Icons.edit,
+        label: const Text('Send to comparison'),
+        icon: const Icon(Icons.edit),
         items: [
           MenuItem(
-            label: 'Go to viewer',
-            value: 'comparison_view',
-            icon: Icons.compare,
-            onSelected: () {
+            label: const Text('Go to viewer'),
+            icon: const Icon(Icons.compare),
+            onSelected: (_) {
               dataModel.jumpToTab(3);
             },
           ),
           const MenuDivider(),
           MenuItem(
-            label: 'As main',
-            value: 'comparison_as_main',
-            icon: Icons.swipe_left,
-            onSelected: () {
+            label: const Text('As main'),
+            icon: const Icon(Icons.swipe_left),
+            onSelected: (_) {
               dataModel.comparisonBlock.addImage(im!);
               dataModel.comparisonBlock.changeSelected(0, im);
               // implement redo
             },
           ),
           MenuItem(
-            label: 'As test',
-            value: 'comparison_as_test',
-            icon: Icons.swipe_right,
-            onSelected: () {
+            label: const Text('As test'),
+            icon: const Icon(Icons.swipe_right),
+            onSelected: (_) {
               dataModel.comparisonBlock.addImage(im!);
               dataModel.comparisonBlock.changeSelected(1, im);
             },
@@ -981,14 +1099,14 @@ class FileInfoPreview extends StatelessWidget{
         ],
       ),
       MenuItem.submenu(
-        label: 'Build...',
-        icon: Icons.build,
+        label: const Text('Build...'),
+        icon: const Icon(Icons.build),
         items: [
           MenuItem(
-            label: 'XYZ plot',
-            icon: Icons.grid_view,
-            onSelected: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.values.where((el) => el.content.runtimeType == ImageMeta).toList(growable: false)))));
+            label: const Text('XYZ plot'),
+            icon: const Icon(Icons.grid_view),
+            onSelected: (_) {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.values.where((el) => el.runtimeType == ImageMeta).toList(growable: false)))));
             },
           )
         ],
@@ -1020,10 +1138,9 @@ class FileInfoPreview extends StatelessWidget{
       // ),
       // const MenuDivider(),
       MenuItem(
-        label: 'Show in explorer',
-        value: 'show_in_explorer',
-        icon: Icons.compare,
-        onSelected: () {
+        label: const Text('Show in explorer'),
+        icon: const Icon(Icons.compare),
+        onSelected: (_) {
           showInExplorer(im!.fullPath!);
         },
       ),
@@ -1232,5 +1349,27 @@ class FileProcess {
     required this.title,
     required this.message,
     required this.file
+  });
+}
+
+class GlbMetadata {
+  final int version;
+  final int length;
+  final Map<String, dynamic> json;
+
+  GlbMetadata({
+    required this.version,
+    required this.length,
+    required this.json,
+  });
+}
+
+class InfoBoxInfo {
+  final String one;
+  final dynamic two;
+
+  InfoBoxInfo({
+    required this.one,
+    required this.two
   });
 }

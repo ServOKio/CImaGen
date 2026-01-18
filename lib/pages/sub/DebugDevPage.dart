@@ -66,7 +66,7 @@ class _DebugDevPageState extends State<DebugDevPage> {
                 ),
                 TextButton(
                   onPressed: (){
-                    context.read<SQLite>().testDB().then((value) {
+                    sqLite.testDB().then((value) {
 
                     }, onError: (error) {
                       print(error);
@@ -93,6 +93,12 @@ class _DebugDevPageState extends State<DebugDevPage> {
                     print(res);
                   },
                   child: Text('Test tokenizerModule'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    objectbox.getBiggestAss();
+                  },
+                  child: Text('get big ass'),
                 ),
                 Text("Jobs"),
                 Column(

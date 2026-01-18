@@ -340,6 +340,51 @@ class ContentRatingModule {
   List<String> X = [];
   List<String> XXX = [];
 
+  final List<ContradictionRule> _contradictionRules = [
+    ContradictionRule(
+      code: 'solo_vs_duo',
+      requireAll: ['solo'],
+      forbidIfPresent: ['duo', 'group', 'multiple_people'],
+      message: 'solo contradicts multiple people tags',
+    ),
+
+    ContradictionRule(
+      code: 'female_penis',
+      requireAll: ['solo'],
+      requireAny: ['girl', '1girl', 'female', 'woman'],
+      forbidIfPresent: ['penis'],
+      message: 'female solo with penis requires futa',
+    ),
+
+    ContradictionRule(
+      code: 'minor_sexual',
+      requireAny: ['child', 'minor', 'underage'],
+      forbidIfPresent: [
+        'sex',
+        'penis',
+        'vagina',
+        'nude',
+        'sexual',
+      ],
+      message: 'minor-related tags cannot coexist with sexual content',
+    ),
+
+    ContradictionRule(
+      code: 'nude_clothed',
+      requireAny: ['nude'],
+      forbidIfPresent: ['clothed', 'fully_clothed', 'jacket', 'pants'],
+      message: 'nude contradicts clothing tags',
+    ),
+
+    ContradictionRule(
+      code: 'gender_conflict',
+      requireAll: ['male'],
+      forbidIfPresent: ['female', 'girl', 'woman'],
+      message: 'male conflicts with female tags',
+    ),
+  ];
+
+
   Future<void> loadCRTags() async {
     Directory? dD;
     if(Platform.isAndroid){
@@ -403,6 +448,7 @@ class ContentRatingModule {
 
     bool done = false;
     ContentRating r = ContentRating.G;
+
     for(String tag in XXX){
       if(tags.contains(tag)){
         r = ContentRating.XXX;
@@ -430,42 +476,82 @@ class ContentRatingModule {
 
     return r;
   }
+
+  List<TagProblem> findContradictions(List<String> tags) {
+    final tagSet = tags.toSet();
+    final problems = <TagProblem>[];
+
+    for (final rule in _contradictionRules) {
+      if (rule.requireAll.isNotEmpty &&
+          !rule.requireAll.every(tagSet.contains)) {
+        continue;
+      }
+
+      if (rule.requireAny.isNotEmpty &&
+          !rule.requireAny.any(tagSet.contains)) {
+        continue;
+      }
+
+      final triggered = rule.forbidIfPresent
+          .where(tagSet.contains)
+          .toList();
+
+      if (triggered.isNotEmpty) {
+        problems.add(
+          TagProblem(
+            code: rule.code,
+            message: rule.message,
+            involvedTags: [
+              ...rule.requireAll,
+              ...rule.requireAny,
+              ...triggered,
+            ],
+          ),
+        );
+      }
+    }
+
+    return problems;
+  }
 }
 
-List<Combination> combinations = [
-  Combination(
-      level: 2,
-      exactly: ['trap'],
-      requires: ['1girl', 'girl'],
-      containsOne: ['penis']
-  ),
-  Combination(
-      level: 1,
-      requires: ['nude', 'naked'],
-      containsOne: ['big_breasts']
-  ),
-];
+class TagProblem {
+  final String code;
+  final String message;
+  final List<String> involvedTags;
 
-class Combination{
-  // 0 - нахуя ?
-  // 1 - стандартно, бабки будут не довольны (gay, male, solo, masturbation)
-  // 2 - ну бля, давай не будем (трапы там)
-  // 3 - специфичные вкусы сука можно бан получить (xxx rating)
-  int level;
-  List<String>? containsOne;
-  List<String>? containsAll;
-  List<String>? requires;
-  List<String>? exactly;
-
-  Combination({
-    required this.level,
-    this.containsOne,
-    this.containsAll,
-    this.requires,
-    this.exactly
+  TagProblem({
+    required this.code,
+    required this.message,
+    required this.involvedTags,
   });
 
-  bool test(String string){
-    return false;
+  @override
+  String toString() => '$code: $message (${involvedTags.join(", ")})';
+}
+
+class ContradictionRule {
+  final String code;
+  final List<String> requireAll;
+  final List<String> forbidIfPresent;
+  final List<String> requireAny;
+  final String message;
+
+  ContradictionRule({
+    required this.code,
+    this.requireAll = const [],
+    this.requireAny = const [],
+    this.forbidIfPresent = const [],
+    required this.message,
+  });
+
+  factory ContradictionRule.fromJson(Map<String, dynamic> json) {
+    return ContradictionRule(
+      code: json['code'],
+      requireAll: List<String>.from(json['requireAll'] ?? []),
+      requireAny: List<String>.from(json['requireAny'] ?? []),
+      forbidIfPresent: List<String>.from(json['forbidIfPresent'] ?? []),
+      message: json['message'],
+    );
   }
 }

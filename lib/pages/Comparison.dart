@@ -234,26 +234,26 @@ class _ViewBlockState extends State<ViewBlock> {
     ImageMeta? imageMeta = !left ? dataModel.comparisonBlock.firstCache != null ? dataModel.comparisonBlock.firstSelected : dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.secondCache != null ? dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.firstSelected;
     final entries = imageMeta == null ? <ContextMenuEntry>[] : <ContextMenuEntry>[
       MenuItem(
-        label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',
-        icon: imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline,
-        onSelected: () => imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host),
+        label: Text(imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like'),
+        icon: Icon(imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline),
+        onSelected: (_) => imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host),
       ),
       const MenuDivider(),
       MenuItem(
-        label: 'View render tree',
-        icon: Icons.account_tree_sharp,
-        onSelected: () {
+        label: const Text('View render tree'),
+        icon: const Icon(Icons.account_tree_sharp),
+        onSelected: (_) {
           // implement copy
         },
       ),
       if(imageMeta.generationParams?.seed != null ) MenuItem.submenu(
-        label: 'View in timeline',
-        icon: Icons.view_timeline_outlined,
+        label: const Text('View in timeline'),
+        icon: const Icon(Icons.view_timeline_outlined),
         items: [
           MenuItem(
-            label: 'by seed',
-            icon: Icons.compare,
-            onSelected: () {
+            label: Text('by seed'),
+            icon: const Icon(Icons.compare),
+            onSelected: (_) {
               dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed!);
               dataModel.jumpToTab(2);
             },
@@ -262,83 +262,75 @@ class _ViewBlockState extends State<ViewBlock> {
       ),
       const MenuDivider(),
       MenuItem(
-        label: 'Send to MiniSD',
-        icon: Icons.web_rounded,
-        onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)))
+        label: Text('Send to MiniSD'),
+        icon: const Icon(Icons.web_rounded),
+        onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)))
       ),
       const MenuDivider(),
       MenuItem(
-        label: 'Show in explorer',
-        icon: Icons.compare,
-        onSelected: () {
+        label: Text('Show in explorer'),
+        icon: const Icon(Icons.compare),
+        onSelected: (_) {
           showInExplorer(imageMeta.fullPath!);
         },
       ),
       MenuItem(
-        label: 'Show devices preview',
-        icon: Icons.devices_other,
-        onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
+        label: Text('Show devices preview'),
+        icon: const Icon(Icons.devices_other),
+        onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
       ),
       MenuItem.submenu(
-        label: 'Copy...',
-        icon: Icons.copy,
+        label: Text('Copy...'),
+        icon: const Icon(Icons.copy),
         items: [
           if(imageMeta.generationParams?.seed != null) MenuItem(
-            label: 'Seed',
-            icon: Icons.abc,
-            onSelected: () async {
+            label: const Text('Seed'),
+            icon: const Icon(Icons.abc),
+            onSelected: (_) async {
               String seed = imageMeta.generationParams!.seed.toString();
               Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Seed $seed copied'),)));
             },
           ),
           MenuItem(
-            label: 'Folder/file.name',
-            icon: Icons.arrow_forward,
-            onSelected: () => Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied'),))),
+            label: const Text('Folder/file.name'),
+            icon: const Icon(Icons.arrow_forward),
+            onSelected: (_) => Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied'),))),
           ),
         ],
       ),
       MenuItem(
-        label: 'Show as split',
-        icon: Icons.splitscreen,
-        onSelected: () {
-          setState(() {
-            _asSplit = !_asSplit;
-          });
-        },
+        label: const Text('Show as split'),
+        icon: const Icon(Icons.splitscreen),
+        onSelected: (_) => setState(() {
+          _asSplit = !_asSplit;
+        })
       ),
       MenuItem(
-        label: 'Show the visual difference',
-        icon: Icons.image_search_rounded,
-        onSelected: () {
-          setState(() {
-            _showImageDifference = !_showImageDifference;
-          });
-        },
+        label: const Text('Show the visual difference'),
+        icon: const Icon(Icons.image_search_rounded),
+        onSelected: (_) => setState(() {
+          _showImageDifference = !_showImageDifference;
+        })
       ),
       MenuItem(
-        label: 'Show in auticolor + autocontrast',
-        icon: Icons.contrast,
-        onSelected: () {
-          setState(() {
-            _useAutoColor = !_useAutoColor;
-          });
-        },
+        label: const Text('Show in auticolor + autocontrast'),
+        icon: const Icon(Icons.contrast),
+        onSelected: (_) => setState(() {
+          _useAutoColor = !_useAutoColor;
+        })
       ),
       MenuItem(
-        label: 'Show color transfered',
-        icon: _useColorTransfer ? Icons.color_lens : Icons.color_lens_outlined,
-        onSelected: () {
-          setState(() {
-            _useColorTransfer = !_useColorTransfer;
-          });
-        },
+        label: const Text('Show color transfered'),
+        icon: Icon(_useColorTransfer ? Icons.color_lens : Icons.color_lens_outlined),
+        onSelected: (_) => setState(() {
+          _useColorTransfer = !_useColorTransfer;
+        })
       ),
       const MenuDivider(),
       MenuItem(
-        label: 'Find difference ',
-        icon: Icons.difference,
-        onSelected: () {
+        label: const Text('Find difference '),
+        icon: const Icon(Icons.difference),
+        onSelected: (_) {
           List<Difference>? difference;
           if(dataModel.comparisonBlock.bothHasGenerationParams) {
             difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
@@ -630,35 +622,26 @@ class _ImageListStateStateful extends State<ImageList>{
                   final dataModel = Provider.of<DataModel>(context, listen: false);
                   final entries = <ContextMenuEntry>[
                     MenuItem(
-                      label: 'As main',
-                      value: 'comparison_as_main',
-                      icon: Icons.swipe_left,
-                      onSelected: () {
-                        dataModel.comparisonBlock.changeSelected(0, im);
-                        // implement redo
-                      },
+                      label: const Text('As main'),
+                      icon: const Icon(Icons.swipe_left),
+                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(0, im)
                     ),
                     MenuItem(
-                      label: 'As test',
-                      value: 'comparison_as_test',
-                      icon: Icons.swipe_right,
-                      onSelected: () {
-                        dataModel.comparisonBlock.changeSelected(1, im);
-                      },
+                      label: const Text('As test'),
+                      icon: const Icon(Icons.swipe_right),
+                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, im)
                     ),
                     const MenuDivider(),
                     MenuItem(
-                      label: imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like',
-                      icon: imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline,
-                      onSelected: () {
-                        imageManager.toogleFavorite(im.fullPath!, host: im.host);
-                      },
+                      label: Text(imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like'),
+                      icon: Icon(imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline),
+                      onSelected: (_) => imageManager.toogleFavorite(im.fullPath!, host: im.host)
                     ),
                     const MenuDivider(),
                     MenuItem(
-                      label: 'View render tree',
-                      icon: Icons.account_tree_sharp,
-                      onSelected: () {
+                      label: const Text('View render tree'),
+                      icon: const Icon(Icons.account_tree_sharp),
+                      onSelected: (_) {
                         // implement copy
                       },
                     ),
@@ -682,14 +665,13 @@ class _ImageListStateStateful extends State<ImageList>{
                     //   ],
                     // ),
                     if(im.generationParams?.seed != null ) MenuItem.submenu(
-                      label: 'View in timeline',
-                      icon: Icons.view_timeline_outlined,
+                      label: const Text('View in timeline'),
+                      icon: const Icon(Icons.view_timeline_outlined),
                       items: [
                         MenuItem(
-                          label: 'by seed',
-                          value: 'timeline_by_seed',
-                          icon: Icons.compare,
-                          onSelected: () {
+                          label: const Text('by seed'),
+                          icon: const Icon(Icons.compare),
+                          onSelected: (_) {
                             dataModel.timelineBlock.setSeed(im.generationParams!.seed!);
                             dataModel.jumpToTab(2);
                           },
@@ -698,21 +680,18 @@ class _ImageListStateStateful extends State<ImageList>{
                     ),
                     const MenuDivider(),
                     MenuItem(
-                      label: 'Show in explorer',
-                      value: 'show_in_explorer',
-                      icon: Icons.compare,
-                      onSelected: () {
-                        showInExplorer(im.fullPath!);
-                      },
+                      label: const Text('Show in explorer'),
+                      icon: const Icon(Icons.compare),
+                      onSelected: (_) => showInExplorer(im.fullPath!)
                     ),
                     MenuItem.submenu(
-                      label: 'Copy...',
-                      icon: Icons.copy,
+                      label: const Text('Copy...'),
+                      icon: const Icon(Icons.copy),
                       items: [
                         if(im.generationParams?.seed != null) MenuItem(
-                          label: 'Seed',
-                          icon: Icons.abc,
-                          onSelected: () async {
+                          label: const Text('Seed'),
+                          icon: const Icon(Icons.abc),
+                          onSelected: (_) async {
                             String seed = im.generationParams!.seed.toString();
                             Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text('Seed $seed copied'),
@@ -720,18 +699,16 @@ class _ImageListStateStateful extends State<ImageList>{
                           },
                         ),
                         MenuItem(
-                          label: 'Folder/file.name',
-                          icon: Icons.arrow_forward,
-                          onSelected: () {
-                            Clipboard.setData(ClipboardData(text: '${File(im.fullPath!).parent}/${im.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                              content: Text('Copied'),
-                            )));
-                          },
+                          label: const Text('Folder/file.name'),
+                          icon: const Icon(Icons.arrow_forward),
+                          onSelected: (_) => Clipboard.setData(ClipboardData(text: '${File(im.fullPath!).parent}/${im.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Copied'),
+                          )))
                         ),
                         MenuItem(
-                          label: 'Favorite images to folder...',
-                          icon: Icons.star,
-                          onSelected: () async {
+                          label: const Text('Favorite images to folder...'),
+                          icon: const Icon(Icons.star),
+                          onSelected: (_) async {
                             // imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)
                             String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                             if (selectedDirectory != null) {

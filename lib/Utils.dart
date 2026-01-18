@@ -87,6 +87,11 @@ const _chars = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
 Random _rnd = Random();
 String getRandomString(int length) => String.fromCharCodes(Iterable.generate(length, (_) => _chars.codeUnitAt(_rnd.nextInt(_chars.length))));
 
+String getRandomStringFromList(List<String> list){
+  final random = Random();
+  return list[random.nextInt(list.length)];
+}
+
 int getRandomInt(int min, int max) {
   return min + _rnd.nextInt(max - min);
 }
@@ -101,6 +106,153 @@ Future<Uint8List> readAsBytesSync(String path) async {
 }
 
 // TODO Rewrite this stupid shit
+
+String? readStealthInfo(Uint8List data) {
+  final image = img.decodeImage(data);
+  if (image == null) return null;
+
+  final width = image.width;
+  final height = image.height;
+  final hasAlpha = image.numChannels == 4;
+
+  String? mode; // 'alpha' or 'rgb'
+  bool compressed = false;
+
+  final bufferA = StringBuffer();
+  final bufferRGB = StringBuffer();
+
+  int indexA = 0;
+  int indexRGB = 0;
+
+  bool sigConfirmed = false;
+  bool confirmingSignature = true;
+  bool readingParamLen = false;
+  bool readingParam = false;
+  bool readEnd = false;
+
+  int paramLen = 0;
+  String binaryData = '';
+
+  const sigAlpha = 'stealth_pnginfo';
+  const sigAlphaComp = 'stealth_pngcomp';
+  const sigRgb = 'stealth_rgbinfo';
+  const sigRgbComp = 'stealth_rgbcomp';
+
+  for (int x = 0; x < width && !readEnd; x++) {
+    for (int y = 0; y < height && !readEnd; y++) {
+      final pixel = image.getPixel(x, y);
+
+      final r = pixel.r.toInt();
+      final g = pixel.g.toInt();
+      final b = pixel.b.toInt();
+      final a = hasAlpha ? pixel.a.toInt() : null;
+
+      if (hasAlpha) {
+        bufferA.write((a! & 1).toString());
+        indexA++;
+      }
+
+      bufferRGB
+        ..write((r & 1))
+        ..write((g & 1))
+        ..write((b & 1));
+      indexRGB += 3;
+
+      // ── SIGNATURE DETECTION
+      if (confirmingSignature) {
+        if (indexA == sigAlpha.length * 8) {
+          final decoded = _decodeBits(bufferA.toString());
+          if (decoded == sigAlpha || decoded == sigAlphaComp) {
+            confirmingSignature = false;
+            sigConfirmed = true;
+            readingParamLen = true;
+            mode = 'alpha';
+            compressed = decoded == sigAlphaComp;
+            bufferA.clear();
+            indexA = 0;
+            continue;
+          }
+        }
+
+        if (indexRGB == sigRgb.length * 8) {
+          final decoded = _decodeBits(bufferRGB.toString());
+          if (decoded == sigRgb || decoded == sigRgbComp) {
+            confirmingSignature = false;
+            sigConfirmed = true;
+            readingParamLen = true;
+            mode = 'rgb';
+            compressed = decoded == sigRgbComp;
+            bufferRGB.clear();
+            indexRGB = 0;
+            continue;
+          }
+        }
+      }
+
+      // ── READ PARAM LENGTH
+      else if (readingParamLen) {
+        if (mode == 'alpha' && indexA == 32) {
+          paramLen = int.parse(bufferA.toString(), radix: 2);
+          bufferA.clear();
+          indexA = 0;
+          readingParamLen = false;
+          readingParam = true;
+        } else if (mode == 'rgb' && indexRGB == 33) {
+          final lastBit = bufferRGB.toString().substring(bufferRGB.length - 1);
+          final bits = bufferRGB.toString().substring(0, bufferRGB.length - 1);
+          paramLen = int.parse(bits, radix: 2);
+          bufferRGB
+            ..clear()
+            ..write(lastBit);
+          indexRGB = 1;
+          readingParamLen = false;
+          readingParam = true;
+        }
+      }
+
+      // ── READ PARAM DATA
+      else if (readingParam) {
+        if (mode == 'alpha' && indexA == paramLen) {
+          binaryData = bufferA.toString();
+          readEnd = true;
+        } else if (mode == 'rgb' && indexRGB >= paramLen) {
+          binaryData = bufferRGB.toString().substring(0, paramLen);
+          readEnd = true;
+        }
+      }
+    }
+  }
+
+  if (!sigConfirmed || binaryData.isEmpty) return null;
+
+  try {
+    final bytes = _binaryToBytes(binaryData);
+    if (compressed) {
+      return utf8.decode(gzip.decode(bytes));
+    } else {
+      return utf8.decode(bytes, allowMalformed: true);
+    }
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Converts "010101..." → String
+String _decodeBits(String bits) {
+  final bytes = _binaryToBytes(bits);
+  return utf8.decode(bytes, allowMalformed: true);
+}
+
+/// Converts "010101..." → Uint8List
+Uint8List _binaryToBytes(String bits) {
+  final byteCount = bits.length ~/ 8;
+  final out = Uint8List(byteCount);
+  for (int i = 0; i < byteCount; i++) {
+    out[i] = int.parse(bits.substring(i * 8, i * 8 + 8), radix: 2);
+  }
+  return out;
+}
+
 GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
   try{
     RegExp ex = RegExp(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)');
@@ -720,12 +872,6 @@ class GenerationParams {
     this.params
   }){
     if(positive != null) rating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
-    // if(rawData != null){
-    //   GenerationParams? p = parseSDParameters(rawData!, onlyParams: true);
-    //   if(p != null){
-    //     params = p.params;
-    //   }
-    // }
   }
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
@@ -785,6 +931,76 @@ class GenerationParams {
     return jsonEncode(toMap());
   }
 }
+
+extension GenerationParamsSql on GenerationParams {
+
+  Map<String, dynamic> toSqlMap({required String imageKeyup}) {
+    return {
+      'image_keyup': imageKeyup,
+      'positive': positive,
+      'negative': negative,
+      'steps': steps,
+      'sampler': sampler,
+      'cfgScale': cfgScale,
+      'seed': seed,
+      'sizeW': size?.width,
+      'sizeH': size?.height,
+      'checkpointType': dbCheckpointType,
+      'checkpoint': checkpoint,
+      'checkpointHash': checkpointHash,
+      'vae': vae,
+      'vaeHash': vaeHash,
+      'denoisingStrength': denoisingStrength,
+      'rng': rng,
+      'hiresSampler': hiresSampler,
+      'hiresUpscaler': hiresUpscaler,
+      'hiresUpscale': hiresUpscale,
+      'tiHashes': dbTiHashes,
+      'params': dbParams,
+      'rawData': rawData,
+      'rating': dbRating,
+    };
+  }
+
+  static GenerationParams fromSqlMap(Map<String, dynamic> map) {
+    final gp = GenerationParams(
+      id: map['id'] ?? 0,
+      positive: map['positive'],
+      negative: map['negative'],
+      steps: map['steps'],
+      sampler: map['sampler'],
+      cfgScale: map['cfgScale'],
+      seed: map['seed'],
+      checkpoint: map['checkpoint'],
+      checkpointHash: map['checkpointHash'],
+      vae: map['vae'],
+      vaeHash: map['vaeHash'],
+      denoisingStrength: map['denoisingStrength'],
+      rng: map['rng'],
+      hiresSampler: map['hiresSampler'],
+      hiresUpscaler: map['hiresUpscaler'],
+      hiresUpscale: map['hiresUpscale'],
+      version: map['version'],
+      rawData: map['rawData'],
+    );
+
+    gp.dbCheckpointType = map['checkpointType'] ?? 0;
+    gp.dbRating = map['rating'] ?? 0;
+
+    if (map['sizeW'] != null && map['sizeH'] != null) {
+      gp.size = ImageSize(
+        width: map['sizeW'],
+        height: map['sizeH'],
+      );
+    }
+
+    gp.dbTiHashes = map['tiHashes'] ?? '{}';
+    gp.dbParams = map['params'] ?? '{}';
+
+    return gp;
+  }
+}
+
 
 ImageSize sizeFromString(String s){
   final List<String> ar = s.split('x');
@@ -901,9 +1117,11 @@ dynamic readMetadataFromSafetensors(String path) async {
   int metadataLen = bytesToInteger(main);
   var jsonStart = await file.read(2);
   if(!(metadataLen > 2 && ['{"', "{'"].contains(utf8.decode(jsonStart)))){
+    file.close();
     return null;
   } else {
     var jsonData = jsonStart + await file.read(metadataLen - 2);
+    file.close();
     return utf8.decode(jsonData);
   }
 }
@@ -1068,11 +1286,43 @@ Future<List<FileSystemEntity>> dirContents(Directory dir) {
   return completer.future;
 }
 
-Future<int> getDirSize(Directory dir) async {
-  var files = await dir.list(recursive: true).toList();
-  var dirSize = files.fold(0, (int sum, file) => sum + file.statSync().size);
-  return dirSize;
+Future<int> getDirSizeIsolated(Directory dir) {
+  return compute(_dirSizeWorker, dir.path);
 }
+
+Future<int> _dirSizeWorker(String path) async {
+  int total = 0;
+  final dir = Directory(path);
+
+  await for (final entity in dir.list(recursive: true, followLinks: false)) {
+    if (entity is File) {
+      try {
+        total += (await entity.stat()).size;
+      } catch (_) {}
+    }
+  }
+
+  return total;
+}
+
+
+Future<int> getDirSize(Directory dir) async {
+  int totalSize = 0;
+
+  await for (final entity in dir.list(recursive: true, followLinks: false)) {
+    if (entity is File) {
+      try {
+        final stat = await entity.stat();
+        totalSize += stat.size;
+      } catch (_) {
+        // ignore unreadable files
+      }
+    }
+  }
+
+  return totalSize;
+}
+
 
 String numanizeKey(String key){
   List<String> s = key.split('_');
@@ -1552,5 +1802,22 @@ Future<void> changeLoraOutputNameMeta(String path, String name) async{
     ...newDataLength,
     ...utf8.encode(finalData)
   ]));
+  randomAccessFile.close();
   await file.writeAsBytes(content);
+}
+
+double getAspectRatio(img.Image image) {
+
+  int w = image.width;
+  int h = image.height;
+
+  double aspectRatio;
+
+  if (w > h) {
+    aspectRatio = w / h;
+  } else {
+    aspectRatio = h / w;
+  }
+
+  return aspectRatio;
 }

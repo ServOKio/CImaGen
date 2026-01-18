@@ -26,15 +26,11 @@ dependencies:
   mime: ^2.0.0
   feedback: ^3.0.0
   crypto: ^3.0.3
-  json_annotation: ^4.8.1
+  json_annotation: ^4.9.0
   window_manager: ^0.5.0
   gap: ^3.0.1
   system_theme: ^3.0.0
   flutter_context_menu: ^0.4.1
-  image:
-    git:
-      url: https://github.com/brendan-duncan/image
-      ref: main
   dotted_border: ^3.1.0 #fucking flutter
   collection: ^1.18.0
   animated_text_kit: ^4.2.2
@@ -102,6 +98,13 @@ dependencies:
   toml: ^0.17.0
   flutter_3d_controller: ^2.3.0
   archive: ^4.0.7
+  snow_fall_animation: ^0.0.1+3
+  wcg_image:
+    path: ./wcg_image
+  flutter_gl: ^0.0.21
+  image: ^4.7.2
+  three_js: ^0.2.6
+  three_js_controls: ^0.2.2
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
@@ -112,7 +115,7 @@ dev_dependencies:
   inno_bundle: ^0.9.0
   build_runner: ^2.0.0
   objectbox_generator: any
-  json_serializable: 6.8.0
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true
@@ -158,6 +161,9 @@ flutter:
           weight: 700
         - asset: fonts/OpenSans-ExtraBold.ttf
           weight: 800
+    - family: ShareTechMono
+      fonts:
+        - asset: fonts/ShareTechMono.ttf
 
 #msix_config:
 #  display_name: CImaGen
@@ -169,7 +175,7 @@ flutter:
 #  capabilities: internetClient
 
 # winget install Microsoft.NuGet
-# dart run build_runner build
+# dart run build_runner build - for json generator
 # dart run inno_bundle:build --release
 inno_bundle:
   id: af897610-4fc5-1fe5-a132-3b682fa2ff26

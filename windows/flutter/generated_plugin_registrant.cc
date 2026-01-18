@@ -9,6 +9,8 @@
 #include <audioplayers_windows/audioplayers_windows_plugin.h>
 #include <bitsdojo_window_windows/bitsdojo_window_plugin.h>
 #include <file_selector_windows/file_selector_windows.h>
+#include <flutter_angle/flutter_angle_plugin.h>
+#include <flutter_gl_windows/flutter_gl_windows_plugin.h>
 #include <flutter_inappwebview_windows/flutter_inappwebview_windows_plugin_c_api.h>
 #include <irondash_engine_context/irondash_engine_context_plugin_c_api.h>
 #include <objectbox_flutter_libs/objectbox_flutter_libs_plugin.h>
@@ -19,6 +21,7 @@
 #include <super_native_extensions/super_native_extensions_plugin_c_api.h>
 #include <system_theme/system_theme_plugin.h>
 #include <url_launcher_windows/url_launcher_windows.h>
+#include <wcg_image/wcg_image_plugin_c_api.h>
 #include <window_manager/window_manager_plugin.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
@@ -28,6 +31,10 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("BitsdojoWindowPlugin"));
   FileSelectorWindowsRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FileSelectorWindows"));
+  FlutterAnglePluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FlutterAnglePlugin"));
+  FlutterGlWindowsPluginRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("FlutterGlWindowsPlugin"));
   FlutterInappwebviewWindowsPluginCApiRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("FlutterInappwebviewWindowsPluginCApi"));
   IrondashEngineContextPluginCApiRegisterWithRegistrar(
@@ -48,6 +55,8 @@ void RegisterPlugins(flutter::PluginRegistry* registry) {
       registry->GetRegistrarForPlugin("SystemThemePlugin"));
   UrlLauncherWindowsRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("UrlLauncherWindows"));
+  WcgImagePluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("WcgImagePluginCApi"));
   WindowManagerPluginRegisterWithRegistrar(
       registry->GetRegistrarForPlugin("WindowManagerPlugin"));
 }

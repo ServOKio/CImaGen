@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/Histogram.dart';
 import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
-import 'package:cimagen/components/TestActivity.dart';
+import 'package:cimagen/components/ICCPreview.dart';
 import 'package:cimagen/components/Vectorscope.dart';
 import 'package:cimagen/components/popups/AspectSizes.dart';
 import 'package:collection/collection.dart';
@@ -228,7 +228,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                           minimumSize: Size.zero, // Set this
                                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                                         ),
-                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TestActity())),
+                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ICCPreview(im))),
                                         child: const Text("View in ICM", style: TextStyle(fontSize: 12))
                                     ),
                                   ],
@@ -569,7 +569,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                             ),
                                             child: FractionallySizedBox(
                                                 widthFactor: 1.0,
-                                                child: SelectableText(im.toText(TextType.raw), style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400))
+                                                child: Text('not today')
+                                                //child: SelectableText(im.toText(TextType.raw), style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400))
                                             )
                                         ),
                                         Container(
@@ -582,7 +583,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                             ),
                                             child: FractionallySizedBox(
                                                 widthFactor: 1.0,
-                                                child: SelectableText(im.toText(TextType.discord), style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400))
+                                                child: Text('not today')
+                                                //child: SelectableText(im.toText(TextType.discord), style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400))
                                             )
                                         ),
                                         Container(
@@ -595,7 +597,8 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                             ),
                                             child: FractionallySizedBox(
                                                 widthFactor: 1.0,
-                                                child: SelectableText(im.toText(TextType.md), style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400))
+                                                child: Text('not today')
+                                                //child: SelectableText(im.toText(TextType.md), style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400))
                                             )
                                         ),
                                       ],

@@ -187,10 +187,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByDay(day, host: host);
+  Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
+    return sqLite.getImagesByDay(day, host: host);
   }
 
   Map<RenderEngine, String> ke = {
@@ -347,7 +345,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       ));
       int d = 0;
       for(var f in fo){
-        List<ImageMeta> ima = await getFolderFiles(index, d);
+        List<ImageMeta> ima = await getFolderFiles(index, f.name);
         StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
         await _isDone(co);
         d++;

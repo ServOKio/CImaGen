@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../main.dart';
 import '../utils/SQLite.dart';
 
 class SaveManager extends ChangeNotifier {
@@ -17,7 +18,7 @@ class SaveManager extends ChangeNotifier {
   }
 
   Future<void> init(BuildContext context) async {
-    context.read<SQLite>().getCategories().then((v){
+    sqLite.getCategories().then((v){
       for (var element in v) {categories[element.id] = element;}
     });
   }

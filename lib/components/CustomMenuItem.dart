@@ -18,12 +18,12 @@ final class CustomMenuItem<T> extends ContextMenuItem<T> {
 
   const CustomMenuItem.submenu({
     required this.label,
-    required List<ContextMenuEntry> items,
+    required super.items,
     this.icon,
     this.iconColor,
     super.onSelected,
     this.constraints,
-  }) : super.submenu(items: items);
+  }) : super.submenu();
 
   @override
   Widget builder(BuildContext context, ContextMenuState menuState, [FocusNode? focusNode]) {

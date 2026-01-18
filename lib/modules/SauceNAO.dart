@@ -82,7 +82,7 @@ class _SauceNAOState extends State<SauceNAO> {
       setState(() {state = 3;});
 
       dynamic data = await json.decode(response.body);
-      minimumSimilarity = data['header']['minimum_similarity'] as double;
+      minimumSimilarity = (data['header']['minimum_similarity']).toDouble();
       results = List<Result>.from(data['results'].map((e) => Result.fromJson(e as Map<String, dynamic>)));
       setState(() {state = 4;});
     }

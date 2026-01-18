@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -17,7 +18,6 @@ import 'package:snowflake_dart/snowflake_dart.dart';
 
 import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
-import '../../utils/SQLite.dart';
 import '../DataManager.dart';
 import '../swarmUI/swarmModule.dart';
 
@@ -47,6 +47,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   List<String> _tabs = [];
   @override
   List<String> get tabs => _tabs;
+  List<RenderEngine> _internalTabs = [];
 
   void findError(){
     int notID = notificationManager!.show(
@@ -73,6 +74,9 @@ class OnWeb extends ChangeNotifier implements AbMain{
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     _userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
 
+    _tabs.clear();
+    _internalTabs.clear();
+
     // 1. Check download folder
     Directory? dP = await getDownloadsDirectory();
     if(dP == null){
@@ -89,7 +93,9 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
     // 2. Watch new json bathes
     watchDir(dP.absolute.path);
-    _tabs = ['All'];
+    _tabs = ['txt2img', 'img2img'];
+    _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
+    _host = 'furry-diffusion';
 
     loaded = true;
     notifyListeners();
@@ -113,33 +119,87 @@ class OnWeb extends ChangeNotifier implements AbMain{
     }
   }
 
+  final int _maxConcurrentJobs = 4;
+
+  int _runningJobs = 0;
+  final Queue<_IndexJob> _jobQueue = Queue();
+
+  void _tryRunNextJob() {
+    if (_runningJobs >= _maxConcurrentJobs) return;
+    if (_jobQueue.isEmpty) return;
+
+    final job = _jobQueue.removeFirst();
+    _runningJobs++;
+
+    indexUrls(job.urls).whenComplete(() {
+      _runningJobs--;
+      _tryRunNextJob(); // run next queued job
+    });
+  }
+
+  void enqueueIndexUrls(List<String> urls) {
+    if (_jobQueue.isNotEmpty) {
+      List<IconData> ic = [
+        Icons.filter_1_rounded,
+        Icons.filter_2_rounded,
+        Icons.filter_3_rounded,
+        Icons.filter_4_rounded,
+        Icons.filter_5_rounded,
+        Icons.filter_6_rounded,
+        Icons.filter_7_rounded,
+        Icons.filter_8_rounded,
+        Icons.filter_9_rounded,
+      ];
+      int notID = notificationManager!.show(
+          thumbnail: Icon(_jobQueue.length > 9 ? Icons.filter_9_plus_rounded : ic[_jobQueue.length-1], color: Colors.amberAccent),
+          title: 'Queue growing: ${_jobQueue.length}',
+          description: 'It seems the system can\'t process files quickly enough.'
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+      Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+    }
+    _jobQueue.add(_IndexJob(urls));
+    _tryRunNextJob();
+  }
+
   List<String> looked = [];
-  void watchDir(String path){
-    final tempFolder = File(path);
+
+  void watchDir(String path) {
+    final tempFolder = Directory(path);
     if (kDebugMode) print('watch $path');
-    Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: false);
-    watchList.add(te.listen((event) {
-      print(event);
-      if (event is FileSystemCreateEvent && !event.isDirectory){
-        String name = p.basename(event.path);
-        if(name.startsWith('images_batch') && name.endsWith('.json')) {
-          if(!looked.contains(name)){
-            looked.add(name);
-            Future.delayed(const Duration(seconds: 5), (){
-              File jsFile = File(event.path);
-              jsFile.readAsString().then((value) async {
-                if (await isJson(value)) {
-                  List<String> urls = List<String>.from(jsonDecode(value));
-                  indexUrls(urls);
-                  looked.remove(name);
-                }
-              });
-            });
-          }
+
+    final stream = tempFolder.watch(
+      events: FileSystemEvent.create,
+      recursive: false,
+    );
+
+    watchList.add(stream.listen((event) {
+      if (event is! FileSystemCreateEvent || event.isDirectory) return;
+
+      final name = p.basename(event.path);
+      if (!name.startsWith('images_batch') || !name.endsWith('.json')) return;
+      if (looked.contains(name)) return;
+
+      looked.add(name);
+
+      Future.delayed(const Duration(seconds: 5), () async {
+        try {
+          final file = File(event.path);
+          if (!await file.exists()) return;
+
+          final value = await file.readAsString();
+          if (!await isJson(value)) return;
+
+          final urls = List<String>.from(jsonDecode(value));
+
+          enqueueIndexUrls(urls);
+        } finally {
+          looked.remove(name);
         }
-      }
+      });
     }));
   }
+
 
   @override
   Future<List<Folder>> getFolders(int index) async {
@@ -153,9 +213,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<List<ImageMeta>> getFolderFiles(int section, int index) async {
-    List<Folder> f = await getFolders(section);
-    String day = f[index].name;
+  Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
     return objectbox.getImagesByDay(day, host: host);
   }
 
@@ -171,12 +229,13 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   RegExp ex = RegExp(r'(attachments/[0-9]+/([0-9]+)/)');
 
-  Future<StreamController<List<ImageMeta>>> indexUrls(List<String> urls) async {
+  Future<void> indexUrls(List<String> urls) async {
+    final completer = Completer<void>();
     // 1. Check if this is discord
     urls = urls.where((url) => ['cdn.discordapp.com', 'media.discordapp.net'].contains(Uri.parse(url).host)).toList();
 
     // 2. Put images and parse
-    ParseJob job = ParseJob();
+    ParseJob job = ParseJob(skipCached: false); // TODO
     int jobID = await job.putAndGetJobID(urls.map((uri) {
       Uri parsed = Uri.parse(cleanUpUrl(uri));
       Uri thumb = Uri(
@@ -201,7 +260,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
         networkThumbhail: thumb.toString(),
         dateModified: DateTime.fromMillisecondsSinceEpoch(snowflake.getTimeFromId(int.parse(match[2]!)))
       );
-    }).toList(), host: 'web');
+    }).toList(), host: _host);
 
     int notID = -1;
     if (urls.isNotEmpty) {
@@ -219,11 +278,11 @@ class OnWeb extends ChangeNotifier implements AbMain{
     job.run(
         onDone: () {
           _jobs.remove(jobID);
+          completer.complete();
           if (notID != -1) notificationManager!.close(notID);
         },
         onProcess: (total, current, thumbnail) {
           if (notID == -1) return;
-          print('on process');
           notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
           if (thumbnail != null) {
             notificationManager!.update(notID, 'thumbnail', Image.memory(
@@ -237,7 +296,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
     _jobs[jobID] = job;
 
     // Return job id
-    return job.controller;
+    return completer.future;
   }
 
   @override
@@ -282,16 +341,9 @@ class OnWeb extends ChangeNotifier implements AbMain{
     return true;
   }
 
-  Future<bool> _isDone(StreamController co) async{
-    while(getJobCountActive() > 10){
-      await Future.delayed(const Duration(seconds: 2));
-    }
-    return true;
-  }
-
-  Future<List<String>> getFolderHashes(String folder, {String? host}) async {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getFolderHashes(folder, host: _host);
-  }
+  // Future<List<String>> getFolderHashes(String folder, {String? host}) async {
+  //   return sqLite.getFolderHashes(folder, host: _host);
+  // }
 
   @override
   Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
@@ -520,6 +572,19 @@ class OnWeb extends ChangeNotifier implements AbMain{
   @override
   Map<String, String> get webuiPaths => {};
 
+  Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) {
+    return objectbox.getFoldersPaged(re: _internalTabs[tabIndex], host: _host, offset: offset, limit: limit);
+  }
+
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  Future<void> fixLorasMetadata() {
+    // TODO: implement fixLorasMetadata
+    throw UnimplementedError();
+  }
 }
+
+class _IndexJob {
+  final List<String> urls;
+  _IndexJob(this.urls);
+}
+

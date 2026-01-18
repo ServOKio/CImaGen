@@ -73,8 +73,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
   List<String> _tabs = [];
   Map<int, ScrollController> _scrollControllers = {};
-  Map<int, Future<List<Folder>>> _lists = {};
   Map<int, int> _selected = {};
+  Map<int, List<Folder>> _folders = {};
+  Map<int, bool> _isLoadingMore = {};
+  Map<int, bool> _hasMore = {};
+  static const int _pageSize = 30;
 
   bool sr = false;
 
@@ -93,21 +96,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     if (go) {
       getterID = context.read<ImageManager>().getter.hashCode;
       reloadTabs();
-      _lists[0] = _loadMenu(0);
-      // _lists[0]?.then((value){
-      //   if(mounted && value.isNotEmpty) {
-      //     // Try restore position
-      //     Future<List<ImageMeta>> _imagesList = context.read<ImageManager>().getter.getFolderFiles(0, value.length-1);
-      //     _imagesList.then((listRes){
-      //       if(listRes.isEmpty){
-      //       } else if(mounted) {
-      //         setState(() {
-      //           imagesList = _imagesList;
-      //         });
-      //       }
-      //     });
-      //   }
-      // });
     }
   }
 
@@ -137,13 +125,19 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     for (int i = 0; i < _tabs.length; i++) {
       // Scroll
-      // _scrollControllers[i] = ScrollController(
-      //   onAttach: (ScrollPosition position) => downMe(i),
-      // );
+      _scrollControllers[i] = ScrollController()
+        ..addListener(() {
+          final c = _scrollControllers[i]!;
+          if (c.position.pixels > c.position.maxScrollExtent - 300) {
+            _loadNextPage(i);
+          }
+        });
       // Lists
-      // Future.microtask(() {
-      //   _lists[i] = _loadMenu(i);
-      // });
+      _folders[i] = [];
+      _isLoadingMore[i] = false;
+      _hasMore[i] = true;
+
+      _loadNextPage(i);
       // Selected
       _selected[i] = 0;
     }
@@ -158,7 +152,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           });
         }, isActive: () => previewType != 0),
         CustomActionButton(getIcon: () => Icons.info, tooltip: 'Database info', onPress: (){
-          context.read<SQLite>().getTablesInfo(host: context.read<ImageManager>().getter.host).then((value){
+          sqLite.getTablesInfo(host: context.read<ImageManager>().getter.host).then((value){
             Map<String, double> dataMap = {
               'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
               'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
@@ -192,26 +186,26 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           });
         }, isActive: () => true),
         CustomActionButton(getIcon: () => Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
-          _lists[_tabController!.index]?.then((listValue) {
-            // Folder f = listValue[_selected[_tabController!.index]!];
-            showDialog<String>(
-              context: context,
-              builder: (BuildContext context) => AlertDialog(
-                title: const Text('Best for XYZ', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
-                content: SizedBox(
-                  width: MediaQuery.of(context).size.width - 30 > MediaQuery.of(context).size.height - 30 ? MediaQuery.of(context).size.height - 30 : MediaQuery.of(context).size.width - 30,
-                  height: MediaQuery.of(context).size.height - 30,
-                  child: XYZPlotForHiRes(_tabController!.index, _selected[_tabController!.index]!),
-                ),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, 'OK'),
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
-            );
-          });
+          // _lists[_tabController!.index]?.then((listValue) {
+          //   // Folder f = listValue[_selected[_tabController!.index]!];
+          //   showDialog<String>(
+          //     context: context,
+          //     builder: (BuildContext context) => AlertDialog(
+          //       title: const Text('Best for XYZ', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+          //       content: SizedBox(
+          //         width: MediaQuery.of(context).size.width - 30 > MediaQuery.of(context).size.height - 30 ? MediaQuery.of(context).size.height - 30 : MediaQuery.of(context).size.width - 30,
+          //         height: MediaQuery.of(context).size.height - 30,
+          //         child: XYZPlotForHiRes(_tabController!.index, _selected[_tabController!.index]!),
+          //       ),
+          //       actions: <Widget>[
+          //         TextButton(
+          //           onPressed: () => Navigator.pop(context, 'OK'),
+          //           child: const Text('OK'),
+          //         ),
+          //       ],
+          //     ),
+          //   );
+          // });
         }, isActive: () => true),
         PopupMenuButton<int>(
           color: Colors.black,
@@ -261,6 +255,33 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     });
   }
 
+  Future<void> _loadNextPage(int tabIndex) async {
+    if (_isLoadingMore[tabIndex]! || !_hasMore[tabIndex]!) return;
+
+    _isLoadingMore[tabIndex] = true;
+
+    final offset = _folders[tabIndex]!.length;
+
+    final newItems = await context
+      .read<ImageManager>()
+      .getter
+      .getFoldersPaged(
+          tabIndex,
+          offset: offset,
+          limit: _pageSize,
+        );
+
+    if (!mounted) return;
+
+    setState(() {
+      _folders[tabIndex]!.addAll(newItems);
+      _isLoadingMore[tabIndex] = false;
+      if (newItems.length < _pageSize) {
+        _hasMore[tabIndex] = false;
+      }
+    });
+  }
+
   @override
   void dispose(){
     if(_tabController != null) _tabController!.dispose();
@@ -271,10 +292,17 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     super.dispose();
   }
 
-  void reloadTab(){
+  void reloadTab() {
+    final tabIndex = _tabController!.index;
+
     setState(() {
-      _lists[_tabController!.index] = _loadMenu(_tabController!.index);
+      _folders[tabIndex] = [];
+      _isLoadingMore[tabIndex] = false;
+      _hasMore[tabIndex] = true;
+      _selected[tabIndex] = 0;
     });
+
+    _loadNextPage(tabIndex);
   }
 
   void changeFolder(int folder, int index) {
@@ -283,31 +311,9 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       currentKey = '$folder:$index';
     });
 
-
-    _lists[folder]?.then((listValue) {
-      Folder f = listValue[index];
-      print('changeTab:$folder/${f.name}');
-      setState(() {
-        imagesList = context.read<ImageManager>().getter.getFolderFiles(folder, index);
-      });
-      // imagesList?.then((List<ImageMeta> value) {
-      //   bool force = false; //listValue.length-1 == index;
-      //   // context.read<ImageManager>().getter.indexFolder(f, hashes: value.map((e) => e.pathHash).toList(growable: false)).then((controller){
-      //   //   if(value.isEmpty || force){
-      //   //     setState(() {
-      //   //       imagesList = controller.stream;
-      //   //     });
-      //   //   }
-      //   // });
-      // });
+    setState(() {
+      imagesList = context.read<ImageManager>().getter.getFolderFiles(folder, _folders[folder]![index].getter);
     });
-  }
-
-  Future<List<Folder>> _loadMenu(int index) async {
-    // Allow UI to render loading state
-    await Future<void>.delayed(Duration.zero);
-
-    return context.read<ImageManager>().getter.getFolders(index);
   }
 
   Widget _buildNavigationRail() {
@@ -369,37 +375,45 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   // Блоки сбоку
-  Widget _fBuilder(int tabIndex){
-    return FutureBuilder(
-        future: _lists[tabIndex],
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  Widget _fBuilder(int tabIndex) {
+    final folders = _folders[tabIndex]!;
 
-          if (snapshot.hasError) {
-            return Text('Error: ${snapshot.error}');
-          }
-
-          final folders = snapshot.data!;
-
-          return AnimationLimiter(
-              child: ListView.separated(
-                  controller: _scrollControllers[tabIndex],
-                  separatorBuilder: (BuildContext context, int index) => const SizedBox(height: 4),
-                  itemCount: folders.length,
-                  itemBuilder: (context, index) => FolderBlock(
-                      folder: folders[index],
-                      section: tabIndex,
-                      index: index,
-                      onTap: () => changeFolder(tabIndex, index),
-                      active: _selected[tabIndex] == index
-                  )
-              )
+    return folders.isEmpty ? const Padding(padding: EdgeInsets.all(14), child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.nights_stay_rounded,
+          color: Colors.white,
+          size: 60,
+        ),
+        Padding(
+          padding: EdgeInsets.only(top: 16),
+          child: Text('It looks like it\'s empty\nTry indexing all'),
+        ),
+      ],
+    )) : ListView.separated(
+      controller: _scrollControllers[tabIndex],
+      itemCount: folders.length + (_hasMore[tabIndex]! ? 1 : 0),
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      itemBuilder: (context, index) {
+        if (index >= folders.length) {
+          return const Padding(
+            padding: EdgeInsets.all(12),
+            child: Center(child: CircularProgressIndicator()),
           );
-        },
+        }
+
+        return FolderBlock(
+          folder: folders[index],
+          section: tabIndex,
+          index: index,
+          onTap: () => changeFolder(tabIndex, index),
+          active: _selected[tabIndex] == index,
+        );
+      },
     );
   }
+
 
   double x = 0;
   double y = 0;
@@ -550,11 +564,11 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                             color: Theme.of(context).scaffoldBackgroundColor,
                             borderRadius: const BorderRadius.all(Radius.circular(4))
                           ),
-                          child: SelectableText(
-                            snapshot.error.toString(),
-                            style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
+                          child: Expanded(child: SingleChildScrollView(child: SelectableText(
+                              snapshot.error.toString(),
+                              style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
                           )
-                        ),
+                          ))),
                       ],
                     )
                   ],
@@ -718,166 +732,96 @@ class _FolderBlockState extends State<FolderBlock> {
   @override
   Widget build(BuildContext context) {
     final entries = <ContextMenuEntry>[
-      // MenuItem(
-      //     label: 'Index this folder',
-      //     icon: Icons.waterfall_chart,
-      //     onSelected: () => context.read<ImageManager>().getter.indexFolder(snapshot.data[index])
-      // ),
       const MenuDivider(),
-      // MenuItem.submenu(
-      //   label: 'I see...',
-      //   icon: Icons.view_list_sharp,
-      //   items: [
-      //     CustomMenuItem(
-      //       label: 'Delete',
-      //       value: 'delete',
-      //       icon: Icons.delete,
-      //       iconColor: Colors.redAccent,
-      //       onSelected: () {
-      //         showDialog<String>(
-      //           context: context,
-      //           builder: (BuildContext context) => AlertDialog(
-      //             icon: const Icon(Icons.warning),
-      //             iconColor: Colors.redAccent,
-      //             title: const Text('Are you serious ?'),
-      //             content: const Text('This action will delete this image'),
-      //             actions: <Widget>[
-      //               TextButton(
-      //                 onPressed: () => Navigator.pop(context, 'cancel'),
-      //                 child: const Text('Cancel'),
-      //               ),
-      //               TextButton(
-      //                 onPressed: (){
-      //                   Navigator.pop(context, 'ok');
-      //                 },
-      //                 child: const Text('Okay'),
-      //               ),
-      //             ],
-      //           ),
-      //         );
-      //       },
-      //     )
-      //   ],
-      // ),
     ];
     final contextMenu = ContextMenu(
       entries: entries,
       padding: const EdgeInsets.all(8.0),
     );
 
-    return AnimationConfiguration.staggeredList(
-      position: widget.index,
-      duration: const Duration(milliseconds: 375),
-      child: SlideAnimation(
-        verticalOffset: 50.0,
-        child: FadeInAnimation(
-          child: ContextMenuRegion(
-              contextMenu: contextMenu,
-              child: Container(
-                height: 100,
-                color: Colors.black,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    int i = -1;
-                    List<Widget> goto = displayFiles.map<Widget>((ent){
-                      i++;
-                      return Positioned(
-                          height: 100,
-                          width: constraints.biggest.width / displayFiles.length,
-                          top: 0,
-                          left: ((constraints.biggest.width / displayFiles.length) * i).toDouble(),
-                          child: ent.thumbnail != null ? Image.memory(
-                            ent.thumbnail!,
-                            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                              if (wasSynchronouslyLoaded) {
-                                return child;
-                              } else {
-                                return AnimatedOpacity(
-                                  opacity: frame == null ? 0 : 1,
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.easeOut,
-                                  child: child,
-                                );
-                              }
-                            },
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                          ) : Icon(Icons.error)
-                        // child: ent.isLocal ? Image.file(
-                        //   File(ent.fullPath),
-                        //   gaplessPlayback: true,
-                        //   frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                        //     if (wasSynchronouslyLoaded) {
-                        //       return child;
-                        //     } else {
-                        //       return AnimatedOpacity(
-                        //         opacity: frame == null ? 0 : 1,
-                        //         duration: const Duration(milliseconds: 200),
-                        //         curve: Curves.easeOut,
-                        //         child: child,
-                        //       );
-                        //     }
-                        //   },
-                        //   // cacheWidth: files.length == 4 ? 100 : (constraints.biggest.width / files.length).round(),
-                        //   fit: BoxFit.cover,
-                        // ) : Image.network(
-                        //     ent.thumbnail ?? ent.fullPath,
-                        //     fit: BoxFit.cover
-                        // ),
-                      );
-                    }).toList();
-                    goto.add(Container(color: Colors.black.withOpacity(0.35)));
-                    goto.add(Positioned(
-                        bottom: 0,
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(widget.folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-                              Container(
-                                  decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.3),
-                                      border: Border.all(
-                                        color: Colors.black.withOpacity(0.5),
-                                      ),
-                                      borderRadius: const BorderRadius.all(Radius.circular(20))
-                                  ),
-                                  padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.image, color: Colors.white70, size: 12),
-                                      const Gap(3),
-                                      Text(origFiles.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
-                                    ],
-                                  )
-                              )
-                            ],
-                          ),
+    return ContextMenuRegion(
+        contextMenu: contextMenu,
+        child: Container(
+          height: 100,
+          color: Colors.black,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              int i = -1;
+              List<Widget> goto = displayFiles.map<Widget>((ent){
+                i++;
+                return Positioned(
+                    height: 100,
+                    width: constraints.biggest.width / displayFiles.length,
+                    top: 0,
+                    left: ((constraints.biggest.width / displayFiles.length) * i).toDouble(),
+                    child: ent.thumbnail != null ? Image.memory(
+                      ent.thumbnail!,
+                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded) {
+                          return child;
+                        } else {
+                          return AnimatedOpacity(
+                            opacity: frame == null ? 0 : 1,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: child,
+                          );
+                        }
+                      },
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ) : Icon(Icons.error)
+                );
+              }).toList();
+              goto.add(Container(color: Colors.black.withOpacity(0.35)));
+              goto.add(Positioned(
+                  bottom: 0,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(widget.folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+                        Container(
+                            decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                border: Border.all(
+                                  color: Colors.black.withOpacity(0.5),
+                                ),
+                                borderRadius: const BorderRadius.all(Radius.circular(20))
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.image, color: Colors.white70, size: 12),
+                                const Gap(3),
+                                Text(origFiles.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
+                              ],
+                            )
                         )
-                    ));
-                    goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => widget.onTap()))));
-                    goto.add(AnimatedPositioned(
-                      top: 100 / 2 - 42 / 2,
-                      right: widget.active ? 0 : -12,
-                      duration: const Duration(seconds: 1),
-                      curve: Curves.ease,
-                      child: Container(
-                        width: 12,
-                        height: 42,
-                        decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
-                        ),
-                      ),
-                    ));
-                    return Stack(clipBehavior: Clip.none, children: goto);
-                  },
+                      ],
+                    ),
+                  )
+              ));
+              goto.add(Positioned.fill(child: Material(color: Colors.transparent, child: InkWell(onTap: () => widget.onTap()))));
+              goto.add(AnimatedPositioned(
+                top: 100 / 2 - 42 / 2,
+                right: widget.active ? 0 : -12,
+                duration: const Duration(seconds: 1),
+                curve: Curves.ease,
+                child: Container(
+                  width: 12,
+                  height: 42,
+                  decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(topLeft: Radius.circular(8), bottomLeft: Radius.circular(8))
+                  ),
                 ),
-              )
+              ));
+              return Stack(clipBehavior: Clip.none, children: goto);
+            },
           ),
-        ),
-      ),
+        )
     );
   }
 }
@@ -1139,7 +1083,8 @@ class _XYZPlotForHiResState extends State<XYZPlotForHiRes> {
   }
 
   void get(){
-    context.read<ImageManager>().getter.getFolderFiles(widget.sectionID, widget.index).then((List<ImageMeta> value) {
+    //TODO
+    context.read<ImageManager>().getter.getFolderFiles(widget.sectionID, 'SYKA').then((List<ImageMeta> value) {
       for (var i = 0; i < value.length-1; i++) {
         List<timeline.Difference> d = timeline.findDifference(value[i], value[i+1]);
         //print('${d.length} ${d.length == 1 ? d.first.key : '-'}');
@@ -1214,47 +1159,41 @@ class PreviewImage extends StatelessWidget {
 
           final entries = <ContextMenuEntry>[
             if(!sp.hasSelected) MenuItem(
-              label: 'Select',
-              icon: Icons.add_circle_outline,
-              onSelected: () {
-                sp.add(imageMeta.keyup);
-              },
+              label: const Text('Select'),
+              icon: const Icon(Icons.add_circle_outline),
+              onSelected: (_) => sp.add(imageMeta.keyup)
             ),
             MenuItem(
-              label: 'DeSelect all',
-              icon: Icons.remove_circle_outline,
-              onSelected: () {
-                sp.removeAll();
-              },
+              label: const Text('DeSelect all'),
+              icon: const Icon(Icons.remove_circle_outline),
+              onSelected: (_) => sp.removeAll()
             ),
             MenuItem(
-              label: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like',
-              icon: imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline,
-              onSelected: () {
-                imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host);
-              },
+              label: Text(imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like'),
+              icon: Icon(imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline),
+              onSelected: (_) => imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host),
             ),
             MenuItem(
-              label: 'Show only favorites ${galleryManager.showOnlyFavorite}',
-              icon: galleryManager.showOnlyFavorite ? Icons.hexagon : Icons.hexagon_outlined,
-              onSelected: () => galleryManager.toogleSOF()
+              label: Text('Show only favorites ${galleryManager.showOnlyFavorite}'),
+              icon: Icon(galleryManager.showOnlyFavorite ? Icons.hexagon : Icons.hexagon_outlined),
+              onSelected: (_) => galleryManager.toogleSOF()
             ),
             const MenuDivider(),
             MenuItem(
-              label: 'View render tree',
-              icon: Icons.account_tree_sharp,
-              onSelected: () {
-                // implement copy
+              label: const Text('View render tree'),
+              icon: const Icon(Icons.account_tree_sharp),
+              onSelected: (_) {
+                // TODO
               },
             ),
             MenuItem.submenu(
-              label: 'Send to comparison',
-              icon: Icons.edit,
+              label: const Text('Send to comparison'),
+              icon: const Icon(Icons.edit),
               items: [
                 MenuItem(
-                  label: 'Go to viewer',
-                  icon: Icons.compare,
-                  onSelected: () {
+                  label: const Text('Go to viewer'),
+                  icon: const Icon(Icons.compare),
+                  onSelected: (_) {
                     if(sp.selectedCo == 0){
                       dataModel.comparisonBlock.addAllImages(imagesList);
                     }
@@ -1262,9 +1201,9 @@ class PreviewImage extends StatelessWidget {
                   },
                 ),
                 MenuItem(
-                  label: 'View only favorite',
-                  icon: Icons.compare,
-                  onSelected: () {
+                  label: const Text('View only favorite'),
+                  icon: const Icon(Icons.compare),
+                  onSelected: (_) {
                     if(sp.selectedCo == 0){
                       dataModel.comparisonBlock.addAllImages(imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)).toList());
                     }
@@ -1273,30 +1212,25 @@ class PreviewImage extends StatelessWidget {
                 ),
                 const MenuDivider(),
                 MenuItem(
-                  label: 'As main',
-                  icon: Icons.swipe_left,
-                  onSelected: () {
-                    dataModel.comparisonBlock.changeSelected(0, imageMeta);
-                    // implement redo
-                  },
+                  label: const Text('As main'),
+                  icon: const Icon(Icons.swipe_left),
+                  onSelected: (_) => dataModel.comparisonBlock.changeSelected(0, imageMeta)
                 ),
                 MenuItem(
-                  label: 'As test',
-                  icon: Icons.swipe_right,
-                  onSelected: () {
-                    dataModel.comparisonBlock.changeSelected(1, imageMeta);
-                  },
+                  label: const Text('As test'),
+                  icon: const Icon(Icons.swipe_right),
+                  onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, imageMeta)
                 ),
               ],
             ),
             if(imageMeta.generationParams?.seed != null ) MenuItem.submenu(
-              label: 'View in timeline',
-              icon: Icons.view_timeline_outlined,
+              label: const Text('View in timeline'),
+              icon: const Icon(Icons.view_timeline_outlined),
               items: [
                 MenuItem(
-                  label: 'by seed',
-                  icon: Icons.compare,
-                  onSelected: () {
+                  label: const Text('by seed'),
+                  icon: const Icon(Icons.compare),
+                  onSelected: (_) {
                     dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed!);
                     dataModel.jumpToTab(2);
                   },
@@ -1305,14 +1239,14 @@ class PreviewImage extends StatelessWidget {
             ),
             const MenuDivider(),
             MenuItem(
-              label: 'Send to MiniSD',
-              icon: Icons.web_rounded,
-              onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta))),
+              label: const Text('Send to MiniSD'),
+              icon: const Icon(Icons.web_rounded),
+              onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta))),
             ),
             MenuItem(
-              label: 'Index current image folder',
-              icon: Icons.find_replace,
-              onSelected: () {
+              label: const Text('Index current image folder'),
+              icon: const Icon(Icons.find_replace),
+              onSelected: (_) {
                 String pa = File(imageMeta.fullPath!).parent.path;
                 context.read<ImageManager>().getter.indexFolder(
                     Folder(
@@ -1328,48 +1262,48 @@ class PreviewImage extends StatelessWidget {
               },
             ),
             MenuItem.submenu(
-              label: 'Build...',
-              icon: Icons.build,
+              label: const Text('Build...'),
+              icon: const Icon(Icons.build),
               items: [
                 MenuItem(
-                  label: 'XYZ plot',
-                  icon: Icons.grid_view,
-                  onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: imagesList))),
+                  label: const Text('XYZ plot'),
+                  icon: const Icon(Icons.grid_view),
+                  onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: imagesList))),
                 )
               ],
             ),
             MenuItem.submenu(
-              label: 'Utils...',
-              icon: Icons.apps,
+              label: const Text('Utils...'),
+              icon: const Icon(Icons.apps),
               items: [
                 MenuItem(
-                  label: 'Joint Tagger Project',
-                  icon: Icons.tag,
-                  onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: imageMeta))),
+                  label: const Text('Joint Tagger Project'),
+                  icon: const Icon(Icons.tag),
+                  onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: imageMeta))),
                 )
               ],
             ),
             const MenuDivider(),
             MenuItem(
-              label: 'Show in explorer',
-              icon: Icons.compare,
-              onSelected: () {
+              label: const Text('Show in explorer'),
+              icon: const Icon(Icons.compare),
+              onSelected: (_) {
                 showInExplorer(imageMeta.fullPath!);
               },
             ),
             MenuItem(
-              label: 'Show devices preview',
-              icon: Icons.devices_other,
-              onSelected: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
+              label: const Text('Show devices preview'),
+              icon: const Icon(Icons.devices_other),
+              onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
             ),
             MenuItem.submenu(
-              label: 'Copy...',
-              icon: Icons.copy,
+              label: const Text('Copy...'),
+              icon: const Icon(Icons.copy),
               items: [
                 if(imageMeta.generationParams?.seed != null) MenuItem(
-                  label: 'Seed',
-                  icon: Icons.abc,
-                  onSelected: () async {
+                  label: const Text('Seed'),
+                  icon: const Icon(Icons.abc),
+                  onSelected: (_) async {
                     String seed = imageMeta.generationParams!.seed.toString();
                     Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text('Seed $seed copied'),
@@ -1377,18 +1311,16 @@ class PreviewImage extends StatelessWidget {
                   },
                 ),
                 MenuItem(
-                  label: 'Folder/file.name',
-                  icon: Icons.arrow_forward,
-                  onSelected: () {
-                    Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Copied'),
-                    )));
-                  },
+                  label: const Text('Folder/file.name'),
+                  icon: const Icon(Icons.arrow_forward),
+                  onSelected: (_) => Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Copied'),
+                  )))
                 ),
                 MenuItem(
-                  label: 'Favorite images to folder...',
-                  icon: Icons.star,
-                  onSelected: () async {
+                  label: const Text('Favorite images to folder...'),
+                  icon: const Icon(Icons.star),
+                  onSelected: (_) async {
                     // imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)
                     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
                     if (selectedDirectory != null) {
@@ -1417,7 +1349,7 @@ class PreviewImage extends StatelessWidget {
               label: 'Delete selected',
               icon: Icons.delete,
               iconColor: Colors.redAccent,
-              onSelected: () {
+              onSelected: (_) {
                 showDialog<String>(
                   context: context,
                   builder: (BuildContext context) => AlertDialog(
@@ -1445,7 +1377,7 @@ class PreviewImage extends StatelessWidget {
               label: 'Delete',
               icon: Icons.delete,
               iconColor: Colors.redAccent,
-              onSelected: () {
+              onSelected: (_) {
                 showDialog<String>(
                   context: context,
                   builder: (BuildContext context) => AlertDialog(

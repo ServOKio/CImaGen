@@ -38,7 +38,8 @@ abstract class AbMain extends ChangeNotifier{
   Future<void> fixLorasMetadata();
 
   // Тут мы ебашим id вкладки и index селектора потому-что ну а хуй пойми из какой системы запрос, пусть сам разбирается
-  Future<List<ImageMeta>> getFolderFiles(int section, int index) async{
+  // Миша всё хуйня давай по новой
+  Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
     return [];
   }
 
@@ -65,6 +66,9 @@ abstract class AbMain extends ChangeNotifier{
 
   void exit() async {
     print("Not Implemented");
+  }
+
+  Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) async {
   }
 }
 

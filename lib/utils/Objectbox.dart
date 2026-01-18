@@ -7,7 +7,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/shit/group_images.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +22,44 @@ import '../modules/webUI/AbMain.dart';
 import '../objectbox.g.dart';
 import 'DataModel.dart';
 import 'NavigationService.dart'; // flutter pub run build_runner build
+
+List<Folder> _buildFoldersIsolate(List<LiteMeta> list) {
+  final Map<int, List<FolderFile>> byDay = {};
+
+  for (final im in list) {
+    (byDay[im.ymd] ??= <FolderFile>[]).add(
+      FolderFile(
+        fullPath: im.fullPath,
+        isLocal: im.isLocal,
+        thumbnail: im.thumbnail,
+      ),
+    );
+  }
+
+  final keys = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
+  final List<Folder> result = [];
+
+  for (final key in keys) {
+    final y = key ~/ 10000;
+    final m = (key ~/ 100) % 100;
+    final d = key % 100;
+
+    final name = '$y-${_2(m)}-${_2(d)}';
+
+    result.add(
+      Folder(
+        index: result.length,
+        name: name,
+        getter: name,
+        type: FolderType.byDay,
+        files: List.unmodifiable(byDay[key]!),
+      ),
+    );
+  }
+
+  return result;
+}
+String _2(int v) => v < 10 ? '0$v' : '$v';
 
 class ObjectboxDB {
   late final Store _store;
@@ -48,8 +85,8 @@ class ObjectboxDB {
     }
 
     final store = await openStore(
-      directory: dbPath.absolute.path,
-      maxDBSizeInKB: prefs.containsKey('max_db_size') ? prefs.getInt('max_db_size')! * 1048576 : 134217728 // 128gb
+        directory: dbPath.absolute.path,
+        maxDBSizeInKB: prefs.containsKey('max_db_size') ? prefs.getInt('max_db_size')! * 1048576 : 134217728 // 128gb
     );
     return ObjectboxDB._create(store);
   }
@@ -103,60 +140,33 @@ class ObjectboxDB {
   }
 
   // DB
-  HashMap<String, List<Folder>> foldersCache = HashMap();
+  final HashMap<String, List<Folder>> foldersCache = HashMap();
   Future<List<Folder>> getFolders({String? host, RenderEngine? re}) async {
-    final key = (host ?? 'null') + (re?.toString() ?? 'all');
-    if (foldersCache.containsKey(key)) return foldersCache[key]!;
+    final cacheKey = '${host ?? "_"}|${re?.index ?? -1}';
+    final cached = foldersCache[cacheKey];
+    if (cached != null) return cached;
 
-    final c = host != null
+    final condition = (host != null)
         ? ImageMeta_.host.equals(host)
         : ImageMeta_.host.isNull();
 
     final query = imageMetaBox
-        .query(re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c)
-        .order(ImageMeta_.dateModified)
+        .query(re != null
+        ? condition.and(ImageMeta_.dbRe.equals(re.index))
+        : condition)
+        .order(ImageMeta_.dateModified, flags: Order.descending)
         .build();
 
     final raw = query.find();
     query.close();
 
-    final lite = raw.map((im) => {
-      'dateMillis': im.dateModified!.millisecondsSinceEpoch,
-      'fullPath': im.fullPath!,
-      'isLocal': im.isLocal,
-      'thumbnail': im.thumbnail, // Uint8List OK
-    }).toList();
+    final result = await compute(
+      _buildFoldersIsolate,
+      raw.map(_toLiteMeta).toList(growable: false),
+    );
 
-    final grouped = await compute(processLiteIsolate, lite);
-
-    final folders = <Folder>[];
-    int index = 0;
-
-    for (final g in grouped) {
-      final dayKey = g['dayKey'] as int;
-      final images = g['files'] as List<Map<String, dynamic>>;
-
-      final date = DateTime.fromMillisecondsSinceEpoch(
-        dayKey * Duration.millisecondsPerDay,
-      );
-
-      folders.add(
-        Folder(
-          index: index++,
-          name: DateFormat('yyyy-MM-dd').format(date),
-          getter: dayKey.toString(),
-          type: FolderType.byDay,
-          files: images.map((im) => FolderFile(
-            fullPath: im['fullPath'],
-            isLocal: im['isLocal'],
-            thumbnail: im['thumbnail'],
-          )).toList(growable: false),
-        ),
-      );
-    }
-
-    foldersCache[key] = folders;
-    return folders;
+    foldersCache[cacheKey] = result;
+    return result;
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
@@ -176,7 +186,7 @@ class ObjectboxDB {
     DateTime dayDate = DateFormat("yyyy-MM-dd").parse(day);
     Condition<ImageMeta> c = (host != null ? ImageMeta_.host.equals(host) : ImageMeta_.host.isNull()).and(ImageMeta_.dateModified.betweenDate(dayDate, dayDate.add(Duration(hours: 23, minutes: 59, seconds: 59))));
     Query<ImageMeta> query = imageMetaBox.query(
-      re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c
+        re != null ? c.and(ImageMeta_.dbRe.equals(re.index)) : c
     ).order(ImageMeta_.dateModified).build();
     List<ImageMeta> fi = query.find();
     fi = fi.map((im) => im..cacheFilePath = p.join(cacheDir, '${im.host}_${im.keyup}.${im.specific?['hasAnimation'] == true ? 'png' : 'jpg'}')).toList(growable: false);
@@ -234,6 +244,129 @@ class ObjectboxDB {
         }
       }
     }
+  }
+
+  Future<List<int>> getAvailableDays({
+    String? host,
+    RenderEngine? re,
+    required int offset,
+    required int limit,
+  }) async {
+    final condition = (host != null)
+        ? ImageMeta_.host.equals(host)
+        : ImageMeta_.host.isNull();
+
+    final query = imageMetaBox
+        .query(re != null
+        ? condition.and(ImageMeta_.dbRe.equals(re.index))
+        : condition)
+        .order(ImageMeta_.dateModified, flags: Order.descending)
+        .build();
+
+    final seenDays = <int>{};
+    final collected = <int>[];
+
+    const batchSize = 500;
+    int page = 0;
+
+    while (collected.length < offset + limit) {
+      query
+        ..offset = page * batchSize
+        ..limit = batchSize;
+
+      final metas = query.find();
+      if (metas.isEmpty) break;
+
+      for (final im in metas) {
+        final dt = im.dateModified;
+        if (dt == null) continue;
+
+        final dayKey = dt.year * 10000 + dt.month * 100 + dt.day;
+        if (seenDays.add(dayKey)) {
+          collected.add(dayKey);
+          if (collected.length >= offset + limit) break;
+        }
+      }
+
+      page++;
+    }
+
+    query.close();
+
+    if (offset >= collected.length) return const [];
+
+    final end = (offset + limit).clamp(0, collected.length);
+    return collected.sublist(offset, end);
+  }
+
+  Future<Folder> getFolderByDay(
+      int ymd, {
+        String? host,
+        RenderEngine? re,
+      }) async {
+    final y = ymd ~/ 10000;
+    final m = (ymd ~/ 100) % 100;
+    final d = ymd % 100;
+
+    final dayStart = DateTime(y, m, d);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    final condition = (host != null
+        ? ImageMeta_.host.equals(host)
+        : ImageMeta_.host.isNull())
+        .and(ImageMeta_.dateModified.betweenDate(dayStart, dayEnd));
+
+    final q = imageMetaBox
+        .query(re != null
+        ? condition.and(ImageMeta_.dbRe.equals(re.index))
+        : condition)
+        .order(ImageMeta_.dateModified)
+        .build();
+
+    q.limit = 4;
+    final images = q.find();
+    q.close();
+
+    return Folder(
+      index: 0,
+      name: '$y-${_2(m)}-${_2(d)}',
+      getter: '$y-${_2(m)}-${_2(d)}',
+      type: FolderType.byDay,
+      files: images
+          .map((im) => FolderFile(
+        fullPath: im.fullPath!,
+        isLocal: im.isLocal,
+        thumbnail: im.thumbnail,
+      )).toList(growable: false),
+    );
+  }
+
+  Future<List<Folder>> getFoldersPaged({
+    String? host,
+    RenderEngine? re,
+    required int offset,
+    required int limit,
+  }) async {
+    final days = await getAvailableDays(
+      host: host,
+      re: re,
+      offset: offset,
+      limit: limit,
+    );
+
+    final List<Folder> result = [];
+
+    for (final day in days) {
+      result.add(
+        await getFolderByDay(
+          day,
+          host: host,
+          re: re,
+        ),
+      );
+    }
+
+    return result;
   }
 
   Future<void> updateImages({required ImageMeta imageMeta, bool fromWatch = false}) async {
@@ -339,6 +472,20 @@ class ObjectboxDB {
       });
     }
   }
+
+  // Fun
+
+  Future<void> getBiggestAss() async {
+    final query = imageMetaBox
+        .query()
+        .order(ImageMeta_.fileSize, flags: Order.descending)
+        .build();
+
+    final biggest = query.findFirst();
+    print(readableFileSize(biggest!.fileSize!));
+    print(biggest.getTempFilePath());
+    query.close();
+  }
 }
 
 class Job{
@@ -363,16 +510,17 @@ enum DBErrorsForFix{
   image_size_missmatch
 }
 
-class ImageMetaLite {
-  final int dateMillis;
+class LiteMeta {
+  final int ymd;
   final String fullPath;
   final bool isLocal;
   final Uint8List? thumbnail;
 
-  ImageMetaLite({
-    required this.dateMillis,
-    required this.fullPath,
-    required this.isLocal,
-    required this.thumbnail,
-  });
+  LiteMeta(this.ymd, this.fullPath, this.isLocal, this.thumbnail);
+}
+
+LiteMeta _toLiteMeta(ImageMeta im) {
+  final d = im.dateModified!;
+  final ymd = d.year * 10000 + d.month * 100 + d.day;
+  return LiteMeta(ymd, im.fullPath!, im.isLocal, im.thumbnail);
 }
