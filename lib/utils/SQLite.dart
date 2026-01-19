@@ -31,7 +31,8 @@ class SQLite{
   late Database constDatabase;
 
   bool use = false;
-  bool inProgress = false;
+
+  bool BLYATPIZDETS = true;
 
   late final SqlBatchQueue sqlQueue;
 
@@ -52,7 +53,7 @@ class SQLite{
     if (!await dbPath.exists()) {
       await dbPath.create(recursive: true);
     }
-    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'images_database${kDebugMode ? '_debug' : ''}.db'));
+    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'images_database${!BLYATPIZDETS ? '_debug' : ''}.db'));
 
     database = await openDatabase(
       dbPath.path,
@@ -141,15 +142,43 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_day_host_re ON images(dayKey, host, dbRe)');
 
         await db.execute('''
-      CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
-      USING fts5(
-        keyup,
-        positive,
-        negative,
-        other,
-        specific
-      )
-    ''');
+          CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
+          USING fts5(
+            keyup,
+            positive,
+            negative,
+            other,
+            specific,
+            tokenize = 'unicode61'
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS images_after_insert AFTER INSERT ON generation_params
+          BEGIN
+            INSERT INTO images_fts(keyup, positive, negative, other, specific)
+            SELECT i.keyup, new.positive, new.negative, '', ''
+            FROM images i
+            WHERE i.keyup = new.image_keyup;
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS images_after_update AFTER UPDATE ON generation_params
+            BEGIN
+              UPDATE images_fts
+              SET positive = new.positive,
+                  negative = new.negative
+              WHERE keyup = new.image_keyup;
+            END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS images_after_delete AFTER DELETE ON generation_params
+          BEGIN
+            DELETE FROM images_fts WHERE keyup = old.image_keyup;
+          END;
+        ''');
 
         if (kDebugMode) print('DB path: ${db.path}');
 
@@ -174,7 +203,7 @@ class SQLite{
     );
 
 
-    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'const_database${kDebugMode ? '_debug' : ''}.db'));
+    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'const_database${!BLYATPIZDETS ? '_debug' : ''}.db'));
     constDatabase = await openDatabase(
       dbPath.path,
       onOpen: (db){
@@ -400,6 +429,7 @@ class SQLite{
     RenderEngine? re,
     int previewLimit = 4,
   }) async {
+    print('folders');
     final cacheKey = '${host ?? "_"}|${re?.index ?? -1}';
     if (foldersCache.containsKey(cacheKey)) {
       return foldersCache[cacheKey]!;
@@ -766,9 +796,7 @@ class SQLite{
       whereArgs: host == null ? [parentKey] : [parentKey, host],
     );
 
-    return rows
-        .map((row) => row['pathHash'] as String)
-        .toList(growable: false);
+    return rows.map((row) => row['pathHash'] as String).toList(growable: false);
   }
 
   Future<List<Folder>> getFoldersPaged({
@@ -798,6 +826,131 @@ class SQLite{
 
     return result;
   }
+
+  bool searchInProgress = false;
+  Future<List<ImageMeta>> search(String query) async {
+    if (searchInProgress) return [];
+    searchInProgress = true;
+
+    try {
+      final terms = query.split(',').map((e) => e.trim()).toList();
+
+      List<String> positiveTags = [];
+      List<String> negativeTags = [];
+      Map<String, String> filters = {};
+
+      for (var term in terms) {
+        if (term.startsWith('-')) {
+          negativeTags.add(term.substring(1));
+        } else if (term.contains(':')) {
+          final parts = term.split(':');
+          filters[parts[0].toLowerCase()] = parts.sublist(1).join(':');
+        } else {
+          positiveTags.add(term);
+        }
+      }
+
+      // FTS query (positive tags)
+      String ftsWhere = '';
+      if (positiveTags.isNotEmpty) {
+        final ftsQuery = positiveTags.join(' AND '); // <- remove quotes
+        ftsWhere = "images_fts MATCH '$ftsQuery'";
+      }
+
+      // Negative tags
+      String negativeWhere = '';
+      if (negativeTags.isNotEmpty) {
+        negativeWhere =
+            negativeTags.map((tag) => "NOT (i.positive LIKE '%$tag%' OR i.negative LIKE '%$tag%' OR i.other LIKE '%$tag%' OR i.specific LIKE '%$tag%')").join(' AND ');
+      }
+
+      // Column filters
+      String filtersWhere = '';
+      if (filters.isNotEmpty) {
+        List<String> fWhere = [];
+        filters.forEach((key, value) {
+          switch (key) {
+            case 'seed':
+            case 'steps':
+            case 'rating':
+              fWhere.add('gp.$key = ${int.tryParse(value) ?? 0}');
+              break;
+            case 'cfgscale':
+            case 'hiresupscale':
+            case 'denoisingsstrength':
+              fWhere.add('gp.$key = ${double.tryParse(value) ?? 0}');
+              break;
+            case 'file':
+              fWhere.add("i.fileName LIKE '%.${value}'");
+              break;
+            default:
+              fWhere.add("i.$key LIKE '%$value%'");
+          }
+        });
+        filtersWhere = fWhere.join(' AND ');
+      }
+
+      // Combine WHERE clauses
+      final whereClauses = [
+        if (ftsWhere.isNotEmpty) ftsWhere,
+        if (negativeWhere.isNotEmpty) negativeWhere,
+        if (filtersWhere.isNotEmpty) filtersWhere,
+      ];
+      final whereClause = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
+
+      final sql = '''
+      SELECT
+        i.*,
+        gp.id AS gp_id,
+        gp.positive AS gp_positive,
+        gp.negative AS gp_negative,
+        gp.steps AS gp_steps,
+        gp.sampler AS gp_sampler,
+        gp.cfgScale AS gp_cfgScale,
+        gp.seed AS gp_seed,
+        gp.sizeW AS gp_sizeW,
+        gp.sizeH AS gp_sizeH,
+        gp.checkpointType AS gp_checkpointType,
+        gp.checkpoint AS gp_checkpoint,
+        gp.checkpointHash AS gp_checkpointHash,
+        gp.vae AS gp_vae,
+        gp.vaeHash AS gp_vaeHash,
+        gp.denoisingStrength AS gp_denoisingStrength,
+        gp.rng AS gp_rng,
+        gp.hiresSampler AS gp_hiresSampler,
+        gp.hiresUpscaler AS gp_hiresUpscaler,
+        gp.hiresUpscale AS gp_hiresUpscale,
+        gp.tiHashes AS gp_tiHashes,
+        gp.params AS gp_params,
+        gp.rawData AS gp_rawData,
+        gp.rating AS gp_rating
+      FROM images i
+      JOIN images_fts
+        ON images_fts.keyup = i.keyup
+      LEFT JOIN generation_params gp
+        ON gp.image_keyup = i.keyup
+      $whereClause
+      ORDER BY i.dateModified DESC
+      LIMIT 100
+    ''';
+      print(sql);
+
+      final rows = await database.rawQuery(sql);
+
+      return rows.map((row) {
+        final im = _mapImage(row);
+        if (row['gp_id'] != null) {
+          im.generationParams = GenerationParamsSql.fromSqlMap(_extractGpMap(row));
+        }
+        im.cacheFilePath = _cachePath(im);
+        return im;
+      }).toList(growable: false);
+    } finally {
+      searchInProgress = false;
+    }
+  }
+
+
 
   // OTHER
 

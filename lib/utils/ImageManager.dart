@@ -604,6 +604,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
         } else if(pngEx['workflow'] != null){
           if(await isJson(pngEx['workflow'] as String)){
             re = RenderEngine.comfUI;
+            print(pngEx['workflow']);
             List<dynamic> nodesList = parseComfUIParameters(pngEx['prompt']);
             if(nodesList.isNotEmpty) specific['comfUINodes'] = nodesList;
           }

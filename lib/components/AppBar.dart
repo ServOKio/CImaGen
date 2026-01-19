@@ -11,13 +11,11 @@ import 'package:feedback/feedback.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../l10n/app_localizations.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
-import '../utils/SQLite.dart';
 
 class CAppBar extends StatefulWidget implements PreferredSizeWidget {
   CAppBar({ Key? key }) : preferredSize = const Size.fromHeight(kToolbarHeight+32), super(key: key);
@@ -65,7 +63,7 @@ class _CustomAppBarState extends State<CAppBar>{
             turns += 1.3;
           });
           // TODO
-          //imagesList = sqLite.findByTags(text.split(' ').map((e) => e.trim()).toList(growable: false));
+          imagesList = sqLite.search(text.trim());
           timer.cancel();
         }
       });
@@ -200,6 +198,7 @@ class _CustomAppBarState extends State<CAppBar>{
                       builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
                         Widget children;
                         if (snapshot.hasData) {
+                          print(snapshot.data.length);
                           children = ListView.builder(
                               itemCount: snapshot.data.length,
                               scrollDirection: Axis.horizontal,
