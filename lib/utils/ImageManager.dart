@@ -31,8 +31,8 @@ import '../modules/ConfigManager.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
-import '../objectbox.g.dart';
 import 'NavigationService.dart';
+import 'package:objectbox/objectbox.dart';
 
 
 class ImageManager extends ChangeNotifier {
