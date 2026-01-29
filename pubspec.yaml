@@ -108,9 +108,6 @@ dependencies:
   three_js: ^0.2.6
   three_js_controls: ^0.2.2
   fl_chart: ^1.1.1
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
@@ -134,9 +131,6 @@ flutter:
     - assets/audio/open.wav
     - assets/audio/wrong.wav
     - assets/icons/icon128white.png
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
   fonts:
    - family: Montserrat

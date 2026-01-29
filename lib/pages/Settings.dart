@@ -138,9 +138,6 @@ class _SettingsState extends State<Settings>{
           };
         });
       }});
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
   }
 
@@ -343,9 +340,6 @@ class DBChart extends AbstractSettingsTile{
 =======
   final Map<String, double> dataMap;
   final String text;
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
 
   DBChart({
@@ -545,9 +539,6 @@ class DBChart extends AbstractSettingsTile{
         increaseColorLightness(const Color(0xff34495e), 0.2),
       ]
     ] // 8
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
 >>>>>>> Stashed changes
   ];
 

@@ -25,11 +25,8 @@ class SQLite with ChangeNotifier{
   bool inProgress = false;
 
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
   late Timer timer;
 =======
-=======
->>>>>>> Stashed changes
   bool BLYATPIZDETS = !kDebugMode;
 
   late final SqlBatchQueue sqlQueue;
@@ -712,7 +709,6 @@ class SQLite with ChangeNotifier{
 
   // System
 <<<<<<< Updated upstream
-<<<<<<< Updated upstream
   Future<Map<String, int>> getTablesInfo() async {
       final List<Map<String, dynamic>> maps = await database.rawQuery(
           'SELECT'
@@ -735,8 +731,6 @@ class SQLite with ChangeNotifier{
       return finalMe;
     }
 =======
-=======
->>>>>>> Stashed changes
   Future<Map<String, int>> getTablesInfo({String? host, int? year}) async {
     final sql = '''
   SELECT
