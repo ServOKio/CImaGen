@@ -28,6 +28,12 @@ class UtilsList extends StatelessWidget {
           description: 'Minimal panel for generating images',
           color: Color(0xff8acee0),
           icon: Icons.web_rounded,
+        ),
+        Util(
+          title: 'Tag combinator',
+          description: 'A utility for quickly, for example, transferring tags from one character to another',
+          color: Color(0xffd38ae0),
+          icon: Icons.tag,
         )
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),

@@ -105,6 +105,7 @@ dependencies:
   image: ^4.7.2
   three_js: ^0.2.6
   three_js_controls: ^0.2.2
+  fl_chart: ^1.1.1
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:

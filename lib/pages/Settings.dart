@@ -60,6 +60,7 @@ class _SettingsState extends State<Settings>{
   String _deviceInfo = '-';
 
   Map<String, double> dataMap = {};
+  int totalSize = 0;
 
   @override
   void initState() {
@@ -107,24 +108,44 @@ class _SettingsState extends State<Settings>{
     });
 
     // TODO
-    sqLite.getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) => {
-      if(mounted) setState(() {
-        dataMap = {
-          'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
-          'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
-          'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
-          'extra (${readableFileSize(value['extraSumSize'] as int)})': (value['extraCount'] as int).toDouble(),
-          'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
-          'Without meta (${readableFileSize(value['unknownSumSize'] as int)})': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
-        };
-      })
-    }).onError((error, stackTrace) => {
-      if(mounted) setState(() {
-        dataMap = {
-          'all': 0
-        };
-      })
-    });
+    sqLite.getTablesInfo(host: context.read<ImageManager>().getter.host).then((value) {
+      if(mounted) {
+        List<int> sizes = [
+          value['txt2imgSumSize'] as int,
+          value['img2imgSumSize'] as int,
+          value['inpaintSumSize'] as int,
+          value['extraSumSize'] as int,
+          value['txt2imgGridSumSize'] as int,
+          value['img2imgGridSumSize'] as int,
+          value['inpaintSumSize'] as int,
+          value['comfuiSumSize'] as int,
+          value['unknownSumSize'] as int
+        ];
+        setState(() {
+          dataMap = {
+            'txt2img (${readableFileSize(sizes[0])})': (value['txt2imgCount'] as int).toDouble(),
+            'img2img (${readableFileSize(sizes[1])})': (value['img2imgCount'] as int).toDouble(),
+            'inpaint (${readableFileSize(sizes[2])})': (value['inpaintCount'] as int).toDouble(),
+            'extra (${readableFileSize(sizes[3])})': (value['extraCount'] as int).toDouble(),
+            'txt2img Grid (${readableFileSize(sizes[4])})': (value['txt2imgGridCount'] as int).toDouble(),
+            'img2img Grid (${readableFileSize(sizes[5])})': (value['img2imgGridCount'] as int).toDouble(),
+            'inpaint (${readableFileSize(sizes[6])})': (value['inpaintCount'] as int).toDouble(),
+            'comfui (${readableFileSize(sizes[7])})': (value['comfuiCount'] as int).toDouble(),
+            'Without meta (${readableFileSize(sizes[8])})': (value['unknownCount'] as int).toDouble()
+          };
+          totalSize = sizes.reduce((a, b) => a + b);
+        });
+        print('setted');
+      }
+    }).onError((error, stackTrace) {
+      if(mounted) {
+        print(error);
+        setState(() {
+          dataMap = {
+            'Error': 0
+          };
+        });
+      }});
   }
 
   @override
@@ -373,7 +394,7 @@ class _SettingsState extends State<Settings>{
             SettingsSection(
               title: const Text('Database'),
               tiles: [
-                DBChart(dataMap: dataMap),
+                DBChart(dataMap: dataMap, text: dataMap.values.isNotEmpty ? '${dataMap.values.reduce((a, b) => a + b).round()}\n(${readableFileSize(totalSize)})' : ''),
                 SettingsTile(
                   leading: const Icon(Icons.delete),
                   title: Text('Clear image database'),
@@ -653,10 +674,11 @@ class AppTheme extends AbstractSettingsTile{
 
 class DBChart extends AbstractSettingsTile{
   final Map<String, double> dataMap;
+  final String text;
 
   DBChart({
     super.key,
-    required this.dataMap,
+    required this.dataMap, required this.text,
   });
 
   final List<List<List<Color>>> colorList = [
@@ -757,25 +779,70 @@ class DBChart extends AbstractSettingsTile{
         increaseColorHue(const Color(0xfffbd22c), -15)
       ]
     ], // 6
-    // [ // TODO
-    //   const Color(0xff26f8b8),
-    //   const Color(0xffcbc20a),
-    //   const Color(0xfffc8c0e),
-    //   const Color(0xffd63d50),
-    //   const Color(0xff2800ff),
-    //   const Color(0xffd63d50),
-    //   const Color(0xff2800ff)
-    // ], // 7
-    // [
-    //   const Color(0xffe56a02),
-    //   const Color(0xfffedf00),
-    //   const Color(0xff54fca6),
-    //   const Color(0xff13e4e8),
-    //   const Color(0xff0271fc),
-    //   const Color(0xff5f0073),
-    //   const Color(0xff8c0241),
-    //   const Color(0xffba301f),
-    // ] // 8
+    [ // TODO
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+      [
+        const Color(0xfffbd22c),
+        increaseColorHue(const Color(0xfffbd22c), -15)
+      ],
+    ], // 7
+    [
+      [
+        const Color(0xff197bf7), // Blue
+        increaseColorLightness(const Color(0xff197bf7), 0.2),
+      ],
+      [
+        const Color(0xff00a6a6), // Teal
+        increaseColorLightness(const Color(0xff00a6a6), 0.2),
+      ],
+      [
+        const Color(0xff2ecc71), // Green
+        increaseColorLightness(const Color(0xff2ecc71), 0.2),
+      ],
+      [
+        const Color(0xfff1c40f), // Yellow
+        increaseColorLightness(const Color(0xfff1c40f), 0.2),
+      ],
+      [
+        const Color(0xfff39c12), // Orange
+        increaseColorLightness(const Color(0xfff39c12), 0.2),
+      ],
+      [
+        const Color(0xffe84393), // Pink
+        increaseColorLightness(const Color(0xffe84393), 0.2),
+      ],
+      [
+        const Color(0xff9b59b6), // Purple
+        increaseColorLightness(const Color(0xff9b59b6), 0.2),
+      ],
+      [
+        const Color(0xff34495e), // Dark Blue-Gray (anchors the loop)
+        increaseColorLightness(const Color(0xff34495e), 0.2),
+      ]
+    ]
   ];
 
   @override
@@ -790,7 +857,7 @@ class DBChart extends AbstractSettingsTile{
       initialAngleInDegree: 0,
       chartType: ChartType.ring,
       ringStrokeWidth: 18,
-      centerText: dataMap.values.reduce((a, b) => a + b).round().toString(),
+      centerText: text,
       legendOptions: const LegendOptions(
         showLegendsInRow: false,
         legendPosition: LegendPosition.right,

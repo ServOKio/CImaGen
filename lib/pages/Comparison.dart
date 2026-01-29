@@ -5,6 +5,7 @@ import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/NNancy.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
+import 'package:cimagen/pages/sub/TagCombinator.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -377,6 +378,18 @@ class _ViewBlockState extends State<ViewBlock> {
             );
           }
         },
+      ),
+      const MenuDivider(),
+      MenuItem.submenu(
+        label: const Text('Utils...'),
+        icon: const Icon(Icons.apps),
+        items: [
+          MenuItem(
+            label: const Text('Tag combinator'),
+            icon: const Icon(Icons.tag),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => TagCombinator(oneImageMeta: dataModel.comparisonBlock.firstSelected, twoImageMeta: dataModel.comparisonBlock.secondSelected))),
+          ),
+        ],
       ),
     ];
 

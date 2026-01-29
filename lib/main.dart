@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
+import 'package:cimagen/components/SimpleWindowBar.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
+import 'package:cimagen/pages/sub/YearEndResults.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/GitHub.dart';
@@ -264,7 +266,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         if(permissionStatus){
           permissionStatus = await Permission.manageExternalStorage.request().isGranted;
           if(permissionStatus){
-            next();
+            tryLoad();
           } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
             await openAppSettings();
           } else if (await Permission.manageExternalStorage.request().isDenied) {
@@ -286,7 +288,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       } else {
         permissionStatus = await Permission.storage.request().isGranted;
         if(permissionStatus){
-          next();
+          tryLoad();
         } else if (await Permission.manageExternalStorage.request().isPermanentlyDenied) {
           await openAppSettings();
         } else if (await Permission.manageExternalStorage.request().isDenied) {
@@ -298,7 +300,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         }
       }
     } else {
-      next();
+      tryLoad();
     }
   }
 
@@ -306,7 +308,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     getSharedText();
   }
 
-  void next(){
+  void tryLoad(){
     setState(() {
       _storagePass = true;
     });
@@ -452,7 +454,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                     floatyActionButton: FloatyActionButton(
                       icon: const Icon(Icons.chair),
                       onTap: (){
-                        sqLite.startMigration();
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => YearEndResults(year: 2025)));
                       },
                     ),
                   ),
@@ -554,6 +556,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           ],
         ) : null,
       ) : Scaffold(
+        appBar: SimpleWindowBar(),
         body: SafeArea(
           child: hasError ? Center(
             child: Column(

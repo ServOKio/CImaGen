@@ -169,7 +169,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      DBChart(dataMap: dataMap),
+                      DBChart(dataMap: dataMap, text: dataMap.values.reduce((a, b) => a + b).round().toString()),
                     ],
                   ),
                 ),

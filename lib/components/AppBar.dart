@@ -244,14 +244,15 @@ class _CustomAppBarState extends State<CAppBar>{
             left: Platform.isMacOS ? 0 : null,
             right: !Platform.isMacOS ? 0 : null,
             child: Row(children: Platform.isMacOS ? [
-              CloseWindowButton(),
-              MinimizeWindowButton(),
-              MaximizeWindowButton()
-            ] : [
-              MinimizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
-              MaximizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
-              CloseWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary))
-            ])
+                CloseWindowButton(),
+                MinimizeWindowButton(),
+                MaximizeWindowButton()
+              ] : [
+                MinimizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
+                MaximizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
+                CloseWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary))
+              ]
+            )
         )
       ],
     );
