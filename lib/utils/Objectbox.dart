@@ -21,7 +21,7 @@ import '../modules/ConfigManager.dart';
 import '../modules/webUI/AbMain.dart';
 import '../objectbox.g.dart';
 import 'DataModel.dart';
-import 'NavigationService.dart'; // flutter pub run build_runner build
+import 'NavigationService.dart';
 
 List<Folder> _buildFoldersIsolate(List<LiteMeta> list) {
   final Map<int, List<FolderFile>> byDay = {};

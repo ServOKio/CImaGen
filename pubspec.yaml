@@ -176,8 +176,8 @@ flutter:
 #  capabilities: internetClient
 
 # winget install Microsoft.NuGet
-# dart run build_runner build - for json generator
-# dart run inno_bundle:build --release
+# dart run build_runner build          ---------- for json generator and objectbox
+# dart run inno_bundle:build --release ---------- for .exe build
 inno_bundle:
   id: af897610-4fc5-1fe5-a132-3b682fa2ff26
   name: CImaGen
