@@ -95,7 +95,7 @@ dependencies:
   encrypt: ^5.0.3
   humanize_duration: ^0.0.2
   bitsdojo_window: ^0.1.6
-  toml: ^0.17.0
+  toml: ^0.18.0
   flutter_3d_controller: ^2.3.0
   archive: ^4.0.7
   snow_fall_animation: ^0.0.1+3
