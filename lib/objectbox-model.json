@@ -1,0 +1,273 @@
+{
+  "_note1": "KEEP THIS FILE! Check it into a version control system (VCS) like git.",
+  "_note2": "ObjectBox manages crucial IDs for your object model. See docs for details.",
+  "_note3": "If you have VCS merge conflicts, you must resolve them according to ObjectBox docs.",
+  "entities": [
+    {
+      "id": "1:5612710838682895620",
+      "lastPropertyId": "23:664446500433716605",
+      "name": "GenerationParams",
+      "properties": [
+        {
+          "id": "1:8369849383162291980",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:3039778777548549755",
+          "name": "positive",
+          "type": 9
+        },
+        {
+          "id": "3:157377979103234256",
+          "name": "negative",
+          "type": 9
+        },
+        {
+          "id": "4:3742085914055716074",
+          "name": "steps",
+          "type": 6
+        },
+        {
+          "id": "5:4046093489433718740",
+          "name": "sampler",
+          "type": 9
+        },
+        {
+          "id": "6:1359481478935137190",
+          "name": "cfgScale",
+          "type": 8
+        },
+        {
+          "id": "7:1685994634248954341",
+          "name": "seed",
+          "type": 6
+        },
+        {
+          "id": "8:627957826146350439",
+          "name": "checkpoint",
+          "type": 9
+        },
+        {
+          "id": "9:6351934713857678324",
+          "name": "checkpointHash",
+          "type": 9
+        },
+        {
+          "id": "10:4172788466155878684",
+          "name": "vae",
+          "type": 9
+        },
+        {
+          "id": "11:2749991649759715806",
+          "name": "vaeHash",
+          "type": 9
+        },
+        {
+          "id": "12:3563895506397998225",
+          "name": "denoisingStrength",
+          "type": 8
+        },
+        {
+          "id": "13:5697736120636264323",
+          "name": "rng",
+          "type": 9
+        },
+        {
+          "id": "14:2895843173158216800",
+          "name": "hiresSampler",
+          "type": 9
+        },
+        {
+          "id": "15:3285834822174973631",
+          "name": "hiresUpscaler",
+          "type": 9
+        },
+        {
+          "id": "16:3808804731464400975",
+          "name": "hiresUpscale",
+          "type": 8
+        },
+        {
+          "id": "17:3137415165080915469",
+          "name": "version",
+          "type": 9
+        },
+        {
+          "id": "18:7463245307920649530",
+          "name": "rawData",
+          "type": 9
+        },
+        {
+          "id": "19:3859175668864835803",
+          "name": "dbSize",
+          "type": 27
+        },
+        {
+          "id": "20:7409481922305154350",
+          "name": "dbCheckpointType",
+          "type": 6
+        },
+        {
+          "id": "21:1947406572180551226",
+          "name": "dbTiHashes",
+          "type": 9
+        },
+        {
+          "id": "22:34057710725419835",
+          "name": "dbRating",
+          "type": 6
+        },
+        {
+          "id": "23:664446500433716605",
+          "name": "dbParams",
+          "type": 9
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "2:836234286331607557",
+      "lastPropertyId": "24:2932544344916973882",
+      "name": "ImageMeta",
+      "properties": [
+        {
+          "id": "1:1703735352965974354",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:7713961108608267264",
+          "name": "keyup",
+          "type": 9,
+          "flags": 2048,
+          "indexId": "1:6752289052878076801"
+        },
+        {
+          "id": "3:2625735042295448668",
+          "name": "host",
+          "type": 9
+        },
+        {
+          "id": "4:5737418068083552570",
+          "name": "mine",
+          "type": 9
+        },
+        {
+          "id": "5:8983515968784810856",
+          "name": "fileTypeExtension",
+          "type": 9
+        },
+        {
+          "id": "6:961594898156003123",
+          "name": "dateModified",
+          "type": 10,
+          "flags": 8,
+          "indexId": "3:1115789481604348470"
+        },
+        {
+          "id": "7:4322825290257132049",
+          "name": "fileSize",
+          "type": 6
+        },
+        {
+          "id": "8:3222248826317769125",
+          "name": "fileName",
+          "type": 9
+        },
+        {
+          "id": "9:6624945592181831535",
+          "name": "pathHash",
+          "type": 9
+        },
+        {
+          "id": "10:815588344921961931",
+          "name": "fullPath",
+          "type": 9
+        },
+        {
+          "id": "11:279678329775887907",
+          "name": "fullNetworkPath",
+          "type": 9
+        },
+        {
+          "id": "12:2047534565465207797",
+          "name": "tempFilePath",
+          "type": 9
+        },
+        {
+          "id": "13:4085219615235809694",
+          "name": "dbGenerationParamsId",
+          "type": 11,
+          "flags": 520,
+          "indexId": "2:5018930150217760427",
+          "relationTarget": "GenerationParams"
+        },
+        {
+          "id": "16:4079921586496920314",
+          "name": "networkThumbnail",
+          "type": 9
+        },
+        {
+          "id": "17:1036681876303578439",
+          "name": "dbRe",
+          "type": 6
+        },
+        {
+          "id": "18:5306408746474920228",
+          "name": "dbSize",
+          "type": 27
+        },
+        {
+          "id": "19:42329194016196444",
+          "name": "dbOther",
+          "type": 9
+        },
+        {
+          "id": "20:4341179877783419030",
+          "name": "dbSpecific",
+          "type": 9
+        },
+        {
+          "id": "21:2330948256636127591",
+          "name": "dbThumbnail",
+          "type": 9
+        },
+        {
+          "id": "22:5447509339082301620",
+          "name": "cacheFilePath",
+          "type": 9
+        },
+        {
+          "id": "23:898841031516601779",
+          "name": "fullImage",
+          "type": 23
+        },
+        {
+          "id": "24:2932544344916973882",
+          "name": "dayKey",
+          "type": 6,
+          "flags": 8,
+          "indexId": "4:1759563950951639925"
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "lastEntityId": "2:836234286331607557",
+  "lastIndexId": "4:1759563950951639925",
+  "lastRelationId": "0:0",
+  "lastSequenceId": "0:0",
+  "modelVersion": 5,
+  "modelVersionParserMinimum": 5,
+  "retiredEntityUids": [],
+  "retiredIndexUids": [],
+  "retiredPropertyUids": [
+    7004923476242970745,
+    5867880175516831650
+  ],
+  "retiredRelationUids": [],
+  "version": 1
+}

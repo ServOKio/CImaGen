@@ -24,7 +24,13 @@ class SQLite with ChangeNotifier{
   bool use = false;
   bool inProgress = false;
 
+<<<<<<< Updated upstream
   late Timer timer;
+=======
+  bool BLYATPIZDETS = !kDebugMode;
+
+  late final SqlBatchQueue sqlQueue;
+>>>>>>> Stashed changes
 
   Future<void> init() async {
     int dbVersion = 2;
@@ -55,6 +61,7 @@ class SQLite with ChangeNotifier{
             'fullPath TEXT,'
             'dateModified DATETIME,'
 
+<<<<<<< Updated upstream
             'mine VARCHAR(64),'
             'fileTypeExtension VARCHAR(8),'
             'fileSize INTEGER,'
@@ -64,6 +71,136 @@ class SQLite with ChangeNotifier{
             'other TEXT,'
             'thumbnail TEXT'
           ')',
+=======
+        await db.execute('''
+      CREATE TABLE IF NOT EXISTS images (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        keyup TEXT UNIQUE NOT NULL,
+        dayKey INTEGER NOT NULL,
+
+        isLocal INTEGER NOT NULL,
+        host TEXT,
+        hostMD5 TEXT,
+
+        dbRe INTEGER NOT NULL,
+        parent TEXT,
+        fileName TEXT,
+
+        pathHash TEXT,
+        fullPath TEXT,
+        fullNetworkPath TEXT,
+
+        dateModified DATETIME,
+        fileSize INTEGER,
+
+        mine TEXT,
+        fileTypeExtension TEXT,
+
+        size TEXT,
+        specific TEXT,
+        other TEXT,
+
+        thumbnail TEXT
+      )
+    ''');
+
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_host ON images(host)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_re ON images(dbRe)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_pathHash ON images(pathHash)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_date ON images(dateModified)');
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS generation_params (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            
+            image_keyup TEXT NOT NULL,
+    
+            positive TEXT,
+            negative TEXT,
+    
+            steps INTEGER,
+            sampler TEXT,
+            cfgScale REAL,
+            seed INTEGER,
+    
+            sizeW INTEGER,
+            sizeH INTEGER,
+    
+            checkpointType INTEGER,
+            checkpoint TEXT,
+            checkpointHash TEXT,
+    
+            vae TEXT,
+            vaeHash TEXT,
+    
+            denoisingStrength REAL,
+            rng TEXT,
+    
+            hiresSampler TEXT,
+            hiresUpscaler TEXT,
+            hiresUpscale REAL,
+    
+            tiHashes TEXT,
+            version TEXT,
+            params TEXT,
+            rawData TEXT,
+            rating INTEGER,
+            FOREIGN KEY(image_keyup) REFERENCES images(keyup) ON DELETE CASCADE
+          )
+      ''');
+
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_gen_seed ON generation_params(seed)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_day_host_re ON images(dayKey, host, dbRe)');
+
+        await db.execute('''
+          CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
+          USING fts5(
+            keyup,
+            positive,
+            negative,
+            other,
+            specific,
+            tokenize = 'unicode61'
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS images_after_insert AFTER INSERT ON generation_params
+          BEGIN
+            INSERT INTO images_fts(keyup, positive, negative, other, specific)
+            SELECT i.keyup, new.positive, new.negative, '', ''
+            FROM images i
+            WHERE i.keyup = new.image_keyup;
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS images_after_update AFTER UPDATE ON generation_params
+            BEGIN
+              UPDATE images_fts
+              SET positive = new.positive,
+                  negative = new.negative
+              WHERE keyup = new.image_keyup;
+            END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS images_after_delete AFTER DELETE ON generation_params
+          BEGIN
+            DELETE FROM images_fts WHERE keyup = old.image_keyup;
+          END;
+        ''');
+
+        if (kDebugMode) print('DB path: ${db.path}');
+
+        initSqlQueue(db);
+
+        final notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.data_saver_off, color: Colors.greenAccent),
+          title: 'Connected to DB',
+          description: 'SQLite ready',
+>>>>>>> Stashed changes
         );
 
         await db.execute(
@@ -571,6 +708,7 @@ class SQLite with ChangeNotifier{
   }
 
   // System
+<<<<<<< Updated upstream
   Future<Map<String, int>> getTablesInfo() async {
       final List<Map<String, dynamic>> maps = await database.rawQuery(
           'SELECT'
@@ -592,6 +730,315 @@ class SQLite with ChangeNotifier{
       });
       return finalMe;
     }
+=======
+  Future<Map<String, int>> getTablesInfo({String? host, int? year}) async {
+    final sql = '''
+  SELECT
+    COUNT(*) AS totalImages,
+
+    SUM(CASE WHEN dbRe = 0 THEN 1 ELSE 0 END) AS unknownCount,
+    SUM(CASE WHEN dbRe = 1 THEN 1 ELSE 0 END) AS txt2imgCount,
+    SUM(CASE WHEN dbRe = 2 THEN 1 ELSE 0 END) AS img2imgCount,
+    SUM(CASE WHEN dbRe = 3 THEN 1 ELSE 0 END) AS inpaintCount,
+    SUM(CASE WHEN dbRe = 4 THEN 1 ELSE 0 END) AS txt2imgGridCount,
+    SUM(CASE WHEN dbRe = 5 THEN 1 ELSE 0 END) AS img2imgGridCount,
+    SUM(CASE WHEN dbRe = 6 THEN 1 ELSE 0 END) AS extraCount,
+    SUM(CASE WHEN dbRe = 7 THEN 1 ELSE 0 END) AS comfuiCount,
+
+    SUM(CASE WHEN dbRe = 0 THEN fileSize ELSE 0 END) AS unknownSumSize,
+    SUM(CASE WHEN dbRe = 1 THEN fileSize ELSE 0 END) AS txt2imgSumSize,
+    SUM(CASE WHEN dbRe = 2 THEN fileSize ELSE 0 END) AS img2imgSumSize,
+    SUM(CASE WHEN dbRe = 3 THEN fileSize ELSE 0 END) AS inpaintSumSize,
+    SUM(CASE WHEN dbRe = 4 THEN fileSize ELSE 0 END) AS txt2imgGridSumSize,
+    SUM(CASE WHEN dbRe = 5 THEN fileSize ELSE 0 END) AS img2imgGridSumSize,
+    SUM(CASE WHEN dbRe = 6 THEN fileSize ELSE 0 END) AS extraSumSize,
+    SUM(CASE WHEN dbRe = 7 THEN fileSize ELSE 0 END) AS comfuiSumSize
+  FROM images
+  WHERE ${host == null ? 'host IS NULL' : 'host = ?'}${year == null ? '' : ' AND dateModified >= \'$year-01-01\' AND dateModified <  \'$year-01-01\''}
+  ''';
+
+    final res = await database.rawQuery(
+      sql,
+      host == null ? null : [host],
+    );
+
+    final row = res.first;
+
+    return row.map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
+  }
+
+
+  Future<int> getImageIdByKeyup(String keyup) async {
+    final res = await database.query(
+      'images',
+      columns: ['id'],
+      where: 'keyup = ?',
+      whereArgs: [keyup],
+      limit: 1,
+    );
+
+    if (res.isEmpty) {
+      throw StateError('Image not found for keyup=$keyup');
+    }
+
+    return res.first['id'] as int;
+  }
+
+  // Year data
+  Future<List<List<int>>> yearsComparison(int year, {String? host}) async {
+    List<int> currentYearCounts = List.filled(12, 0);
+    List<int> previousYearCounts = List.filled(12, 0);
+
+    final rows = await database.rawQuery('''
+    SELECT 
+      STRFTIME('%Y', dateModified) AS y,
+      STRFTIME('%m', dateModified) AS m,
+      COUNT(*) AS c
+    FROM images
+    WHERE STRFTIME('%Y', dateModified) IN (?, ?)
+    GROUP BY y, m
+  ''', [year.toString(), (year - 1).toString()]);
+
+    for (final row in rows) {
+      final y = int.parse(row['y'] as String);
+      final m = int.parse(row['m'] as String); // 1..12
+      final c = row['c'] as int;
+
+      if (y == year) {
+        currentYearCounts[m - 1] = c;
+      } else if (y == year - 1) {
+        previousYearCounts[m - 1] = c;
+      }
+    }
+
+    return [currentYearCounts, previousYearCounts];
+  }
+
+  Future<int> countCumInNovember(int year, {String? host}) async {
+    final startDate = '$year-11-01';
+    final endDate = '$year-12-01';
+
+    final rows = await database.rawQuery('''
+    SELECT
+      SUM( (LENGTH(LOWER(positive)) - LENGTH(REPLACE(LOWER(positive), 'cum', ''))) / 3 ) AS cum_count
+    FROM generation_params gp
+    JOIN images i ON i.keyup = gp.image_keyup
+    WHERE gp.positive IS NOT NULL
+      AND i.dateModified >= ?
+      AND i.dateModified < ?
+  ''', [startDate, endDate]);
+
+    // SQLite returns null if no rows
+    final count = rows.first['cum_count'] as num?;
+    return count?.toInt() ?? 0;
+  }
+
+  Future<List<List<dynamic>>> topArtists({
+    required int year,
+    String? host,
+    int limit = 50,
+  }) async {
+    final whereHost = host != null ? 'AND i.host = ?' : '';
+    final startDate = '$year-01-01';
+    final endDate = '${year + 1}-01-01';
+
+    final args = <Object>[
+      if (host != null) host,
+      startDate,
+      endDate,
+      limit,
+    ];
+
+    final rows = await database.rawQuery('''
+    WITH cleaned AS (
+      SELECT
+        LOWER(
+          REPLACE(
+            REPLACE(
+              REPLACE(
+                REPLACE(
+                  REPLACE(
+                    REPLACE(
+                      REPLACE(
+                        REPLACE(gp.positive, CHAR(10), ''),
+                      CHAR(13), ''),
+                    '[', ','),
+                  ']', ','),
+                '(', ','),
+              ')', ','),
+            '<', ','),
+          '>', ',')
+        ) AS text
+      FROM generation_params gp
+      JOIN images i
+        ON i.keyup = gp.image_keyup
+      WHERE gp.positive IS NOT NULL
+        $whereHost
+        AND i.dateModified >= ?
+        AND i.dateModified <  ?
+    ),
+    
+    split(tag, rest) AS (
+      SELECT
+        TRIM(SUBSTR(text, 1, INSTR(text || ',', ',') - 1)),
+        SUBSTR(text || ',', INSTR(text || ',', ',') + 1)
+      FROM cleaned
+    
+      UNION ALL
+    
+      SELECT
+        TRIM(SUBSTR(rest, 1, INSTR(rest, ',') - 1)),
+        SUBSTR(rest, INSTR(rest, ',') + 1)
+      FROM split
+      WHERE rest <> ''
+    )
+    
+    SELECT
+      artist,
+      COUNT(*) AS count
+    FROM (
+      SELECT
+        TRIM(SUBSTR(tag, 4)) AS artist
+      FROM split
+      WHERE tag LIKE 'by %'
+        AND tag NOT GLOB '*[0-9]*'
+        AND SUBSTR(tag, 4) NOT LIKE '%by %'
+        AND LENGTH(tag) >= 6
+    )
+    GROUP BY artist
+    ORDER BY count DESC
+    LIMIT ?
+    ''', args);
+
+    return rows
+        .map((row) => [
+      row['artist'] as String,
+      (row['count'] as num).toInt(),
+    ])
+        .toList(growable: false);
+  }
+
+  Future<List<ImageMeta>> getTopByFileSize(
+      int year, {
+        String? host,
+        int limit = 50,
+      }) async {
+    final args = <Object>[
+      '$year-01-01',
+      '${year + 1}-01-01',
+    ];
+
+    final whereHost = host != null ? 'AND host = ?' : '';
+    if (host != null) args.add(host);
+    args.add(limit);
+
+    // STEP 1 — fast keyup lookup
+    final keyRows = await database.rawQuery(
+      '''
+  SELECT keyup
+  FROM images i
+  WHERE i.fileSize IS NOT NULL
+    AND i.dateModified >= ?
+    AND i.dateModified <  ?
+    ${host != null ? 'AND i.host = ?' : ''}
+    AND (
+      i.specific IS NULL
+      OR json_extract(i.specific, '\$.hasAnimation') IS NOT 1
+    )
+  ORDER BY i.fileSize DESC
+  LIMIT ?
+  ''',
+      args,
+    );
+
+    if (keyRows.isEmpty) return [];
+
+    final keyups = keyRows.map((e) => e['keyup']).toList();
+    final placeholders = List.filled(keyups.length, '?').join(',');
+
+    // STEP 2 — fetch full rows
+    final rows = await database.rawQuery(
+      '''
+    SELECT
+      i.*,
+      gp.id AS gp_id,
+      gp.positive AS gp_positive,
+      gp.negative AS gp_negative,
+      gp.steps AS gp_steps,
+      gp.sampler AS gp_sampler,
+      gp.cfgScale AS gp_cfgScale,
+      gp.seed AS gp_seed,
+      gp.sizeW AS gp_sizeW,
+      gp.sizeH AS gp_sizeH,
+      gp.checkpointType AS gp_checkpointType,
+      gp.checkpoint AS gp_checkpoint,
+      gp.checkpointHash AS gp_checkpointHash,
+      gp.vae AS gp_vae,
+      gp.vaeHash AS gp_vaeHash,
+      gp.denoisingStrength AS gp_denoisingStrength,
+      gp.rng AS gp_rng,
+      gp.hiresSampler AS gp_hiresSampler,
+      gp.hiresUpscaler AS gp_hiresUpscaler,
+      gp.hiresUpscale AS gp_hiresUpscale,
+      gp.tiHashes AS gp_tiHashes,
+      gp.params AS gp_params,
+      gp.rawData AS gp_rawData,
+      gp.rating AS gp_rating
+    FROM images i
+    LEFT JOIN generation_params gp
+      ON gp.image_keyup = i.keyup
+    WHERE i.keyup IN ($placeholders)
+    ORDER BY i.fileSize DESC
+    ''',
+      keyups,
+    );
+
+    return rows.map((row) {
+      final im = _mapImage(row);
+
+      if (row['gp_id'] != null) {
+        im.generationParams =
+            GenerationParamsSql.fromSqlMap(_extractGpMap(row));
+      }
+
+      im.cacheFilePath = _cachePath(im);
+      return im;
+    }).toList(growable: false);
+  }
+
+
+
+
+  // System
+  Future<void> fixDB() async {
+    print('start fix');
+    List<Map<String, dynamic>> maps = await database.query(
+      'images',
+      columns: ['fullPath', 'keyup', 'cached_image'],
+      where: 'host = ?',
+      whereArgs: ['web'],
+      limit: 10
+    );
+    Batch batch = database.batch();
+    if (kDebugMode) print('fixDB: Checking ${maps.length} images...');
+    for (var record in maps) {
+      // batch.update('images', {
+      //   'pathHash': genPathHash(normalizePath(record['fullPath']))
+      // }, where: 'keyup = ?', whereArgs: [record['keyup']]);
+    }
+    await batch.commit(noResult: false, continueOnError: false);
+
+    if (kDebugMode) print('fixDB: Done');
+  }
+
+  Future<void> testDB() async {
+    print('start test');
+
+    if (kDebugMode) {
+      print('testDB: Done');
+    }
+  }
+>>>>>>> Stashed changes
 }
 
 // ImageParams imageParamsFromJson(String data) {

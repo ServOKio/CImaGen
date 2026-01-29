@@ -82,10 +82,159 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         _scrollControllers[re.index]?.addListener(() {
 
         });
+<<<<<<< Updated upstream
         // Lists
         _lists[re.index] = _loadMenu(re);
         // Selected
         _selected[re.index] = 0;
+=======
+      // Lists
+      _folders[i] = [];
+      _isLoadingMore[i] = false;
+      _hasMore[i] = true;
+
+      _loadNextPage(i);
+      // Selected
+      _selected[i] = 0;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.setActions([
+        CustomActionButton(getIcon: () => [Icons.grid_view, Icons.branding_watermark_outlined, Icons.vertical_split_rounded][previewType], tooltip: 'Preview mode', onPress: (){
+          int m = previewType + 1 >= 3 ? 0 : previewType + 1;
+          prefs.setInt('gallery_preview_mode', m);
+          setState(() {
+            previewType = m;
+          });
+        }, isActive: () => previewType != 0),
+        CustomActionButton(getIcon: () => Icons.info, tooltip: 'Database info', onPress: (){
+          sqLite.getTablesInfo(host: context.read<ImageManager>().getter.host).then((value){
+            Map<String, double> dataMap = {
+              'txt2img (${readableFileSize(value['txt2imgSumSize'] as int)})': (value['txt2imgCount'] as int).toDouble(),
+              'img2img (${readableFileSize(value['img2imgSumSize'] as int)})': (value['img2imgCount'] as int).toDouble(),
+              'inpaint (${readableFileSize(value['inpaintSumSize'] as int)})': (value['inpaintCount'] as int).toDouble(),
+              'comfui (${readableFileSize(value['comfuiSumSize'] as int)})': (value['comfuiCount'] as int).toDouble(),
+              'Without meta': (value['totalImages'] as int) - (value['totalImagesWithMetadata'] as int).toDouble()
+            };
+            showDialog<String>(
+              context: context,
+              builder: (BuildContext context) => AlertDialog(
+                title: const Text('Database info'),
+                content: SizedBox(
+                  width: MediaQuery.of(context).size.width - 30,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DBChart(dataMap: dataMap, text: dataMap.values.reduce((a, b) => a + b).round().toString()),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 'OK'),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }).onError((error, stackTrace){
+
+          });
+        }, isActive: () => true),
+        CustomActionButton(getIcon: () => Icons.grid_on_outlined, tooltip: 'Take the best sids for XYZ', onPress: (){
+          // _lists[_tabController!.index]?.then((listValue) {
+          //   // Folder f = listValue[_selected[_tabController!.index]!];
+          //   showDialog<String>(
+          //     context: context,
+          //     builder: (BuildContext context) => AlertDialog(
+          //       title: const Text('Best for XYZ', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+          //       content: SizedBox(
+          //         width: MediaQuery.of(context).size.width - 30 > MediaQuery.of(context).size.height - 30 ? MediaQuery.of(context).size.height - 30 : MediaQuery.of(context).size.width - 30,
+          //         height: MediaQuery.of(context).size.height - 30,
+          //         child: XYZPlotForHiRes(_tabController!.index, _selected[_tabController!.index]!),
+          //       ),
+          //       actions: <Widget>[
+          //         TextButton(
+          //           onPressed: () => Navigator.pop(context, 'OK'),
+          //           child: const Text('OK'),
+          //         ),
+          //       ],
+          //     ),
+          //   );
+          // });
+        }, isActive: () => true),
+        PopupMenuButton<int>(
+          color: Colors.black,
+          itemBuilder: (context) => [
+            PopupMenuItem<int>(
+              child: Text('Index ${_tabs[_tabController!.index]}'),
+              onTap: () => context.read<ImageManager>().getter.indexAll(_tabController!.index),
+            ),
+            PopupMenuItem<int>(
+              child: const Text('Find incorrectly located files'),
+              onTap: (){
+
+              },
+            ),
+            PopupMenuItem<int>(
+              child: const Text('Fix Loras metadata'),
+              onTap: (){
+                context.read<ImageManager>().getter.fixLorasMetadata();
+              },
+            ),
+            PopupMenuItem<int>(
+              child: const Text('Delete all from this host'),
+              onTap: (){
+                showDialog<String>(
+                  context: context,
+                  builder: (BuildContext context) => AlertDialog(
+                    icon: const Icon(Icons.warning_amber_outlined),
+                    title: const Text('Are you sure you want to delete all records?'),
+                    content: const Text('The application will take some time to delete all'),
+                    actions: <Widget>[
+                      TextButton(
+                        onPressed: () => objectbox.deleteAllFromHost(context.read<ImageManager>().getter.host).then((v) => Navigator.pop(context)),
+                        child: const Text('Okay'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        )
+      ]);
+    });
+  }
+
+  Future<void> _loadNextPage(int tabIndex) async {
+    if (_isLoadingMore[tabIndex]! || !_hasMore[tabIndex]!) return;
+
+    _isLoadingMore[tabIndex] = true;
+
+    final offset = _folders[tabIndex]!.length;
+
+    final newItems = await context
+      .read<ImageManager>()
+      .getter
+      .getFoldersPaged(
+          tabIndex,
+          offset: offset,
+          limit: _pageSize,
+        );
+
+    if (!mounted) return;
+
+    setState(() {
+      _folders[tabIndex]!.addAll(newItems);
+      _isLoadingMore[tabIndex] = false;
+      if (newItems.length < _pageSize) {
+        _hasMore[tabIndex] = false;
+>>>>>>> Stashed changes
       }
       _lists[_tabs[0].index]?.then((value){
         if(mounted && value.isNotEmpty) {

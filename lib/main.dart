@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
+import 'package:cimagen/pages/sub/YearEndResults.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/GitHub.dart';
@@ -300,6 +301,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeManager>(context);
 
+<<<<<<< Updated upstream
     return Scaffold(
       appBar: CAppBar(),
       body: PageView(
@@ -338,6 +340,203 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             icon: Icon(Icons.inbox),
             selectedIcon: Icon(Icons.all_inbox),
             label: 'Home',
+=======
+    bool changeNotify = MediaQuery.of(context).size.width < 720;
+
+    return AnimatedSizeAndFade(
+      child: loaded ? Scaffold(
+        appBar: CAppBar(),
+        body: Stack(
+          children: [
+            PageView(
+              physics: const NeverScrollableScrollPhysics(),
+              controller: _pageViewController,
+              children: <Widget>[
+                loaded ? debug ? Column(
+                  children: [
+                    Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
+                  ],
+                ) : const Home() : LoadingState(loaded: loaded, error: error),
+                loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
+                loaded ? Timeline() : LoadingState(loaded: loaded, error: error),
+                loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
+                // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+                // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+                const Settings()
+              ],
+            ),
+            Positioned(
+                bottom: 90,
+                right: 14,
+                child: Container(
+                  // color: Colors.red,
+                    constraints: BoxConstraints(
+                        maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720,
+                        maxHeight: MediaQuery.of(context).size.height - (changeNotify ? 220 : 156)
+                    ),
+                    child: ChangeNotifierProvider(
+                        create: (context) => notificationManager,
+                        child:  Consumer<NotificationManager>(
+                            builder: (context, manager, child) => SingleChildScrollView(
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
+                              ),
+                            )
+                        )
+                    )
+                )
+            ),
+            if(Platform.isWindows || Platform.isLinux) Align(
+              alignment: Alignment.bottomCenter,
+              child: FloatyNavBar(
+                selectedTab: _currentPageIndex,
+                tabs: [
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 0,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                    onTap: () => _updateCurrentPageIndex(0),
+                    title: 'Home',
+                    icon: Icon(Icons.inbox),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.chair),
+                      onTap: (){
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => YearEndResults(year: 2025)));
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 1,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                    onTap: () => _updateCurrentPageIndex(1),
+                    title: 'Gallery',
+                    icon: Icon(Icons.auto_awesome_mosaic_outlined),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.autorenew),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 2,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                    onTap: () => _updateCurrentPageIndex(2),
+                    title: 'Render History',
+                    icon: Icon(Icons.account_tree_sharp),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.auto_graph),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 3,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                    onTap: () => _updateCurrentPageIndex(3),
+                    title: 'Comparison',
+                    icon: Icon(Icons.compare),
+                    floatyActionButton: FloatyActionButton(
+                      icon: const Icon(Icons.share),
+                      onTap: (){
+
+                      },
+                    ),
+                  ),
+                  FloatyTab(
+                    isSelected: _currentPageIndex == 4,
+                    titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
+                    onTap: () => _updateCurrentPageIndex(4),
+                    title: 'Settings',
+                    icon: Icon(Icons.settings),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed:(){
+            _showModalBottomSheet(context);
+            //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
+          },
+          tooltip: 'Notes',
+          child: const Icon(Icons.note),
+        ),
+        bottomNavigationBar: changeNotify ? NavigationBar(
+          height: 70,
+          backgroundColor: Theme.of(context).colorScheme.background,
+          indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+          surfaceTintColor: Colors.transparent,
+          labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+          selectedIndex: _currentPageIndex,
+          onDestinationSelected: (int index) {
+            _updateCurrentPageIndex(index);
+          },
+          destinations: const <Widget>[
+            NavigationDestination(
+              icon: Icon(Icons.inbox),
+              selectedIcon: Icon(Icons.all_inbox),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_awesome_mosaic_outlined),
+              selectedIcon: Icon(Icons.auto_awesome_mosaic),
+              label: 'Gallery',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.account_tree_outlined),
+              selectedIcon: Icon(Icons.account_tree_sharp),
+              label: 'Render History',
+              enabled: false,
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.add_to_photos_outlined),
+              selectedIcon: Icon(Icons.add_to_photos),
+              label: 'Comparison',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+        ) : null,
+      ) : Scaffold(
+        body: SafeArea(
+          child: hasError ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(Icons.error_outline, size: 50, color: Colors.redAccent),
+                  ],
+                ),
+                const Gap(4),
+                Text('Oops, there seems to be a error', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                SelectableText(error, style: TextStyle(color: Colors.grey)),
+                const Gap(7),
+                MaterialButton(onPressed: (){
+                  print(context.read<DataManager>().error);
+                }, child: Text('Retry'))
+              ],
+            ),
+          ) : Center(
+            child: Column(
+              children: [
+                Text('Storage $_storagePass\n'
+                    'Config: $_configPass\n'
+                    'ObjectBox: $_obPass\n'
+                    'SQL: $_sqlPass\n'
+                    'ImageManager: $_imgManagerPass\n'
+                    'DataManager: $_dataManagerPass\n'
+                    'SaveManager: $_saveManagerPass'),
+                LinearProgressIndicator()
+              ],
+            ),
+>>>>>>> Stashed changes
           ),
           NavigationDestination(
             icon: Icon(Icons.auto_awesome_mosaic_outlined),
