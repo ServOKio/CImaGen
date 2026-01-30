@@ -1,20 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart';
 
-import '../../utils/NavigationService.dart';
-import '../../utils/SQLite.dart';
+import '../../Utils.dart';
 import 'AbMain.dart';
 
-class OnLocal implements AbMain {
+class OnLocal extends ChangeNotifier implements AbMain{
   @override
   bool loaded = false;
+  @override
+  String? error;
+  @override
+  bool get hasError => error != null;
+
+  Software? software;
+
+  List<String> inProcess = [];
+  bool isIndexingAll = false;
 
   // Config
   Map<String, dynamic> _config = <String, dynamic>{};
@@ -22,7 +33,10 @@ class OnLocal implements AbMain {
 
   // WebUI
   String _webui_root = '';
-  String _webui_outputs_folder = '';
+
+  @override
+  String? get host => null;
+  String hostHash = '';
 
   Map<String, String> _webuiPaths = {};
   @override
@@ -31,13 +45,54 @@ class OnLocal implements AbMain {
   // Other
   List<StreamSubscription<FileSystemEvent>> watchList = [];
   Map<int, ParseJob> _jobs = {};
+  Map<int, ParseJob> get getJobs => _jobs;
+
+  int getJobCountActive() {
+    _jobs.removeWhere((key, value) => value.controller.isClosed);
+    return _jobs.length;
+  }
+
+  List<String> _tabs = [];
+  @override
+  List<String> get tabs => _tabs;
+  List<RenderEngine> _internalTabs = [];
+
 
   @override
   Future<void> init() async {
-    String sdWebuiFolder = prefs!.getString('sd_webui_folder') ?? '';
-    if(sdWebuiFolder.isNotEmpty){
-      _webui_root = sdWebuiFolder;
-      final String response = File('$sdWebuiFolder/config.json').readAsStringSync();
+    for (var e in watchList) {
+      e.cancel();
+    }
+    _tabs.clear();
+    _internalTabs.clear();
+    _webuiPaths.clear();
+
+    String? webuiFolder = prefs.getString('webui_folder');
+    if(webuiFolder == null) {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+          title: 'Initialization problem',
+          description: 'The folder containing Stable Diffusion WebUI is not specified. Specify in the settings',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: () => init(),
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          ))
+      );
+      audioController!.player.play(AssetSource('audio/error.wav'));
+      return;
+    }
+    _webui_root = webuiFolder;
+    //if swarnUI
+    bool swarnPS = File('$_webui_root/SwarmUI.sln').existsSync();
+    bool sdWebUIConfig = File('$webuiFolder/config.json').existsSync();
+    if(swarnPS){
+      // Output / local /
+    } else if(sdWebUIConfig){
+      final String response = File('$webuiFolder/config.json').readAsStringSync();
       _config = await json.decode(response);
       // paths
       String i2ig = p.join(_webui_root, _config['outdir_img2img_grids']);
@@ -53,16 +108,24 @@ class OnLocal implements AbMain {
         'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
         'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
       });
+      _tabs = ['txt2img', 'img2img'];
+      _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
+      sqLite.cleanUp(host);
       loaded = true;
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
+          title: 'Welcome to Stable Diffusion',
+          description: 'Initialization was successful'
+      );
+      audioController!.player.play(AssetSource('audio/info.wav'));
+      Future.delayed(const Duration(seconds: 10), () {
+        notificationManager!.close(notID);
+      });
+      notifyListeners();
 
       if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
       if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
     }
-  }
-
-  @override
-  Future<List<ImageMeta>> getFolderFiles(RenderEngine re, String sub) {
-    return NavigationService.navigatorKey.currentContext!.read<SQLite>().getImagesByParent(re == RenderEngine.img2img ? [RenderEngine.img2img, RenderEngine.inpaint] : re, sub);
   }
 
   Map<RenderEngine, String> ke = {
@@ -74,19 +137,121 @@ class OnLocal implements AbMain {
   };
 
   @override
-  Future<List<Folder>> getFolders(RenderEngine renderEngine) async {
+  Future<void> fixLorasMetadata() async {
+    String? webuiFolder = prefs.getString('webui_folder');
+    Directory lorasDir = Directory(p.join(webuiFolder!, 'models', 'Lora'));
+    if (lorasDir.existsSync()) {
+      int notID = notificationManager!.show(
+          thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+          title: 'Reading metadata',
+          description: 'Give us a few seconds...'
+      );
+      List<FileSystemEntity> loras = (await dirContents(lorasDir)).whereType<File>().toList();
+
+      Map<String, List<String>> metaAndFileName = {};
+      int doned = 0;
+      void checkOne(){
+        if(doned >= loras.length){
+          for(String key in metaAndFileName.keys){
+            if(key != 'None' && metaAndFileName[key]!.length > 1){
+              //print('Broken with key $key:\n${metaAndFileName[key]!.join(',\n')}');
+              int? loraInfoNot;
+              loraInfoNot = notificationManager!.show(
+                thumbnail: const Icon(Icons.warning, color: Colors.yellow),
+                title: 'Too much lore for the keyword "$key"',
+                description: metaAndFileName[key]!.join(',\n'),
+                content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: () async {
+                    if(loraInfoNot != null) notificationManager!.update(loraInfoNot, 'content', null);
+                    for(String path in metaAndFileName[key]!){
+                      await changeLoraOutputNameMeta(path, p.basenameWithoutExtension(path));
+                    }
+                    if(loraInfoNot != null){
+                      notificationManager!.update(loraInfoNot, 'title', 'Done');
+                      notificationManager!.update(loraInfoNot, 'description', 'metadata in\n${metaAndFileName[key]!.join(',\n')}\nhas been corrected. Please index the loras in the web-panel again');
+                      notificationManager!.update(loraInfoNot, 'thumbnail', const Icon(Icons.done, color: Colors.greenAccent, size: 64));
+                    }
+                  },
+                  child: const Text('Fix:Change keys to filenames', style: TextStyle(fontSize: 12))
+                ))
+              );
+              audioController!.player.play(AssetSource('audio/wrong.wav'));
+              //Future.delayed(const Duration(seconds: 10), () => notificationManager!.close(loraInfoNot));
+            }
+          }
+          Future.delayed(const Duration(seconds: 3), () => notificationManager!.close(notID));
+        }
+      }
+      for(FileSystemEntity lora in loras){
+
+        final String ex = p.extension(lora.path);
+        if(ex == '.safetensors'){
+          File(lora.path).open(mode: FileMode.read).then((randomAccessFile) async {
+            Uint8List metadataLen = await randomAccessFile.read(8);
+            var uint32 = Uint32List.view(metadataLen.buffer);
+            int metaLength = uint32[0];
+            Uint8List chunk = await randomAccessFile.read(metaLength);
+            randomAccessFile.close();
+            String value = utf8.decode(chunk);
+            var data = jsonDecode(value);
+            if(data['__metadata__'] != null){
+              Map<String, dynamic> meta = data['__metadata__'];
+              if(meta['ss_output_name'] != null){
+                if(metaAndFileName.containsKey(meta['ss_output_name'])){
+                  metaAndFileName[meta['ss_output_name']]!.add(lora.path);
+                } else {
+                  metaAndFileName[meta['ss_output_name']] = [lora.path];
+                }
+                // int loraInfoNot = notificationManager!.show(
+                //   thumbnail: const Icon(Icons.warning, color: Colors.yellow),
+                //   title: '$name: Output name != real file name',
+                //   description: 'File ${p.basename(lora.path)} has wrong metadata (ss_output_name: ${meta['ss_output_name']} instead of "$name")'
+                // );
+                // audioController!.player.play(AssetSource('audio/wrong.wav'));
+                // Future.delayed(const Duration(seconds: 10), () => notificationManager!.close(loraInfoNot));
+              }
+            }
+            randomAccessFile.close();
+            doned++;
+            checkOne();
+          });
+        } else {
+          doned++;
+          checkOne();
+        }
+      }
+
+    } else {
+      print('not');
+    }
+  }
+
+  @override
+  Future<List<Folder>> getFolders(int index) async {
+    return sqLite.getFolders(host: host, re: _internalTabs[index]);
+  }
+
+  @override
+  Future<List<Folder>> getAllFolders(int index) async {
     List<Folder> f = [];
     int ind = 0;
-    Directory di = Directory(_webuiPaths[ke[renderEngine]]!);
+    Directory di = Directory([
+      _webuiPaths['outdir_txt2img-images'],
+      _webuiPaths['outdir_img2img-images']
+    ][index]!);
     List<FileSystemEntity> fe = await dirContents(di);
 
-    //TODO change to for
     for(FileSystemEntity ent in fe){
       f.add(Folder(
         index: ind,
-        path: ent.path,
+        getter: ent.path,
+        type: FolderType.path,
         name: p.basename(ent.path),
-        files: (await dirContents(Directory(ent.path))).map((ent) => FolderFile(
+        files: (await dirContents(Directory(ent.path))).where((element) => ['.png', '.jpeg', '.jpg', '.gif', '.webp'].contains(p.extension(element.path))).map((ent) => FolderFile(
             fullPath: p.normalize(ent.path),
             isLocal: true
         )).toList()
@@ -97,9 +262,22 @@ class OnLocal implements AbMain {
   }
 
   @override
+  Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
+    return sqLite.getImagesByDay(day, host: host, re: _internalTabs[section]);
+  }
+
+  @override
+  String getFullUrlImage(ImageMeta im) => '';
+  @override
+  String getThumbnailUrlImage(ImageMeta im) => '';
+
+  @override
   void exit() {
-    for (var element in watchList) {
-      element.cancel();
+    for (var e in watchList) {
+      e.cancel();
+    }
+    for(int id in _jobs.keys){
+      _jobs[id]!.forceStop();
     }
   }
 
@@ -113,30 +291,143 @@ class OnLocal implements AbMain {
     Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: true);
     watchList.add(te.listen((event) {
       if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
-        NavigationService.navigatorKey.currentContext!.read<ImageManager>().updateIfNado(re, event.destination ?? 'jri govno dart');
+        sqLite.updateIfNado(event.destination!, host: null);
       }
     }));
   }
 
-  @override
-  Future<Stream<List<ImageMeta>>> indexFolder(RenderEngine renderEngine, String sub) async {
-    // Read all files sizes and get hash
-    Directory di = Directory(p.join(_webuiPaths[ke[renderEngine]]!, sub));
-    List<FileSystemEntity> fe = await dirContents(di);
-
-    ParseJob job = ParseJob();
-    int jobID = await job.putAndGetJobID(renderEngine, fe.map((e) => e.path).toList(growable: false));
-    _jobs[jobID] = job;
-
-    // Return job id
-    return job.controller.stream;
+  Future<List<String>> getFolderHashes(String folder, {String? host}) async {
+    return sqLite.getFolderHashes(folder, host: host);
   }
-}
 
-Future<List<FileSystemEntity>> dirContents(Directory dir) {
-  var files = <FileSystemEntity>[];
-  var completer = Completer<List<FileSystemEntity>>();
-  var lister = dir.list(recursive: false);
-  lister.listen((file) => files.add(file), onDone:() => completer.complete(files));
-  return completer.future;
+  @override
+  bool indexAll(int index) {
+    int notID = notificationManager!.show(
+        thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+        title: 'Starting indexing',
+        description: 'Give us a few seconds...'
+    );
+    getAllFolders(index).then((fo) async {
+      if(isIndexingAll) return false;
+      isIndexingAll = true;
+      notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
+      notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+      notificationManager!.update(notID, 'content', Container(
+        margin: const EdgeInsets.only(top: 7),
+        width: 100,
+        child: const LinearProgressIndicator(),
+      ));
+      notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
+        baseColor: Colors.lightBlueAccent,
+        highlightColor: Colors.blueAccent.withOpacity(0.3),
+        child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+      ));
+      int d = 0;
+      for(var f in fo){
+        try{
+          // То что уже есть, чтобы не трогать
+          List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
+          StreamController co = await indexFolder(f, hashes: ima, re: _internalTabs[index]);
+          bool cont = await _isDone(co);
+          d++;
+          notificationManager!.update(notID, 'content', Container(
+              margin: const EdgeInsets.only(top: 7),
+              width: 100,
+              child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
+          ));
+        } catch(e){
+          int notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+              title: 'Error processing folder ${f.getter}',
+              description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e'
+          );
+          audioController!.player.play(AssetSource('audio/error.wav'));
+          Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+        }
+      }
+      if(notID != -1) notificationManager!.close(notID);
+      isIndexingAll = false;
+    }).catchError((err) {
+      notificationManager!.update(notID, 'title', 'Error');
+      notificationManager!.update(notID, 'description', 'Error: $err');
+      notificationManager!.update(notID, 'content', const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      return true;
+    });
+    return true;
+  }
+
+  Future<bool> _isDone(StreamController co) async{
+    while(getJobCountActive() >= 10){
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    return true;
+  }
+
+  @override
+  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
+    print('indexFolder: ${folder.getter} ${hashes?.length ?? 'null'} with re: ${re != null ? re.toString() : 'null'}');
+    // Read all files sizes and get hash
+    //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
+    Directory di = Directory(normalizePath(folder.getter));
+    List<FileSystemEntity> fe = await dirContents(di); // Filter this shit
+    //print('total: ${fe.length}');
+
+    if(hashes != null && hashes.isNotEmpty){
+      fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
+      fe = fe.where((e) => !hashes.contains(genPathHash(normalizePath(e.path)))).toList(growable: false);
+      if (kDebugMode) {
+        print('onLocal:indexFolder: to send: ${fe.length} with ${hashes.length} hashes');
+      }
+    }
+
+    if(fe.isNotEmpty){
+      if(inProcess.contains(di.path)){
+        fe = [];
+      } else {
+        inProcess.add(di.path);
+      }
+    }
+
+    ParseJob job = ParseJob(re: re);
+    int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
+
+    int notID = -1;
+    if(fe.isNotEmpty) {
+      notID = notificationManager!.show(
+        title: 'Indexing ${di.path}',
+        description: 'We are processing ${fe.length} images, please wait',
+        content: Container(
+          margin: const EdgeInsets.only(top: 7),
+          width: 100,
+          child: const LinearProgressIndicator(),
+        )
+      );
+    }
+    _jobs[jobID] = job..run(
+        onDone: (){
+          _jobs.remove(jobID);
+          if(notID != -1) notificationManager!.close(notID);
+          if(fe.isNotEmpty) inProcess.remove(di.path);
+        },
+        onProcess: (total, current, thumbnail) {
+          if(notID == -1) return;
+          notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
+          if(thumbnail != null) {
+            notificationManager!.update(notID, 'thumbnail', Image.memory(
+              thumbnail,
+              filterQuality: FilterQuality.low,
+              gaplessPlayback: true,
+            ));
+          }
+        }
+    );
+
+    // Return stream
+    return job.controller;
+  }
+
+  @override
+  Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) {
+    return sqLite.getFoldersPaged(re: _internalTabs[tabIndex], offset: offset, limit: limit);
+  }
 }

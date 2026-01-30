@@ -3,15 +3,22 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
+  bitsdojo_window_windows
   file_selector_windows
+  flutter_angle
+  flutter_gl_windows
+  flutter_inappwebview_windows
   irondash_engine_context
+  objectbox_flutter_libs
   permission_handler_windows
-  screen_retriever
+  screen_retriever_windows
   share_plus
   sqlite3_flutter_libs
   super_native_extensions
   system_theme
   url_launcher_windows
+  wcg_image
   window_manager
 )
 

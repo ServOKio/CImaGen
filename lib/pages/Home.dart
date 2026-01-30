@@ -1,9 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
+import 'package:cimagen/pages/sub/CharacterCard.dart';
+import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
+import 'package:cimagen/pages/sub/SafetensorsModelView.dart';
+import 'package:cimagen/pages/sub/categories/Main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/SaveManager.dart';
+import 'package:cimagen/modules/SaveManager.dart';
+import 'package:collection/collection.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,37 +21,63 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:snow_fall_animation/snow_fall_animation.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 import '../Utils.dart';
-import '../components/CustomMasonryView.dart';
+import '../components/Animations.dart';
+import '../components/ImageInfo.dart';
+import '../l10n/app_localizations.dart';
+import '../main.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
+import '../modules/SaveManager.dart' as sm;
 import '../utils/DataModel.dart';
 import '../utils/SQLite.dart';
 import '../utils/ThemeManager.dart';
 
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
-
 class Home extends StatefulWidget {
-  const Home({Key? key}) : super(key: key);
+  const Home({super.key});
 
   @override
   State<Home> createState() => _HomeState();
 }
 
-class _HomeState extends State<Home> {
-  bool _dragging = false;
+final Map<int, dynamic> _readHistory = {};
+class HistoryObject {
+  final int id;
+  final dynamic content;
 
+  const HistoryObject({
+    required this.id,
+    required this.content
+  });
+}
+
+class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
   double breakpoint = 600.0;
-
-  final List<dynamic> _readHistory = [];
   int c = 1;
 
-  final ScrollController _scrollController = ScrollController();
+  void appendCategory(CategoryMini category){
+    categoryTop.add(category);
+    setState(() {
+      c = c+1;
+    });
+  }
 
-  void pushToHistory(ImageMeta im){
-    _readHistory.add(im);
+  List<CategoryMini> categoryTop = [];
+
+  void selectCategory(int index){
+    setState(() {
+      categoryTop = categoryTop.whereIndexed((ind, el) => ind <= index).toList();
+    });
+  }
+
+  final ScrollController _scrollController = ScrollController();
+  late AnimationController animatedController;
+
+  void pushToHistory(HistoryObject obj){
+    _readHistory[obj.id] = obj.content;
     setState(() {
       c = c+1;
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -57,67 +90,190 @@ class _HomeState extends State<Home> {
     });
   }
 
+  void updateObject(HistoryObject obj){
+    _readHistory[obj.id] = obj.content;
+    setState(() {
+      c = c+1;
+    });
+  }
+
   Future<void> readDragged(dynamic file) async {
     if(isImage(file)){
       try{
         ImageMeta? im = await parseImage(RenderEngine.unknown, file.path);
         if(im != null){
-          pushToHistory(im);
+          if(mounted) pushToHistory(HistoryObject(id: getRandomID(), content: im));
         }
       } catch(e, s){
-        print("Exception $e");
-        print(file.path);
-        print("StackTrace $s");
+        if (kDebugMode) {
+          print("Exception $e");
+          print(file.path);
+          print("StackTrace $s");
+        }
 
-        showDialog<String>(
-          context: context,
-          builder: (BuildContext context) => AlertDialog(
-            icon: const Icon(Icons.error),
-            iconColor: Colors.redAccent,
-            title: Text(AppLocalizations.of(context)!.home_reader_dialog_title),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText('${AppLocalizations.of(context)!.home_reader_dialog_error_prefix} $e'),
-                Text(AppLocalizations.of(context)!.home_reader_dialog_error_description),
-                SelectableText(file.path)
+        if(mounted) {
+          showDialog<String>(
+            context: context,
+            builder: (BuildContext context) => AlertDialog(
+              icon: const Icon(Icons.error),
+              iconColor: Colors.redAccent,
+              title: Text(AppLocalizations.of(context)!.home_reader_dialog_title),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText('${AppLocalizations.of(context)!.home_reader_dialog_error_prefix} $e'),
+                  Text(AppLocalizations.of(context)!.home_reader_dialog_error_description),
+                  SelectableText(file.path)
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'ok'),
+                  child: Text(AppLocalizations.of(context)!.home_reader_dialog_error_buttons_ok),
+                ),
               ],
             ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'ok'),
-                child: Text(AppLocalizations.of(context)!.home_reader_dialog_error_buttons_ok),
-              ),
-            ],
-          ),
-        );
+          );
+        }
       }
     } else {
       final String e = p.extension(file.path);
       if(e == '.safetensors'){
         RandomAccessFile randomAccessFile = await File(file.path).open(mode: FileMode.read);
-        var metadataLen = randomAccessFile.read(8);
-        if (kDebugMode) print(metadataLen);
+        Uint8List metadataLen = await randomAccessFile.read(8);
+        var uint32 = Uint32List.view(metadataLen.buffer);
+        int metaLength = uint32[0];
+        if (kDebugMode) print(metaLength);
+        Uint8List chunk = await randomAccessFile.read(metaLength);
+        randomAccessFile.close();
+        String value = utf8.decode(chunk);
+        var data = jsonDecode(value);
+        print(value);
 
-        // int metadata_len = file.elementAt(8);
-        // metadata_len = int.from_bytes(metadata_len, "little")
-        // int json_start = file.read(2)
-        //
-        // assert metadata_len > 2 and json_start in (b'{"', b"{'"), f"{filename} is not a safetensors file"
-        // json_data = json_start + file.read(metadata_len-2)
-        // json_obj = json.loads(json_data)
-        //
-        // res = {}
-        // for k, v in json_obj.get("__metadata__", {}).items():
-        //   res[k] = v
-        //   if isinstance(v, str) and v[0:1] == '{':
-        //     try:
-        //       res[k] = json.loads(v2
-        //       except Exception:
-        //       pass
-        //
-        // return res
+        if(data['__metadata__'] != null){
+          // Real safetensors
+
+          var meta = data['__metadata__'];
+          if(meta['sd_merge_recipe'] != null){
+            // Models merge
+            pushToHistory(HistoryObject(id: getRandomID(), content: SafetensorsModel(
+              type: SafetensorsModelType.modelMerge,
+              data: data
+            )));
+          } else if(meta['modelspec.architecture'] != null){
+            if(meta['modelspec.architecture'] == 'stable-diffusion-xl-v1-base/lora'){
+              // XL Lora
+              pushToHistory(HistoryObject(id: getRandomID(), content: SafetensorsModel(
+                type: SafetensorsModelType.lora,
+                data: data
+              )));
+            }
+          } else if(meta['ss_network_module'] != null && meta['ss_network_module'] == 'networks.lora'){
+            // Lora
+            pushToHistory(HistoryObject(id: getRandomID(), content: SafetensorsModel(
+                type: SafetensorsModelType.lora,
+                data: data
+            )));
+          } else {
+            pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+              file: p.basename(file.path),
+              icon: Icons.pest_control_rodent_outlined,
+              color: Color(0xFFD87CEE),
+              title: 'We know what it is, but we\'re not ready to read it',
+              message: 'Give us some time and we\'ll deal with this file in a future update.'
+            )));
+          }
+        }
+        randomAccessFile.close();
+      } else if(e == '.json') {
+        File jsFile = File(file.path);
+        jsFile.readAsString().then((value) async {
+          if(await isJson(value)){
+            var data = jsonDecode(value);
+            // CharacterCard ?
+
+            if(isRPCard(data)){
+              pushToHistory(HistoryObject(id: getRandomID(), content: CharacterCardFile(data: data)));
+            } else {
+              pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+                  file: p.basename(file.path),
+                  icon: Icons.warning,
+                  color: Color(0xFF8C54E1),
+                  title: 'Some json data...',
+                  message: 'It seems we don\'t know what exactly this file contains.'
+              )));
+            }
+          } else {
+            pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+                file: p.basename(file.path),
+                icon: Icons.error_outline,
+                color: Color(0xFFE15454),
+                title: 'Corrupted file?',
+                message: 'We are unable to get the file data because it is incorrect. Is the file corrupted or in the wrong format?'
+            )));
+          }
+        });
+      } else if(e == '.glb') {
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#glb-file-format-specification-structure
+        final raf = await file.open(mode: FileMode.read);
+        try {
+          // Read 12-byte header
+          final header = await raf.read(12);
+          final headerData = ByteData.sublistView(header);
+
+          final magic = headerData.getUint32(0, Endian.little);
+          if (magic != 0x46546C67) {
+            throw FormatException('Not a valid GLB file');
+          }
+
+          final version = headerData.getUint32(4, Endian.little);
+          final length = headerData.getUint32(8, Endian.little);
+
+          final chunkHeader = await raf.read(8);
+          final chunkData = ByteData.sublistView(chunkHeader);
+
+          final chunkLength = chunkData.getUint32(0, Endian.little);
+          final chunkType = chunkData.getUint32(4, Endian.little);
+
+          if (chunkType != 0x4E4F534A) {
+            throw FormatException('First GLB chunk is not JSON');
+          }
+
+          final jsonBytes = await raf.read(chunkLength);
+          final jsonText = utf8.decode(jsonBytes);
+          final jsonMap = jsonDecode(jsonText) as Map<String, dynamic>;
+
+          pushToHistory(HistoryObject(id: getRandomID(), content: GlbMetadata(
+            version: version,
+            length: length,
+            json: jsonMap,
+          )));
+        } finally {
+          await raf.close();
+        }
+      } else if(e == '.pptx') {
+        // Qwen-Image-Layered or vanilla Power Point presentation
+        File(file.path).readAsBytes().then((bytes) {
+          final Archive archive = ZipDecoder().decodeBytes(bytes);
+          if(archive.files.map((el) => el.name).contains('[Content_Types].xml')){
+            print('ok');
+            for (final entry in archive) {
+              if (entry.isFile) {
+                print(entry.name);
+              }
+            }
+          }
+        });
+      } else {
+        pushToHistory(HistoryObject(id: getRandomID(), content: UnknownFile(
+            file: p.basename(file.path),
+            icon: Icons.question_mark,
+            color: Color(0xFFF8CA84),
+            title: 'We don\'t know what this is',
+            message: 'It looks like it\'s some unknown file type or content that we can\'t read.',
+            details: 'Path: ${file.path}\nBaseName: ${p.basename(file.path)}\nExtension: $e'
+        )));
       }
     }
   }
@@ -139,9 +295,23 @@ class _HomeState extends State<Home> {
 
   @override
   void initState() {
+    animatedController = AnimationController.unbounded(vsync: this);
     super.initState();
-    //test();
+    categoryTop = [
+      CategoryMini(name: 'Main', color: Color(0xff00b2ff), widget: MainContent(appendCategory)),
+    ];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appBarController!.resetActions();
+    });
   }
+
+  @override
+  void dispose() {
+    animatedController.dispose();
+    super.dispose();
+  }
+
+  late Future<List<sm.Category>> categoriesFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -154,22 +324,21 @@ class _HomeState extends State<Home> {
       )
     ]
     ) : Scaffold(
-        body: _buildMainSection(),
-        // use SizedBox to contrain the AppMenu to a fixed width
-        drawer: Theme(
-          data: ThemeData.dark(useMaterial3: false).copyWith(
-            canvasColor: Theme.of(context).scaffoldBackgroundColor,
-          ),
-          child: SizedBox(
-            width: 350,
-            child: Drawer(
-              child: Theme(
-                data: theme.getTheme,
-                child: _buildMenu(),
-              ),
-            ),
+      body: _buildMainSection(),
+      // use SizedBox to contrain the AppMenu to a fixed width
+      drawer: Theme(
+        data: ThemeData.dark(useMaterial3: false).copyWith(
+          canvasColor: Theme.of(context).scaffoldBackgroundColor,
+        ),
+        child: Drawer(
+          width: 350,
+          child: Theme(
+            data: theme.getTheme,
+            child:  _buildMenu(),
           ),
         )
+      ),
+      drawerEdgeDragWidth: MediaQuery.of(context).size.width / 2,
     );
   }
 
@@ -208,16 +377,260 @@ class _HomeState extends State<Home> {
         child: Column(
           children: [
             Expanded(
-              child: ListView.separated(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(20),
-                separatorBuilder: (BuildContext context, int index) => const Divider(height: 14),
-                itemCount: _readHistory.length,
-                itemBuilder: (BuildContext context, int index) {
-                  var element = _readHistory[index];
-                  return FileInfoPreview(type: element.runtimeType == ImageMeta ? 1 : 0, data: element);
-                },
-              ),
+              child: Stack(
+                children: [
+                  false ? SnowFallAnimation(
+                    config: SnowfallConfig(
+                      numberOfSnowflakes: 200,
+                      speed: 0.5,
+                      useEmoji: true,
+                      customEmojis: ['❅', '❆'],
+                    ),
+                  ) : SizedBox.shrink(),
+                  ListView.separated(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(20),
+                    separatorBuilder: (BuildContext context, int index) => const Divider(height: 14),
+                    itemCount: _readHistory.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      dynamic element = _readHistory[_readHistory.keys.toList()[index]];
+                      return ShowUp(
+                          child: element.runtimeType == UnknownFile ? Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: Theme.of(context).scaffoldBackgroundColor
+                              ),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(5),
+                                      decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(7),
+                                          color: element.color ?? const Color(0x00d75252)
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black87,
+                                              borderRadius: BorderRadius.circular(5),
+                                            ),
+                                            child: Icon(element.icon ?? Icons.question_mark, color: Colors.white),
+                                          ),
+                                          const Gap(7),
+                                          Expanded(
+                                              flex: 1,
+                                              child: Text(element.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontFamily: 'Montserrat'), maxLines: 1, overflow: TextOverflow.ellipsis)
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Gap(7),
+                                    Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                    Gap(3),
+                                    SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
+                                    if(element.details != null) ExpansionTile(
+                                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                                        expandedAlignment: Alignment.topLeft,
+                                        tilePadding: EdgeInsets.zero,
+                                        title:  Text('Details'),
+                                        children: <Widget>[
+                                          SelectableText(element.details)
+                                        ]
+                                    )
+                                  ]
+                              )
+                          ) : element.runtimeType == CharacterCardFile ? LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
+                                return Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      color: Theme.of(context).scaffoldBackgroundColor
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(7.0),
+                                            child: Stack(
+                                              children: [
+                                                SizedBox(
+                                                  width: constraints.maxWidth / 2,
+                                                  child: AspectRatio(
+                                                    aspectRatio: 1/1,
+                                                    child: DottedBorder(
+                                                      options: RectDottedBorderOptions(
+                                                        dashPattern: const [6, 6],
+                                                        color: Colors.redAccent,
+                                                        //borderType: BorderType.RRect,
+                                                        strokeWidth: 2,
+                                                        //radius: const Radius.circular(12),
+                                                      ),
+                                                      child: const Center(child: Icon(Icons.chat, color: Colors.blueAccent)),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Gap(7),
+                                          SizedBox(
+                                            width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                InfoBox(one: 'RE', two: 'sdf'),
+                                              ],
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                      const Gap(7),
+                                      Row(
+                                        children: [
+                                          ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: Size.zero, // Set this
+                                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                              ),
+                                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => CharacterCardFullView(jsonData: element.data))),
+                                              child: const Text("View", style: TextStyle(fontSize: 12))
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }
+                          ) : element.runtimeType == FileProcess ? Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  color: Theme.of(context).scaffoldBackgroundColor
+                              ),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(5),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.monitor),
+                                          Gap(3),
+                                          Expanded(child: LinearProgressIndicator(minHeight: 2)),
+                                          Gap(3),
+                                          Icon(Icons.public),
+                                          Gap(3),
+                                          Expanded(child: LinearProgressIndicator(minHeight: 2)),
+                                          Gap(3),
+                                          Icon(Icons.accessibility)
+                                        ],
+                                      ),
+                                    ),
+                                    Gap(7),
+                                    Text(element.message, style: TextStyle(color: Colors.white70, fontSize: 12)),
+                                    Gap(3),
+                                    SelectableText('File: ${element.file}', style: TextStyle(fontSize: 12)),
+                                  ]
+                              )
+                          ) : element.runtimeType == ImageMeta ? FileInfoPreview(type: 1, data: element) : element.runtimeType == SafetensorsModel ? LayoutBuilder(
+                              builder: (BuildContext context, BoxConstraints constraints) {
+                                return Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      color: Theme.of(context).scaffoldBackgroundColor
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(7.0),
+                                            child: Stack(
+                                              children: [
+                                                Container(
+                                                  color: Colors.blueAccent.withAlpha(50),
+                                                  width: constraints.maxWidth / 2,
+                                                  child: AspectRatio(
+                                                    aspectRatio: 1/1,
+                                                    child: DottedBorder(
+                                                      options: RectDottedBorderOptions(
+                                                        dashPattern: const [6, 6],
+                                                        color: Colors.blueAccent,
+                                                        //borderType: BorderType.RRect,
+                                                        strokeWidth: 4,
+                                                        //radius: const Radius.circular(12),
+                                                      ),
+                                                      child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const Gap(7),
+                                          SizedBox(
+                                            width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                //Text('fsdf', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                InfoBox(one: 'Type', two: safetensorsModelTypeToString(element.type)),
+                                              ],
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                      const Gap(7),
+                                      Row(
+                                        children: [
+                                          ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: Size.zero, // Set this
+                                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                              ),
+                                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SafetensorsModelView(element.data as Map<String, dynamic>))),
+                                              child: const Text("View", style: TextStyle(fontSize: 12))
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }
+                          ) : element.runtimeType == GlbMetadata ? generalBuilder(main: [
+                            InfoBoxInfo(one: 'Version', two: element.version.toString()),
+                            InfoBoxInfo(one: 'Scenes', two: element.json['scenes']?.length.toString()),
+                            if(element.json['materials'] != null) InfoBoxInfo(one: 'Materials', two: element.json['materials']?.length.toString()),
+                          ], other: [
+                            InfoBoxInfo(one: 'Generator', two: element.json['asset']?['generator']),
+                            if(element.json['extensionsUsed'] != null) InfoBoxInfo(one: 'Extensions', two: element.json['extensionsUsed'])
+                          ], footer: [
+                            ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: Size.zero, // Set this
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                                ),
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SafetensorsModelView(element.data as Map<String, dynamic>))),
+                                child: const Text("View", style: TextStyle(fontSize: 12))
+                            ),
+                          ]) : SelectableText('Unknown object ${element.runtimeType}')
+                      );
+                    },
+                  ),
+                ],
+              )
             ),
             Container(
               height: 1,
@@ -268,13 +681,83 @@ class _HomeState extends State<Home> {
     );
   }
 
+  TextEditingController urlController = TextEditingController();
+
+  Widget generalBuilder({
+    dynamic thumbnail,
+    required List<InfoBoxInfo> main,
+    required List<InfoBoxInfo> other,
+    List<Widget>? footer
+  }){
+      return LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: Theme.of(context).scaffoldBackgroundColor
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(7.0),
+                        child: Stack(
+                          children: [
+                            Container(
+                              color: Colors.blueAccent.withAlpha(50),
+                              width: constraints.maxWidth / 2,
+                              child: AspectRatio(
+                                aspectRatio: 1/1,
+                                child: DottedBorder(
+                                  options: RectDottedBorderOptions(
+                                    dashPattern: const [6, 6],
+                                    color: Colors.blueAccent,
+                                    //borderType: BorderType.RRect,
+                                    strokeWidth: 4,
+                                    //radius: const Radius.circular(12),
+                                  ),
+                                  child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Gap(7),
+                      SizedBox(
+                        width: constraints.maxWidth / 2 - 7 - 14, // size - Gap - 14(7*2) padding
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: main.map((el) => InfoBox(one: el.one, two: el.two)).toList(growable: false),
+                        ),
+                      )
+                    ],
+                  ),
+                  ...other.map((el) => InfoBox(one: el.one, two: el.two)),
+                  if(footer != null) ...[
+                    const Gap(7),
+                    Row(children: footer)
+                  ]
+                ],
+              ),
+            );
+          }
+      );
+  }
+
   Widget selectBlock(){
     return DottedBorder(
-      dashPattern: const [6, 6],
-      color: const Color(0xFF2d2f32),
-      borderType: BorderType.RRect,
-      strokeWidth: 2,
-      radius: const Radius.circular(12),
+      options: RectDottedBorderOptions(
+        dashPattern: const [6, 6],
+        color: const Color(0xFF2d2f32),
+        // borderType: BorderType.RRect,
+        strokeWidth: 2,
+        // radius: const Radius.circular(12),
+      ),
       child: ClipRRect(
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           child: AspectRatio(
@@ -287,35 +770,64 @@ class _HomeState extends State<Home> {
                   children: Platform.isAndroid || Platform.isIOS ? [
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_mobile0, style: TextStyle(fontWeight: FontWeight.w500)),
+                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_mobile0, style: const TextStyle(fontWeight: FontWeight.w500)),
                   ] :[
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: TextStyle(fontWeight: FontWeight.w500)),
+                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: const TextStyle(fontWeight: FontWeight.w500)),
                     Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop1),
-                    TextField(
-                      onSubmitted: (value) async {
-                        ImageMeta? im = await parseUrlImage(value);
-                        if(im != null){
-                          pushToHistory(im);
-                        }
-                      },
-                      textInputAction: TextInputAction.done,
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        alignLabelWithHint: true,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        label: Center(
-                          child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: TextField(
+                        onSubmitted: (value) async {
+                          int id = getRandomID();
+                          pushToHistory(HistoryObject(id: id, content: FileProcess(
+                              file: value,
+                              title: 'Attempting to retrieve data',
+                              message: 'It won\'t take long...'
+                          )));
+                          try{
+                            urlController.clear();
+                            ImageMeta? im = await parseUrlImage(value);
+                            if(im != null){
+                              updateObject(HistoryObject(id: id, content: im));
+                            } else {
+                              updateObject(HistoryObject(id: id, content: FileProcess(
+                                  file: value,
+                                  title: 'Failed to read data',
+                                  message: 'The file was downloaded and verified, but the content... well, we can\'t process it'
+                              )));
+                            }
+                          } catch(e){
+                            updateObject(HistoryObject(id: id, content: UnknownFile(
+                                file: value,
+                                icon: Icons.error,
+                                color: Color(0xFFEE7C7C),
+                                title: 'Error retrieving data',
+                                message: 'Looks like the link is broken or something is blocking access',
+                                details: 'E: $e'
+                            )));
+                            rethrow;
+                          }
+                        },
+                        textInputAction: TextInputAction.done,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                            alignLabelWithHint: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            label: Center(
+                              child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                  width: 1, color: Theme.of(context).colorScheme.primary
+                              ),
+                            )
                         ),
-                        focusedBorder: UnderlineInputBorder( //<-- SEE HERE
-                          borderSide: BorderSide(
-                              width: 1, color: Theme.of(context).colorScheme.primary
-                          ),
-                        )
+                        controller: urlController,
                       ),
-                    ),
+                    )
                     // Text(, style: TextStyle(fontWeight: FontWeight.w500)),
                   ],
                 ),
@@ -333,156 +845,115 @@ class _HomeState extends State<Home> {
       child: Column(
         children: [
           const Gap(12),
-          Row(
-            children: [
-              Text('categories'.toUpperCase(), style: const TextStyle(color: Colors.grey)),
-              const Gap(6),
-              const Text('/', style: TextStyle(color: Colors.grey)),
-              const Gap(6),
-              Row(
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.all(Radius.circular(7)),
-                      color: Colors.red,
-                    ),
-                  ),
-                  const Gap(4),
-                  Text('all'.toUpperCase())
-                ],
-              )
-            ],
+          ShowUp(
+            delay: 50,
+            child: SizedBox(
+              height: 20,
+              child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(onTap: () => selectCategory(index), child: index != categoryTop.length - 1 ? Text(categoryTop[index].name.toUpperCase(), style: TextStyle(color: Colors.grey[400])) : Row(
+                        children: [
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.circular(7)),
+                              color: categoryTop[index].color,
+                            ),
+                          ),
+                          const Gap(4),
+                          Text(categoryTop[index].name, style: TextStyle(fontWeight: FontWeight.bold))
+                        ],
+                    ));
+                  },
+                  separatorBuilder: (context, index) => Padding(padding: EdgeInsetsGeometry.symmetric(horizontal: 6), child: Text('/', style: TextStyle(color: Colors.grey))),
+                  itemCount: categoryTop.length
+              ),
+            )
           ),
           const Gap(8),
           screenWidth <= breakpoint ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              ShowUp(
+                delay: 200,
+                child: AnimatedSwitcher(
+                  duration: Duration(milliseconds: 200),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                          begin: Offset(0.0, -0.5),
+                          end: Offset(0.0, 0.0))
+                          .animate(animation),
+                      child: child,
+                    );
+                  },
+                  child: Text(
+                    categoryTop.last.name,
+                    key: ValueKey<String>(categoryTop.last.name),
+                    style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat'),
+                  ),
+                ),
+              ),
               const Gap(4),
               _topButtons(withSpacer: screenWidth <= breakpoint)
             ],
           ) : Row(
             children: [
-              const Text('Categories', style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat')),
+              ShowUp(
+                delay: 200,
+                child: AnimatedBuilder(
+                  animation: animatedController,
+                  builder: (context, child) {
+                    final animatedLetters = categoryTop.last.name.split('');
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: animatedLetters.asMap().map((key, value) => MapEntry(key, AnimatedLetter(key: ValueKey(key), letter: value))).values.toList(),
+                    );
+                  },
+                )
+
+                // AnimatedSwitcher(
+                //   duration: Duration(milliseconds: 200),
+                //   transitionBuilder: (Widget child, Animation<double> animation) {
+                //     return SlideTransition(
+                //       position: Tween<Offset>(
+                //           begin: Offset(0.0, -0.5),
+                //           end: Offset(0.0, 0.0))
+                //           .animate(animation),
+                //       child: child,
+                //     );
+                //   },
+                //   child: Text(
+                //     categoryTop.last.name,
+                //     key: ValueKey<String>(categoryTop.last.name),
+                //     style: TextStyle(fontSize: 42, fontWeight: FontWeight.w600, fontFamily: 'Montserrat'),
+                //   ),
+                // ),
+              ),
               const Spacer(),
               _topButtons()
             ],
           ),
           const Gap(8),
-          FutureBuilder(
-              future: context.read<SQLite>().getCategories(),
-              builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                Widget children;
-                if (snapshot.hasData) {
-                  children = snapshot.data.length == 0 ? Expanded(
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.create_new_folder, size: 50, color: Colors.white),
-                          const Gap(4),
-                          Text(AppLocalizations.of(context)!.home_main_categories_start_title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                          Text(AppLocalizations.of(context)!.home_main_categories_start_description, style: const TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    )
-                  ) : SingleChildScrollView(
-                    child: CustomMasonryView(
-                      itemRadius: 14,
-                      itemPadding: 4,
-                      listOfItem: snapshot.data,
-                      numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
-                      itemBuilder: (ii) {
-                        return AspectRatio(aspectRatio: 16/9, child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: const Color(0xFF2d2f32),
-                              width: 2,
-                            ),
-                            gradient: RadialGradient(
-                              colors: [ii.item.color, Colors.black],
-                              stops: const [0, 1],
-                              center: Alignment.topCenter,
-                              focalRadius: 2,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(color: Colors.black, spreadRadius: 3),
-                            ],
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Stack(
-                                  alignment: Alignment.bottomRight,
-                                  children: [
-                                    Icon(ii.item.icon, color: ii.item.color, size: 205),
-                                    Icon(ii.item.icon, color: Colors.black, size: 200),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(21),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(4),
-                                          color: ii.item.color.withOpacity(0.3),
-                                          boxShadow: const [
-                                            BoxShadow(color: Colors.black, spreadRadius: 3),
-                                          ],
-                                        ),
-                                        padding: const EdgeInsets.all(4),
-                                        child: Center(
-                                          child: Icon(ii.item.icon, color: ii.item.color, size: 21),
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Text(ii.item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 21)),
-                                      ii.item.description != null ? Text(ii.item.description, style: const TextStyle(color: Colors.grey, fontSize: 14)) : const SizedBox.shrink(),
-                                      const Spacer(),
-                                      Row(
-                                        children: [
-                                          TextButton(
-                                            onPressed: () {},
-                                            child: Text(AppLocalizations.of(context)!.home_main_categories_block_fast_preview),
-                                          ),
-                                        ],
-                                      )
-                                    ],
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
-                        ));
-                      },
-                    ),
-                  );
-                } else if (snapshot.hasError) {
-                  children = const Text('error');
-                } else {
-                  children = const Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Text('Awaiting result...'),
-                  );
-                }
-                return children;
-              }
+          Expanded(
+            child: categoryTop.last.widget ?? Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.air, size: 50, color: Colors.white),
+                    const Gap(4),
+                    Text('A mysterious place...', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                    Text('There appears to be no content in this category', style: const TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              )
+            ),
           )
         ],
       ),
@@ -498,27 +969,27 @@ class _HomeState extends State<Home> {
         withSpacer ? const Spacer() : const Gap(21),
         ElevatedButton(
             style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-                backgroundColor: MaterialStateProperty.all<Color>(Theme.of(context).primaryColor),
-                shape: MaterialStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                backgroundColor: WidgetStateProperty.all<Color>(Theme.of(context).primaryColor),
+                shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
             ),
             onPressed: () async {
               // notificationManager?.show(title: 'Hello');
               // return;
-              TextEditingController _title = TextEditingController();
-              TextEditingController _description = TextEditingController();
+              TextEditingController title = TextEditingController();
+              TextEditingController description = TextEditingController();
 
-              final _formKey = GlobalKey<FormState>();
+              final formKey = GlobalKey<FormState>();
               await showDialog<void>(
                   context: context,
                   builder: (context) => AlertDialog(
                     content: Form(
-                      key: _formKey,
+                      key: formKey,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           TextFormField(
-                            controller: _title,
+                            controller: title,
                             validator: (text) {
                               if (text == null || text.isEmpty || text.trim().isEmpty) {
                                 return 'Text is empty';
@@ -534,7 +1005,7 @@ class _HomeState extends State<Home> {
                             ),
                           ),
                           TextFormField(
-                            controller: _description,
+                            controller: description,
                             decoration: const InputDecoration(
                               icon: Icon(Icons.textsms),
                               hintText: 'Description of what\'s here',
@@ -545,13 +1016,14 @@ class _HomeState extends State<Home> {
                           ElevatedButton(
                             child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create),
                             onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                context.read<SQLite>().createCategory(
-                                    title: _title.text.trim(),
-                                    description: _description.text.trim()
+                              if (formKey.currentState!.validate()) {
+                                sqLite.createCategory(
+                                    title: title.text.trim(),
+                                    description: description.text.trim()
                                 ).then((category){
                                   context.read<SaveManager>().addCategory(category);
-                                  Navigator.pop(context, 'Ok');
+                                  //loadCaregories();
+                                  Navigator.pop(context);
                                 });
                               }
                             },
@@ -562,7 +1034,7 @@ class _HomeState extends State<Home> {
                   )
               );
             },
-            child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create, style: TextStyle(fontSize: 14))
+            child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create, style: const TextStyle(fontSize: 14))
         )
       ],
     );
@@ -570,10 +1042,10 @@ class _HomeState extends State<Home> {
 }
 
 class FileInfoPreview extends StatelessWidget{
-  int type = -1;
-  dynamic data;
+  final int type;
+  final dynamic data;
 
-  FileInfoPreview({
+  const FileInfoPreview({
     super.key,
     required this.type,
     required this.data
@@ -596,37 +1068,47 @@ class FileInfoPreview extends StatelessWidget{
     final dataModel = Provider.of<DataModel>(context, listen: false);
     final entries = <ContextMenuEntry>[
       MenuItem.submenu(
-        label: 'Send to comparison',
-        icon: Icons.edit,
+        label: const Text('Send to comparison'),
+        icon: const Icon(Icons.edit),
         items: [
           MenuItem(
-            label: 'Go to viewer',
-            value: 'comparison_view',
-            icon: Icons.compare,
-            onSelected: () {
+            label: const Text('Go to viewer'),
+            icon: const Icon(Icons.compare),
+            onSelected: (_) {
               dataModel.jumpToTab(3);
             },
           ),
           const MenuDivider(),
           MenuItem(
-            label: 'As main',
-            value: 'comparison_as_main',
-            icon: Icons.swipe_left,
-            onSelected: () {
+            label: const Text('As main'),
+            icon: const Icon(Icons.swipe_left),
+            onSelected: (_) {
               dataModel.comparisonBlock.addImage(im!);
               dataModel.comparisonBlock.changeSelected(0, im);
               // implement redo
             },
           ),
           MenuItem(
-            label: 'As test',
-            value: 'comparison_as_test',
-            icon: Icons.swipe_right,
-            onSelected: () {
+            label: const Text('As test'),
+            icon: const Icon(Icons.swipe_right),
+            onSelected: (_) {
               dataModel.comparisonBlock.addImage(im!);
               dataModel.comparisonBlock.changeSelected(1, im);
             },
           ),
+        ],
+      ),
+      MenuItem.submenu(
+        label: const Text('Build...'),
+        icon: const Icon(Icons.build),
+        items: [
+          MenuItem(
+            label: const Text('XYZ plot'),
+            icon: const Icon(Icons.grid_view),
+            onSelected: (_) {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.values.where((el) => el.runtimeType == ImageMeta).toList(growable: false)))));
+            },
+          )
         ],
       ),
       // MenuItem.submenu(
@@ -656,11 +1138,10 @@ class FileInfoPreview extends StatelessWidget{
       // ),
       // const MenuDivider(),
       MenuItem(
-        label: 'Show in explorer',
-        value: 'show_in_explorer',
-        icon: Icons.compare,
-        onSelected: () {
-          showInExplorer(im!.fullPath);
+        label: const Text('Show in explorer'),
+        icon: const Icon(Icons.compare),
+        onSelected: (_) {
+          showInExplorer(im!.fullPath!);
         },
       ),
     ];
@@ -686,9 +1167,6 @@ class FileInfoPreview extends StatelessWidget{
                 children: [
                   type == 1 ? ContextMenuRegion(
                     contextMenu: contextMenu,
-                    onItemSelected: (value) {
-                      print(value);
-                    },
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(7.0),
                       child: Stack(
@@ -696,13 +1174,13 @@ class FileInfoPreview extends StatelessWidget{
                           SizedBox(
                             width: constraints.maxWidth / 2,
                             child: AspectRatio(
-                              aspectRatio: im!.size!.aspectRatio(),
-                              child: im.error == null ? Image.memory(gaplessPlayback: true, base64Decode(im.thumbnail ?? '')) : DottedBorder(
-                                dashPattern: const [6, 6],
-                                color: Colors.redAccent,
-                                borderType: BorderType.RRect,
-                                strokeWidth: 2,
-                                radius: const Radius.circular(12),
+                              aspectRatio: im?.error == null ? im!.size!.aspectRatio() : 1/1,
+                              child: im?.error == null ? im?.thumbnail != null ? Hero(tag: im!.fileName, child: Image.memory(im.thumbnail!, gaplessPlayback: true)) : Icon(Icons.error) : DottedBorder(
+                                options: RectDottedBorderOptions(
+                                  dashPattern: const [6, 6],
+                                  color: Colors.redAccent,
+                                  strokeWidth: 2,
+                                ),
                                 child: const Center(child: Icon(Icons.error, color: Colors.redAccent)),
                               ),
                             ),
@@ -722,7 +1200,7 @@ class FileInfoPreview extends StatelessWidget{
                                         borderRadius: const BorderRadius.all(Radius.circular(2)),
                                         color: Colors.black.withOpacity(0.7)
                                     ),
-                                    child: Text(im.fileTypeExtension, style: const TextStyle(color: Colors.white, fontSize: 10)),
+                                    child: Text(im?.fileTypeExtension ?? '', style: const TextStyle(color: Colors.white, fontSize: 10)),
                                   ),
                                   isHDRimage ? const Gap(4) : const SizedBox.shrink(),
                                   isHDRimage ? Container(
@@ -749,6 +1227,7 @@ class FileInfoPreview extends StatelessWidget{
                       children: [
                         Text(im!.fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
                         InfoBox(one: 'RE', two: renderEngineToString(im.re)),
+                        if(im.other?['chara'] != null) const InfoBox(one: 'Has', two: 'Character card'),
                         im.error == null ? InfoBox(one: 'Size', two: im.size.toString()) : const SizedBox.shrink(),
                         im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
                         im.generationParams?.version != null ? InfoBox(one: 'Version', two: im.generationParams?.version ?? 'error') : const SizedBox.shrink(),
@@ -757,7 +1236,16 @@ class FileInfoPreview extends StatelessWidget{
                   )
                 ],
               ),
+              const Gap(7),
+              im.error != null ? InfoBox(one: 'Error', two: im.error, inner: true) : const SizedBox.shrink(),
               hasICC ? (im.specific?['iccProfileName'] != null) ? InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true) : InfoBox(one: 'Color profile', two: pn) : const SizedBox.shrink(),
+              im.generationParams?.checkpoint != null ? InfoBox(one: 'Checkpoint', two: im.generationParams?.checkpoint, inner: true) : const SizedBox.shrink(),
+              im.generationParams?.sampler != null ? InfoBox(one: 'Sampler', two: im.generationParams?.sampler, inner: true) : const SizedBox.shrink(),
+              if(im.specific?['comfUINodes'] != null) ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: InfoBox(one: 'Node Count', two: im.specific!['comfUINodes'].length.toString()),
+                children: withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>Text(el['type'], style: const TextStyle(fontSize: 12))).toList(), element: const Icon(Icons.arrow_downward, size: 10,)),
+              ),
               const Gap(7),
               Row(
                 children: [
@@ -770,7 +1258,7 @@ class FileInfoPreview extends StatelessWidget{
                         Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
                       },
                       child: const Text("View data", style: TextStyle(fontSize: 12))
-                  ) : SizedBox.shrink(),
+                  ) : const SizedBox.shrink(),
                 ],
               )
             ],
@@ -810,4 +1298,78 @@ class InfoBox extends StatelessWidget{
         )
     );
   }
+}
+
+class CategoryMini {
+  final String name;
+  final Color color;
+  Widget? widget;
+  Widget? buttons;
+
+  CategoryMini({
+    required this.name,
+    required this.color,
+    this.widget,
+    this.buttons
+  });
+}
+
+class CharacterCardFile {
+  final dynamic data;
+
+  const CharacterCardFile({
+    required this.data
+  });
+}
+
+class UnknownFile {
+  final IconData? icon;
+  final Color? color;
+  final String file;
+  final String title;
+  final String message;
+  final String? details;
+
+  const UnknownFile({
+    this.icon,
+    this.color,
+    required this.title,
+    required this.message,
+    required this.file,
+    this.details
+  });
+}
+
+class FileProcess {
+  final String file;
+  final String title;
+  final String message;
+
+  const FileProcess({
+    required this.title,
+    required this.message,
+    required this.file
+  });
+}
+
+class GlbMetadata {
+  final int version;
+  final int length;
+  final Map<String, dynamic> json;
+
+  GlbMetadata({
+    required this.version,
+    required this.length,
+    required this.json,
+  });
+}
+
+class InfoBoxInfo {
+  final String one;
+  final dynamic two;
+
+  InfoBoxInfo({
+    required this.one,
+    required this.two
+  });
 }

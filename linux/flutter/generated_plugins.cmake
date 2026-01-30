@@ -3,9 +3,14 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_linux
+  bitsdojo_window_linux
   file_selector_linux
+  flutter_angle
   irondash_engine_context
-  screen_retriever
+  objectbox_flutter_libs
+  open_file_linux
+  screen_retriever_linux
   sqlite3_flutter_libs
   super_native_extensions
   system_theme

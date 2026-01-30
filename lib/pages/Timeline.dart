@@ -1,17 +1,20 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/Utils.dart';
-import 'package:cimagen/components/SetupRequired.dart';
+import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/components/TimeLineLine.dart';
+import 'package:cimagen/main.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../modules/DataManager.dart';
 import '../utils/DataModel.dart';
 import '../utils/ImageManager.dart';
-import '../utils/SQLite.dart';
 
 class Timeline extends StatefulWidget{
-  const Timeline({ Key? key }): super(key: key);
+  const Timeline({ super.key });
 
   @override
   _TimelineState createState() => _TimelineState();
@@ -33,9 +36,7 @@ class _TimelineState extends State<Timeline> {
       sr = true;
     } else {
       final dataModel = Provider.of<DataModel>(context, listen: false);
-      context.read<SQLite>().getImagesBySeed(
-          dataModel.timelineBlock.getSeed
-      ).then((v2) {
+      sqLite.getImagesBySeed(dataModel.timelineBlock.getSeed).then((v2) {
         ImageRow row = ImageRow();
         for (var image in v2) {
           if(debug){
@@ -131,8 +132,8 @@ class _TimelineState extends State<Timeline> {
 
   @override
   Widget build(BuildContext context) {
-    return sr ? const Center(
-      child: SetupRequired(webui: true, comfyui: false),
+    return sr ? Center(
+      child: LoadingState(loaded: !sr, error: context.read<DataManager>().error),
     ) : Row(
         children: <Widget>[
           _buildNavigationRail(),
@@ -174,25 +175,35 @@ class _TimelineState extends State<Timeline> {
 
 bool isIdenticalPromt(ImageMeta? one, ImageMeta? two){
   if(one == null || two == null) return false;
-  return
-    one.generationParams?.positive == two.generationParams?.positive &&
-        one.generationParams?.negative == two.generationParams?.negative;
+  return one.generationParams?.positive == two.generationParams?.positive && one.generationParams?.negative == two.generationParams?.negative;
 }
 
-List<Difference> findDifference(ImageMeta? one, ImageMeta two){
+String getGenerationHash(ImageMeta im, {String? except}){
+  if(im.generationParams == null) return '-';
+  String f = '';
+  if(except != 'checkpoint' && im.generationParams?.checkpoint != null) f+= im.generationParams!.checkpoint!;
+  if(except != 'positive' && im.generationParams!.positive != null) f+= im.generationParams!.positive!;
+  if(except != 'negative' && im.generationParams!.negative != null) f+= im.generationParams!.negative!;
+  if(except != 'cfgScale') f+= im.generationParams!.cfgScale.toString();
+  if(except != 'seed') f+= im.generationParams!.seed.toString();
+  if(except != 'size') f+= im.generationParams!.size.toString();
+  if(except != 'rng' && im.generationParams?.rng != null) f+= im.generationParams!.rng.toString();
+  if(except != 'version' && im.generationParams?.version != null) f+= im.generationParams!.version.toString();
+  return f;
+}
+
+List<Difference> findDifference(ImageMeta? one, ImageMeta two){ //TODO
   List<Difference> d = [];
   GenerationParams? o = one?.generationParams;
   GenerationParams? t = two.generationParams;
   if(o == null || t == null) return d;
 
   // final String positive;
-  if(o.positive.trim() != t.positive.trim()) d.add(Difference(key: 'positive', oldValue: o.positive, newValue: t.positive));
+  if(o.positive != t.positive) d.add(Difference(key: 'positive', oldValue: o.positive ?? '-', newValue: t.positive ?? '-'));
   // final String negative;
-  if(o.negative.trim() != t.negative.trim()) d.add(Difference(key: 'negative', oldValue: o.negative, newValue: t.negative));
+  if(o.negative != t.negative) d.add(Difference(key: 'negative', oldValue: o.negative ?? '-', newValue: t.negative ?? '-'));
   // final int steps;
   if(o.steps != t.steps) d.add(Difference(key: 'steps', oldValue: o.steps.toString(), newValue: t.steps.toString()));
-  // final String sampler;
-  if(o.sampler != t.sampler) d.add(Difference(key: 'sampler', oldValue: o.sampler, newValue: t.sampler));
   // final double cfgScale;
   if(o.cfgScale != t.cfgScale) d.add(Difference(key: 'cfgScale', oldValue: o.cfgScale.toString(), newValue: t.cfgScale.toString()));
   // final int seed;
@@ -212,18 +223,33 @@ List<Difference> findDifference(ImageMeta? one, ImageMeta two){
   // final String? hiresSampler;
   if(o.hiresSampler != t.hiresSampler) d.add(Difference(key: 'hiresSampler', oldValue: o.hiresSampler ?? '-', newValue: t.hiresSampler ?? '-'));
 
-  if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
+  //if(o.hiresUpscaler != t.hiresUpscaler) d.add(Difference(key: 'hiresUpscaler', oldValue: (o.hiresUpscaler ?? '-').toString(), newValue: (t.hiresUpscaler ?? '-').toString()));
   // final double? hiresUpscale;
   if(o.hiresUpscale != t.hiresUpscale) d.add(Difference(key: 'hiresUpscale', oldValue: (o.hiresUpscale ?? '-').toString(), newValue: (t.hiresUpscale ?? '-').toString()));
 
-  if(o.all?['hires_steps'] != t.all?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.all?['hires_steps'] ?? '-').toString(), newValue: (t.all?['hires_steps'] ?? '-').toString()));
+  // if(o.params?['hires_steps'] != t.params?['hires_steps']) d.add(Difference(key: 'hiresSteps', oldValue: (o.params?['hires_steps'] ?? '-').toString(), newValue: (t.params?['hires_steps'] ?? '-').toString()));
   // final Map<String, String>? tiHashes;
   // final String version;
-  if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
+  // if(o.version != t.version) d.add(Difference(key: 'version', oldValue: o.version ?? '-', newValue: t.version ?? '-'));
+
+  if(o.params != null && t.params != null){
+    List<String> allKeys = [];
+    allKeys.addAll(o.params!.keys);
+    allKeys.addAll(t.params!.keys.where((k) => !allKeys.contains(k)));
+    for (String key in allKeys) {
+      if(o.params?[key] != t.params?[key]) d.add(Difference(key: key, oldValue: (o.params?[key] ?? '-').toString(), newValue: (t.params?[key] ?? '-').toString()));
+    }
+  }
 
   return d;
 }
 
+String getDifferencesHash(List<Difference> list){
+  if(list.isEmpty) return '-';
+  List<String> v = list.map((e) => e.key).toList(growable: false);
+  v.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return sha256.convert(utf8.encode(v.join('-'))).toString();
+}
 
 class Difference {
   final String key;
@@ -323,7 +349,7 @@ class _RowListState extends State<RowList> {
                 height: height,
                 child: meta != null ? Stack(
                   children: [
-                    Image.file(File(widget.rowData.main!.fullPath)),
+                    Image.file(File(widget.rowData.main!.fullPath!)),
                     Padding(
                         padding: const EdgeInsets.all(5),
                         child: Column(
@@ -331,7 +357,7 @@ class _RowListState extends State<RowList> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             meta.generationParams != null ? TagBox(text: meta.generationParams!.denoisingStrength != null ? 'Hi-Res' : 'Raw') : const SizedBox.shrink(),
-                            meta.generationParams != null && meta.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.generationParams!.sampler)) : const SizedBox.shrink()
+                            meta.generationParams != null && meta.generationParams?.sampler != null ? Padding(padding: const EdgeInsets.only(top: 4), child: TagBox(text: meta.generationParams!.sampler!)) : const SizedBox.shrink()
                           ],
                         )
                     )
@@ -365,7 +391,7 @@ class _RowListState extends State<RowList> {
                   color: Colors.orange,
                   child: metaExtra != null ? Stack(
                     children: [
-                      Image.file(File(widget.rowData.extraMain!.fullPath)),
+                      Image.file(File(widget.rowData.extraMain!.fullPath!)),
                       Padding(
                           padding: const EdgeInsets.all(5),
                           child: Column(

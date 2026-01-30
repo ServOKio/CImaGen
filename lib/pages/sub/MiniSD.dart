@@ -4,14 +4,13 @@ import 'package:cimagen/Utils.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 
 import '../../main.dart';
 
 class MiniSD extends StatefulWidget{
-  ImageMeta? imageMeta;
-  MiniSD({ Key? key, this.imageMeta}): super(key: key);
+  final ImageMeta? imageMeta;
+  const MiniSD({ super.key, this.imageMeta});
 
   @override
   State<MiniSD> createState() => _MiniSDState();
@@ -39,7 +38,7 @@ class _MiniSDState extends State<MiniSD> {
   @override
   void initState(){
     sessionHash = getRandomString(11);
-    networkAccess = Uri.parse(prefs!.getString('sd_remote_webui_address') ?? '');
+    networkAccess = Uri.parse(prefs.getString('sd_remote_webui_address') ?? '');
     // if (hfToken != null && spaceID != null) {
     //   jwt = await get_jwt(space_id, hf_token);
     // }

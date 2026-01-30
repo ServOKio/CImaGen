@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "cimagen" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "cimagen" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2024 net.servokio. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 net.servokio. All rights reserved." "\0"
             VALUE "OriginalFilename", "cimagen.exe" "\0"
             VALUE "ProductName", "cimagen" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

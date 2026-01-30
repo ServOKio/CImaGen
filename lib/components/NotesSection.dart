@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
+import '../main.dart';
 import '../utils/SQLite.dart';
 
 class NotesSection extends StatefulWidget{
-  const NotesSection({ Key? key }): super(key: key);
+  const NotesSection({super.key});
 
   @override
-  _NotesSectionState createState() => _NotesSectionState();
+  State<NotesSection> createState() => _NotesSectionState();
 }
 
 class _NotesSectionState extends State<NotesSection> {
@@ -35,7 +36,7 @@ class _NotesSectionState extends State<NotesSection> {
   }
 
   void loadNotes() async{
-    context.read<SQLite>().getNotes().then((notes){
+    sqLite.getNotes().then((notes){
       setState(() {
         _notes = notes;
       });
@@ -55,7 +56,7 @@ class _NotesSectionState extends State<NotesSection> {
   void saveTitle() async {
     if(_titleHasChanges){
       _notes[_selectedIndex].title = _titleController.text;
-      await context.read<SQLite>().updateNoteTitle(_notes[_selectedIndex].id, _titleController.text);
+      await sqLite.updateNoteTitle(_notes[_selectedIndex].id, _titleController.text);
       _titleHasChanges = false;
     }
   }
@@ -63,7 +64,7 @@ class _NotesSectionState extends State<NotesSection> {
   void saveContent() async {
     if(_contentHasChanges){
       _notes[_selectedIndex].content = _contentController.text;
-      await context.read<SQLite>().updateNoteContent(_notes[_selectedIndex].id, _contentController.text);
+      await sqLite.updateNoteContent(_notes[_selectedIndex].id, _contentController.text);
       _contentHasChanges = false;
     }
   }
@@ -80,7 +81,7 @@ class _NotesSectionState extends State<NotesSection> {
               FloatingActionButton(
                 elevation: 0,
                 onPressed: () {
-                  context.read<SQLite>().createNote().then((note){
+                  sqLite.createNote().then((note){
                     _notes.add(note);
                     setState(() {
                       _selectedIndex = _notes.length-1;
@@ -92,22 +93,39 @@ class _NotesSectionState extends State<NotesSection> {
               const Gap(10),
               Expanded(
                 child: ListView.separated(
-                  separatorBuilder: (BuildContext context, int index) => const Divider(height: 28),
+                  separatorBuilder: (BuildContext context, int index) => const Divider(height: 5),
                   itemCount: _notes.length,
                   itemBuilder: (BuildContext context, int index) {
                     Note element = _notes[index];
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(
-                          icon: Icon(element.icon, color: element.color),
-                          tooltip: element.title,
-                          onPressed: () {
-                            selectNote(index);
-                          },
-                        ),
-                        Text(element.title),
-                      ],
+                    return GestureDetector(
+                      onTap: () => selectNote(index),
+                      child: Padding(
+                          padding: EdgeInsets.all(7),
+                          child: AspectRatio(
+                            aspectRatio: 1/1,
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Container(
+                                padding: EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(color: Theme.of(context).dividerColor, blurRadius: 5)
+                                  ]
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Icon(element.icon, color: element.color),
+                                    Text(element.title, style: TextStyle(), overflow: TextOverflow.ellipsis, maxLines: 1),
+                                  ],
+                                ),
+                              ),
+                            )
+                          )
+                      ),
                     );
                   },
                 ),
@@ -145,7 +163,7 @@ class _NotesSectionState extends State<NotesSection> {
                               child: const Text('Cancel'),
                             ),
                             TextButton(
-                              onPressed: () => context.read<SQLite>().deleteNote(_notes[_selectedIndex].id).then((f){
+                              onPressed: () => sqLite.deleteNote(_notes[_selectedIndex].id).then((f){
                                 _notes.removeAt(_selectedIndex);
                                 setState((){
                                   _selectedIndex = -1;

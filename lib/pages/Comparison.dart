@@ -1,12 +1,15 @@
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:cimagen/components/CustomActionButton.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/NNancy.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
+import 'package:cimagen/pages/sub/TagCombinator.dart';
 import 'package:cimagen/utils/DataModel.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
 import 'package:gap/gap.dart';
 import 'package:image_compare_slider/image_compare_slider.dart';
@@ -14,10 +17,13 @@ import 'package:provider/provider.dart';
 import 'package:flutter/rendering.dart';
 
 import '../Utils.dart';
+import 'sub/DevicePreview.dart';
 import '../components/ImageInfo.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
 import '../utils/NavigationService.dart';
+
+import 'package:path/path.dart' as p;
 
 SliderDirection direction = SliderDirection.leftToRight;
 Color dividerColor = Colors.white;
@@ -46,49 +52,47 @@ class Comparison extends StatefulWidget{
 }
 
 class _ComparisonState extends State<Comparison> {
-  GlobalKey stickyKey = GlobalKey();
+  bool _snowJpeg = true;
 
   @override
   void initState(){
-    super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appBarController!.setActions([
         CustomActionButton(
-            icon: Icons.remove_red_eye,
+            getIcon: () => Icons.remove_red_eye,
             tooltip: 'Automatically use the last generated image as a test',
             onPress: (){
               NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest();
             },
-            getter: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
+            isActive: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
         ),
-        CustomActionButton(icon: Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
+        CustomActionButton(getIcon: () => Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
+          setState((){
+            _snowJpeg = !_snowJpeg;
+          });
+        }, isActive: () => _snowJpeg),
+        CustomActionButton(getIcon: () => Icons.image_search, tooltip: 'Show the difference', onPress: (){
 
-        }, getter: () => false),
-        CustomActionButton(icon: Icons.image_search, tooltip: 'Show the difference', onPress: (){
-
-        }, getter: () => false)
+        }, isActive: () => false)
       ]);
     });
   }
 
   @override
   void dispose(){
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appBarController!.resetActions();
-    });
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final dataModel = Provider.of<DataModel>(context);
-    bool most = dataModel.comparisonBlock.getImages.where((e) => e.size.width < e.size.height).length > dataModel.comparisonBlock.getImages.length;
+    bool most = dataModel.comparisonBlock.getImages.where((e) => e.size!.width < e.size!.height).length > dataModel.comparisonBlock.getImages.length;
     bool isScreenWide = most;
     return Scaffold(
       body: Flex(
         direction: isScreenWide ? Axis.horizontal : Axis.vertical,
         children: [
-          ImageList(images: dataModel.comparisonBlock.getImages),
+          ImageList(images: dataModel.comparisonBlock.getImages, showJpeg: _snowJpeg),
           const MainBlock()
         ],
       ),
@@ -110,6 +114,7 @@ class _MainBlockState extends State<MainBlock> {
   @override
   Widget build(BuildContext context) {
     final dataModel = Provider.of<DataModel>(context);
+
     return Expanded(
         child: dataModel.comparisonBlock.oneSelected ? Stack(
           children: [
@@ -191,9 +196,14 @@ class ViewBlock extends StatefulWidget {
 
 class _ViewBlockState extends State<ViewBlock> {
   GlobalKey stickyKey = GlobalKey();
+  bool loaded = false;
 
   bool _showImageDifference = false;
   bool _asSplit = false;
+  bool _useAutoColor = false;
+  bool _useColorTransfer = false;
+
+  bool left = true;
 
   double _scale = 0;
   final TransformationController _transformationController = TransformationController();
@@ -220,32 +230,108 @@ class _ViewBlockState extends State<ViewBlock> {
 
   @override
   Widget build(BuildContext context) {
-    final dataModel = Provider.of<DataModel>(context);
-
-    final entries = <ContextMenuEntry>[
+    DataModel dataModel = Provider.of<DataModel>(context);
+    ImageManager imageManager = Provider.of<ImageManager>(context);
+    ImageMeta? imageMeta = !left ? dataModel.comparisonBlock.firstCache != null ? dataModel.comparisonBlock.firstSelected : dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.secondCache != null ? dataModel.comparisonBlock.secondSelected : dataModel.comparisonBlock.firstSelected;
+    final entries = imageMeta == null ? <ContextMenuEntry>[] : <ContextMenuEntry>[
       MenuItem(
-        label: 'Show as split',
-        icon: Icons.splitscreen,
-        onSelected: () {
-          setState(() {
-            _asSplit = !_asSplit;
-          });
-        },
-      ),
-      MenuItem(
-        label: 'Show the visual difference',
-        icon: Icons.image_search_rounded,
-        onSelected: () {
-          setState(() {
-            _showImageDifference = !_showImageDifference;
-          });
-        },
+        label: Text(imageManager.favoritePaths.contains(imageMeta.fullPath) ? 'UnLike': 'Like'),
+        icon: Icon(imageManager.favoritePaths.contains(imageMeta.fullPath) ? Icons.star : Icons.star_outline),
+        onSelected: (_) => imageManager.toogleFavorite(imageMeta.fullPath!, host: imageMeta.host),
       ),
       const MenuDivider(),
       MenuItem(
-        label: 'Find difference ',
-        icon: Icons.difference,
-        onSelected: () {
+        label: const Text('View render tree'),
+        icon: const Icon(Icons.account_tree_sharp),
+        onSelected: (_) {
+          // implement copy
+        },
+      ),
+      if(imageMeta.generationParams?.seed != null ) MenuItem.submenu(
+        label: const Text('View in timeline'),
+        icon: const Icon(Icons.view_timeline_outlined),
+        items: [
+          MenuItem(
+            label: Text('by seed'),
+            icon: const Icon(Icons.compare),
+            onSelected: (_) {
+              dataModel.timelineBlock.setSeed(imageMeta.generationParams!.seed!);
+              dataModel.jumpToTab(2);
+            },
+          ),
+        ],
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: Text('Send to MiniSD'),
+        icon: const Icon(Icons.web_rounded),
+        onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: imageMeta)))
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: Text('Show in explorer'),
+        icon: const Icon(Icons.compare),
+        onSelected: (_) {
+          showInExplorer(imageMeta.fullPath!);
+        },
+      ),
+      MenuItem(
+        label: Text('Show devices preview'),
+        icon: const Icon(Icons.devices_other),
+        onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: imageMeta))),
+      ),
+      MenuItem.submenu(
+        label: Text('Copy...'),
+        icon: const Icon(Icons.copy),
+        items: [
+          if(imageMeta.generationParams?.seed != null) MenuItem(
+            label: const Text('Seed'),
+            icon: const Icon(Icons.abc),
+            onSelected: (_) async {
+              String seed = imageMeta.generationParams!.seed.toString();
+              Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Seed $seed copied'),)));
+            },
+          ),
+          MenuItem(
+            label: const Text('Folder/file.name'),
+            icon: const Icon(Icons.arrow_forward),
+            onSelected: (_) => Clipboard.setData(ClipboardData(text: '${File(imageMeta.fullPath!).parent}/${imageMeta.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied'),))),
+          ),
+        ],
+      ),
+      MenuItem(
+        label: const Text('Show as split'),
+        icon: const Icon(Icons.splitscreen),
+        onSelected: (_) => setState(() {
+          _asSplit = !_asSplit;
+        })
+      ),
+      MenuItem(
+        label: const Text('Show the visual difference'),
+        icon: const Icon(Icons.image_search_rounded),
+        onSelected: (_) => setState(() {
+          _showImageDifference = !_showImageDifference;
+        })
+      ),
+      MenuItem(
+        label: const Text('Show in auticolor + autocontrast'),
+        icon: const Icon(Icons.contrast),
+        onSelected: (_) => setState(() {
+          _useAutoColor = !_useAutoColor;
+        })
+      ),
+      MenuItem(
+        label: const Text('Show color transfered'),
+        icon: Icon(_useColorTransfer ? Icons.color_lens : Icons.color_lens_outlined),
+        onSelected: (_) => setState(() {
+          _useColorTransfer = !_useColorTransfer;
+        })
+      ),
+      const MenuDivider(),
+      MenuItem(
+        label: const Text('Find difference '),
+        icon: const Icon(Icons.difference),
+        onSelected: (_) {
           List<Difference>? difference;
           if(dataModel.comparisonBlock.bothHasGenerationParams) {
             difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
@@ -253,34 +339,17 @@ class _ViewBlockState extends State<ViewBlock> {
           bool hasDiff = difference != null && difference.isNotEmpty;
 
           if(hasDiff){
-            Map<String, String> keysMap = {
-              'cfgScale': 'cfgS',
-              'size': 'w&h',
-              'modelHash': 'mHash',
-              'denoisingStrength': 'D.s.',
-              'rng': 'RNG',
-              'hiresSampler': 'hSampler',
-              'hiresUpscale': 'hUpscale',
-              'version': 'v'
-            };
-
             showDialog<String>(
               context: context,
               builder: (BuildContext context) => AlertDialog(
                 icon: const Icon(Icons.remove_red_eye),
                 iconColor: Colors.yellowAccent,
                 title: const Text('The images have differences'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: difference!.map((ent){
-                    return Padding(padding: const EdgeInsets.only(bottom: 4), child: ['positive', 'negative'].contains(ent.key) ? TagBox(text: keysMap[ent.key] ?? ent.key) : TagBox(text: '${keysMap[ent.key] ?? ent.key} ${ent.newValue}', lineThrough: ent.newValue == '-'));
-                  }).toList()
-                ),
+                content: differenceBlock(difference!),
                 actions: <Widget>[
                   TextButton(
-                    onPressed: () => Navigator.pop(context, 'OK'),
-                    child: const Text('OK'),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Ok'),
                   ),
                 ],
               ),
@@ -301,14 +370,26 @@ class _ViewBlockState extends State<ViewBlock> {
                     child: const Text('Try to find the error'),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.pop(context, 'OK'),
-                    child: const Text('OK'),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Ok'),
                   ),
                 ],
               ),
             );
           }
         },
+      ),
+      const MenuDivider(),
+      MenuItem.submenu(
+        label: const Text('Utils...'),
+        icon: const Icon(Icons.apps),
+        items: [
+          MenuItem(
+            label: const Text('Tag combinator'),
+            icon: const Icon(Icons.tag),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => TagCombinator(oneImageMeta: dataModel.comparisonBlock.firstSelected, twoImageMeta: dataModel.comparisonBlock.secondSelected))),
+          ),
+        ],
       ),
     ];
 
@@ -317,48 +398,67 @@ class _ViewBlockState extends State<ViewBlock> {
       padding: const EdgeInsets.all(8.0),
     );
 
+    Uint8List bytesOne =
+      _useAutoColor && dataModel.comparisonBlock.firstProcessed['autocolor'] != null ?
+        dataModel.comparisonBlock.firstProcessed['autocolor']! :
+        dataModel.comparisonBlock.firstCache!;
+    Uint8List bytesSecond = _useColorTransfer && dataModel.comparisonBlock.secondProcessed['colortransfer'] != null ?
+      dataModel.comparisonBlock.secondProcessed['colortransfer']! :
+      _useAutoColor && dataModel.comparisonBlock.secondProcessed['autocolor'] != null ?
+        dataModel.comparisonBlock.secondProcessed['autocolor']! :
+        dataModel.comparisonBlock.secondCache!;
+
     return Stack(
       children: [
         MouseRegion(
           key: stickyKey,
           onHover: _updateLocation,
           child: InteractiveViewer(
+            boundaryMargin: const EdgeInsets.all(double.infinity),
             transformationController: _transformationController,
             panEnabled: true,
             scaleFactor: 1000,
             minScale: 0.000001,
             maxScale: 10,
-            onInteractionUpdate: (ScaleUpdateDetails details){  // get the scale from the ScaleUpdateDetails callback
-              setState(() {
-                _scale = _transformationController.value.getMaxScaleOnAxis();
-              });
-            },
+            onInteractionUpdate: (ScaleUpdateDetails details) => setState(() {
+              _scale = _transformationController.value.getMaxScaleOnAxis();
+            }),
             child: SizedBox(
-              width: MediaQuery.of(context).size.width,
-              height: MediaQuery.of(context).size.height,
               child: Center(
                 child: ContextMenuRegion(
                   contextMenu: contextMenu,
                   child: _asSplit ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                    Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                    Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
-                  ]) : _showImageDifference ? Stack(
+                        Image.memory(bytesOne, gaplessPlayback: true),
+                        Image.memory(bytesSecond, gaplessPlayback: true),
+                      ]
+                  ) : _showImageDifference ? Stack(
                     children: [
-                      Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
+                      Image.memory(bytesOne, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
                       BlendMask(
                         opacity: 1.0,
                         blendMode: BlendMode.difference,
-                        child: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
+                        child: Image.memory(bytesSecond, gaplessPlayback: true, color: Colors.grey, colorBlendMode: BlendMode.saturation),
                       ),
                     ],
-                  ): ImageCompareSlider(
-                      itemOne: Image.memory(dataModel.comparisonBlock.firstCache!, gaplessPlayback: true),
-                      itemTwo: Image.memory(dataModel.comparisonBlock.secondCache!, gaplessPlayback: true),
-                      dividerWidth: 1.5,
-                      handleSize: const Size(0, 0),
-                      handleRadius: const BorderRadius.all(Radius.circular(0))
+                  ) : ImageCompareSlider(
+                    itemOne: Image.memory(bytesOne, gaplessPlayback: true),
+                    itemTwo: Image.memory(bytesSecond, gaplessPlayback: true),
+                    dividerWidth: 1.5,
+                    handleSize: const Size(0, 0),
+                    handleRadius: const BorderRadius.all(Radius.circular(0)),
+                    onPositionChange: (pos){
+                      if(pos > 0.5 && left){
+                        setState(() {
+                          left = false;
+                        });
+                      } else if(pos <= 0.5 && !left){
+                        setState(() {
+                          left = true;
+                        });
+                      }
+                    },
                   ),
                 ),
               ),
@@ -391,6 +491,75 @@ class _ViewBlockState extends State<ViewBlock> {
       ],
     );
   }
+
+  Widget differenceBlock(List<Difference> difference){
+    return DataTable(
+        dataRowMaxHeight: double.infinity,
+        columns: const <DataColumn>[
+          DataColumn(
+            label: Text(
+              'From',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'Key',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          DataColumn(
+            label: Text(
+              'To',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+        rows: difference.map((ent){
+          if(['positive', 'negative'].contains(ent.key)){
+            Color c = ent.key == 'positive' ? Colors.green : Colors.redAccent;
+            return DataRow(
+                cells: [
+                  DataCell(Container(
+                      padding: const EdgeInsets.all(4.0),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: c.withAlpha(40),
+                        border: Border.all(color: c, width: 1),
+                        borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                      ),
+                      child: FractionallySizedBox(
+                          widthFactor: 1.0,
+                          child: SelectableText(ent.oldValue ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 12))
+                      )
+                  )),
+                  DataCell(SelectableText(ent.key, maxLines: 1, textAlign: TextAlign.center)),
+                  DataCell(Container(
+                      padding: const EdgeInsets.all(4.0),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: c.withAlpha(40),
+                        border: Border.all(color: c, width: 1),
+                        borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                      ),
+                      child: FractionallySizedBox(
+                          widthFactor: 1.0,
+                          child: SelectableText(ent.newValue ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 12))
+                      )
+                  )),
+                ]
+            );
+          }
+          return DataRow(
+              cells: [
+                DataCell(SelectableText(ent.oldValue)),
+                DataCell(SelectableText(ent.key, maxLines: 1, textAlign: TextAlign.center)),
+                DataCell(SelectableText(ent.newValue)),
+              ]
+          );
+        }).toList()
+    );
+  }
 }
 
 class GetInfoOrShit extends StatelessWidget {
@@ -406,7 +575,7 @@ class GetInfoOrShit extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          i.generationParams?.sampler != null ? Text(i.generationParams!.sampler) : const SizedBox.shrink(),
+          if(i.generationParams!.sampler != null) i.generationParams?.sampler != null ? Text(i.generationParams!.sampler!) : const SizedBox.shrink(),
           Text(i.size.toString()),
           i.generationParams?.hiresSampler != null ? Text(i.generationParams?.hiresSampler ?? 'none') : const SizedBox.shrink(),
           i.generationParams?.hiresUpscale != null ? Text('x${i.generationParams!.hiresUpscale.toString()}') : const SizedBox.shrink(),
@@ -421,23 +590,35 @@ class GetInfoOrShit extends StatelessWidget {
 }
 
 class ImageList extends StatefulWidget {
-  final List<dynamic> images;
+  final List<ImageMeta> images;
+  final bool showJpeg;
 
-  const ImageList({ Key? key, required this.images }): super(key: key);
+  const ImageList({ super.key, required this.images, required this.showJpeg});
 
   @override
   State<ImageList> createState() => _ImageListStateStateful();
 }
 
 class _ImageListStateStateful extends State<ImageList>{
-  bool loaded = false;
 
   final ScrollController controller = ScrollController();
 
   @override
+  void initState(){
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.animateTo(
+        controller.position.maxScrollExtent,
+        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 300),
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext ctx){
-    bool most = widget.images.where((e) => e.size.width < e.size.height).length > widget.images.length;
+    bool most = widget.images.where((e) => e.size!.width < e.size!.height).length > widget.images.length;
     bool isScreenWide = most;// MediaQuery.sizeOf(context).width >= maxSize;
+    List<ImageMeta> fi = widget.showJpeg ? widget.images :  widget.images.where((e) => e.fileTypeExtension != 'jpeg').toList(growable: false);
     return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         height: !isScreenWide ? 156 : null,
@@ -445,62 +626,125 @@ class _ImageListStateStateful extends State<ImageList>{
         child: ScrollConfiguration(
             behavior: MyCustomScrollBehavior(),
             child: ListView.builder(
-                itemCount: widget.images.length,
+                itemCount: fi.length,
                 scrollDirection: isScreenWide ? Axis.vertical : Axis.horizontal,
                 controller: controller,
                 itemBuilder: (context, index) {
-                  ImageMeta im = widget.images.elementAt(index);
+                  ImageMeta im = fi.elementAt(index);
                   final imageManager = Provider.of<ImageManager>(context);
                   final dataModel = Provider.of<DataModel>(context, listen: false);
                   final entries = <ContextMenuEntry>[
-                    MenuItem.submenu(
-                      label: 'Comparison',
-                      icon: Icons.edit,
+                    MenuItem(
+                      label: const Text('As main'),
+                      icon: const Icon(Icons.swipe_left),
+                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(0, im)
+                    ),
+                    MenuItem(
+                      label: const Text('As test'),
+                      icon: const Icon(Icons.swipe_right),
+                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, im)
+                    ),
+                    const MenuDivider(),
+                    MenuItem(
+                      label: Text(imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like'),
+                      icon: Icon(imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline),
+                      onSelected: (_) => imageManager.toogleFavorite(im.fullPath!, host: im.host)
+                    ),
+                    const MenuDivider(),
+                    MenuItem(
+                      label: const Text('View render tree'),
+                      icon: const Icon(Icons.account_tree_sharp),
+                      onSelected: (_) {
+                        // implement copy
+                      },
+                    ),
+                    // MenuItem.submenu(
+                    //   label: 'Send to comparison',
+                    //   icon: Icons.edit,
+                    //   items: [
+                    //     // MenuItem( // TODO I WANT
+                    //     //   label: 'View only favorite',
+                    //     //   value: 'comparison_view_favorite',
+                    //     //   icon: Icons.compare,
+                    //     //   onSelected: () {
+                    //     //     if(sp.selectedCo == 0){
+                    //     //       dataModel.comparisonBlock.addAllImages(imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)).toList());
+                    //     //     }
+                    //     //     dataModel.jumpToTab(3);
+                    //     //   },
+                    //     // ),
+                    //     const MenuDivider(),
+                    //
+                    //   ],
+                    // ),
+                    if(im.generationParams?.seed != null ) MenuItem.submenu(
+                      label: const Text('View in timeline'),
+                      icon: const Icon(Icons.view_timeline_outlined),
                       items: [
                         MenuItem(
-                          label: 'As main',
-                          value: 'comparison_as_main',
-                          icon: Icons.swipe_left,
-                          onSelected: () {
-                            dataModel.comparisonBlock.changeSelected(0, im);
-                            // implement redo
-                          },
-                        ),
-                        MenuItem(
-                          label: 'As test',
-                          value: 'comparison_as_test',
-                          icon: Icons.swipe_right,
-                          onSelected: () {
-                            dataModel.comparisonBlock.changeSelected(1, im);
+                          label: const Text('by seed'),
+                          icon: const Icon(Icons.compare),
+                          onSelected: (_) {
+                            dataModel.timelineBlock.setSeed(im.generationParams!.seed!);
+                            dataModel.jumpToTab(2);
                           },
                         ),
                       ],
                     ),
-                    MenuItem(
-                      label: imageManager.favoritePaths.contains(im.fullPath) ? 'UnLike': 'Like',
-                      icon: imageManager.favoritePaths.contains(im.fullPath) ? Icons.star : Icons.star_outline,
-                      onSelected: () {
-                        imageManager.toogleFavorite(im.fullPath, host: im.host);
-                      },
-                    ),
                     const MenuDivider(),
                     MenuItem(
-                      label: 'Send to MiniSD',
-                      value: 'send_to_minisd',
-                      icon: Icons.web_rounded,
-                      onSelected: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => MiniSD(imageMeta: im)));
-                        // implement redo
-                      },
+                      label: const Text('Show in explorer'),
+                      icon: const Icon(Icons.compare),
+                      onSelected: (_) => showInExplorer(im.fullPath!)
                     ),
-                    const MenuDivider(),
-                    MenuItem(
-                      label: 'Show in explorer',
-                      value: 'show_in_explorer',
-                      icon: Icons.compare,
-                      onSelected: () {
-                        showInExplorer(im.fullPath);
-                      },
+                    MenuItem.submenu(
+                      label: const Text('Copy...'),
+                      icon: const Icon(Icons.copy),
+                      items: [
+                        if(im.generationParams?.seed != null) MenuItem(
+                          label: const Text('Seed'),
+                          icon: const Icon(Icons.abc),
+                          onSelected: (_) async {
+                            String seed = im.generationParams!.seed.toString();
+                            Clipboard.setData(ClipboardData(text: seed)).then((value) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Seed $seed copied'),
+                            )));
+                          },
+                        ),
+                        MenuItem(
+                          label: const Text('Folder/file.name'),
+                          icon: const Icon(Icons.arrow_forward),
+                          onSelected: (_) => Clipboard.setData(ClipboardData(text: '${File(im.fullPath!).parent}/${im.fileName}')).then((value) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                            content: Text('Copied'),
+                          )))
+                        ),
+                        MenuItem(
+                          label: const Text('Favorite images to folder...'),
+                          icon: const Icon(Icons.star),
+                          onSelected: (_) async {
+                            // imagesList.where((el) => imageManager.favoritePaths.contains(el.fullPath)
+                            String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
+                            if (selectedDirectory != null) {
+                              Iterable<ImageMeta> l = widget.images.where((el) => imageManager.favoritePaths.contains(el.fullPath));
+                              if(l.isNotEmpty){
+                                int notID = notificationManager!.show(
+                                    title: 'Copying files',
+                                    description: 'Now we will copy ${l.length} files to\n$selectedDirectory',
+                                    content: Container(
+                                      margin: const EdgeInsets.only(top: 7),
+                                      width: 100,
+                                      child: const LinearProgressIndicator(),
+                                    )
+                                );
+                                for(ImageMeta m in l){
+                                  await File(m.fullPath!).copy(p.join(selectedDirectory, m.fileName));
+                                }
+                                notificationManager!.close(notID);
+                              }
+                            }
+                          },
+                        )
+                      ],
                     ),
                   ];
 
@@ -513,9 +757,6 @@ class _ImageListStateStateful extends State<ImageList>{
                   bool b = isMain && isTest;
                   return ContextMenuRegion(
                       contextMenu: contextMenu,
-                      onItemSelected: (value) {
-                        print(value);
-                      },
                       child: Container(
                           margin: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
@@ -526,10 +767,10 @@ class _ImageListStateStateful extends State<ImageList>{
                             children: [
                               AspectRatio(
                                 aspectRatio: im.size!.width / im.size!.height,
-                                child: im.isLocal ? Image.memory(
+                                child: im.thumbnail != null ? Image.memory(
                                     gaplessPlayback: true,
-                                    base64Decode(im.thumbnail ?? '')
-                                ) : Image.network(im.networkThumbnail!),
+                                    im.thumbnail!
+                                ) : Icon(Icons.error),
                               ),
                               Positioned(
                                 bottom: 0,
@@ -572,16 +813,28 @@ class _ImageListStateStateful extends State<ImageList>{
                                                 padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
                                                 decoration: BoxDecoration(
                                                     borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                    color: const Color(0xff5f55a6).withOpacity(0.7)
+                                                    color: (im.generationParams?.hiresSampler != null ? Color(0xffa69955) : Color(0xff5f55a6)).withAlpha(180)
                                                 ),
-                                                child: const Text('Hi-Res', style: TextStyle(color: Color(
-                                                    0xffc8c4f5), fontSize: 8)),
+                                                child: Text('Hi-Res', style: TextStyle(color: im.generationParams?.hiresSampler != null ? Color(0xfff5e7c4) : Color(0xffc8c4f5), fontSize: 8)),
                                               ) : const SizedBox.shrink(),
                                               im.generationParams!.denoisingStrength != null && im.generationParams?.hiresUpscale != null ? const Gap(3) : const SizedBox.shrink(),
                                               Text(im.generationParams!.size.toString(), style: const TextStyle(fontSize: 10, color: Colors.white))
                                             ],
                                           ) : const SizedBox.shrink(),
-                                          Text(im.fileName.split('-').first, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                          Row(
+                                            children: [
+                                              Text(im.fileName.split('-').first, style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                              const Gap(4),
+                                              im.fileTypeExtension == 'jpeg' ? Container(
+                                                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                                decoration: BoxDecoration(
+                                                    borderRadius: const BorderRadius.all(Radius.circular(2)),
+                                                    color: const Color(0xff08272b).withOpacity(0.7)
+                                                ),
+                                                child: const Text('JPEG', style: TextStyle(color: Color(0xffd4ecdf), fontSize: 10)),
+                                              ) : const SizedBox.shrink()
+                                            ],
+                                          ),
                                           //im.generationParams != null ? Text((im.generationParams!.seed).toString(), style: const TextStyle(fontSize: 10, color: Colors.white)) : const SizedBox.shrink()
                                           //{steps: 35, sampler: DPM adaptive, cfg_scale: 7, seed: 1624605927, size: 2567x1454, model_hash: a679b318bd, model: 0.7(bb95FurryMix_v100) + 0.3(crosskemonoFurryModel_crosskemono25), denoising_strength: 0.35, rng: NV, ti_hashes: "easynegative, version: 1.7.0}
                                         ],
