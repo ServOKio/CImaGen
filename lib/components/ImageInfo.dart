@@ -441,7 +441,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Text('Regional Prompter', style: TextStyle(fontSize: 12, color: Colors.white70)),
                                 const Gap(6),
                                 Column(
-                                  children: gp.params!.keys.where((k) => k.startsWith('rp_')).map((k) => InfoBox(one: numanizeKey(k), two: gp!.params![k], inner: true)).toList()
+                                  children: gp.params!.keys.where((k) => k.startsWith('rp_')).map((k) => InfoBox(one: humanizeKey(k), two: gp!.params![k], inner: true)).toList()
                                 )
                               ],
                             )

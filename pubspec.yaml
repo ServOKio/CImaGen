@@ -127,6 +127,7 @@ flutter:
     - assets/audio/okay.wav
     - assets/audio/open.wav
     - assets/audio/wrong.wav
+    - assets/icons/icon128white.png
   fonts:
     - family: Montserrat
       fonts:

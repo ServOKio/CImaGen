@@ -3,7 +3,7 @@ import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
-import '../utils/SQLite.dart';
+import '../modules/SQLite.dart';
 
 class NotesSection extends StatefulWidget{
   const NotesSection({super.key});

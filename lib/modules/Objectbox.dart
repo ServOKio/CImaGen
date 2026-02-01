@@ -17,11 +17,11 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../modules/ConfigManager.dart';
-import '../modules/webUI/AbMain.dart';
+import 'ConfigManager.dart';
+import 'webUI/AbMain.dart';
 import '../objectbox.g.dart';
-import 'DataModel.dart';
-import 'NavigationService.dart';
+import '../utils/DataModel.dart';
+import '../utils/NavigationService.dart';
 
 List<Folder> _buildFoldersIsolate(List<LiteMeta> list) {
   final Map<int, List<FolderFile>> byDay = {};

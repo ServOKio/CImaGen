@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/ArtistDefaultStypeFinder.dart';
 import 'package:cimagen/components/TagSearcher.dart';

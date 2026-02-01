@@ -14,7 +14,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
 import '../../utils/NavigationService.dart';
-import '../../utils/SQLite.dart';
+import '../SQLite.dart';
 import 'AbMain.dart';
 
 class OnNetworkLocation extends ChangeNotifier implements AbMain {

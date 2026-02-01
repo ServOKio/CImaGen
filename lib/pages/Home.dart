@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
+import 'package:cimagen/pages/sub/MiniWorld.dart';
 import 'package:cimagen/pages/sub/SafetensorsModelView.dart';
 import 'package:cimagen/pages/sub/categories/Main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -33,7 +34,7 @@ import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/SaveManager.dart' as sm;
 import '../utils/DataModel.dart';
-import '../utils/SQLite.dart';
+import '../modules/SQLite.dart';
 import '../utils/ThemeManager.dart';
 
 class Home extends StatefulWidget {
@@ -1249,16 +1250,28 @@ class FileInfoPreview extends StatelessWidget{
               const Gap(7),
               Row(
                 children: [
-                  im.error == null ? ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size.zero, // Set this
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-                      ),
-                      onPressed: () async {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
-                      },
-                      child: const Text("View data", style: TextStyle(fontSize: 12))
-                  ) : const SizedBox.shrink(),
+                  if(im.error == null) ...[
+                    ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size.zero, // Set this
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                        ),
+                        onPressed: () async {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
+                        },
+                        child: const Text("View data", style: TextStyle(fontSize: 12))
+                    ),
+                    if(im.generationParams != null || im.re == RenderEngine.comfUI) ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size.zero, // Set this
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+                        ),
+                        onPressed: () async {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => MiniWorld(imageMeta: im)));
+                        },
+                        child: const Text("View as ComfUI", style: TextStyle(fontSize: 12))
+                    ),
+                  ]
                 ],
               )
             ],

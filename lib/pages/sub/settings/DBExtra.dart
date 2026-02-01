@@ -8,7 +8,7 @@ import 'package:settings_ui/settings_ui.dart';
 
 import '../../../components/Animations.dart';
 import '../../../main.dart';
-import '../../../utils/SQLite.dart';
+import '../../../modules/SQLite.dart';
 
 class DBExtra extends StatefulWidget{
   const DBExtra({super.key});

@@ -11,11 +11,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:sqflite/utils/utils.dart' as sqLite show firstIntValue;
 import '../main.dart';
-import '../modules/ConfigManager.dart';
-import '../modules/webUI/AbMain.dart';
+import '../utils/DBExceptions.dart';
+import 'ConfigManager.dart';
+import 'webUI/AbMain.dart';
 import '../objectbox.g.dart';
-import 'DataModel.dart';
-import 'NavigationService.dart';
+import '../utils/DataModel.dart';
+import '../utils/NavigationService.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -33,6 +34,7 @@ class SQLite{
   bool use = false;
 
   bool BLYATPIZDETS = !kDebugMode;
+  int debug_index = 1;
 
   late final SqlBatchQueue sqlQueue;
 
@@ -53,7 +55,7 @@ class SQLite{
     if (!await dbPath.exists()) {
       await dbPath.create(recursive: true);
     }
-    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'images_database${!BLYATPIZDETS ? '_debug' : ''}.db'));
+    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'images_database${!BLYATPIZDETS ? '_debug${debug_index == 0 ? '' : '_$debug_index'}' : ''}.db'));
 
     database = await openDatabase(
       dbPath.path,
@@ -203,7 +205,7 @@ class SQLite{
     );
 
 
-    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'const_database${!BLYATPIZDETS ? '_debug' : ''}.db'));
+    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'const_database${!BLYATPIZDETS ? '_debug${debug_index == 0 ? '' : '_$debug_index'}' : ''}.db'));
     constDatabase = await openDatabase(
       dbPath.path,
       onOpen: (db){
@@ -1199,6 +1201,35 @@ class SQLite{
     return res.first['id'] as int;
   }
 
+  Future<void> checkDBErrors() async {
+    final duplicates = await database.rawQuery('''
+    SELECT image_keyup
+    FROM generation_params
+    GROUP BY image_keyup
+    HAVING COUNT(*) > 1
+  ''');
+
+    if (duplicates.isNotEmpty) {
+      throw DuplicateGenerationParamsException(
+        duplicates.map((e) => e['image_keyup'] as String).toList(),
+      );
+    }
+
+    final orphans = await database.rawQuery('''
+    SELECT gp.image_keyup
+    FROM generation_params gp
+    LEFT JOIN images i ON i.keyup = gp.image_keyup
+    WHERE i.keyup IS NULL
+  ''');
+
+    if (orphans.isNotEmpty) {
+      throw OrphanGenerationParamsException(
+        orphans.map((e) => e['image_keyup'] as String).toList(),
+      );
+    }
+  }
+
+
   // Year data
   Future<List<List<int>>> yearsComparison(int year, {String? host}) async {
     List<int> currentYearCounts = List.filled(12, 0);
@@ -1420,6 +1451,114 @@ class SQLite{
       return im;
     }).toList(growable: false);
   }
+
+  Future<List<ImageMeta>> getTopByImageSize(
+      int year, {
+        String? host,
+        int limit = 50,
+      }) async {
+    final args = <Object>[
+      '$year-01-01',
+      '${year + 1}-01-01',
+    ];
+
+    final whereHost = host != null ? 'AND i.host = ?' : '';
+    if (host != null) {
+      args.add(host);
+    }
+
+    args.add(limit);
+
+    // STEP 1 — get top keyups by parsed size
+    final keyRows = await database.rawQuery(
+      '''
+    WITH ranked AS (
+  SELECT
+    i.keyup,
+    i.size,
+    ROW_NUMBER() OVER (
+      PARTITION BY i.size
+      ORDER BY i.dateModified DESC
+    ) AS rn
+  FROM images i
+  WHERE i.size IS NOT NULL
+    AND i.size LIKE '%x%'
+    AND i.dateModified >= ?
+    AND i.dateModified < ?
+    $whereHost
+)
+SELECT keyup
+FROM ranked
+WHERE rn = 1
+ORDER BY
+  CAST(SUBSTR(size, 1, INSTR(size, 'x') - 1) AS INTEGER)
+  *
+  CAST(SUBSTR(size, INSTR(size, 'x') + 1) AS INTEGER)
+DESC
+LIMIT ?
+    ''',
+      args,
+    );
+
+    if (keyRows.isEmpty) return [];
+
+    final keyups = keyRows.map((e) => e['keyup']).toList();
+    final placeholders = List.filled(keyups.length, '?').join(',');
+
+    // STEP 2 — hydrate full rows
+    final rows = await database.rawQuery(
+      '''
+    SELECT
+      i.*,
+      gp.id AS gp_id,
+      gp.positive AS gp_positive,
+      gp.negative AS gp_negative,
+      gp.steps AS gp_steps,
+      gp.sampler AS gp_sampler,
+      gp.cfgScale AS gp_cfgScale,
+      gp.seed AS gp_seed,
+      gp.sizeW AS gp_sizeW,
+      gp.sizeH AS gp_sizeH,
+      gp.checkpointType AS gp_checkpointType,
+      gp.checkpoint AS gp_checkpoint,
+      gp.checkpointHash AS gp_checkpointHash,
+      gp.vae AS gp_vae,
+      gp.vaeHash AS gp_vaeHash,
+      gp.denoisingStrength AS gp_denoisingStrength,
+      gp.rng AS gp_rng,
+      gp.hiresSampler AS gp_hiresSampler,
+      gp.hiresUpscaler AS gp_hiresUpscaler,
+      gp.hiresUpscale AS gp_hiresUpscale,
+      gp.tiHashes AS gp_tiHashes,
+      gp.params AS gp_params,
+      gp.rawData AS gp_rawData,
+      gp.rating AS gp_rating
+    FROM images i
+    LEFT JOIN generation_params gp
+      ON gp.image_keyup = i.keyup
+    WHERE i.keyup IN ($placeholders)
+    ORDER BY (
+      CAST(SUBSTR(i.size, 1, INSTR(i.size, 'x') - 1) AS INTEGER)
+      +
+      CAST(SUBSTR(i.size, INSTR(i.size, 'x') + 1) AS INTEGER)
+    ) DESC
+    ''',
+      keyups,
+    );
+
+    return rows.map((row) {
+      final im = _mapImage(row);
+
+      if (row['gp_id'] != null) {
+        im.generationParams =
+            GenerationParamsSql.fromSqlMap(_extractGpMap(row));
+      }
+
+      im.cacheFilePath = _cachePath(im);
+      return im;
+    }).toList(growable: false);
+  }
+
 
   // System
   Future<void> fixDB() async {

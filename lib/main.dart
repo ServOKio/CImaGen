@@ -2,18 +2,20 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/components/SimpleWindowBar.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/YearEndResults.dart';
 import 'package:cimagen/utils/AppBarController.dart';
+import 'package:cimagen/utils/DBExceptions.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/utils/NavigationService.dart';
-import 'package:cimagen/utils/Objectbox.dart';
-import 'package:cimagen/utils/SQLite.dart';
+import 'package:cimagen/modules/Objectbox.dart';
+import 'package:cimagen/modules/SQLite.dart';
 import 'package:cimagen/modules/SaveManager.dart';
 import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -326,6 +328,23 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         sqLite.init().then((v){
           setState(() {
             _sqlPass = true;
+          });
+          sqLite.checkDBErrors().catchError((error, stack) {
+            int notID = notificationManager!.show(
+                thumbnail: const Icon(Icons.warning, color: Colors.amberAccent),
+                title: 'SQL problem',
+                description: 'Error: $error',
+                // content: ElevatedButton(
+                //     onPressed: () => init(),
+                //     child: const Text("Try again", style: TextStyle(fontSize: 12))
+                // )
+            );
+            audioController!.player.play(AssetSource('audio/wrong.wav'));
+            if (error is DatabaseCheckException) {
+
+            } else {
+
+            }
           });
           context.read<ImageManager>().init(context);
           context.read<DataManager>().init().then((v){

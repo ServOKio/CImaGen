@@ -29,6 +29,9 @@ class _YearEndResultsState extends State<YearEndResults> {
   int NNNCount = -1;
   List<List<dynamic>> topArtists = [];
   List<ImageMeta> topFileSize = [];
+  List<ImageMeta> topImageSize = [];
+
+  int loadedPro = 0;
 
   final _random = Random();
   int next(int min, int max) => min + _random.nextInt(max - min);
@@ -49,15 +52,25 @@ class _YearEndResultsState extends State<YearEndResults> {
         });
       }
       sqLite.yearsComparison(2025).then((data){
+        setState(() {loadedPro++;});
         sqLite.countCumInNovember(2025).then((dataCum){
+          setState(() {loadedPro++;});
           sqLite.topArtists(host: context.read<ImageManager>().getter.host, year: 2025, limit: 30).then((dataArtist){
+            setState(() {loadedPro++;});
             sqLite.getTopByFileSize(2025, host: context.read<ImageManager>().getter.host, limit: 10).then((dataFileSize) {
-              setState(() {
-                topArtists = dataArtist;
-                NNNCount = dataCum;
-                yearsComparison = data;
-                topFileSize = dataFileSize;
-                loaded = true;
+              setState(() {loadedPro++;});
+              sqLite.getTopByImageSize(2025, host: context.read<ImageManager>().getter.host, limit: 10).then((dataImageSize) {
+                print(dataImageSize.length);
+                setState(() {
+                  topArtists = dataArtist;
+                  NNNCount = dataCum;
+                  yearsComparison = data;
+                  topFileSize = dataFileSize;
+                  topImageSize = dataImageSize;
+
+                  loadedPro++;
+                  loaded = true;
+                });
               });
             });
           });
@@ -127,25 +140,93 @@ class _YearEndResultsState extends State<YearEndResults> {
                 )
             ),
             SizedBox(
-              width: width, height: height/2,
-              child: Row(
-                children: topFileSize.map((item) => Stack(
-                  children: [
-                    Image.memory(
-                      width: width/topFileSize.length-7,
-                      item.thumbnail!,
-                      gaplessPlayback: true,
-                    ),
-                    Container(
-                      color: Colors.black.withAlpha(120),
-                      child: Text('${readableFileSize(item.fileSize!)}\n${item.size.toString()}'),
-                    )
-                  ],
-                )).expand((x) => [const Gap(7), x]).skip(1).toList(),
-              ),
+                width: width, height: height/2,
+                child: Padding(
+                  padding: EdgeInsetsGeometry.all(56),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Text('The largest File Size - is', textAlign: TextAlign.center, style: TextStyle(fontSize: 42, fontFamily: 'Montserrat', fontWeight: FontWeight.w600, color: Colors.white)),
+                          Gap(14),
+                          Text(readableFileSize(topFileSize[0].fileSize!), textAlign: TextAlign.center, style: TextStyle(fontSize: 42, fontFamily: 'Montserrat', fontWeight: FontWeight.w700, color: Color(0xFF6C5CE3))),
+                        ],
+                      ),
+                      Gap(28),
+                      Row(
+                        children: topFileSize.map((item) => SizedBox(
+                          width: (width-56*2)/topFileSize.length-7,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(readableFileSize(item.fileSize!), textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                              SelectableText(item.size.toString(), textAlign: TextAlign.center, style: TextStyle(color: Colors.white54))
+                            ],
+                          ),
+                        )).expand((x) => [const Gap(7), x]).skip(1).toList(),
+                      ),
+                      Gap(7),
+                      Row(
+                        children: topFileSize.map((item) => ClipRRect(
+                            borderRadius: BorderRadius.circular(7.0),
+                            child: Image.memory(
+                              width: (width-56*2)/topFileSize.length-7,
+                              item.thumbnail!,
+                              gaplessPlayback: true,
+                            )
+                        )).expand((x) => [const Gap(7), x]).skip(1).toList(),
+                      ),
+                    ],
+                  ),
+                )
+            ),
+            SizedBox(
+                width: width, height: height/2,
+                child: Padding(
+                  padding: EdgeInsetsGeometry.all(56),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Text('Now imagine having a', textAlign: TextAlign.center, style: TextStyle(fontSize: 42, fontFamily: 'Montserrat', fontWeight: FontWeight.w600, color: Colors.white)),
+                          Gap(14),
+                          Text(topImageSize[0].size.toString(), textAlign: TextAlign.center, style: TextStyle(fontSize: 42, fontFamily: 'Montserrat', fontWeight: FontWeight.w700, color: Color(0xFF6C5CE3))),
+                          Gap(14),
+                          Text('monitor', textAlign: TextAlign.center, style: TextStyle(fontSize: 42, fontFamily: 'Montserrat', fontWeight: FontWeight.w600, color: Colors.white)),
+                        ],
+                      ),
+                      Gap(28),
+                      Row(
+                        children: topImageSize.map((item) => SizedBox(
+                          width: (width-56*2)/topImageSize.length-7,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(readableFileSize(item.fileSize!), textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text(item.size.toString(), textAlign: TextAlign.center, style: TextStyle(color: Colors.white54)),
+                              SelectableText(item.keyup, textAlign: TextAlign.center, style: TextStyle(color: Colors.white54))
+                            ],
+                          ),
+                        )).expand((x) => [const Gap(7), x]).skip(1).toList(),
+                      ),
+                      Gap(7),
+                      Row(
+                        children: topImageSize.map((item) => ClipRRect(
+                            borderRadius: BorderRadius.circular(7.0),
+                            child: Image.memory(
+                              width: (width-56*2)/topImageSize.length-7,
+                              item.thumbnail!,
+                              gaplessPlayback: true,
+                            )
+                        )).expand((x) => [const Gap(7), x]).skip(1).toList(),
+                      ),
+                    ],
+                  ),
+                )
             )
           ],
-        )) : Center(child: CircularProgressIndicator())
+        )) : Center(child: LinearProgressIndicator(value: loadedPro/5))
     );
   }
 

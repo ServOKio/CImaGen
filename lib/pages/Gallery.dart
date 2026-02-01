@@ -30,7 +30,7 @@ import '../components/CustomMenuItem.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/DataManager.dart';
 import '../modules/webUI/AbMain.dart';
-import '../utils/SQLite.dart';
+import '../modules/SQLite.dart';
 import '../utils/ThemeManager.dart';
 import 'Settings.dart';
 

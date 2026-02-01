@@ -1324,7 +1324,7 @@ Future<int> getDirSize(Directory dir) async {
 }
 
 
-String numanizeKey(String key){
+String humanizeKey(String key){
   List<String> s = key.split('_');
   s[0] = '${s[0][0].toUpperCase()}${s[0].substring(1).toLowerCase()}';
   return s.join(' ');
