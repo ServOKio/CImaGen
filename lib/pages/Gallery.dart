@@ -7,6 +7,7 @@ import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/pages/Timeline.dart' as timeline;
 import 'package:cimagen/pages/sub/JointTaggerProject.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
+import 'package:cimagen/pages/sub/PhotoshopMini/Photoshop.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:file_picker/file_picker.dart';
@@ -30,7 +31,6 @@ import '../components/CustomMenuItem.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/DataManager.dart';
 import '../modules/webUI/AbMain.dart';
-import '../modules/SQLite.dart';
 import '../utils/ThemeManager.dart';
 import 'Settings.dart';
 
@@ -67,6 +67,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   bool debug = false;
 
   int previewType = 0;
+  bool _isSwitchingFolder = false;
+  String _currentFolderKey = '';
 
   TabController? _tabController;
   final GlobalKey _key = GlobalKey();
@@ -78,6 +80,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   Map<int, bool> _isLoadingMore = {};
   Map<int, bool> _hasMore = {};
   static const int _pageSize = 30;
+  Map<int, bool> _isInitialLoading = {};
 
   bool sr = false;
 
@@ -133,6 +136,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           }
         });
       // Lists
+      _isInitialLoading[i] = true;
       _folders[i] = [];
       _isLoadingMore[i] = false;
       _hasMore[i] = true;
@@ -262,24 +266,43 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     final offset = _folders[tabIndex]!.length;
 
-    final newItems = await context
-      .read<ImageManager>()
-      .getter
-      .getFoldersPaged(
-          tabIndex,
-          offset: offset,
-          limit: _pageSize,
-        );
+    try {
+      final newItems = await context
+          .read<ImageManager>()
+          .getter
+          .getFoldersPaged(
+        tabIndex,
+        offset: offset,
+        limit: _pageSize,
+      );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _folders[tabIndex]!.addAll(newItems);
-      _isLoadingMore[tabIndex] = false;
-      if (newItems.length < _pageSize) {
-        _hasMore[tabIndex] = false;
-      }
-    });
+      setState(() {
+        final wasEmpty = _folders[tabIndex]!.isEmpty;
+
+        _folders[tabIndex]!.addAll(newItems);
+        _isLoadingMore[tabIndex] = false;
+        _isInitialLoading[tabIndex] = false;
+
+        if (newItems.length < _pageSize) {
+          _hasMore[tabIndex] = false;
+        }
+
+        if (wasEmpty && newItems.isNotEmpty) {
+          if (_selected[tabIndex] == null || _selected[tabIndex] == 0) {
+            changeFolder(tabIndex, 0);  // ← this will also update imagesList
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingMore[tabIndex] = false;
+        _isInitialLoading[tabIndex] = false;
+      });
+      debugPrint('Error loading folders for tab $tabIndex: $e');
+    }
   }
 
   @override
@@ -306,14 +329,131 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   void changeFolder(int folder, int index) {
-    _selected[folder] = index;
-    setState(() {
-      currentKey = '$folder:$index';
-    });
+    final newKey = '$folder:$index';
+    if (_currentFolderKey == newKey) return;
 
     setState(() {
-      imagesList = context.read<ImageManager>().getter.getFolderFiles(folder, _folders[folder]![index].getter);
+      _isSwitchingFolder = true;
+      _selected[folder] = index;
+      _currentFolderKey = newKey;
     });
+
+    final newImagesList = context.read<ImageManager>().getter.getFolderFiles(
+      folder,
+      _folders[folder]![index].getter,
+    );
+
+    if (newImagesList is Future) {
+      (newImagesList as Future).whenComplete(() {
+        if (mounted) setState(() => _isSwitchingFolder = false);
+      });
+    } else if (newImagesList is Stream<List<ImageMeta>>) {
+      final stream = newImagesList as Stream<List<ImageMeta>>;
+
+      stream
+          .where((data) => data != null && data.isNotEmpty)
+          .first
+          .then((_) {
+        if (mounted) setState(() => _isSwitchingFolder = false);
+      })
+          .catchError((_) {
+        if (mounted) setState(() => _isSwitchingFolder = false);
+      });
+    } else {
+      Future.microtask(() {
+        if (mounted) setState(() => _isSwitchingFolder = false);
+      });
+    }
+
+    setState(() {
+      imagesList = newImagesList;
+    });
+  }
+
+  Widget _buildFolderContent() {
+    if (imagesList == null) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 24),
+            Text(
+              'Preparing folder…',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (imagesList is Future) {
+      return FutureBuilder(
+        future: imagesList as Future,
+        builder: (context, AsyncSnapshot<dynamic> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _buildErrorWidget(snapshot.error.toString());
+          }
+          if (!snapshot.hasData || snapshot.data.isEmpty) {
+            return const EmplyFolderPlaceholder();
+          }
+          return GalleryList(snapshot: snapshot);
+        },
+      );
+    }
+
+    if (imagesList is Stream<List<ImageMeta>>) {
+      return StreamBuilder<List<ImageMeta>>(
+        stream: imagesList as Stream<List<ImageMeta>>,
+        builder: (context, AsyncSnapshot<List<ImageMeta>> snapshot) {
+          if (snapshot.hasError) {
+            return _buildErrorWidget(snapshot.error.toString());
+          }
+          switch (snapshot.connectionState) {
+            case ConnectionState.waiting:
+              return const Center(child: CircularProgressIndicator());
+            case ConnectionState.active:
+            case ConnectionState.done:
+              if (snapshot.data == null || snapshot.data!.isEmpty) {
+                return const EmplyFolderPlaceholder();
+              }
+              return GalleryList(snapshot: snapshot);
+            default:
+              return const SizedBox.shrink();
+          }
+        },
+      );
+    }
+
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.folder_open, size: 64, color: Colors.white54),
+          SizedBox(height: 16),
+          Text('Select a folder to view contents', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget(String error) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
+          const SizedBox(height: 16),
+          const Text('Something went wrong', style: TextStyle(fontSize: 18)),
+          const SizedBox(height: 8),
+          Text(error, style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
   }
 
   Widget _buildNavigationRail() {
@@ -378,42 +518,87 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   Widget _fBuilder(int tabIndex) {
     final folders = _folders[tabIndex]!;
 
-    return folders.isEmpty ? const Padding(padding: EdgeInsets.all(14), child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.nights_stay_rounded,
-          color: Colors.white,
-          size: 60,
-        ),
-        Padding(
-          padding: EdgeInsets.only(top: 16),
-          child: Text('It looks like it\'s empty\nTry indexing all'),
-        ),
-      ],
-    )) : ListView.separated(
-      controller: _scrollControllers[tabIndex],
-      itemCount: folders.length + (_hasMore[tabIndex]! ? 1 : 0),
-      separatorBuilder: (_, __) => const SizedBox(height: 4),
-      itemBuilder: (context, index) {
-        if (index >= folders.length) {
-          return const Padding(
-            padding: EdgeInsets.all(12),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+    if (_isInitialLoading[tabIndex] == true) {
+      return _buildShimmerPlaceholder();
+    }
 
-        return FolderBlock(
-          folder: folders[index],
-          section: tabIndex,
-          index: index,
-          onTap: () => changeFolder(tabIndex, index),
-          active: _selected[tabIndex] == index,
-        );
-      },
+    if (folders.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.nights_stay_rounded,
+              color: Colors.white,
+              size: 60,
+            ),
+            Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: Text(
+                'It looks like it\'s empty\nTry indexing all',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, height: 1.4),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return AnimationLimiter(
+      child: ListView.separated(
+        controller: _scrollControllers[tabIndex],
+        itemCount: folders.length + (_hasMore[tabIndex]! ? 1 : 0),
+        separatorBuilder: (_, __) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          if (index >= folders.length) {
+            return const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 450),
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(
+                child: FolderBlock(
+                  folder: folders[index],
+                  section: tabIndex,
+                  index: index,
+                  onTap: () => changeFolder(tabIndex, index),
+                  active: _selected[tabIndex] == index,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
+  Widget _buildShimmerPlaceholder() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[850]!,
+      highlightColor: Colors.grey[700]!,
+      child: ListView.separated(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 12,
+        separatorBuilder: (_, __) => const SizedBox(height: 4),
+        itemBuilder: (context, index) {
+          return Container(
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.white
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   double x = 0;
   double y = 0;
@@ -470,7 +655,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         ]
       ) : Scaffold(
         body: _buildMainSection(),
-        // use SizedBox to contrain the AppMenu to a fixed width
         drawer: Theme(
           data: ThemeData.dark(useMaterial3: false).copyWith(
             canvasColor: Theme.of(context).scaffoldBackgroundColor,
@@ -496,176 +680,136 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 
   Widget GalleryList({
-    required AsyncSnapshot<dynamic> snapshot
-  }){
-    int type = prefs.getInt('gallery_view_style') ?? 0;
-    return type == 1 ? MasonryGridView.count(
-        physics: const BouncingScrollPhysics(),
-        itemCount: snapshot.data.length,
-        mainAxisSpacing: 5,
-        crossAxisSpacing: 5,
-        crossAxisCount: _getCount(),
-        itemBuilder: (context, index) {
-          var it = snapshot.data[index];
-          return PreviewImage(
-            key: Key(it.keyup),
-            imagesList: snapshot.data,
-            imageMeta: it,
-            selectedModel: selectionModel,
-            index: index,
-            onHover: (PointerHoverEvent event, ImageMeta im) => _updateFloat(event, im),
-            onImageTap: () => Navigator.push(context, _createGalleryDetailRoute(snapshot.data, index))
-          );
-        }
-    ) : AlignedGridView.count(
-        physics: const BouncingScrollPhysics(),
-        itemCount: snapshot.data.length,
-        mainAxisSpacing: 5,
-        crossAxisSpacing: 5,
-        crossAxisCount: _getCount(),
-        itemBuilder: (context, index) {
-          var it = snapshot.data[index];
-          return PreviewImage(
-            key: Key(it.keyup),
-            imagesList: snapshot.data,
-            imageMeta: it,
-            selectedModel: selectionModel,
-            index: index,
-            onHover: (PointerHoverEvent event, ImageMeta im) => _updateFloat(event, im),
-            onImageTap: () => Navigator.push(context, _createGalleryDetailRoute(snapshot.data, index))
-          );
-        }
+    required AsyncSnapshot<dynamic> snapshot,
+  }) {
+    int viewStyle = prefs.getInt('gallery_view_style') ?? 0;
+    final items = snapshot.data as List<ImageMeta>;
+
+    if (items.isEmpty) {
+      return const EmplyFolderPlaceholder();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, 8);
+
+        return AnimationLimiter(
+          child: viewStyle == 1
+              ? MasonryGridView.count(
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            mainAxisSpacing: 5,
+            crossAxisSpacing: 5,
+            crossAxisCount: crossAxisCount,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                duration: const Duration(milliseconds: 400),
+                columnCount: crossAxisCount,
+                child: FadeInAnimation(
+                  child: SlideAnimation(
+                    verticalOffset: 40.0,
+                    child: PreviewImage(
+                      key: Key(item.keyup),
+                      imagesList: items,
+                      imageMeta: item,
+                      selectedModel: selectionModel,
+                      index: index,
+                      onHover: (event, im) => _updateFloat(event, im),
+                      onImageTap: () => Navigator.push(
+                        context,
+                        _createGalleryDetailRoute(items, index),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          )
+              : AlignedGridView.count(
+            physics: const BouncingScrollPhysics(),
+            itemCount: items.length,
+            mainAxisSpacing: 5,
+            crossAxisSpacing: 5,
+            crossAxisCount: crossAxisCount,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                duration: const Duration(milliseconds: 400),
+                columnCount: crossAxisCount,
+                child: FadeInAnimation(
+                  child: SlideAnimation(
+                    verticalOffset: 40.0,
+                    child: PreviewImage(
+                      key: Key(item.keyup),
+                      imagesList: items,
+                      imageMeta: item,
+                      selectedModel: selectionModel,
+                      index: index,
+                      onHover: (event, im) => _updateFloat(event, im),
+                      onImageTap: () => Navigator.push(
+                        context,
+                        _createGalleryDetailRoute(items, index),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildMainSection(){
+  Widget _buildMainSection() {
     return Stack(
       key: _key,
       children: [
-        imagesList.runtimeType.toString().startsWith('Future<List<') ? FutureBuilder(
-          future: imagesList,
-          builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-            Widget children;
-            if (snapshot.hasData) {
-              children = snapshot.data.length == 0 ? const EmplyFolderPlaceholder() : GalleryList(snapshot: snapshot);
-            } else if (snapshot.hasError) {
-              children = Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  children: [
-                    const Text('Oops, there seems to be a error.'),
-                    ExpansionTile(
-                      title: const Text('Error Information'),
-                      subtitle: const Text('Use this information to solve the problem'),
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: const BorderRadius.all(Radius.circular(4))
-                          ),
-                          child: Expanded(child: SingleChildScrollView(child: SelectableText(
-                              snapshot.error.toString(),
-                              style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
-                          )
-                          ))),
-                      ],
-                    )
-                  ],
-                ),
-              );
-            } else {
-              children = Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(debug ? 'Future<List<ImageMeta>> hasData:${snapshot.hasData} hasError:${snapshot.hasError}' : 'Loading...'),
-                    const Gap(8),
-                    const LinearProgressIndicator()
-                  ],
-                )
-              );
-            }
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              child: children,
-            );
-          }
-        ) : imagesList.runtimeType.toString().startsWith('_') && imagesList.runtimeType.toString().contains('<List<')? StreamBuilder<List<ImageMeta>>(
-          stream: imagesList,
-          builder: (BuildContext context, AsyncSnapshot<List<ImageMeta>> snapshot) {
-            Widget children;
-            if (snapshot.hasError) {
-              children = Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  children: [
-                    const Text('Oops, there seems to be a error.'),
-                    ExpansionTile(
-                      title: const Text('Error Information'),
-                      subtitle: const Text('Use this information to solve the problem'),
-                      children: <Widget>[
-                        Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                                color: Theme.of(context).scaffoldBackgroundColor,
-                                borderRadius: const BorderRadius.all(Radius.circular(4))
-                            ),
-                            child: SelectableText(
-                                snapshot.error.toString(),
-                                style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14, color: Colors.white70)
-                            )
-                        ),
-                      ],
-                    )
-                  ],
-                ),
-              );
-            } else {
-              switch (snapshot.connectionState) {
-                case ConnectionState.none:
-                  children = const Text('Hyi');
-                case ConnectionState.waiting:
-                  children = Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(debug ? '_ControllerStream<List<ImageMeta>> hasError:${snapshot.hasError} connectionState:${snapshot.connectionState}' : 'Loading...'),
-                          const Gap(8),
-                          const LinearProgressIndicator()
-                        ],
-                      )
-                  );
-                case ConnectionState.active:
-                  children = GalleryList(snapshot: snapshot);
-                case ConnectionState.done:
-                  children = snapshot.data == null || snapshot.data!.isEmpty ? const EmplyFolderPlaceholder() : GalleryList(snapshot: snapshot);
-              }
-            }
-            return AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              child: children,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            const begin = Offset(0.06, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeOutCubic;
+
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            var offsetAnimation = animation.drive(tween);
+
+            return SlideTransition(
+              position: offsetAnimation,
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
             );
           },
-        ) : Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.list_alt, size: 50, color: Colors.white),
-                  Gap(4),
-                  Text('Online free without registration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                  Text('Select the section on the side that you want to view', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            )
+          layoutBuilder: (currentChild, previousChildren) => Stack(
+            children: [
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(_currentFolderKey),
+            child: _buildFolderContent(),
+          ),
         ),
-        if(previewType == 1) FloatPreview(
-          initializer: _initFloat,
-        )
+
+        if (_isSwitchingFolder)
+          Container(
+            color: Colors.transparent,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+
+        if (previewType == 1)
+          FloatPreview(
+            initializer: _initFloat,
+          ),
       ],
     );
   }
@@ -714,8 +858,7 @@ class _FolderBlockState extends State<FolderBlock> {
       displayFiles = widget.folder.files;
     } else {
       int l = widget.folder.files.length;
-      // 123 = 100
-      //  ?  = 33
+
       displayFiles.add(widget.folder.files[0]);
       displayFiles.add(widget.folder.files[(l*33/100).round()]);
       displayFiles.add(widget.folder.files[(l*66/100).round()]);
@@ -942,7 +1085,7 @@ class _FloatPreviewState extends State<FloatPreview> {
                   color: Colors.black.withOpacity(0.5),
                   spreadRadius: 5,
                   blurRadius: 7,
-                  offset: const Offset(0, 3), // changes position of shadow
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -1214,12 +1357,12 @@ class PreviewImage extends StatelessWidget {
                 MenuItem(
                   label: const Text('As main'),
                   icon: const Icon(Icons.swipe_left),
-                  onSelected: (_) => dataModel.comparisonBlock.changeSelected(0, imageMeta)
+                  onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, imageMeta)
                 ),
                 MenuItem(
                   label: const Text('As test'),
                   icon: const Icon(Icons.swipe_right),
-                  onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, imageMeta)
+                  onSelected: (_) => dataModel.comparisonBlock.changeSelected(2, imageMeta)
                 ),
               ],
             ),
@@ -1280,6 +1423,11 @@ class PreviewImage extends StatelessWidget {
                   label: const Text('Joint Tagger Project'),
                   icon: const Icon(Icons.tag),
                   onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: imageMeta))),
+                ),
+                MenuItem(
+                  label: const Text('Photoshop Mini'),
+                  icon: const Icon(Icons.edit_rounded),
+                  onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => PhotoshopMini(fileData: imageMeta))),
                 )
               ],
             ),
@@ -1732,7 +1880,7 @@ class EmplyFolderPlaceholder extends StatelessWidget{
             ),
           ),
         ),
-      ); // Create a function here to adapt to the parent widget's constraints
+      );
     });
   }
 }

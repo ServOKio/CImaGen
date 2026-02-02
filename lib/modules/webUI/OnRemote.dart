@@ -581,14 +581,14 @@ class OnRemote extends ChangeNotifier implements AbMain{
     Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: true);
     watchList.add(te.listen((event) {
       if (event is FileSystemCreateEvent && !event.isDirectory) {
-        Future.delayed(const Duration(seconds: 7), () =>  objectbox.updateIfNado(event.path, host: _host));
+        Future.delayed(const Duration(seconds: 7), () =>  sqLite.updateIfNado(event.path, host: _host));
       }
     }));
   }
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return objectbox.getFolders(host: _host, re: software != Software.swarmUI ? _internalTabs[index] : null);
+    return sqLite.getFolders(host: _host, re: software != Software.swarmUI ? _internalTabs[index] : null);
   }
 
   Map<RenderEngine, String> ke = {
@@ -819,7 +819,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
     // SELECT DISTINCT DATE(dateModified) AS dates, count(keyup) as total FROM images ORDER BY dates; // fasted
     // SELECT DATE(dateModified) AS dates, count(keyup) as total FROM images GROUP BY DATE(dateModified) ORDER BY dates;
-    return objectbox.getImagesByDay(day, host: host, re: software != Software.swarmUI ? _internalTabs[section] : null);
+    return sqLite.getImagesByDay(day, host: host, re: software != Software.swarmUI ? _internalTabs[section] : null);
   }
 
   @override
@@ -951,7 +951,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {
-    return objectbox.getFolderHashes(folder, host: _host);
+    return sqLite.getFolderHashes(folder, host: _host);
   }
 
   DateFormat format = DateFormat("yyyy-MM-dd HH:mm:ss");
@@ -1245,6 +1245,11 @@ class OnRemote extends ChangeNotifier implements AbMain{
       // Return job id
       return controller;
     }
+  }
+
+  @override
+  Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) {
+    return sqLite.getFoldersPaged(re: _internalTabs[tabIndex], offset: offset, limit: limit);
   }
 
   @override

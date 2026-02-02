@@ -47,7 +47,7 @@ dependencies:
   open_file: ^3.3.2
   dio: ^5.4.2+1
   package_info_plus: ^9.0.0
-  flutter_colorpicker: ^1.0.3
+  flutter_colorpicker: ^1.1.0
   marquee: ^2.2.3
   utf_ext: ^0.3.3
   web_socket_channel: ^3.0.0

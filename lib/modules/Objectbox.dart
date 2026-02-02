@@ -237,7 +237,7 @@ class ObjectboxDB {
             DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
             if(d != null){
               d.comparisonBlock.moveTestToMain();
-              d.comparisonBlock.changeSelected(1, im);
+              d.comparisonBlock.changeSelected(2, im);
               d.comparisonBlock.addImage(im);
             }
           });

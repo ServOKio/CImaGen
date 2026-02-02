@@ -319,50 +319,38 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       setState(() {
         _configPass = true;
       });
-      ObjectboxDB.create().then((db) {
-        objectbox = db;
+      sqLite = SQLite();
+      sqLite.init().then((v){
         setState(() {
-          _obPass = true;
+          _sqlPass = true;
         });
-        sqLite = SQLite();
-        sqLite.init().then((v){
+        sqLite.checkDBErrors().catchError((error, stack) {
+          int notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.warning, color: Colors.amberAccent),
+            title: 'SQL problem',
+            description: 'Error: $error',
+            // content: ElevatedButton(
+            //     onPressed: () => init(),
+            //     child: const Text("Try again", style: TextStyle(fontSize: 12))
+            // )
+          );
+          audioController!.player.play(AssetSource('audio/wrong.wav'));
+          if (error is DatabaseCheckException) {
+
+          } else {
+
+          }
+        });
+        context.read<ImageManager>().init(context);
+        context.read<DataManager>().init().then((v){
           setState(() {
-            _sqlPass = true;
+            _imgManagerPass = true;
+            _dataManagerPass = true;
           });
-          sqLite.checkDBErrors().catchError((error, stack) {
-            int notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.warning, color: Colors.amberAccent),
-                title: 'SQL problem',
-                description: 'Error: $error',
-                // content: ElevatedButton(
-                //     onPressed: () => init(),
-                //     child: const Text("Try again", style: TextStyle(fontSize: 12))
-                // )
-            );
-            audioController!.player.play(AssetSource('audio/wrong.wav'));
-            if (error is DatabaseCheckException) {
-
-            } else {
-
-            }
-          });
-          context.read<ImageManager>().init(context);
-          context.read<DataManager>().init().then((v){
+          context.read<SaveManager>().init(context).then((v){
             setState(() {
-              _imgManagerPass = true;
-              _dataManagerPass = true;
-            });
-            context.read<SaveManager>().init(context).then((v){
-              setState(() {
-                _saveManagerPass = true;
-                loaded = true;
-              });
-            });
-          }).catchError((e){
-            if (kDebugMode) print(e);
-            setState(() {
-              error = 'Database loading error\n$e';
-              hasError = true;
+              _saveManagerPass = true;
+              loaded = true;
             });
           });
         }).catchError((e){
@@ -372,12 +360,25 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             hasError = true;
           });
         });
-      }).catchError((e) {
+      }).catchError((e){
+        if (kDebugMode) print(e);
         setState(() {
-          error = e.toString();
+          error = 'Database loading error\n$e';
           hasError = true;
         });
       });
+      // ObjectboxDB.create().then((db) {
+      //   objectbox = db;
+      //   setState(() {
+      //     _obPass = true;
+      //   });
+      //
+      // }).catchError((e) {
+      //   setState(() {
+      //     error = e.toString();
+      //     hasError = true;
+      //   });
+      // });
     }).catchError((e){
       if (kDebugMode) print(e);
       setState((){

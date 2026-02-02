@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -8,7 +9,6 @@ import 'package:cimagen/utils/ImageManager.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:io' as Io;
 
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
@@ -39,15 +39,15 @@ class DataModel with ChangeNotifier {
 }
 
 class ComparisonBlock {
-  dynamic firstSelected;
-  Uint8List? firstCache; // НЕ ТРОГАТЬ УЕБУ
+  ImageMeta? firstSelected;
+  Uint8List? firstCache; // НЕ ТРОГАТЬ УЕБУ - потому-что с него читается изображение
   img.Image? firstDecoded; // НЕ ТРОГАТЬ УЕБУ
   Map<String, Uint8List> firstProcessed = {};
   ImageSize? firstImageSize;
 
-  dynamic secondSelected;
+  ImageMeta? secondSelected;
   Uint8List? secondCache; // НЕ ТРОГАТЬ УЕБУ
-  img.Image? secondDecoded; // НЕ ТРОГАТЬ УЕБУ
+  img.Image? secondDecoded; // НЕ ТРОГАТЬ УЕБУ - потому-что с него читается изображение
   Map<String, Uint8List> secondProcessed = {};
   ImageSize? secondImageSize;
 
@@ -98,218 +98,263 @@ class ComparisonBlock {
     }
   }
 
+  void changeSelected(int type, ImageMeta? im) {
+    if (im == null) return;
 
-  void changeSelected(int type, dynamic data){
-    if(type == 0){
-      firstSelected = data;
-      updateFuckingCache(0);
-    } else if(type == 1){
-      secondSelected = data;
-      updateFuckingCache(1);
+    if (type == 1) {
+      firstSelected = im;
+      firstProcessed.clear();
+    } else if (type == 2) {
+      secondSelected = im;
+      secondProcessed.clear();
     }
-    // notify();
+
+    unawaited(_updateImageCache(type));
   }
 
-  Future<void> updateFuckingCache(int type) async {
-    // Допустим куколд прислал изображение, его читаем сразу
-    dynamic s = type == 0 ? firstSelected : secondSelected;
-    String path = '';
-    if(s.runtimeType == ImageMeta){
-      ImageMeta im = s as ImageMeta;
-      if(im.isLocal){
-        path = im.fullPath!;
-      } else {
-        if(im.tempFilePath != null){
-          path = im.tempFilePath!;
-        } else {
-          await im.parseNetworkImage();
-          path = im.tempFilePath!;
-        }
-      }
+  Future<void> _updateImageCache(int type) async {
+    final selected = type == 1 ? firstSelected : secondSelected;
+    if (selected == null) return;
+
+    if (selected.fullImage == null) {
+      await selected.decodeToFull();
+    }
+    final bytes = selected.fullImage!;
+    if (bytes.isEmpty) return;
+
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return;
+
+    if (type == 1) {
+      firstCache = bytes;
+      firstDecoded = decoded;
+      firstImageSize = ImageSize(width: decoded.width, height: decoded.height);
     } else {
-      path = s;
+      secondCache = bytes;
+      secondDecoded = decoded;
+      secondImageSize = ImageSize(width: decoded.width, height: decoded.height);
     }
-    final Uint8List bytes = await compute(readAsBytesSync, path);
-    img.Image? de = await compute(img.decodeImage, bytes);
-    if(type == 0){
-      firstDecoded = de;
+
+    final other = type == 1 ? secondSelected : firstSelected;
+    if (other == null) {
+      await _generateCheckerboardPlaceholder(type, decoded);
+    }
+
+    await _normalizeSizesIfNeeded();
+
+    await _processBothImagesIfPossible();
+    notify();
+  }
+
+  Future<void> _generateCheckerboardPlaceholder(int type, img.Image reference) async {
+    const cellSize = 24;
+    final width = reference.width;
+    final height = reference.height;
+
+    final placeholder = img.Image(width: width, height: height);
+
+    img.fill(placeholder, color: img.ColorRgb8(140, 140, 140));
+
+    // checkerboard
+    for (var y = 0; y < height; y += cellSize * 2) {
+      for (var x = 0; x < width; x += cellSize * 2) {
+        img.fillRect(
+          placeholder,
+          x1: x,
+          y1: y,
+          x2: x + cellSize - 1,
+          y2: y + cellSize - 1,
+          color: img.ColorRgb8(255, 255, 255),
+        );
+
+        img.fillRect(
+          placeholder,
+          x1: x + cellSize,
+          y1: y + cellSize,
+          x2: x + cellSize * 2 - 1,
+          y2: y + cellSize * 2 - 1,
+          color: img.ColorRgb8(255, 255, 255),
+        );
+      }
+    }
+
+    final bytes = img.encodePng(placeholder);
+
+    if (type == 1) {
+      secondCache = bytes;
+      secondImageSize = ImageSize(width: width, height: height);
+      // secondDecoded = placeholder;
     } else {
-      secondDecoded = de;
-    }
-
-    // Где-то здесь ещё ебануть обработку
-    if(de != null) {
-      // ok
-      if(type == 0){
-        firstImageSize = ImageSize(width: de.width, height: de.height);
-        firstCache = bytes;
-        firstProcessed.clear();
-      } else {
-        secondImageSize = ImageSize(width: de.width, height: de.height);
-        secondCache = bytes;
-        secondProcessed.clear();
-      }
-      //Ура, прочитали, теперь сверяем и потом скейлим
-      //Блять, надо узнать что скейлить
-      if([firstSelected, secondSelected][type == 0 ? 1 : 0] == null){
-        //Если пустое и мы нихера не знаем о втором
-
-        //Создаём новое
-        final image = img.Image(width: de.width, height: de.height);
-        //Рисуем херню
-        int limit = 20;
-        for (img.Pixel pixel in image) {
-          if(pixel.x%(limit*2) > limit){
-            if(pixel.y%(limit*2) < limit){
-              pixel.setRgb(255, 255, 255);
-            } else {
-              pixel.setRgb(137, 137, 137);
-            }
-          } else {
-            if(pixel.y%(limit*2) > limit){
-              pixel.setRgb(255, 255, 255);
-            } else {
-              pixel.setRgb(137, 137, 137);
-            }
-          }
-        }
-
-        if(type == 0){
-          secondCache = img.encodePng(image);
-          secondImageSize =  ImageSize(width: de.width, height: de.height);
-        } else {
-          firstCache = img.encodePng(image);
-          firstImageSize =  ImageSize(width: de.width, height: de.height);
-        }
-        processImage(de, type);
-        notify();
-      } else {
-        // Если размеры есть, но нужно узнать кого наебать
-        // А похуй, пусть сверяет с сеткой
-        // 😭 не хочууууууу
-        // Просто нужно понять что надо изменит и всё, а так всё равно придётся
-        if(firstImageSize.toString() == secondImageSize.toString()){
-          //Срать
-          processImage(de, type).then((onValue) => notify());
-          notify();
-        } else {
-          //flutter: comparison_as_main
-          //[ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: Null check operator used on a null value
-          bool what = secondImageSize!.totalPixels() < firstImageSize!.totalPixels();
-          s = what ? secondSelected : firstSelected;
-          if(s.runtimeType == ImageMeta){
-            ImageMeta im = s as ImageMeta;
-            if(im.isLocal){
-              path = im.fullPath!;
-            } else if(im.tempFilePath != null){
-              path = im.tempFilePath!;
-            }
-          } else {
-            path = s;
-          }
-          Io.File(path).readAsBytes().then((b) async {
-            de = await compute(img.decodeImage, b);
-            if(de != null) {
-              img.Image d = img.copyResize(de!, width: [firstImageSize, secondImageSize][what ? 0 : 1]?.width);
-              if(what){
-                secondCache = img.encodePng(d);
-                secondImageSize = firstImageSize;
-              } else {
-                firstCache = img.encodePng(d);
-                firstImageSize = secondImageSize;
-              }
-              processImage(de!, type).then((onValue) => notify());
-            }
-            notify();
-          });
-        }
-      }
+      firstCache = bytes;
+      firstImageSize = ImageSize(width: width, height: height);
+      // firstDecoded = placeholder;
     }
   }
 
-  Future<void> processImage(img.Image orig, int type) async{
-    List<List<num>> channels = [[],[],[],[]];
-    for (var pix in orig) {
-      channels[0].add(pix.r);
-      channels[1].add(pix.g);
-      channels[2].add(pix.b);
-      channels[3].add(pix.a);
+  Future<void> _normalizeSizesIfNeeded() async {
+    if (firstImageSize == null || secondImageSize == null) return;
+
+    if (firstImageSize!.width == secondImageSize!.width &&
+        firstImageSize!.height == secondImageSize!.height) {
+      return;
     }
 
-    // // AutoColored
-    img.Image autoColoredImage = orig.clone();
-    for (var i2 = 0; i2 < 3; i2 += 1) {
-      int lowPercentile = percentile(0.5, channels[i2]);
-      int highPercentile = percentile(99.5, channels[i2]);
+    if (firstSelected == null || secondSelected == null) return;
 
-      if (highPercentile > lowPercentile) {
-        Iterable<double> stretched = channels[i2].map((e) => (e - lowPercentile) * 255.0 / (highPercentile - lowPercentile));
-        Iterable<int> fixed = stretched.map((e) => (e < 0 ? 0 : e > 255 ? 255 : e).floor());
-        channels[i2] = fixed.toList();
-      }
-    }
+    final s1 = firstImageSize!.totalPixels();
+    final s2 = secondImageSize!.totalPixels();
 
-    int c = 0;
-    for (var pixel in autoColoredImage) {
-      pixel..r = channels[0][c]..g = channels[1][c]..b = channels[2][c];
-      c++;
-    }
-    if(type == 0){
-      firstProcessed['autocolor'] = img.encodePng(autoColoredImage);
-    } else if(type == 1){
-      secondProcessed['autocolor'] = img.encodePng(autoColoredImage);
-    }
+    final bool resizeFirst = s1 < s2;
+    final ImageMeta toResize = resizeFirst ? firstSelected! : secondSelected!;
+    final ImageSize targetSize = resizeFirst ? secondImageSize! : firstImageSize!;
 
-    // Color match via Linear Histogram Matching
-    if(firstDecoded != null && secondDecoded != null){
-      // content = kyda
-      // List<List<List<int>>> content = imageToHxWxCArray(secondDecoded!);
-      // List<List<List<int>>> reference = imageToHxWxCArray(firstDecoded!);
+    if (toResize.fullImage == null) await toResize.decodeToFull();
+    final decoded = img.decodeImage(toResize.fullImage!);
+    if (decoded == null) return;
 
-      // Linear
-      // List<dynamic> shape = content.shape;
-      // //print(shape);
-      // List<dynamic> contentReshaped = content.reshape(content.length, firstDecoded!.width * firstDecoded!.height)[0];
-      // List<dynamic> referenceReshaped = reference.reshape(reference.length, secondDecoded!.width * secondDecoded!.height)[0];
-      // var mu_content = mean(contentReshaped, axis: 0);
-      // var mu_reference = mean(referenceReshaped, axis: 0);
-      //
-      // List<List<double>> cov_content = cov(List<List<int>>.from(contentReshaped), rowvar: false);
-      // //print(cov_content);
-      // List<List<double>> cov_reference = cov(List<List<int>>.from(referenceReshaped), rowvar: false);
-      // // print(cov_content);
-      // // print(cov_reference);
-      // var result = matrixSqrt(cov_reference);
-      // result = matrixDot(result, inverseMatrix(matrixSqrt(cov_reference)));
+    final resized = img.copyResize(
+      decoded,
+      width: targetSize.width,
+      height: targetSize.height,
+      interpolation: img.Interpolation.cubic,
+    );
 
-      img.Image transfered = orig.clone();
+    final bytes = img.encodePng(resized);
 
-      var imageLab = convertToLab(secondDecoded!);
-      var originalLab = convertToLab(firstDecoded!);
-
-      var imageAvgStd = getAvgStd(imageLab);
-      var originalAvgStd = getAvgStd(originalLab);
-
-      var imageAvg = imageAvgStd[0];
-      var imageStd = imageAvgStd[1];
-      var originalAvg = originalAvgStd[0];
-      var originalStd = originalAvgStd[1];
-
-      for (var i = 0; i < imageLab.length; i++) {
-        for (var j = 0; j < imageLab[i].length; j++) {
-          for (var k = 0; k < 3; k++) {
-            var t = imageLab[i][j][k];
-            t = ((t - imageAvg[k]) * (originalStd[k] / imageStd[k])) + originalAvg[k];
-            t = t < 0 ? 0 : t > 255 ? 255 : t;
-            imageLab[i][j][k] = t.roundToDouble();
-          }
-        }
-      }
-
-      img.Image outputImage = convertLabToRGB(imageLab);
-      secondProcessed['colortransfer'] = img.encodePng(outputImage);
+    if (resizeFirst) {
+      firstCache = bytes;
+      firstDecoded = resized;
+      firstImageSize = targetSize;
+    } else {
+      secondCache = bytes;
+      secondDecoded = resized;
+      secondImageSize = targetSize;
     }
   }
+
+  Future<void> _processBothImagesIfPossible() async {
+    final futures = <Future>[];
+
+    if (firstDecoded != null) {
+      futures.add(_processImage(firstDecoded!, 1));
+    }
+    if (secondDecoded != null) {
+      futures.add(_processImage(secondDecoded!, 2));
+    }
+
+    if (futures.isNotEmpty) {
+      await Future.wait(futures);
+    }
+  }
+
+  Future<void> _processImage(img.Image original, int type) async {
+    final auto = await compute(_autoStretch, original.clone());
+
+    Uint8List? colorMatched;
+    if (type == 2) {
+      colorMatched = await compute(_colorTransfer, (
+      source: secondDecoded!,
+      target: firstDecoded!,
+      ));
+    }
+
+    if (type == 1) {
+      firstProcessed['autocolor'] = img.encodePng(auto);
+    } else {
+      secondProcessed['autocolor'] = img.encodePng(auto);
+      if (colorMatched != null) {
+        secondProcessed['colortransfer'] = colorMatched;
+      }
+    }
+  }
+}
+
+img.Image _autoStretch(img.Image input) {
+  final w = input.width;
+  final h = input.height;
+  final count = w * h;
+
+  List<int> rVals = List.filled(count, 0);
+  List<int> gVals = List.filled(count, 0);
+  List<int> bVals = List.filled(count, 0);
+
+  int idx = 0;
+  for (final p in input) {
+    rVals[idx] = p.r.toInt();
+    gVals[idx] = p.g.toInt();
+    bVals[idx] = p.b.toInt();
+    idx++;
+  }
+
+  final rOut = _stretchChannel(rVals);
+  final gOut = _stretchChannel(gVals);
+  final bOut = _stretchChannel(bVals);
+
+  idx = 0;
+  for (final p in input) {
+    p
+      ..r = rOut[idx].toDouble()
+      ..g = gOut[idx].toDouble()
+      ..b = bOut[idx].toDouble();
+    idx++;
+  }
+
+  return input;
+}
+
+List<int> _stretchChannel(List<int> values) {
+  final sorted = values.toList()..sort();
+  final n = sorted.length;
+  final lowIdx  = (n * 0.005).round();
+  final highIdx = (n * 0.995).round();
+
+  final low  = sorted[lowIdx];
+  final high = sorted[highIdx];
+
+  if (high <= low) return values;
+
+  return values.map((v) {
+    final stretched = (v - low) * 255.0 / (high - low);
+    return stretched.clamp(0.0, 255.0).round();
+  }).toList();
+}
+
+Uint8List _colorTransfer(({img.Image source, img.Image target}) data) {
+  final source = data.source;
+  final target = data.target;
+
+  final sourceLab = rgbToLab(source);
+  final targetLab = rgbToLab(target);
+
+  final sourceStats = computeMeanStd(sourceLab);
+  final targetStats = computeMeanStd(targetLab);
+
+  final sourceMeans = sourceStats.mean;
+  final sourceStds  = sourceStats.std;
+  final targetMeans = targetStats.mean;
+  final targetStds  = targetStats.std;
+
+  final h = sourceLab.length;
+  final w = sourceLab[0].length;
+  int i = 0;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      for (var c = 0; c < 3; c++) {
+        double v = sourceLab[y][x][c];
+
+        v = (v - sourceMeans[c]) * (targetStds[c] / (sourceStds[c] + 1e-6)) + targetMeans[c];
+
+        v = v.clamp(-200.0, 300.0);
+
+        sourceLab[y][x][c] = v;
+      }
+      i++;
+    }
+  }
+
+  final resultImage = labToRgb(sourceLab);
+  return img.encodePng(resultImage);
 }
 
 class TimelineBlock {

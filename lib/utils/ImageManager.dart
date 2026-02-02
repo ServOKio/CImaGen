@@ -126,7 +126,7 @@ class ImageManager extends ChangeNotifier {
               DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
               if(d != null){
                 d.comparisonBlock.moveTestToMain();
-                d.comparisonBlock.changeSelected(1, value);
+                d.comparisonBlock.changeSelected(2, value);
                 d.comparisonBlock.addImage(value);
               }
             });
@@ -1660,6 +1660,16 @@ class ImageMeta {
   ImageKey getKey(){
     final String parentFolder = p.basename(File(fullPath!).parent.path);
     return ImageKey(type: re, parent: parentFolder, fileName: fileName, host: host);
+  }
+
+  Future<void> decodeToFull() async {
+    if(fullImage != null) return;
+    String? pa = fullPath ?? tempFilePath;
+    if(pa != null){
+      fullImage = await compute(readAsBytesSync, pa);
+    } else {
+      throw Exception('Path to file not found');
+    }
   }
 
   Future<void> makeImage({Uint8List? fileBytes, bool makeThumbnail = true, bool makeCacheImage = false}) async {

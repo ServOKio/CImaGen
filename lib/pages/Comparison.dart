@@ -126,7 +126,7 @@ class _MainBlockState extends State<MainBlock> {
                   padding: const EdgeInsets.all(6),
                   color: Theme.of(context).scaffoldBackgroundColor,
                   width: 300,
-                  child: MyImageInfo(dataModel.comparisonBlock.firstSelected),
+                  child: MyImageInfo(dataModel.comparisonBlock.firstSelected!),
                 ),
               ),
             ) : Positioned( //left
@@ -142,7 +142,7 @@ class _MainBlockState extends State<MainBlock> {
                       borderRadius: const BorderRadius.all(Radius.circular(4))
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
-                  child: GetInfoOrShit(dataModel.comparisonBlock.firstSelected),
+                  child: GetInfoOrShit(dataModel.comparisonBlock.firstSelected!),
                 )
             ) : const SizedBox.shrink(),
             dataModel.comparisonBlock.secondSelected != null ? displayFull ? Align(
@@ -152,7 +152,7 @@ class _MainBlockState extends State<MainBlock> {
                   padding: const EdgeInsets.all(6),
                   color: Theme.of(context).scaffoldBackgroundColor,
                   width: 300,
-                  child: MyImageInfo(dataModel.comparisonBlock.secondSelected),
+                  child: MyImageInfo(dataModel.comparisonBlock.secondSelected!),
                 ),
               ),
             ) : Positioned(
@@ -168,7 +168,7 @@ class _MainBlockState extends State<MainBlock> {
                       borderRadius: const BorderRadius.all(Radius.circular(4))
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 6),
-                  child: GetInfoOrShit(dataModel.comparisonBlock.secondSelected),
+                  child: GetInfoOrShit(dataModel.comparisonBlock.secondSelected!),
                 )
             ) : const SizedBox.shrink()
           ],
@@ -334,7 +334,7 @@ class _ViewBlockState extends State<ViewBlock> {
         onSelected: (_) {
           List<Difference>? difference;
           if(dataModel.comparisonBlock.bothHasGenerationParams) {
-            difference = findDifference(dataModel.comparisonBlock.firstSelected as ImageMeta, dataModel.comparisonBlock.secondSelected);
+            difference = findDifference(dataModel.comparisonBlock.firstSelected, dataModel.comparisonBlock.secondSelected!);
           }
           bool hasDiff = difference != null && difference.isNotEmpty;
 
@@ -563,28 +563,22 @@ class _ViewBlockState extends State<ViewBlock> {
 }
 
 class GetInfoOrShit extends StatelessWidget {
-  dynamic firstSelected;
-  GetInfoOrShit(this.firstSelected, {super.key});
+  ImageMeta imageMeta;
+  GetInfoOrShit(this.imageMeta, {super.key});
 
   @override
   Widget build(BuildContext context) {
-    bool im = firstSelected.runtimeType == ImageMeta;
-    if(im){
-      ImageMeta i = firstSelected as ImageMeta;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if(i.generationParams!.sampler != null) i.generationParams?.sampler != null ? Text(i.generationParams!.sampler!) : const SizedBox.shrink(),
-          Text(i.size.toString()),
-          i.generationParams?.hiresSampler != null ? Text(i.generationParams?.hiresSampler ?? 'none') : const SizedBox.shrink(),
-          i.generationParams?.hiresUpscale != null ? Text('x${i.generationParams!.hiresUpscale.toString()}') : const SizedBox.shrink(),
-          i.generationParams?.seed != null ? Text(i.generationParams!.seed.toString()) : const SizedBox.shrink(),
-        ],
-      );
-    } else {
-      return Text(firstSelected as String);
-    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if(imageMeta.generationParams!.sampler != null && imageMeta.generationParams?.sampler != null) Text(imageMeta.generationParams!.sampler!),
+        Text(imageMeta.size.toString()),
+        if(imageMeta.generationParams?.hiresSampler != null) Text(imageMeta.generationParams?.hiresSampler ?? 'none'),
+        if(imageMeta.generationParams?.hiresUpscale != null) Text('x${imageMeta.generationParams!.hiresUpscale.toString()}'),
+        if(imageMeta.generationParams?.seed != null) Text(imageMeta.generationParams!.seed.toString()),
+      ],
+    );
   }
 
 }
@@ -637,12 +631,12 @@ class _ImageListStateStateful extends State<ImageList>{
                     MenuItem(
                       label: const Text('As main'),
                       icon: const Icon(Icons.swipe_left),
-                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(0, im)
+                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, im)
                     ),
                     MenuItem(
                       label: const Text('As test'),
                       icon: const Icon(Icons.swipe_right),
-                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(1, im)
+                      onSelected: (_) => dataModel.comparisonBlock.changeSelected(2, im)
                     ),
                     const MenuDivider(),
                     MenuItem(
@@ -847,7 +841,7 @@ class _ImageListStateStateful extends State<ImageList>{
                                       color: Colors.transparent,
                                       child: InkWell(
                                         onTap: (){
-                                          dataModel.comparisonBlock.changeSelected(1, im);
+                                          dataModel.comparisonBlock.changeSelected(2, im);
                                         },
                                       )
                                   )

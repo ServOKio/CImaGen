@@ -47,8 +47,8 @@ Future<Uint8List?> _readImageFile(ImageMeta imageMeta) async {
 }
 
 class ImageView extends StatefulWidget{
-  final ImageMeta? imageMeta;
-  const ImageView({ super.key, this.imageMeta});
+  final ImageMeta imageMeta;
+  const ImageView({ super.key, required this.imageMeta});
 
   @override
   _ImageViewState createState() => _ImageViewState();
@@ -142,9 +142,9 @@ class _ImageViewState extends State<ImageView> {
     final dataModel = Provider.of<DataModel>(context, listen: false);
     final entries = <ContextMenuEntry>[
       MenuItem(
-        label: Text(imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? 'UnLike': 'Like'),
-        icon: Icon(imageManager.favoritePaths.contains(widget.imageMeta?.fullPath) ? Icons.star : Icons.star_outline),
-        onSelected: (_) => imageManager.toogleFavorite(widget.imageMeta!.fullPath!, host: widget.imageMeta!.host),
+        label: Text(imageManager.favoritePaths.contains(widget.imageMeta.fullPath) ? 'UnLike': 'Like'),
+        icon: Icon(imageManager.favoritePaths.contains(widget.imageMeta.fullPath) ? Icons.star : Icons.star_outline),
+        onSelected: (_) => imageManager.toogleFavorite(widget.imageMeta.fullPath!, host: widget.imageMeta.host),
       ),
       const MenuDivider(),
       MenuItem(
@@ -171,7 +171,7 @@ class _ImageViewState extends State<ImageView> {
             icon: const Icon(Icons.swipe_left),
             onSelected: (_) {
               dataModel.comparisonBlock.addImage(widget.imageMeta!);
-              dataModel.comparisonBlock.changeSelected(0, widget.imageMeta);
+              dataModel.comparisonBlock.changeSelected(1, widget.imageMeta);
               // implement redo
             },
           ),
@@ -180,7 +180,7 @@ class _ImageViewState extends State<ImageView> {
             icon: const Icon(Icons.swipe_right),
             onSelected: (_) {
               dataModel.comparisonBlock.addImage(widget.imageMeta!);
-              dataModel.comparisonBlock.changeSelected(1, widget.imageMeta);
+              dataModel.comparisonBlock.changeSelected(2, widget.imageMeta);
             },
           ),
         ],

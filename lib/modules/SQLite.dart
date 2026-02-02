@@ -34,7 +34,7 @@ class SQLite{
   bool use = false;
 
   bool BLYATPIZDETS = !kDebugMode;
-  int debug_index = 1;
+  int debug_index = 0;
 
   late final SqlBatchQueue sqlQueue;
 
@@ -780,7 +780,7 @@ class SQLite{
           final d = ctx.read<DataModel>();
           if (d != null) {
             d.comparisonBlock.moveTestToMain();
-            d.comparisonBlock.changeSelected(1, im);
+            d.comparisonBlock.changeSelected(2, im);
             d.comparisonBlock.addImage(im);
           }
         });

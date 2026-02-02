@@ -52,8 +52,6 @@ List<List<double>> getAvgStd(List<List<List<double>>> image) {
 }
 
 img.Image convertToBGR(List<List<List<double>>> image) {
-  // Implement conversion from LAB to BGR
-  // This is a placeholder for the actual conversion logic
   return img.Image(width: image[0].length, height: image.length);
 }
 
@@ -71,7 +69,7 @@ img.Image convertLabToRGB(List<List<List<double>>> image) {
 
 List<dynamic> mean(var values, {int? axis}) {
   if (values.isEmpty) {
-    return [double.nan]; // Return NaN for empty lists
+    return [double.nan];
   }
 
   if (axis == null) {
@@ -567,4 +565,160 @@ double cbrt(double x){
   var a = x.abs();
   var y = math.exp(math.log(a) / 3);
   return (x / a) * (y + (a / (y * y) - y) / 3);
+}
+
+// Convert img.Image (RGB) → List<List<List<double>>> of [L, a, b] per pixel
+// Shape: height × width × 3
+List<List<List<double>>> rgbToLab(img.Image rgbImage) {
+  final h = rgbImage.height;
+  final w = rgbImage.width;
+  final lab = List.generate(
+    h,
+        (_) => List.generate(w, (_) => <double>[0.0, 0.0, 0.0]),
+  );
+
+  // D65 reference white (X,Y,Z)
+  const refX = 95.047;
+  const refY = 100.000;
+  const refZ = 108.883;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final p = rgbImage.getPixel(x, y);
+
+      // sRGB → linear RGB [0,1]
+      double r = p.r / 255.0;
+      double g = p.g / 255.0;
+      double b = p.b / 255.0;
+
+      r = (r <= 0.04045) ? r / 12.92 : math.pow((r + 0.055) / 1.055, 2.4) as double;
+      g = (g <= 0.04045) ? g / 12.92 : math.pow((g + 0.055) / 1.055, 2.4) as double;
+      b = (b <= 0.04045) ? b / 12.92 : math.pow((b + 0.055) / 1.055, 2.4) as double;
+
+      // linear RGB → XYZ
+      final X = r * 0.4124564 + g * 0.3575761 + b * 0.1804375;
+      final Y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750;
+      final Z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041;
+
+      // XYZ → Lab
+      double fx = X / refX;
+      double fy = Y / refY;
+      double fz = Z / refZ;
+
+      fx = (fx > 0.008856) ? math.pow(fx, 1.0 / 3.0) as double : (7.787 * fx) + (16.0 / 116.0);
+      fy = (fy > 0.008856) ? math.pow(fy, 1.0 / 3.0) as double : (7.787 * fy) + (16.0 / 116.0);
+      fz = (fz > 0.008856) ? math.pow(fz, 1.0 / 3.0) as double : (7.787 * fz) + (16.0 / 116.0);
+
+      final L = (116.0 * fy) - 16.0;
+      final a = 500.0 * (fx - fy);
+      final bb = 200.0 * (fy - fz);
+
+      lab[y][x][0] = L.clamp(0.0, 100.0);
+      lab[y][x][1] = a.clamp(-128.0, 127.0);
+      lab[y][x][2] = bb.clamp(-128.0, 127.0);
+    }
+  }
+
+  return lab;
+}
+
+// Compute mean and std per channel over all pixels
+// Returns: { 'mean': [μL, μa, μb], 'std': [σL, σa, σb] }
+({List<double> mean, List<double> std}) computeMeanStd(List<List<List<double>>> lab) {
+  final h = lab.length;
+  if (h == 0) return (mean: [0.0, 0.0, 0.0], std: [0.0, 0.0, 0.0]);
+
+  final w = lab[0].length;
+  final count = h * w;
+
+  double sumL = 0.0, sumA = 0.0, sumB = 0.0;
+  double sumSqL = 0.0, sumSqA = 0.0, sumSqB = 0.0;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final v = lab[y][x];
+      sumL += v[0];
+      sumA += v[1];
+      sumB += v[2];
+      sumSqL += v[0] * v[0];
+      sumSqA += v[1] * v[1];
+      sumSqB += v[2] * v[2];
+    }
+  }
+
+  final meanL = sumL / count;
+  final meanA = sumA / count;
+  final meanB = sumB / count;
+
+  // Population std (divide by n) — common in color transfer literature
+  final varL = (sumSqL / count) - (meanL * meanL);
+  final varA = (sumSqA / count) - (meanA * meanA);
+  final varB = (sumSqB / count) - (meanB * meanB);
+
+  final stdL = (varL > 0) ? math.sqrt(varL) : 0.0;
+  final stdA = (varA > 0) ? math.sqrt(varA) : 0.0;
+  final stdB = (varB > 0) ? math.sqrt(varB) : 0.0;
+
+  return (
+  mean: [meanL, meanA, meanB],
+  std: [stdL, stdA, stdB],
+  );
+}
+
+// Convert List<List<List<double>>> Lab → img.Image (RGB)
+img.Image labToRgb(List<List<List<double>>> lab) {
+  final h = lab.length;
+  if (h == 0) return img.Image(width: 1, height: 1);
+
+  final w = lab[0].length;
+  final out = img.Image(width: w, height: h);
+
+  const refX = 95.047;
+  const refY = 100.000;
+  const refZ = 108.883;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      // All these variables are declared INSIDE the loops
+      var L = lab[y][x][0];
+      var a = lab[y][x][1];
+      var b = lab[y][x][2];
+
+      final fy = (L + 16.0) / 116.0;
+      final fx = a / 500.0 + fy;
+      final fz = fy - b / 200.0;
+
+      final xr = _labFInv(fx) * refX;
+      final yr = _labFInv(fy) * refY;
+      final zr = _labFInv(fz) * refZ;
+
+      // linear RGB
+      var r = xr *  3.2404542 - yr * 1.5371385 - zr * 0.4985314;
+      var g = xr * -0.9692660 + yr * 1.8760108 + zr * 0.0415560;
+      var bb = xr *  0.0556434 - yr * 0.2040259 + zr * 1.0572252;
+
+      // linear → sRGB
+      r = (r <= 0.0031308) ? r * 12.92 : 1.055 * math.pow(r, 1.0 / 2.4).toDouble() - 0.055;
+      g = (g <= 0.0031308) ? g * 12.92 : 1.055 * math.pow(g, 1.0 / 2.4).toDouble() - 0.055;
+      bb = (bb <= 0.0031308) ? bb * 12.92 : 1.055 * math.pow(bb, 1.0 / 2.4).toDouble() - 0.055;
+
+      // Quantize & clamp
+      final rr = (r * 255.0).clamp(0.0, 255.0).round().toInt();
+      final gg = (g * 255.0).clamp(0.0, 255.0).round().toInt();
+      final bbb = (bb * 255.0).clamp(0.0, 255.0).round().toInt();
+
+      out.setPixelRgb(x, y, rr, gg, bbb);
+    }
+  }
+
+  return out;
+}
+
+double _labFInv(double t) {
+  const delta = 6.0 / 29.0;
+  if (t > delta) {
+    return t * t * t;
+  } else {
+    return 3.0 * delta * delta * (t - 4.0 / 29.0);
+  }
 }

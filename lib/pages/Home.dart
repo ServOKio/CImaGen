@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:cimagen/pages/sub/ChangeColorUtil.dart';
 import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
@@ -907,10 +908,15 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                 child: AnimatedBuilder(
                   animation: animatedController,
                   builder: (context, child) {
-                    final animatedLetters = categoryTop.last.name.split('');
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: animatedLetters.asMap().map((key, value) => MapEntry(key, AnimatedLetter(key: ValueKey(key), letter: value))).values.toList(),
+                    return AnimatedText(
+                      categoryTop.last.name,
+                      style: const TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Montserrat',
+                      ),
+                      slideDistance: 36,
+                      useMonospaceDuringTransition: true,
                     );
                   },
                 )
@@ -1085,7 +1091,7 @@ class FileInfoPreview extends StatelessWidget{
             icon: const Icon(Icons.swipe_left),
             onSelected: (_) {
               dataModel.comparisonBlock.addImage(im!);
-              dataModel.comparisonBlock.changeSelected(0, im);
+              dataModel.comparisonBlock.changeSelected(1, im);
               // implement redo
             },
           ),
@@ -1094,7 +1100,7 @@ class FileInfoPreview extends StatelessWidget{
             icon: const Icon(Icons.swipe_right),
             onSelected: (_) {
               dataModel.comparisonBlock.addImage(im!);
-              dataModel.comparisonBlock.changeSelected(1, im);
+              dataModel.comparisonBlock.changeSelected(2, im);
             },
           ),
         ],
@@ -1109,6 +1115,17 @@ class FileInfoPreview extends StatelessWidget{
             onSelected: (_) {
               Navigator.push(context, MaterialPageRoute(builder: (context) => XYZBuilder(images: List<ImageMeta>.from(_readHistory.values.where((el) => el.runtimeType == ImageMeta).toList(growable: false)))));
             },
+          )
+        ],
+      ),
+      MenuItem.submenu(
+        label: const Text('Utils...'),
+        icon: const Icon(Icons.apps),
+        items: [
+          MenuItem(
+            label: const Text('Color changer'),
+            icon: const Icon(Icons.edit_rounded),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ColorReplacementScreen(imageMeta: im!))),
           )
         ],
       ),
@@ -1253,7 +1270,7 @@ class FileInfoPreview extends StatelessWidget{
                   if(im.error == null) ...[
                     ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          minimumSize: Size.zero, // Set this
+                          minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                         ),
                         onPressed: () async {
@@ -1263,7 +1280,7 @@ class FileInfoPreview extends StatelessWidget{
                     ),
                     if(im.generationParams != null || im.re == RenderEngine.comfUI) ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          minimumSize: Size.zero, // Set this
+                          minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                         ),
                         onPressed: () async {
