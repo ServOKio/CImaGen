@@ -60,7 +60,7 @@ class _ImageViewState extends State<ImageView> {
   bool showOriginalSize = true;
   PhotoViewScaleStateController scaleStateController = PhotoViewScaleStateController();
 
-  late final lotsOfData = _readImageFile(widget.imageMeta!);
+  late final lotsOfData = _readImageFile(widget.imageMeta);
   final photoSender = Rx<String>('1.00');
 
   @override
@@ -72,22 +72,22 @@ class _ImageViewState extends State<ImageView> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
           surfaceTintColor: Colors.transparent,
-          title: Obx(()=>Text('${widget.imageMeta!.fileName} x${photoSender.value}')),
+          title: Obx(()=>Text('${widget.imageMeta.fileName} x${photoSender.value}')),
           backgroundColor: const Color(0xaa000000),
           elevation: 0,
         actions: [
-          !widget.imageMeta!.isLocal ? IconButton(
+          !widget.imageMeta.isLocal ? IconButton(
               icon: const Icon(Icons.download),
               onPressed: () async {
                 dynamic appDownloadDir = await getDownloadsDirectory();
                 if(appDownloadDir != null) appDownloadDir = appDownloadDir.path;
-                String pa = p.join(appDownloadDir, '${widget.imageMeta?.fileName}');
+                String pa = p.join(appDownloadDir, widget.imageMeta.fileName);
                 File f = File(pa);
                 if(!f.existsSync()){
-                  if(widget.imageMeta?.tempFilePath != null){
-                    File(widget.imageMeta!.tempFilePath!).copy(pa);
+                  if(widget.imageMeta.tempFilePath != null){
+                    File(widget.imageMeta.tempFilePath!).copy(pa);
                   } else {
-                    String clean = cleanUpUrl(widget.imageMeta!.fullNetworkPath!);
+                    String clean = cleanUpUrl(widget.imageMeta.fullNetworkPath!);
                     http.Response res = await http.get(Uri.parse(clean));
                     if(res.statusCode == 200){
                       await f.writeAsBytes(res.bodyBytes);
@@ -98,12 +98,12 @@ class _ImageViewState extends State<ImageView> {
           ) : const SizedBox.shrink(),
           IconButton(
               icon: const Icon(Icons.devices_other),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.imageMeta!)))
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.imageMeta)))
           ),
           IconButton(
               icon: const Icon(Icons.accessibility),
               tooltip: 'Calculate body dimensions',
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BodySizeCalculation(imageMeta: widget.imageMeta!)))
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BodySizeCalculation(imageMeta: widget.imageMeta)))
           ),
           IconButton(
               icon: const Icon(Icons.share),
@@ -147,13 +147,6 @@ class _ImageViewState extends State<ImageView> {
         onSelected: (_) => imageManager.toogleFavorite(widget.imageMeta.fullPath!, host: widget.imageMeta.host),
       ),
       const MenuDivider(),
-      MenuItem(
-        label: const Text('View render tree'),
-        icon: const Icon(Icons.account_tree_sharp),
-        onSelected: (_) {
-          // TODO
-        },
-      ),
       MenuItem.submenu(
         label: const Text('Send to comparison'),
         icon: const Icon(Icons.edit),
@@ -170,7 +163,7 @@ class _ImageViewState extends State<ImageView> {
             label: const Text('As main'),
             icon: const Icon(Icons.swipe_left),
             onSelected: (_) {
-              dataModel.comparisonBlock.addImage(widget.imageMeta!);
+              dataModel.comparisonBlock.addImage(widget.imageMeta);
               dataModel.comparisonBlock.changeSelected(1, widget.imageMeta);
               // implement redo
             },
@@ -179,27 +172,26 @@ class _ImageViewState extends State<ImageView> {
             label: const Text('As test'),
             icon: const Icon(Icons.swipe_right),
             onSelected: (_) {
-              dataModel.comparisonBlock.addImage(widget.imageMeta!);
+              dataModel.comparisonBlock.addImage(widget.imageMeta);
               dataModel.comparisonBlock.changeSelected(2, widget.imageMeta);
             },
           ),
         ],
       ),
-      // MenuItem.submenu(
-      //   label: 'View in timeline',
-      //   icon: Icons.view_timeline_outlined,
-      //   items: [
-      //     MenuItem(
-      //       label: 'by seed',
-      //       value: 'timeline_by_seed',
-      //       icon: Icons.compare,
-      //       onSelected: () {
-      //         dataModel.timelineBlock.setSeed(widget.imageMeta!.generationParams?.seed);
-      //         dataModel.jumpToTab(2);
-      //       },
-      //     ),
-      //   ],
-      // ),
+      if(widget.imageMeta.generationParams != null) MenuItem.submenu(
+        label: const Text('View in timeline'),
+        icon: const Icon(Icons.view_timeline_outlined),
+        items: [
+          if(widget.imageMeta.generationParams!.seed != null) MenuItem(
+            label: const Text('by seed'),
+            icon: const Icon(Icons.compare),
+            onSelected: (_) {
+              dataModel.timelineBlock.setSeed(widget.imageMeta.generationParams!.seed!);
+              dataModel.jumpToTab(2);
+            },
+          ),
+        ],
+      ),
       const MenuDivider(),
       MenuItem.submenu(
         label: const Text('Utils...'),
@@ -208,22 +200,22 @@ class _ImageViewState extends State<ImageView> {
           MenuItem(
             label: const Text('Make Lora'),
             icon: const Icon(Icons.auto_graph),
-            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta))),
           ),
           MenuItem(
             label: const Text('Joint Tagger Project'),
             icon: const Icon(Icons.tag),
-            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: widget.imageMeta!))),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => JointTaggerProject(imageMeta: widget.imageMeta))),
           ),
           MenuItem(
             label: const Text('SauceNAO'),
             icon: const Icon(Icons.find_in_page),
-            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta!))),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => SauceNAO(imageMeta: widget.imageMeta))),
           ),
           MenuItem(
             label: const Text('View in ICC profile'),
             icon: const Icon(Icons.monitor),
-            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ICCPreview(widget.imageMeta!))),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ICCPreview(widget.imageMeta))),
           ),
           if(prefs.getBool('debug') ?? false) MenuItem.submenu(
             label: const Text('Debug'),
@@ -232,7 +224,7 @@ class _ImageViewState extends State<ImageView> {
               MenuItem(
                 label: const Text('Print raw tags'),
                 icon: const Icon(Icons.text_increase),
-                onSelected: (_) => print(getRawTags(widget.imageMeta!.generationParams!.positive!)),
+                onSelected: (_) => print(getRawTags(widget.imageMeta.generationParams!.positive!)),
               ),
             ],
           ),
@@ -254,7 +246,7 @@ class _ImageViewState extends State<ImageView> {
         label: const Text('Show in explorer'),
         icon: const Icon(Icons.compare),
         onSelected: (_) {
-          showInExplorer(widget.imageMeta!.fullPath!);
+          showInExplorer(widget.imageMeta.fullPath!);
         },
       ),
     ];
@@ -278,14 +270,14 @@ class _ImageViewState extends State<ImageView> {
         width: MediaQuery.of(context).size.width,
         height: MediaQuery.of(context).size.height,
         child: Center(
-            child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta!.fileTypeExtension) ? ContextMenuRegion(
+            child: ['png', 'jpeg', 'gif', 'webp', 'bmp', 'wbmp'].contains(widget.imageMeta.fileTypeExtension) ? ContextMenuRegion(
                 contextMenu: contextMenu,
                 child: Hero(
-                    tag: widget.imageMeta!.fileName,
-                    child: widget.imageMeta!.fullImage != null ?
+                    tag: widget.imageMeta.fileName,
+                    child: widget.imageMeta.fullImage != null ?
                     Image.memory(
-                      widget.imageMeta!.fullImage!,
-                      width: widget.imageMeta!.size!.width / devicePixelRatio,
+                      widget.imageMeta.fullImage!,
+                      width: widget.imageMeta.size!.width / devicePixelRatio,
                       gaplessPlayback: true,
                       filterQuality: FilterQuality.none,
                       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
@@ -314,8 +306,8 @@ class _ImageViewState extends State<ImageView> {
                         ),
                       ),
                     ) : Image.file(
-                      width: widget.imageMeta!.size!.width / devicePixelRatio,
-                      File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),
+                      width: widget.imageMeta.size!.width / devicePixelRatio,
+                      File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? widget.imageMeta.cacheFilePath ?? 'e.png'),
                       gaplessPlayback: true,
                       filterQuality: FilterQuality.none,
                       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
@@ -384,7 +376,7 @@ class _ImageViewState extends State<ImageView> {
       color: Theme.of(context).scaffoldBackgroundColor,
       width: 300,
       child: SingleChildScrollView(
-        child: MyImageInfo(widget.imageMeta!),
+        child: MyImageInfo(widget.imageMeta),
       ),
     );
   }

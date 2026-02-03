@@ -1273,9 +1273,7 @@ class FileInfoPreview extends StatelessWidget{
                           minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
                         ),
-                        onPressed: () async {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im)));
-                        },
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: im))),
                         child: const Text("View data", style: TextStyle(fontSize: 12))
                     ),
                     if(im.generationParams != null || im.re == RenderEngine.comfUI) ElevatedButton(

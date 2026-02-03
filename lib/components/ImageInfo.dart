@@ -440,9 +440,9 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                               children: [
                                 const Text('Regional Prompter', style: TextStyle(fontSize: 12, color: Colors.white70)),
                                 const Gap(6),
-                                Column(
-                                  children: gp.params!.keys.where((k) => k.startsWith('rp_')).map((k) => InfoBox(one: humanizeKey(k), two: gp!.params![k], inner: true)).toList()
-                                )
+                                Column(children: gp.params!.keys.where((k) => k.startsWith('rp_')).map((k) => InfoBox(one: humanizeKey(k), two: gp!.params![k], inner: true)).toList()),
+                                Gap(6),
+                                AspectRatio(aspectRatio: im.size!.aspectRatio(), child: visualizeRP(gp.params!['rp_ratios'].replaceAll('"', ''), gp.params!['rp_matrix_submode']))
                               ],
                             )
                         )
@@ -1438,29 +1438,18 @@ class PaletteSwatches extends StatelessWidget {
 /// A small square of color with an optional label.
 @immutable
 class PaletteSwatch extends StatelessWidget {
-  /// Creates a PaletteSwatch.
-  ///
-  /// If the [paletteColor] has property `isTargetColorFound` as `false`,
-  /// then the swatch will show a placeholder instead, to indicate
-  /// that there is no color.
   const PaletteSwatch({
     super.key,
     this.color,
     this.label,
   });
 
-  /// The color of the swatch.
   final Color? color;
 
-  /// The optional label to display next to the swatch.
   final String? label;
 
   @override
   Widget build(BuildContext context) {
-    // Compute the "distance" of the color swatch and the background color
-    // so that we can put a border around those color swatches that are too
-    // close to the background's saturation and lightness. We ignore hue for
-    // the comparison.
     final HSLColor hslColor = HSLColor.fromColor(color ?? Colors.transparent);
     final HSLColor backgroundAsHsl = HSLColor.fromColor(Color(0xffa0a0a0));
     final double colorDistance = math.sqrt(
@@ -1520,5 +1509,141 @@ extension on Color {
 extension on int {
   String toHex([int minDigits = 2]) {
     return toRadixString(16).toUpperCase().padLeft(minDigits, '0');
+  }
+}
+
+Widget visualizeRP(String ratios, String submode) {
+  final mode = submode.trim().toLowerCase();
+  final isRows = mode == 'rows';
+  final primaryDelim = isRows ? ',' : ';';
+  final secondaryDelim = isRows ? ';' : ',';
+
+  // Split into groups (columns for rows mode, rows for columns mode)
+  final groups = ratios.split(primaryDelim).map((g) => g.trim()).where((g) => g.isNotEmpty).toList();
+
+  if (groups.isEmpty) {
+    return const Center(child: Text('Invalid ratios', style: TextStyle(color: Colors.red)));
+  }
+
+  List<double> primaryRatios = []; // widths for rows mode, heights for columns
+  List<List<double>> secondaryRatios = []; // heights per col for rows, widths per row for columns
+
+  for (final group in groups) {
+    final parts = group.split(secondaryDelim).map((p) => double.tryParse(p.trim()) ?? 1.0).toList();
+    if (parts.isEmpty) continue;
+
+    primaryRatios.add(parts[0]);
+    final secs = parts.length > 1 ? parts.sublist(1) : [1.0];
+    secondaryRatios.add(secs);
+  }
+
+  if (primaryRatios.isEmpty) {
+    return const Center(child: Text('Invalid ratios', style: TextStyle(color: Colors.red)));
+  }
+
+  // Normalize primary ratios
+  final totalPrimary = primaryRatios.fold(0.0, (a, b) => a + b);
+
+  // Build UI: for rows mode -> Row of Columns, for columns mode -> Column of Rows
+  if (isRows) {
+    // Rows mode: top-level Row (columns), each with Column (sub-rows)
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade700, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: List.generate(primaryRatios.length, (colIdx) {
+            final priRatio = primaryRatios[colIdx];
+            final flex = ((priRatio / totalPrimary) * 100).round().clamp(1, 999);
+
+            final secRatios = secondaryRatios[colIdx];
+            final totalSec = secRatios.fold(0.0, (a, b) => a + b);
+
+            return Expanded(
+              flex: flex,
+              child: Column(
+                children: List.generate(secRatios.length, (rowIdx) {
+                  final secRatio = secRatios[rowIdx];
+                  final cellFlex = ((secRatio / totalSec) * 100).round().clamp(1, 999);
+
+                  return Expanded(
+                    flex: cellFlex,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blueGrey.shade800),
+                        color: Colors.blueGrey.withOpacity(0.15 + (rowIdx + colIdx) * 0.08),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${(colIdx * secRatios.length + rowIdx + 1)}', // Sequential numbering
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  } else {
+    // Columns mode: top-level Column (rows), each with Row (sub-columns)
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade700, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: List.generate(primaryRatios.length, (rowIdx) {
+            final priRatio = primaryRatios[rowIdx];
+            final flex = ((priRatio / totalPrimary) * 100).round().clamp(1, 999);
+
+            final secRatios = secondaryRatios[rowIdx];
+            final totalSec = secRatios.fold(0.0, (a, b) => a + b);
+
+            return Expanded(
+              flex: flex,
+              child: Row(
+                children: List.generate(secRatios.length, (colIdx) {
+                  final secRatio = secRatios[colIdx];
+                  final cellFlex = ((secRatio / totalSec) * 100).round().clamp(1, 999);
+
+                  return Expanded(
+                    flex: cellFlex,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.blueGrey.shade800),
+                        color: Colors.blueGrey.withOpacity(0.15 + (rowIdx + colIdx) * 0.08),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${(rowIdx * secRatios.length + colIdx + 1)}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
   }
 }

@@ -5,6 +5,7 @@ import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cimagen/components/LoadingState.dart';
 import 'package:cimagen/pages/Timeline.dart' as timeline;
+import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/JointTaggerProject.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/pages/sub/PhotoshopMini/Photoshop.dart';
@@ -1323,11 +1324,9 @@ class PreviewImage extends StatelessWidget {
             ),
             const MenuDivider(),
             MenuItem(
-              label: const Text('View render tree'),
-              icon: const Icon(Icons.account_tree_sharp),
-              onSelected: (_) {
-                // TODO
-              },
+              label: const Text('View in image view'),
+              icon: const Icon(Icons.image),
+              onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ImageView(imageMeta: imageMeta)))
             ),
             MenuItem.submenu(
               label: const Text('Send to comparison'),

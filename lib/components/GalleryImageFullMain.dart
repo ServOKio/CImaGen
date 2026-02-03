@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../main.dart';
+import '../pages/sub/BodySizeCalculation.dart';
 import '../pages/sub/Publish.dart';
 import '../utils/ImageManager.dart';
 import '../utils/ThemeManager.dart';
@@ -134,6 +135,11 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
         IconButton(
             icon: const Icon(Icons.devices_other),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.images[_currentIndex])))
+        ),
+        IconButton(
+            icon: const Icon(Icons.accessibility),
+            tooltip: 'Calculate body dimensions',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BodySizeCalculation(imageMeta: widget.images[_currentIndex])))
         ),
         IconButton(
             icon: const Icon(Icons.share),
