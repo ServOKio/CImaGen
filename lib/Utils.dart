@@ -6,7 +6,7 @@ import 'dart:typed_data';
 
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/NavigationService.dart';
+import 'constants.dart';
 import 'package:crypto/crypto.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:ffi';
@@ -25,6 +25,8 @@ import 'package:path/path.dart' as p;
 import 'package:image/image.dart' as img;
 import 'package:psd_sdk/psd_sdk.dart' as psd;
 import 'package:http/http.dart' as http;
+
+import 'constants.dart';
 
 String getUserName() {
   const usernameLength = 256;
@@ -871,7 +873,7 @@ class GenerationParams {
     this.rawData,
     this.params
   }){
-    if(positive != null) rating = NavigationService.navigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
+    if(positive != null) rating = kBaseNavigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
   }
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {

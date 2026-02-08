@@ -32,7 +32,6 @@ import '../components/CustomMenuItem.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/DataManager.dart';
 import '../modules/webUI/AbMain.dart';
-import '../utils/ThemeManager.dart';
 import 'Settings.dart';
 
 import 'package:path/path.dart' as p;
@@ -621,7 +620,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   Widget build(BuildContext context) {
     super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final theme = Provider.of<ThemeManager>(context, listen: false);
+    ThemeData theme = Theme.of(context);
     const breakpoint = 600.0;
 
     return MultiProvider(
@@ -664,7 +663,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
             width: 200,
             child: Drawer(
               child: Theme(
-                  data: theme.getTheme,
+                  data: theme,
                   child: _buildNavigationRail()
               ),
             ),

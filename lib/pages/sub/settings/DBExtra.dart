@@ -1,6 +1,4 @@
 import 'package:cimagen/components/TagsClassification.dart';
-import 'package:cimagen/utils/ThemeManager.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -39,7 +37,7 @@ class _DBExtraState extends State<DBExtra>{
                   tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                   settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
               ),
-              brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
+              brightness: Theme.of(context).brightness,
               shrinkWrap: true,
               platform: DevicePlatform.fuchsia,
               sections: [

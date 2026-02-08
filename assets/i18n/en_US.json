@@ -1,0 +1,35 @@
+{
+  "languages": {
+    "en_US": "English (United States)",
+    "ru_RU": "Русский (Россия)"
+  },
+  "generic": {
+    "helloWorld": "Hello world!",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "Ok",
+    "create": "Create"
+  },
+  "home": {
+    "reader": {
+      "errorTitle": "An error has occurred",
+      "errorDescription": "If this error continues to occur, just write to us in a telegram or discord",
+      "errorPrefix": "Error",
+      "mobile": {
+        "selectFile": "Select a file"
+      },
+      "desktop": {
+        "selectFile": "Select a file",
+        "or": "or",
+        "enterURL": "Enter URL"
+      }
+    }
+  },
+  "base": {
+    "appBar": {
+      "search": "Search..."
+    }
+  }
+}

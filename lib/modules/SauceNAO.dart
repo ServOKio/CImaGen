@@ -116,7 +116,7 @@ class _SauceNAOState extends State<SauceNAO> {
                   ),
                 ),
                 Flexible(flex: 1, child: Container(
-                  color: Theme.of(context).colorScheme.background,
+                  color: Theme.of(context).colorScheme.surface,
                   child: ListView.separated(
                     separatorBuilder: (BuildContext context, int index) => const Divider(height: 14),
                     itemCount: results.length,

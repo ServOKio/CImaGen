@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:cimagen/modules/swarmUI/swarmModule.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -196,7 +195,7 @@ class _RemoteVersionSettingsState extends State<RemoteVersionSettings>{
                     tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                     settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
                 ),
-                brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
+                brightness: Theme.of(context).brightness,
                 shrinkWrap: true,
                 platform: DevicePlatform.fuchsia,
                 sections: [

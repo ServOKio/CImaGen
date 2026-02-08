@@ -17,11 +17,11 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
+import '../constants.dart';
 import 'ConfigManager.dart';
 import 'webUI/AbMain.dart';
 import '../objectbox.g.dart';
 import '../utils/DataModel.dart';
-import '../utils/NavigationService.dart';
 
 List<Folder> _buildFoldersIsolate(List<LiteMeta> list) {
   final Map<int, List<FolderFile>> byDay = {};
@@ -179,7 +179,7 @@ class ObjectboxDB {
   }
 
   Future<List<ImageMeta>> getImagesByDay(String day, {String? host, RenderEngine? re}) async {
-    String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+    String cacheDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
     if (kDebugMode) {
       print('OB: getImagesByDay: $day ${re ?? 'null'} ${host ?? 'null'}');
     }
@@ -195,7 +195,7 @@ class ObjectboxDB {
   }
 
   Future<List<ImageMeta>> getImagesBySeed(int seed, {String? host}) async {
-    String cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+    String cacheDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
     if (kDebugMode) {
       print('OB: getImagesBySeed: $seed ${host ?? 'null'}');
     }
@@ -232,9 +232,9 @@ class ObjectboxDB {
       ImageMeta? im = await parseImage(RenderEngine.unknown, path);
       if(im != null){
         objectbox.updateImages(imageMeta: im, fromWatch: true);
-        if(NavigationService.navigatorKey.currentContext!.read<ImageManager>().useLastAsTest){
+        if(kBaseNavigatorKey.currentContext!.read<ImageManager>().useLastAsTest){
           Future.delayed(const Duration(milliseconds: 1000), () {
-            DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
+            DataModel? d = kBaseNavigatorKey.currentContext!.read<DataModel>();
             if(d != null){
               d.comparisonBlock.moveTestToMain();
               d.comparisonBlock.changeSelected(2, im);
@@ -422,7 +422,7 @@ class ObjectboxDB {
           title: 'Finding images...',
           description: 'Give us a few seconds...'
       );
-      String cacheFolder = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+      String cacheFolder = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
       Stream<FileSystemEntity> stream = Directory(cacheFolder).list();
       Map<String, String> sizes = {};
       List<FileSystemEntity> files = [];

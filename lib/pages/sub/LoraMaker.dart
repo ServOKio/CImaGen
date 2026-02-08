@@ -1,4 +1,4 @@
-import 'package:cimagen/pages/sub/categories/LoraMakerList.dart';
+import 'package:cimagen/pages/sub/categories/Utils/LoraMakerList.dart';
 import 'package:floaty_nav_bar/res/floaty_nav_bar.dart';
 import 'package:floaty_nav_bar/res/models/floaty_action_button.dart';
 import 'package:floaty_nav_bar/res/models/floaty_tab.dart';

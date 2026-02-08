@@ -10,13 +10,13 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:sqflite/utils/utils.dart' as sqLite show firstIntValue;
+import '../constants.dart';
 import '../main.dart';
 import '../utils/DBExceptions.dart';
 import 'ConfigManager.dart';
 import 'webUI/AbMain.dart';
 import '../objectbox.g.dart';
 import '../utils/DataModel.dart';
-import '../utils/NavigationService.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -56,6 +56,9 @@ class SQLite{
       await dbPath.create(recursive: true);
     }
     dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'images_database${!BLYATPIZDETS ? '_debug${debug_index == 0 ? '' : '_$debug_index'}' : ''}.db'));
+    if (kDebugMode) {
+      print('DB: using ${dbPath.path}');
+    }
 
     database = await openDatabase(
       dbPath.path,
@@ -141,7 +144,7 @@ class SQLite{
     ''');
 
         await db.execute('CREATE INDEX IF NOT EXISTS idx_gen_seed ON generation_params(seed)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_day_host_re ON images(dayKey, host, dbRe)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_day_host_re_date ON images(dayKey, host, dbRe, dateModified)');
 
         await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
@@ -516,14 +519,11 @@ class SQLite{
         String? host,
         RenderEngine? re,
       }) async {
-    final dayDate = DateFormat('yyyy-MM-dd').parse(day);
-    final start = dayDate.toIso8601String();
-    final end = dayDate
-        .add(const Duration(hours: 23, minutes: 59, seconds: 59))
-        .toIso8601String();
+    final dt = DateFormat('yyyy-MM-dd').parse(day);
+    final dayKey = dt.year * 10000 + dt.month * 100 + dt.day;
 
-    final where = StringBuffer('i.dateModified BETWEEN ? AND ?');
-    final args = <dynamic>[start, end];
+    final where = StringBuffer('i.dayKey = ?');
+    final args = <dynamic>[dayKey];
 
     if (host == null) {
       where.write(' AND i.host IS NULL');
@@ -774,15 +774,13 @@ class SQLite{
     if (im == null) return;
 
     updateImages(imageMeta: im).then((value){
-      final ctx = NavigationService.navigatorKey.currentContext;
-      if (ctx != null && ctx.read<ImageManager>().useLastAsTest) {
+      final ctx = kBaseNavigatorKey.currentContext!;
+      if (ctx.read<ImageManager>().useLastAsTest) {
         Future.delayed(const Duration(milliseconds: 1000), () {
           final d = ctx.read<DataModel>();
-          if (d != null) {
-            d.comparisonBlock.moveTestToMain();
-            d.comparisonBlock.changeSelected(2, im);
-            d.comparisonBlock.addImage(im);
-          }
+          d.comparisonBlock.moveTestToMain();
+          d.comparisonBlock.changeSelected(2, im);
+          d.comparisonBlock.addImage(im);
         });
       }
     });
@@ -952,8 +950,6 @@ class SQLite{
     }
   }
 
-
-
   // OTHER
 
   Future<void> deleteAllFromHost(String? host) async {
@@ -988,7 +984,7 @@ class SQLite{
   ImageMeta _mapImage(Map<String, dynamic> m) => ImageMeta.fromSqlMap(m);
 
   String _cachePath(ImageMeta im) {
-    final cacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+    final cacheDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
 
     final ext = im.specific?['hasAnimation'] == true ? 'png' : 'jpg';
     return p.join(cacheDir, '${im.host}_${im.keyup}.$ext');

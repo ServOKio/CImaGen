@@ -8,11 +8,11 @@ import 'package:cimagen/pages/sub/DebugDevPage.dart';
 import 'package:cimagen/pages/sub/TestActivity.dart';
 import 'package:feedback/feedback.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:gap/gap.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../l10n/app_localizations.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
 
@@ -109,7 +109,7 @@ class _CustomAppBarState extends State<CAppBar>{
                               controller: myController,
                               style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
                               decoration: InputDecoration(
-                                hintText: AppLocalizations.of(context)!.appbarSearch,
+                                hintText: FlutterI18n.translate(context, 'base.appBar.search'),
                                 hintStyle: const TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
                                 labelStyle: const TextStyle(color: Colors.red),
                                 border: InputBorder.none,

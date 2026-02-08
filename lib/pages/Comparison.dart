@@ -17,11 +17,11 @@ import 'package:provider/provider.dart';
 import 'package:flutter/rendering.dart';
 
 import '../Utils.dart';
+import '../constants.dart';
 import 'sub/DevicePreview.dart';
 import '../components/ImageInfo.dart';
 import '../utils/Extra.dart';
 import '../utils/ImageManager.dart';
-import '../utils/NavigationService.dart';
 
 import 'package:path/path.dart' as p;
 
@@ -62,9 +62,9 @@ class _ComparisonState extends State<Comparison> {
             getIcon: () => Icons.remove_red_eye,
             tooltip: 'Automatically use the last generated image as a test',
             onPress: (){
-              NavigationService.navigatorKey.currentContext?.read<ImageManager>().toogleUseLastAsTest();
+              kBaseNavigatorKey.currentContext!.read<ImageManager>().toogleUseLastAsTest();
             },
-            isActive: () => NavigationService.navigatorKey.currentContext?.read<ImageManager>().useLastAsTest
+            isActive: () => kBaseNavigatorKey.currentContext!.read<ImageManager>().useLastAsTest
         ),
         CustomActionButton(getIcon: () => Icons.blur_linear, tooltip: 'Don\'t show .jp(e)+g', onPress: (){
           setState((){

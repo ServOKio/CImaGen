@@ -17,7 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:snowflake_dart/snowflake_dart.dart';
 
 import '../../Utils.dart';
-import '../../utils/NavigationService.dart';
+import '../../constants.dart';
 import '../DataManager.dart';
 import '../swarmUI/swarmModule.dart';
 
@@ -452,7 +452,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
         return controller;
       }
     } else if(software == Software.swarmUI) {
-      String session_id = NavigationService.navigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (NavigationService.navigatorKey.currentContext?.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+      String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,

@@ -27,11 +27,11 @@ import 'package:path/path.dart' as p;
 import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
 import 'package:http/http.dart' as http;
 
+import '../constants.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
 import '../modules/webUI/OnRemote.dart';
-import 'NavigationService.dart';
 import 'package:objectbox/objectbox.dart';
 
 
@@ -123,12 +123,10 @@ class ImageManager extends ChangeNotifier {
           sqLite.updateImages(imageMeta: value);
           if(_useLastAsTest){
             Future.delayed(const Duration(milliseconds: 1000), () {
-              DataModel? d = NavigationService.navigatorKey.currentContext?.read<DataModel>();
-              if(d != null){
-                d.comparisonBlock.moveTestToMain();
-                d.comparisonBlock.changeSelected(2, value);
-                d.comparisonBlock.addImage(value);
-              }
+              DataModel? d = kBaseNavigatorKey.currentContext!.read<DataModel>();
+              d.comparisonBlock.moveTestToMain();
+              d.comparisonBlock.changeSelected(2, value);
+              d.comparisonBlock.addImage(value);
             });
           }
         }
@@ -342,7 +340,7 @@ class ParseJob {
             bool s = false;
             if(im.tempFilePath != null){
               s = true;
-              String imagesErrorDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesErrorDir;
+              String imagesErrorDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesErrorDir;
               File(im.tempFilePath!).copy(p.join(imagesErrorDir, im.fileName));
             }
             int notID = notificationManager!.show(
@@ -1709,7 +1707,7 @@ class ImageMeta {
           await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 50}) : null;
       }
       if(makeCacheImage && data != null) {
-        String imagesCacheDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
+        String imagesCacheDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
         Uint8List cachedImage = (
           hasAnim ?
             await compute(img.encodePng, data) :
@@ -1723,14 +1721,14 @@ class ImageMeta {
   Future<Uint8List> _encodeJpg(map) async => img.encodeJpg(map['data'], quality: map['quality']);
 
   String getTempFilePath(){
-    String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
+    String appTempDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().tempDir;
     return p.join(appTempDir, '$keyup${p.extension(fileName)}');
   }
 
   Future<void> parseNetworkImage({bool makeCachedImage = false, bool skipCached = false}) async {
     if(!isLocal && fullNetworkPath != null){
       // Download to temp
-      String appTempDir = NavigationService.navigatorKey.currentContext!.read<ConfigManager>().tempDir;
+      String appTempDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().tempDir;
       String pa = p.join(appTempDir, '$keyup${p.extension(fileName)}'); // max 256 so shit
       File f = File(pa);
       Uint8List? bytes;

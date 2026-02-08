@@ -13,18 +13,18 @@ import 'package:cimagen/utils/DBExceptions.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/utils/NavigationService.dart';
 import 'package:cimagen/modules/Objectbox.dart';
 import 'package:cimagen/modules/SQLite.dart';
 import 'package:cimagen/modules/SaveManager.dart';
-import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:floaty_nav_bar/res/floaty_nav_bar.dart';
 import 'package:floaty_nav_bar/res/models/floaty_action_button.dart';
 import 'package:floaty_nav_bar/res/models/floaty_tab.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
@@ -35,18 +35,18 @@ import 'package:cimagen/pages/Gallery.dart';
 import 'package:cimagen/pages/Home.dart';
 import 'package:cimagen/pages/Settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:system_theme/system_theme.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 
 import 'package:path/path.dart' as p;
+import 'package:intl/locale.dart' as intl;
 
 import 'components/AppBar.dart';
 import 'components/LoadingState.dart';
 import 'components/NotesSection.dart';
+import 'constants.dart';
 import 'l10n/all_locales.dart';
-import 'l10n/app_localizations.dart';
 import 'modules/AudioController.dart';
 import 'modules/ConfigManager.dart';
 import 'modules/DataManager.dart';
@@ -60,63 +60,27 @@ late ObjectboxDB objectbox;
 late SQLite sqLite;
 
 Future<void> main() async {
-  bool debug = false;
-  if(debug) {
-    runApp(Test());
-  } else {
-    WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
+  prefs = await SharedPreferences.getInstance();
 
-    prefs = await SharedPreferences.getInstance();
-
-    await SystemTheme.accentColor.load();
-    if (Platform.isWindows) {
-      await windowManager.ensureInitialized();
-      WindowManager.instance.setMinimumSize(const Size(450, 450));
-    }
-    runApp(MyApp());
-
-    doWhenWindowReady(() {
-      const initialSize = Size(1280, 968);
-      appWindow.minSize = initialSize;
-      appWindow.size = initialSize;
-      appWindow.alignment = Alignment.center;
-      appWindow.show();
-    });
+  if (Platform.isWindows) {
+    await windowManager.ensureInitialized();
+    WindowManager.instance.setMinimumSize(const Size(450, 450));
   }
+  runApp(Base());
+
+  doWhenWindowReady(() {
+    const initialSize = Size(1280, 968);
+    appWindow.minSize = initialSize;
+    appWindow.size = initialSize;
+    appWindow.alignment = Alignment.center;
+    appWindow.show();
+  });
 }
 
-class Test extends StatelessWidget {
-  const Test({super.key});
+class Base extends StatelessWidget {
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: const Center(child: Text("Hello World!!!")),
-        bottomNavigationBar: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: Icon(Icons.call),
-              label: 'Calls',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.camera),
-              label: 'Camera',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat),
-              label: 'Chats',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class MyApp extends StatelessWidget {
-
-  MyApp({super.key}) {
+  Base({super.key}) {
     appBarController = AppBarController();
     notificationManager = NotificationManager();
     notificationManager?.init();
@@ -131,7 +95,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConfigManager()),
         ChangeNotifierProvider(create: (_) => DataManager()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
-        ChangeNotifierProvider(create: (_) => ThemeManager()),
         ChangeNotifierProvider(create: (_) => SaveManager()),
       ],
       child: BetterFeedback(
@@ -147,37 +110,58 @@ class MyApp extends StatelessWidget {
               Colors.yellow,
             ],
           ),
-          child: const WTF()
+          child: Consumer(
+            builder: (context, provider, child) => DynamicColorBuilder(builder: (light, dark) {
+              intl.Locale? parsedLocale = (prefs.getString('language') ?? 'default') == 'default' ? null : intl.Locale.tryParse(prefs.getString('language')!);
+              return MaterialApp(
+                title: 'CImaGen',
+                navigatorKey: kBaseNavigatorKey,
+                theme: ThemeData(
+                    colorScheme: light != null ? light : ColorScheme.fromSeed(seedColor: Colors.lightBlue),
+                    useMaterial3: true,
+                ),
+                darkTheme: ThemeData(
+                    colorScheme: dark != null ? dark.copyWith(
+                      onSecondary: Color(0xffeeeaff),
+                      background: Colors.red,
+                      onBackground: Colors.redAccent,
+                      // onSurface: const Color(0xFF1a1c20),
+                      surfaceContainerHighest: Color(0xff725cff),
+                      surface: const Color(0xFF1a1c20),
+                    ) : ColorScheme.fromSeed(seedColor: Colors.lightBlue, brightness: Brightness.dark),
+                    useMaterial3: true,
+                ).copyWith(
+                  scaffoldBackgroundColor: const Color(0xFF131517),
+                  dividerColor: const Color(0xFF2d2f32),
+                  dividerTheme: const DividerThemeData(
+                    color: Color(0xFF2d2f32),
+                  ),
+                ),
+                localizationsDelegates: [
+                  FlutterI18nDelegate(
+                    translationLoader: FileTranslationLoader(
+                      useCountryCode: true,
+                      fallbackFile: 'en_US',
+                      basePath: "assets/i18n",
+                      forcedLocale: parsedLocale != null ? Locale.fromSubtags(
+                        languageCode: parsedLocale.languageCode,
+                        countryCode: parsedLocale.countryCode,
+                        scriptCode: parsedLocale.scriptCode
+                      ) : null
+                    )
+                  ),
+                  GlobalMaterialLocalizations.delegate,
+                  GlobalWidgetsLocalizations.delegate
+                ],
+                debugShowCheckedModeBanner: true,
+                builder: FlutterI18n.rootAppBuilder(),
+                home: const Main()
+              );
+            })
+          )
       )
     );
   }
-}
-
-class WTF extends StatelessWidget{
-  const WTF({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeManager>(context);
-    return MaterialApp(
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ],
-      supportedLocales: AllLocale.all,
-      locale: Provider.of<LocaleProvider>(context).locale,
-
-      navigatorKey: NavigationService.navigatorKey,
-      debugShowCheckedModeBanner: true,
-      theme: theme.getTheme,
-      darkTheme: theme.getTheme,
-      themeMode: theme.isDark ? ThemeMode.dark : ThemeMode.light,
-      home: const Main()
-    );
-  }
-
 }
 
 class Main extends StatefulWidget {
@@ -325,7 +309,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           _sqlPass = true;
         });
         sqLite.checkDBErrors().catchError((error, stack) {
-          int notID = notificationManager!.show(
+          notificationManager!.show(
             thumbnail: const Icon(Icons.warning, color: Colors.amberAccent),
             title: 'SQL problem',
             description: 'Error: $error',
@@ -539,7 +523,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
         ),
         bottomNavigationBar: changeNotify ? NavigationBar(
           height: 70,
-          backgroundColor: Theme.of(context).colorScheme.background,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           indicatorColor: Theme.of(context).colorScheme.primary.withOpacity(0.5),
           surfaceTintColor: Colors.transparent,
           labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,

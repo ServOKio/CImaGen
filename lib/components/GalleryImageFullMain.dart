@@ -19,7 +19,6 @@ import '../main.dart';
 import '../pages/sub/BodySizeCalculation.dart';
 import '../pages/sub/Publish.dart';
 import '../utils/ImageManager.dart';
-import '../utils/ThemeManager.dart';
 
 class GalleryImageFullMain extends StatefulWidget {
 
@@ -91,7 +90,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
   @override
   Widget build(BuildContext context) {
     final imageManager = Provider.of<ImageManager>(context);
-    final theme = Provider.of<ThemeManager>(context);
+    ThemeData theme = Theme.of(context);
     AppBar appBar = AppBar(
       backgroundColor: Colors.black,
       title: Text(widget.images[_currentIndex].fileName),
@@ -213,7 +212,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                       //     child: Container(decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.5)))
                       // ),
                       Theme(
-                        data: theme.getTheme,
+                        data: theme,
                         child: SingleChildScrollView(
                           child: Container(
                               padding: const EdgeInsets.all(6),

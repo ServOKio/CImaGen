@@ -1,11 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:provider/provider.dart';
 import 'package:settings_ui/settings_ui.dart';
 
 import '../../../main.dart';
-import '../../../utils/ThemeManager.dart';
 
 class SauceNAOSettings extends StatefulWidget{
   const SauceNAOSettings({ super.key });
@@ -61,7 +59,7 @@ class _SauceNAOSettingsState extends State<SauceNAOSettings>{
                     tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                     settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
                 ),
-                brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
+                brightness: Theme.of(context).brightness,
                 shrinkWrap: true,
                 platform: DevicePlatform.fuchsia,
                 sections: [

@@ -16,7 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
-import '../../utils/NavigationService.dart';
+import '../../constants.dart';
 import '../DataManager.dart';
 import '../swarmUI/swarmModule.dart';
 
@@ -457,7 +457,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         } else {
           // Not sd, swarm ?
           // 1. Need session token
-          String session_id = NavigationService.navigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (NavigationService.navigatorKey.currentContext?.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+          String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
 
           Uri base = Uri(
               scheme: parse.scheme,
@@ -482,7 +482,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               ).toString();
               var data = await json.decode(res.body);
               if(session_id == 'null'){
-                NavigationService.navigatorKey.currentContext?.read<DataManager>().temp['swarm_client_info'] = SwarmClientInfo(
+                kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] = SwarmClientInfo(
                     sessionID: data['session_id'],
                     userID: data['user_id'],
                     outputAppendUser: data['output_append_user'],
@@ -495,7 +495,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               software = Software.swarmUI;
               _tabs = ['All'];
               loaded = true;
-              SwarmClientInfo info = (NavigationService.navigatorKey.currentContext?.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo);
+              SwarmClientInfo info = (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo);
               int notID = notificationManager!.show(
                   thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
                   title: 'Welcome to SwarmUI, ${info.userID}',
@@ -694,7 +694,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
       );
       audioController!.player.play(AssetSource('audio/info.wav'));
 
-      String session_id = NavigationService.navigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (NavigationService.navigatorKey.currentContext?.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+      String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,
@@ -1130,7 +1130,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         }
       }
     } else if(software == Software.swarmUI) {
-      String session_id = NavigationService.navigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (NavigationService.navigatorKey.currentContext?.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+      String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,

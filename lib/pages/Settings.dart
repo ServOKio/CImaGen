@@ -5,7 +5,6 @@ import 'package:cimagen/pages/sub/settings/DBExtra.dart';
 import 'package:cimagen/pages/sub/GitHubCommits.dart';
 import 'package:cimagen/pages/sub/settings/RemoteVersionSettings.dart';
 import 'package:cimagen/pages/sub/settings/SauceNAOSettings.dart';
-import 'package:cimagen/utils/ThemeManager.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -167,7 +166,7 @@ class _SettingsState extends State<Settings>{
               tileDescriptionTextColor: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
               settingsTileTextColor: Theme.of(context).textTheme.bodyMedium?.color
           ),
-          brightness: context.read<ThemeManager>().isDark ? Brightness.dark : Brightness.light,
+          brightness: Theme.of(context).brightness,
           shrinkWrap: true,
           platform: DevicePlatform.fuchsia,
           sections: [

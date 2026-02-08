@@ -8,7 +8,6 @@ import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
 import '../main.dart';
-import '../utils/NavigationService.dart';
 
 class NotificationManager with ChangeNotifier {
   int active = 0;

@@ -9,13 +9,13 @@ import 'package:gap/gap.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:toml/toml.dart';
 
-import '../../../Utils.dart';
-import '../../../components/Animations.dart';
-import '../../../components/CustomMasonryView.dart';
+import '../../../../Utils.dart';
+import '../../../../components/Animations.dart';
+import '../../../../components/CustomMasonryView.dart';
 
 import 'package:path/path.dart' as p;
 
-import '../../../main.dart';
+import '../../../../main.dart';
 
 class LoraMakerList extends StatefulWidget {
   const LoraMakerList({super.key});

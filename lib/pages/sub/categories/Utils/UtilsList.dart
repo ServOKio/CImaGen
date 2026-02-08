@@ -1,8 +1,8 @@
-import 'package:cimagen/pages/sub/categories/LoraMakerList.dart';
+import 'package:cimagen/pages/sub/categories/Utils/LoraMakerList.dart';
 import 'package:flutter/material.dart';
 
-import '../../../components/CustomMasonryView.dart';
-import '../../Home.dart';
+import '../../../../components/CustomMasonryView.dart';
+import '../../../Home.dart';
 
 class UtilsList extends StatelessWidget {
   final double breakpoint = 600.0;

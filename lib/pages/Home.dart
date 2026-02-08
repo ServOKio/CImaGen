@@ -17,6 +17,7 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_context_menu/flutter_context_menu.dart';
+import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:gap/gap.dart';
 
 import 'package:path/path.dart' as p;
@@ -29,14 +30,11 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import '../Utils.dart';
 import '../components/Animations.dart';
 import '../components/ImageInfo.dart';
-import '../l10n/app_localizations.dart';
 import '../main.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/SaveManager.dart' as sm;
 import '../utils/DataModel.dart';
-import '../modules/SQLite.dart';
-import '../utils/ThemeManager.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -119,20 +117,20 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
             builder: (BuildContext context) => AlertDialog(
               icon: const Icon(Icons.error),
               iconColor: Colors.redAccent,
-              title: Text(AppLocalizations.of(context)!.home_reader_dialog_title),
+              title: I18nText('home.reader.errorTitle'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SelectableText('${AppLocalizations.of(context)!.home_reader_dialog_error_prefix} $e'),
-                  Text(AppLocalizations.of(context)!.home_reader_dialog_error_description),
+                  SelectableText('${FlutterI18n.translate(context, 'home.reader.errorPrefix')} $e'),
+                  I18nText('home.reader.errorDescription'),
                   SelectableText(file.path)
                 ],
               ),
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.pop(context, 'ok'),
-                  child: Text(AppLocalizations.of(context)!.home_reader_dialog_error_buttons_ok),
+                  child: I18nText('generic.ok'),
                 ),
               ],
             ),
@@ -317,7 +315,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Provider.of<ThemeManager>(context);
+    ThemeData theme = Theme.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
     return screenWidth >= breakpoint || !(Platform.isAndroid || Platform.isIOS) ? Row(children: <Widget>[
       _buildMenu(),
@@ -335,7 +333,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
         child: Drawer(
           width: 350,
           child: Theme(
-            data: theme.getTheme,
+            data: theme,
             child:  _buildMenu(),
           ),
         )
@@ -374,7 +372,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
 
   Widget _buildMenu(){
     return Container(
-        color: Theme.of(context).colorScheme.background,
+        color: Theme.of(context).colorScheme.surface,
         width: 350,
         child: Column(
           children: [
@@ -772,12 +770,12 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                   children: Platform.isAndroid || Platform.isIOS ? [
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_mobile0, style: const TextStyle(fontWeight: FontWeight.w500)),
+                    I18nText('home.reader.mobile.selectFile', child: Text('', style: const TextStyle(fontWeight: FontWeight.w500)))
                   ] :[
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop0, style: const TextStyle(fontWeight: FontWeight.w500)),
-                    Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop1),
+                    I18nText('home.reader.desktop.selectFile', child: Text('', style: const TextStyle(fontWeight: FontWeight.w500))),
+                    I18nText('home.reader.desktop.or'),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: TextField(
@@ -819,7 +817,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
                             label: Center(
-                              child: Text(AppLocalizations.of(context)!.home_reader_form_select_file_desktop2, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                              child: I18nText('home.reader.desktop.enterURL', child: Text('', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14))),
                             ),
                             focusedBorder: UnderlineInputBorder(
                               borderSide: BorderSide(
@@ -1021,7 +1019,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                           ),
                           const Gap(12),
                           ElevatedButton(
-                            child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create),
+                            child: I18nText('generic.create'),
                             onPressed: () {
                               if (formKey.currentState!.validate()) {
                                 sqLite.createCategory(
@@ -1041,7 +1039,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                   )
               );
             },
-            child: Text(AppLocalizations.of(context)!.home_main_categories_buttons_create, style: const TextStyle(fontSize: 14))
+            child: I18nText('generic.create')
         )
       ],
     );
