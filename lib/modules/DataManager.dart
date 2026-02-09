@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
@@ -13,6 +14,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:fast_csv/fast_csv_ex.dart' as fast_csv_ex;
+import 'package:http/http.dart' as http;
 import 'package:fast_csv/csv_converter.dart';
 
 import '../Utils.dart';
@@ -55,15 +57,18 @@ class DataManager with ChangeNotifier {
     notifyListeners();
   }
 
-  // https://e621.net/db_export/
   Future<void> loadE621Tags() async {
-    Directory? dD;
-    if(Platform.isAndroid){
-      dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
-    } else if(Platform.isWindows){
-      dD = await getApplicationDocumentsDirectory();
+    Directory? docDir;
+    if (Platform.isAndroid) {
+      docDir = Directory(await ExternalPath.getExternalStoragePublicDirectory(
+          ExternalPath.DIRECTORY_DOCUMENTS));
+    } else if (Platform.isWindows) {
+      docDir = await getApplicationDocumentsDirectory();
+    } else {
+      docDir = await getApplicationDocumentsDirectory();
     }
-    if(dD == null){
+
+    if (docDir == null || !docDir.existsSync()) {
       int notID = 0;
       notID = notificationManager!.show(
           thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
@@ -84,59 +89,236 @@ class DataManager with ChangeNotifier {
       audioController!.player.play(AssetSource('audio/wrong.wav'));
       return;
     }
-    dynamic csvPath = Directory(p.join(dD.path, 'CImaGen', 'csv'));
-    if (!csvPath.existsSync()) {
-      await csvPath.create(recursive: true);
+
+    final csvDir = Directory(p.join(docDir.path, 'CImaGen', 'csv'));
+    if (!csvDir.existsSync()) {
+      await csvDir.create(recursive: true);
     }
-    // 1. Find e621 latest files
-    // 2025-01-27
-    List<FileSystemEntity> files = await dirContents(csvPath);
-    csvPath = File(p.join(dD.path, 'CImaGen', 'csv', 'tags.csv'));
-    RegExp fileRegex = RegExp(r"tags-([0-9]{4}-[0-9]{2}-[0-9]{2})\.csv$");
-    DateFormat format = DateFormat("yyyy-MM-dd");
-    files = files.where((file) => fileRegex.hasMatch(p.basename(file.path))).toList(growable: false);
-    DateTime? latest;
-    for(FileSystemEntity f in files){
-      DateTime d = format.parse(fileRegex.firstMatch(p.basename(f.path))![1]!);
-      if(latest == null){
-        latest = d;
-        csvPath = File(f.path);
-      } else if(d.isAfter(latest)){
-        latest = d;
-        csvPath = File(f.path);
+
+    final files = await dirContents(csvDir);
+    final fileRegex = RegExp(r'tags-(\d{4}-\d{2}-\d{2})\.csv$');
+    final dateFormat = DateFormat('yyyy-MM-dd');
+
+    final tagFiles = files
+        .whereType<File>()
+        .where((f) => fileRegex.hasMatch(p.basename(f.path)))
+        .toList();
+
+    File? latestFile;
+    DateTime? latestDate;
+
+    for (final file in tagFiles) {
+      final match = fileRegex.firstMatch(p.basename(file.path));
+      if (match == null) continue;
+      final dateStr = match.group(1)!;
+      final date = dateFormat.parse(dateStr);
+
+      if (latestDate == null || date.isAfter(latestDate)) {
+        latestDate = date;
+        latestFile = file;
       }
     }
 
-    if (csvPath.existsSync()) {
-      latestE621Tags = csvPath.path;
-      File(csvPath.path).readAsString().then((value) async {
-        final data = await compute(fast_csv_ex.parse, value);
-        data.skip(1).forEach((e) {
-          _e621Tags[e[1]] = TagInfo(id: int.parse(e[0]), name: e[1], category: int.parse(e[2]), count: int.parse(e[3]));
-        });
-      });
-    } else {
+    if (latestFile == null || !latestFile.existsSync()) {
       int notID = 0;
       notID = notificationManager!.show(
-        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        thumbnail: const Icon(Icons.question_mark, color: Colors.yellow, size: 32),
         title: 'Tags not found',
-        description: 'Put the tags-YYYY-mm-dd.csv file in folder:\n   "${csvPath.parent.path}"\nYou can download tags, for example, from https://e621.net/db_export/',
-        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+        description: 'Put a tags-YYYY-MM-DD.csv file in folder:\n   "${csvDir.path}"\nDownload from: https://e621.net/db_export/',
+        content: Padding(
+          padding: const EdgeInsets.only(top: 7),
+          child: ElevatedButton(
             style: ButtonStyle(
-                foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+              shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(4))),
+              ),
             ),
-            onPressed: (){
+            onPressed: () {
               notificationManager!.close(notID);
               init();
             },
-            child: const Text("Try again", style: TextStyle(fontSize: 12))
-        ))
+            child: const Text("Try again", style: TextStyle(fontSize: 12)),
+          ),
+        ),
+      );
+      audioController!.player.play(AssetSource('audio/wrong.wav'));
+      return;
+    }
+
+    final now = DateTime.now();
+    final fileModified = await latestFile.lastModified();
+    final ageDays = now.difference(fileModified).inDays;
+
+    const maxAgeDays = 10;
+
+    String? warningMessage;
+    if (ageDays > maxAgeDays) {
+      warningMessage =
+      'The tags file is quite old ($ageDays days).\n'
+          'e621 updates the export roughly daily.\n'
+          'Consider downloading a fresh one from https://e621.net/db_export/';
+    }
+
+    bool shouldDownload = latestFile == null;
+
+    if (!shouldDownload) {
+      final fileModified = await latestFile.lastModified();
+      final ageDays = DateTime.now().difference(fileModified).inDays;
+      shouldDownload = ageDays > maxAgeDays;
+    }
+
+    // Set global path
+    latestE621Tags = latestFile.path;
+
+    // Load the file (async)
+    try {
+      final content = await latestFile.readAsString();
+      final data = await compute(fast_csv_ex.parse, content);
+
+      _e621Tags.clear();
+
+      for (final row in data.skip(1)) {
+        if (row.length < 4) continue;
+        final name = row[1].trim();
+        if (name.isEmpty) continue;
+
+        _e621Tags[name] = TagInfo(
+          id: int.tryParse(row[0]) ?? 0,
+          name: name,
+          category: int.tryParse(row[2]) ?? 0,
+          count: int.tryParse(row[3]) ?? 0,
+        );
+      }
+
+      if (warningMessage != null) {
+        int notWarn = 0;
+        notWarn = notificationManager!.show(
+          thumbnail: const Icon(Icons.warning_amber, color: Colors.yellow, size: 32),
+          title: 'Outdated tags database',
+          description: warningMessage,
+          duration: const Duration(seconds: 12),
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: () async {
+                notificationManager!.close(notWarn);
+                int progressNotId = notificationManager!.show(
+                  thumbnail: const Icon(Icons.downloading, color: Colors.blue, size: 32),
+                  title: 'Updating e621 tags',
+                  description: 'Downloading latest tags database...\nThis may take a minute.',
+                );
+
+                final newPath = await downloadLatestE621Tags(csvDir);
+
+                notificationManager!.close(progressNotId);
+
+                if (newPath != null) {
+                  latestFile = File(newPath);
+                  latestDate = dateFormat.parse(
+                    fileRegex.firstMatch(p.basename(newPath))!.group(1)!,
+                  );
+
+                  notificationManager!.show(
+                    thumbnail: const Icon(Icons.check_circle, color: Colors.green, size: 32),
+                    title: 'Tags updated',
+                    description: 'Latest tags loaded from e621.',
+                    duration: const Duration(seconds: 6),
+                  );
+                  loadE621Tags();
+                } else {
+                  notificationManager!.show(
+                    thumbnail: const Icon(Icons.warning_amber, color: Colors.orange, size: 32),
+                    title: 'Update failed',
+                    description: 'Could not download fresh tags.\nUsing existing file (may be outdated).',
+                    duration: const Duration(seconds: 10),
+                  );
+                }
+              },
+              child: const Text("Update", style: TextStyle(fontSize: 12))
+          ))
+        );
+      }
+    } catch (e) {
+      notificationManager!.show(
+        thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
+        title: 'Failed to parse tags',
+        description: 'The CSV file may be corrupted.\n$e',
       );
       audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
   }
 
+  Future<String?> downloadLatestE621Tags(Directory csvDir) async {
+    final dateFormat = DateFormat('yyyy-MM-dd');
+    final client = http.Client();
+
+    for (int offset = 0; offset < 3; offset++) {
+      final targetDate = DateTime.now().subtract(Duration(days: offset));
+      final dateStr = dateFormat.format(targetDate);
+      final fileName = 'tags-$dateStr.csv.gz';
+      final downloadUrl = 'https://e621.net/db_export/$fileName';
+
+      try {
+        final request = http.Request('GET', Uri.parse(downloadUrl));
+
+        request.headers['User-Agent'] = userAgent;
+
+        final response = await client.send(request);
+
+        if (response.statusCode != 200) {
+          if (kDebugMode) {
+            print('Failed to download $fileName: ${response.statusCode}');
+          }
+          continue;
+        }
+
+        final tempGzPath = p.join(csvDir.path, fileName);
+        final gzFile = File(tempGzPath);
+        final sink = gzFile.openWrite();
+        await response.stream.pipe(sink);
+        await sink.flush();
+        await sink.close();
+
+        final compressedBytes = await gzFile.readAsBytes();
+        final csvBytes = GZipDecoder().decodeBytes(compressedBytes);
+
+        if (csvBytes.isEmpty) {
+          if (kDebugMode) {
+            print('Decompression resulted in empty data for $fileName');
+          }
+          gzFile.deleteSync();
+          continue;
+        }
+
+        final csvFileName = 'tags-$dateStr.csv';
+        final csvPath = p.join(csvDir.path, csvFileName);
+        final csvFile = File(csvPath);
+        await csvFile.writeAsBytes(csvBytes);
+
+        gzFile.deleteSync();
+
+        if (kDebugMode) {
+          print('Downloaded and decompressed: $csvPath');
+        }
+        return csvPath;
+
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error downloading $fileName: $e');
+        }
+        continue;
+      }
+    }
+
+    if (kDebugMode) {
+      print('No recent tags file found online');
+    }
+    return null;
+  }
 
   Future<void> loadContentRatingTags() async {
     Directory? dD;
@@ -239,8 +421,7 @@ class DataManager with ChangeNotifier {
     if (!csvPath.existsSync()) {
       await csvPath.create(recursive: true);
     }
-    // 1. Find e621 latest files
-    // 2025-01-27
+
     List<FileSystemEntity> files = await dirContents(csvPath);
     csvPath = File(p.join(dD.path, 'CImaGen', 'csv', 'tags.csv'));
     RegExp fileRegex = RegExp(r"posts-([0-9]{4}-[0-9]{2}-[0-9]{2})\.csv$");
@@ -383,14 +564,13 @@ class _MyParser extends CsvParser {
               Timer.run(() => onComplete!(row));
             }
           }
-          // Free memory
+
           result = const <String>[] as R;
           break;
         case CsvParserEvent.startEvent:
           if (!hasRes && onComplete != null) {
             Timer.run(() => onComplete!(null));
           }
-          // Completely freeing memory from the entire list
           result = const <List<String>>[] as R;
         default:
       }

@@ -27,6 +27,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gap/gap.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
 import 'package:cimagen/Utils.dart';
@@ -62,6 +63,9 @@ late SQLite sqLite;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   prefs = await SharedPreferences.getInstance();
+
+  PackageInfo packageInfo = await PackageInfo.fromPlatform();
+  userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
 
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
@@ -126,7 +130,7 @@ class Base extends StatelessWidget {
                       background: Colors.red,
                       onBackground: Colors.redAccent,
                       // onSurface: const Color(0xFF1a1c20),
-                      surfaceContainerHighest: Color(0xff725cff),
+                      //surfaceContainerHighest: Color(0xff725cff),
                       surface: const Color(0xFF1a1c20),
                     ) : ColorScheme.fromSeed(seedColor: Colors.lightBlue, brightness: Brightness.dark),
                     useMaterial3: true,

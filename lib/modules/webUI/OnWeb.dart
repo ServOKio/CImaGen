@@ -42,7 +42,6 @@ class OnWeb extends ChangeNotifier implements AbMain{
   String? get host => _host;
 
   String _remoteAddress = '';
-  String _userAgent = 'CImaGen/Undefined.version';
 
   List<String> _tabs = [];
   @override
@@ -71,9 +70,6 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   Future<void> init() async {
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    _userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
-
     _tabs.clear();
     _internalTabs.clear();
 
@@ -460,7 +456,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
           path: '/API/ListImages'
       );
       var res = await http.Client().post(base, headers: {
-        "User-Agent": _userAgent,
+        "User-Agent": userAgent,
         "Accept": "*/*",
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"

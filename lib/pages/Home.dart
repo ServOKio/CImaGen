@@ -466,12 +466,12 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                                                   child: AspectRatio(
                                                     aspectRatio: 1/1,
                                                     child: DottedBorder(
-                                                      options: RectDottedBorderOptions(
+                                                      options: RoundedRectDottedBorderOptions(
                                                         dashPattern: const [6, 6],
                                                         color: Colors.redAccent,
                                                         //borderType: BorderType.RRect,
                                                         strokeWidth: 2,
-                                                        //radius: const Radius.circular(12),
+                                                        radius: const Radius.circular(12),
                                                       ),
                                                       child: const Center(child: Icon(Icons.chat, color: Colors.blueAccent)),
                                                     ),
@@ -565,12 +565,12 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                                                   child: AspectRatio(
                                                     aspectRatio: 1/1,
                                                     child: DottedBorder(
-                                                      options: RectDottedBorderOptions(
+                                                      options: RoundedRectDottedBorderOptions(
                                                         dashPattern: const [6, 6],
                                                         color: Colors.blueAccent,
                                                         //borderType: BorderType.RRect,
                                                         strokeWidth: 4,
-                                                        //radius: const Radius.circular(12),
+                                                        radius: const Radius.circular(12),
                                                       ),
                                                       child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
                                                     ),
@@ -713,12 +713,12 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                               child: AspectRatio(
                                 aspectRatio: 1/1,
                                 child: DottedBorder(
-                                  options: RectDottedBorderOptions(
+                                  options: RoundedRectDottedBorderOptions(
                                     dashPattern: const [6, 6],
                                     color: Colors.blueAccent,
                                     //borderType: BorderType.RRect,
                                     strokeWidth: 4,
-                                    //radius: const Radius.circular(12),
+                                    radius: const Radius.circular(12),
                                   ),
                                   child: const Center(child: Icon(Icons.pivot_table_chart, color: Colors.blueAccent, size: 56)),
                                 ),
@@ -751,12 +751,11 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
 
   Widget selectBlock(){
     return DottedBorder(
-      options: RectDottedBorderOptions(
+      options: RoundedRectDottedBorderOptions(
         dashPattern: const [6, 6],
         color: const Color(0xFF2d2f32),
-        // borderType: BorderType.RRect,
         strokeWidth: 2,
-        // radius: const Radius.circular(12),
+        radius: const Radius.circular(12),
       ),
       child: ClipRRect(
           borderRadius: const BorderRadius.all(Radius.circular(12)),

@@ -1,6 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:collection/collection.dart';
-import 'package:image/image.dart' as img;
+import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'package:image/image.dart' as img;
+import 'dart:typed_data';
 
 
 List<List<List<int>>> imageToHxWxCArray(img.Image image){
@@ -721,4 +725,142 @@ double _labFInv(double t) {
   } else {
     return 3.0 * delta * delta * (t - 4.0 / 29.0);
   }
+}
+
+Future<Map<String, List<ui.Color>>> extractObjectAndBackgroundPalettes(
+    Uint8List imageBytes, {
+      int maxDimension = 1280,
+      int backgroundPaletteSize = 20,
+      int objectPaletteSize = 20,
+      int floodFillTolerance = 35,
+      int samplingStep = 1,
+    }) async {
+  img.Image? image = img.decodeImage(imageBytes);
+  if (image == null) throw Exception('Could not decode image');
+
+  if (image.width > maxDimension || image.height > maxDimension) {
+    final scale = maxDimension / math.max(image.width, image.height);
+    image = img.copyResize(
+      image,
+      width: (image.width * scale).round(),
+      height: (image.height * scale).round(),
+      interpolation: img.Interpolation.linear,
+    );
+  }
+
+  final w = image.width;
+  final h = image.height;
+
+  final isBackground = List.generate(h, (_) => List.filled(w, false));
+
+  final queue = <(int, int)>[];
+  final visited = List.generate(h, (_) => List.filled(w, false));
+
+  for (int x = 0; x < w; x++) {
+    queue.add((x, 0));
+    queue.add((x, h - 1));
+    visited[0][x] = true;
+    visited[h - 1][x] = true;
+  }
+  for (int y = 0; y < h; y++) {
+    queue.add((0, y));
+    queue.add((w - 1, y));
+    visited[y][0] = true;
+    visited[y][w - 1] = true;
+  }
+
+  int colorDistance(img.Color a, img.Color b) {
+    final dr = a.r - b.r;
+    final dg = a.g - b.g;
+    final db = a.b - b.b;
+    return math.sqrt(dr * dr + dg * dg + db * db).toInt();
+  }
+
+  while (queue.isNotEmpty) {
+    final (x, y) = queue.removeAt(0);
+    isBackground[y][x] = true;
+
+    final current = image.getPixel(x, y);
+
+    for (final (dx, dy) in const [(0, 1), (1, 0), (0, -1), (-1, 0)]) {
+      final nx = x + dx;
+      final ny = y + dy;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h || visited[ny][nx]) continue;
+
+      if (colorDistance(current, image.getPixel(nx, ny)) <= floodFillTolerance) {
+        visited[ny][nx] = true;
+        queue.add((nx, ny));
+      }
+    }
+  }
+
+  final bgPixels = <img.Color>[];
+  final objPixels = <img.Color>[];
+
+  for (int y = 0; y < h; y += samplingStep) {
+    for (int x = 0; x < w; x += samplingStep) {
+      final color = image.getPixel(x, y);
+      if (isBackground[y][x]) {
+        bgPixels.add(color);
+      } else {
+        objPixels.add(color);
+      }
+    }
+  }
+
+  List<ui.Color> getBetterPalette(List<img.Color> allPixels, int desiredCount) {
+    if (allPixels.isEmpty) return [Colors.grey];
+
+    final weighted = <(img.Pixel, double)>[];  // change tuple type
+
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        final px = image!.getPixel(x, y);
+        if (px.a < 20) continue;
+
+        final dx = (x / w - 0.5).abs() * 2;
+        final dy = (y / h - 0.5).abs() * 2;
+        final dist = math.sqrt(dx*dx + dy*dy);
+        final weight = math.pow(1 - dist.clamp(0.0, 1.0), 2.5) as double;
+
+        weighted.add((px, weight));
+      }
+    }
+
+    final freq = <int, double>{};
+
+    for (final (p, weight) in weighted) {
+      final r = (p.r.toInt() ~/ 8) * 8;
+      final g = (p.g.toInt() ~/ 8) * 8;
+      final b = (p.b.toInt() ~/ 8) * 8;
+      final key = (r << 16) | (g << 8) | b;
+      freq[key] = (freq[key] ?? 0.0) + weight;
+    }
+
+    final sorted = freq.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final palette = <ui.Color>[];
+    for (final entry in sorted) {
+      final r = (entry.key >> 16) & 0xFF;
+      final g = (entry.key >> 8) & 0xFF;
+      final b = entry.key & 0xFF;
+      final c = ui.Color.fromRGBO(r, g, b, 1.0);
+
+      if (palette.any((prev) =>
+      (prev.r - r).abs() + (prev.g - g).abs() + (prev.b - b).abs() < 40)) {
+        continue;
+      }
+
+      palette.add(c);
+      if (palette.length >= desiredCount) break;
+    }
+
+    return palette;
+  }
+
+  return {
+    'background': getBetterPalette(bgPixels, backgroundPaletteSize),
+    'object': getBetterPalette(objPixels, objectPaletteSize),
+  };
 }

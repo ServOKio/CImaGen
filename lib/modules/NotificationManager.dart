@@ -24,11 +24,13 @@ class NotificationManager with ChangeNotifier {
 
   }
 
-  int show({required String title, Widget? thumbnail, String? description, Color color = Colors.red, Widget? content}){
+  int show({required String title, Widget? thumbnail, String? description, Color color = Colors.red, Widget? content, Duration? duration}){
     int id = getRandomInt(10000, 50000);
     _notifications[id] = NotificationObject(id: id, thumbnail: thumbnail, title: title, description: description, content: content);
     notifyListeners();
-    //audioController!.player.play(AssetSource('audio/open.wav'));
+    if(duration != null){
+      Future.delayed(duration, () => close(id));
+    }
     if (kDebugMode) {
       print('show with id:$id: $title');
     }

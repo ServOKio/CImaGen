@@ -82,6 +82,7 @@ class Folder {
   final String getter;
   String name;
   final List<FolderFile> files;
+  int? total;
   bool isLocal;
 
   Folder({
@@ -90,6 +91,7 @@ class Folder {
     required this.getter,
     required this.name,
     required this.files,
+    this.total,
     this.isLocal = true
   });
 }

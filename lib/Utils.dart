@@ -399,6 +399,7 @@ GenerationParams? parseSDParameters(String rawData, {bool onlyParams = false}){
           hiresUpscaler: gp['hires_upscaler'] != null ? gp['hires_upscaler'] as String : null,
           hiresUpscale: gp['hires_upscale'] != null ? double.parse(gp['hires_upscale'] as String) : null,
           version: gp['version']  != null ? gp['version'] as String : null,
+          rating: kBaseNavigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positivePromt),
           params: gp,
           rawData: rawData
       );
@@ -816,7 +817,7 @@ class GenerationParams {
   final String? rawData;
 
   @Transient()
-  ContentRating rating = ContentRating.G;
+  ContentRating rating = ContentRating.Unknown;
   int get dbRating {
     _ensureRatingEnumValues();
     return rating.index;
@@ -871,10 +872,9 @@ class GenerationParams {
     this.tiHashes,
     this.version,
     this.rawData,
-    this.params
-  }){
-    if(positive != null) rating = kBaseNavigatorKey.currentContext!.read<DataModel>().contentRatingModule.getContentRating(positive!);
-  }
+    this.params,
+    this.rating = ContentRating.Unknown
+  });
 
   Map<String, dynamic> toMap({bool forDB = false, ImageKey? key, Map<String, dynamic>? amply}) {
     Map<String, dynamic> f = {

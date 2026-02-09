@@ -164,7 +164,6 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
     _hasDubl[id]!.clear();
     _tagsAndWeights[id]!.clear();
     for (var element in res) {
-      //print((element[0] as String).split(','));
       List<String> tags = (element[0] as String).split(',').map((e) => e.trim().toLowerCase().replaceAll(' ', '_'))
           .map((e) => e.replaceFirst('by_', '').replaceFirst('art_by_', ''))
           .where((e) => e != '')
@@ -599,8 +598,55 @@ class PromptTextSpanBuilder extends RegExpSpecialTextSpanBuilder {
   List<RegExpSpecialText> get regExps => [
     RegExtraCommaText(),
     RegBreakText(),
+    LoraSpecialText(),
     RegAttentionText(),
   ];
+}
+
+class LoraSpecialText extends RegExpSpecialText {
+  LoraSpecialText({TextStyle? textStyle}) : super();
+
+  @override
+  InlineSpan finishText(int start, Match match,
+      {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
+    final fullText = match.group(0)!;
+
+    final inner = fullText.substring(1, fullText.length - 1);
+    final parts = inner.split(':');
+    final type = parts[0].trim();
+    final name = parts.length > 1 ? parts[1].trim() : '';
+    final weightStr = parts.length > 2 ? parts[2].trim() : '1.0';
+    final weight = double.tryParse(weightStr) ?? 1.0;
+
+    return ExtendedWidgetSpan(
+      actualText: fullText,
+      child: Tooltip(
+        message: '$type: $name\nweight: $weight',
+        preferBelow: true,
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        textStyle: const TextStyle(color: Colors.white),
+        child: Text(
+          fullText,
+          style: textStyle?.copyWith(
+            color: Colors.cyanAccent,
+            fontStyle: FontStyle.italic,
+            // or: backgroundColor: Colors.cyan.withOpacity(0.12),
+            // decoration: TextDecoration.underline,
+            // decorationColor: Colors.cyan,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  RegExp get regExp => RegExp(
+    r'<(?:lora|lyco|hypernet|embedding|ti):[^>]+?>',
+    caseSensitive: false,
+  );
 }
 
 class RegExtraCommaText extends RegExpSpecialText {
@@ -653,7 +699,7 @@ class RegAttentionText extends RegExpSpecialText {
     );
   }
   @override
-  RegExp get regExp => RegExp(r'(\b[^,\\\[\]():|]+)');
+  RegExp get regExp => RegExp(r'\b(?![\d\.:][\d\.:]*\b)[a-zA-Z][^\s,\\\[\]():|]*(?:\s+[a-zA-Z][^\s,\\\[\]():|]*)*\b');
 }
 
 class RegBreakText extends RegExpSpecialText {

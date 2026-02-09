@@ -102,7 +102,8 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_re ON images(dbRe)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_pathHash ON images(pathHash)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_date ON images(dateModified)');
-        await db.execute('CREATE INDEX idx_gp_image_keyup ON generation_params(image_keyup)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_day_host_re_date ON images(dayKey, host, dbRe, dateModified)');
+
 
         await db.execute('''
       CREATE TABLE IF NOT EXISTS generation_params (
@@ -145,7 +146,8 @@ class SQLite{
     ''');
 
         await db.execute('CREATE INDEX IF NOT EXISTS idx_gen_seed ON generation_params(seed)');
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_images_day_host_re_date ON images(dayKey, host, dbRe, dateModified)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_gp_image_keyup ON generation_params(image_keyup)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_gp_id ON generation_params(id)');
 
         await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
@@ -711,29 +713,66 @@ class SQLite{
       args.add(re.index);
     }
 
-    final rows = await database.query(
-      'images',
-      where: where.toString(),
-      whereArgs: args,
-      orderBy: 'dateModified',
-      limit: 4,
+    final countResult = await database.rawQuery(
+      'SELECT COUNT(*) as c FROM images WHERE ${where.toString()}',
+      args,
     );
+
+    final total = sqLite.firstIntValue(countResult) ?? 0;
+
+    if (total == 0) {
+      return Folder(
+        index: 0,
+        name: '$y-${_2(m)}-${_2(d)}',
+        getter: '$y-${_2(m)}-${_2(d)}',
+        type: FolderType.byDay,
+        total: 0,
+        files: const [],
+      );
+    }
+
+    final indexes = <int>{
+      0,
+      (total * 0.33).floor(),
+      (total * 0.66).floor(),
+      total - 1,
+    }.toList()
+      ..sort();
+
+    final files = <FolderFile>[];
+
+    for (final i in indexes) {
+      final rows = await database.query(
+        'images',
+        where: where.toString(),
+        whereArgs: args,
+        orderBy: 'dateModified',
+        limit: 1,
+        offset: i,
+      );
+
+      if (rows.isNotEmpty) {
+        final im = _mapImage(rows.first);
+        files.add(
+          FolderFile(
+            fullPath: im.fullPath!,
+            isLocal: im.isLocal,
+            thumbnail: im.thumbnail,
+          ),
+        );
+      }
+    }
 
     return Folder(
       index: 0,
       name: '$y-${_2(m)}-${_2(d)}',
       getter: '$y-${_2(m)}-${_2(d)}',
       type: FolderType.byDay,
-      files: rows.map((m) {
-        final im = _mapImage(m);
-        return FolderFile(
-          fullPath: im.fullPath!,
-          isLocal: im.isLocal,
-          thumbnail: im.thumbnail,
-        );
-      }).toList(growable: false),
+      total: total,
+      files: List.unmodifiable(files),
     );
   }
+
 
   Future<void> updateIfNado(String path, {String? host}) async {
     path = normalizePath(path);
@@ -930,7 +969,6 @@ class SQLite{
       ORDER BY i.dateModified DESC
       LIMIT 100
     ''';
-      print(sql);
 
       final rows = await database.rawQuery(sql);
 
@@ -948,7 +986,6 @@ class SQLite{
   }
 
   // OTHER
-
   Future<void> deleteAllFromHost(String? host) async {
     await database.delete(
       'images',
@@ -965,17 +1002,122 @@ class SQLite{
     );
   }
 
-  Future<void> getBiggestAss() async {
-    final rows = await database.query(
-      'images',
-      orderBy: 'fileSize DESC',
-      limit: 1,
+  Future<void> rebuildContentRating(String? host) async {
+    final db = database;
+
+    const int batchSize = 1000;
+    int lastId = 0;
+    int processed = 0;
+
+    final notificationId = notificationManager!.show(
+      thumbnail: const Icon(Icons.build, size: 64, color: Colors.blue),
+      title: 'Preparing content rating rebuild...',
+      description: 'Starting...',
     );
 
-    if (rows.isEmpty) return;
+    final warningId = notificationManager!.show(
+      thumbnail: const Icon(Icons.warning, color: Colors.orange, size: 64),
+      title: 'Do not touch the database file!',
+      description: 'External access may corrupt the process.',
+    );
 
-    final im = ImageMeta.fromSqlMap(rows.first);
+    try {
+      final totalResult = await db.rawQuery('''
+      SELECT COUNT(gp.id) as cnt
+      FROM generation_params gp
+      ${host != null ? 'JOIN images i ON i.keyup = gp.image_keyup WHERE i.host = ?' : ''}
+    ''', host != null ? [host] : []);
+
+      final int total = sqLite.firstIntValue(totalResult) ?? 0;
+
+      if (total == 0) {
+        notificationManager!.update(
+            notificationId, 'title', 'Nothing to rebuild.');
+        return;
+      }
+
+      while (true) {
+        final rows = await db.rawQuery('''
+        SELECT gp.id, gp.positive
+        FROM generation_params gp
+        ${host != null ? 'JOIN images i ON i.keyup = gp.image_keyup' : ''}
+        WHERE gp.id > ?
+        ${host != null ? 'AND i.host = ?' : ''}
+        ORDER BY gp.id
+        LIMIT $batchSize
+      ''', host != null ? [lastId, host] : [lastId]);
+
+        if (rows.isEmpty) break;
+
+        await db.transaction((txn) async {
+          final batch = txn.batch();
+
+          for (final row in rows) {
+            final int id = row['id'] as int;
+            final String? positive = row['positive'] as String?;
+
+            final int ratingIndex =
+                kBaseNavigatorKey.currentContext!
+                    .read<DataModel>()
+                    .contentRatingModule
+                    .getContentRating(positive ?? '')
+                    .index;
+
+            batch.update(
+              'generation_params',
+              {'rating': ratingIndex},
+              where: 'id = ?',
+              whereArgs: [id],
+            );
+
+            lastId = id;
+          }
+
+          await batch.commit(noResult: true);
+        });
+
+        processed += rows.length;
+
+        final progress = processed / total;
+
+        notificationManager!.update(notificationId, 'content',
+            LinearProgressIndicator(value: progress));
+
+        notificationManager!.update(
+            notificationId,
+            'description',
+            'Processed: $processed / $total '
+                '(${(progress * 100).toStringAsFixed(1)}%)');
+
+        await Future.delayed(const Duration(milliseconds: 10));
+      }
+
+      notificationManager!.update(
+          notificationId,
+          'title',
+          'Content rating rebuild completed');
+
+      notificationManager!.update(
+          notificationId,
+          'description',
+          'Processed $processed records');
+
+      notificationManager!.close(warningId);
+    } catch (e) {
+      notificationManager!.update(
+          notificationId,
+          'title',
+          'Error during rebuild');
+
+      notificationManager!.update(
+          notificationId,
+          'description',
+          e.toString());
+
+      rethrow;
+    }
   }
+
 
   // UTILS
   ImageMeta _mapImage(Map<String, dynamic> m) => ImageMeta.fromSqlMap(m);
@@ -1466,29 +1608,29 @@ class SQLite{
     final keyRows = await database.rawQuery(
       '''
     WITH ranked AS (
-  SELECT
-    i.keyup,
-    i.size,
-    ROW_NUMBER() OVER (
-      PARTITION BY i.size
-      ORDER BY i.dateModified DESC
-    ) AS rn
-  FROM images i
-  WHERE i.size IS NOT NULL
-    AND i.size LIKE '%x%'
-    AND i.dateModified >= ?
-    AND i.dateModified < ?
-    $whereHost
-)
-SELECT keyup
-FROM ranked
-WHERE rn = 1
-ORDER BY
-  CAST(SUBSTR(size, 1, INSTR(size, 'x') - 1) AS INTEGER)
-  *
-  CAST(SUBSTR(size, INSTR(size, 'x') + 1) AS INTEGER)
-DESC
-LIMIT ?
+      SELECT
+        i.keyup,
+        i.size,
+        ROW_NUMBER() OVER (
+          PARTITION BY i.size
+          ORDER BY i.dateModified DESC
+        ) AS rn
+      FROM images i
+      WHERE i.size IS NOT NULL
+        AND i.size LIKE '%x%'
+        AND i.dateModified >= ?
+        AND i.dateModified < ?
+        $whereHost
+    )
+    SELECT keyup
+    FROM ranked
+    WHERE rn = 1
+    ORDER BY
+      CAST(SUBSTR(size, 1, INSTR(size, 'x') - 1) AS INTEGER)
+      *
+      CAST(SUBSTR(size, INSTR(size, 'x') + 1) AS INTEGER)
+    DESC
+    LIMIT ?
     ''',
       args,
     );

@@ -76,184 +76,187 @@ class _CustomAppBarState extends State<CAppBar>{
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-            top: 32,
-            left: 0,
-            right: 0,
-            child: ListenableBuilder(
-            listenable: appBarController!,
-            builder: (BuildContext context, Widget? child){
-              return AppBar(
-                  clipBehavior: Clip.none,
-                  surfaceTintColor: Colors.transparent,
-                  centerTitle: true,
-                  backgroundColor: const Color(0xff0c0c0e),
-                  title: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 720,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        color: const Color(0xff15161a),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: myController,
-                              style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText: FlutterI18n.translate(context, 'base.appBar.search'),
-                                hintStyle: const TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
-                                labelStyle: const TextStyle(color: Colors.red),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
-                              ),
-                              maxLines: 1,
-                            ),
+    return ListenableBuilder(
+        listenable: appBarController!,
+        builder: (BuildContext context, Widget? child){
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                  top: 32,
+                  left: 0,
+                  right: 0,
+                  child: AppBar(
+                      clipBehavior: Clip.none,
+                      surfaceTintColor: Colors.transparent,
+                      centerTitle: true,
+                      backgroundColor: const Color(0xff0c0c0e),
+                      title: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 720,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            color: const Color(0xff15161a),
                           ),
-                          const Gap(8),
-                          //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
-                          AnimatedRotation(
-                            turns: turns,
-                            duration: const Duration(seconds: 2),
-                            curve: Curves.ease,
-                            child: UnicornOutlineButton(
-                              strokeWidth: 3,
-                              radius: 24,
-                              gradient: const LinearGradient(
-                                  begin: Alignment.topRight,
-                                  end: Alignment.bottomCenter,
-                                  colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
-                                  stops: [0, 0.5, 0.9, 1]
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: myController,
+                                  style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 14),
+                                  decoration: InputDecoration(
+                                    hintText: FlutterI18n.translate(context, 'base.appBar.search'),
+                                    hintStyle: const TextStyle(color: Color(0xff8a8a8c), fontWeight: FontWeight.w400, fontSize: 14),
+                                    labelStyle: const TextStyle(color: Colors.red),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                                  ),
+                                  maxLines: 1,
+                                ),
                               ),
-                              child: const SizedBox(
-                                width: 20,
-                                height: 20,
-                              ),
-                              onPressed: () {},
-                            ),
-                          )
+                              const Gap(8),
+                              //https://stackoverflow.com/questions/55395641/outlined-transparent-button-with-gradient-border-in-flutter
+                              AnimatedRotation(
+                                turns: turns,
+                                duration: const Duration(seconds: 2),
+                                curve: Curves.ease,
+                                child: UnicornOutlineButton(
+                                  strokeWidth: 3,
+                                  radius: 24,
+                                  gradient: const LinearGradient(
+                                      begin: Alignment.topRight,
+                                      end: Alignment.bottomCenter,
+                                      colors: [Color(0xfffd01d3), Color(0xff1d04f5), Color(0xff729aff), Color(0xffffffff)],
+                                      stops: [0, 0.5, 0.9, 1]
+                                  ),
+                                  child: const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                  ),
+                                  onPressed: () {},
+                                ),
+                              )
+                            ],
+                          ),
+                        ),
+                      ),
+                      actions: appBarController!.actions.isEmpty ? <Widget>[
+                        if(prefs.getBool('debug') ?? false) ...[
+                          IconButton(
+                            icon: const Icon(Icons.stadium_outlined),
+                            tooltip: 'DEBUG PAGE',
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DebugDevPage())),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.plumbing),
+                            tooltip: 'Test Activity',
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TestActivity())),
+                          ),
                         ],
-                      ),
-                    ),
-                  ),
-                  actions: appBarController!.actions.isEmpty ? <Widget>[
-                    if(prefs.getBool('debug') ?? false) ...[
-                      IconButton(
-                        icon: const Icon(Icons.stadium_outlined),
-                        tooltip: 'DEBUG PAGE',
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DebugDevPage())),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.plumbing),
-                        tooltip: 'Test Activity',
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TestActivity())),
-                      ),
-                    ],
-                    IconButton(
-                      icon: const Icon(Icons.bug_report),
-                      tooltip: 'Report bug',
-                      onPressed: () {
-                        BetterFeedback.of(context).show((feedback) async {
-                          final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
-                          await Share.shareXFiles(
-                            [XFile(screenshotFilePath)],
-                            text: feedback.text,
-                          );
-                        },
-                        );
-                      },
-                    ),
-                    const Gap(8)
-                  ] : appBarController!.actions
-              );
-            }
-        )),
-        Positioned(
-          left: MediaQuery.of(context).size.width / 2 - ((MediaQuery.of(context).size.width - 100) / 2),
-          top: 60+32,
-            child: AnimatedContainer(
-              clipBehavior: Clip.antiAlias,
-              width: MediaQuery.of(context).size.width - 100,
-              height: open ? 234 : 0,
-              duration: const Duration(seconds: 1),
-              curve: Curves.fastOutSlowIn,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: const Color(0xff0c0c0e),
-              ),
-              child: ScrollConfiguration(
-                  behavior: MyCustomScrollBehavior(),
-                  child: FutureBuilder(
-                      future: imagesList,
-                      builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
-                        Widget children;
-                        if (snapshot.hasData) {
-                          print(snapshot.data.length);
-                          children = ListView.builder(
-                              itemCount: snapshot.data.length,
-                              scrollDirection: Axis.horizontal,
-                              itemBuilder: (context, index) {
-                                ImageMeta im = snapshot.data.elementAt(index);
-                                return Container(
-                                    margin: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(3),
-                                        border: Border.all(color: Colors.white10)
-                                    ),
-                                    child: Stack(
-                                      children: [
-                                        im.thumbnail != null ? Image.memory(
-                                            im.thumbnail!,
-                                            gaplessPlayback: true
-                                        ) : Icon(Icons.error),
-                                      ],
-                                    )
-                                );
-                              }
-                          );
-                        } else {
-                          children = Center(child: CircularProgressIndicator());
-                        }
-                        return children;
-                      }
+                        IconButton(
+                          icon: const Icon(Icons.bug_report),
+                          tooltip: 'Report bug',
+                          onPressed: () {
+                            BetterFeedback.of(context).show((feedback) async {
+                              final screenshotFilePath = await writeImageToStorage(feedback.screenshot);
+                              await Share.shareXFiles(
+                                [XFile(screenshotFilePath)],
+                                text: feedback.text,
+                              );
+                            },
+                            );
+                          },
+                        ),
+                        const Gap(8)
+                      ] : appBarController!.actions
                   )
               ),
-            )
-        ),
-        // Window menu
-        Positioned(
-            top: 0,
-            child: Container(
-                color: const Color(0xff0c0c0e),
-                height: 32, width: MediaQuery.of(context).size.width,
-                child: MoveWindow()
-            )
-        ),
-        Positioned(
-            top: 0,
-            left: Platform.isMacOS ? 0 : null,
-            right: !Platform.isMacOS ? 0 : null,
-            child: Row(children: Platform.isMacOS ? [
-                CloseWindowButton(),
-                MinimizeWindowButton(),
-                MaximizeWindowButton()
-              ] : [
-                MinimizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
-                MaximizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
-                CloseWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary))
-              ]
-            )
-        )
-      ],
+              Positioned(
+                  left: MediaQuery.of(context).size.width / 2 - ((MediaQuery.of(context).size.width - 100) / 2),
+                  top: 60+32,
+                  child: AnimatedContainer(
+                    clipBehavior: Clip.antiAlias,
+                    width: MediaQuery.of(context).size.width - 100,
+                    height: open ? 234 : 0,
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.fastOutSlowIn,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: const Color(0xff0c0c0e),
+                    ),
+                    child: ScrollConfiguration(
+                        behavior: MyCustomScrollBehavior(),
+                        child: FutureBuilder(
+                            future: imagesList,
+                            builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
+                              Widget children;
+                              if (snapshot.hasData) {
+                                print(snapshot.data.length);
+                                children = ListView.builder(
+                                    itemCount: snapshot.data.length,
+                                    scrollDirection: Axis.horizontal,
+                                    itemBuilder: (context, index) {
+                                      ImageMeta im = snapshot.data.elementAt(index);
+                                      return Container(
+                                          margin: const EdgeInsets.all(3),
+                                          decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(3),
+                                              border: Border.all(color: Colors.white10)
+                                          ),
+                                          child: Stack(
+                                            children: [
+                                              im.thumbnail != null ? Image.memory(
+                                                  im.thumbnail!,
+                                                  gaplessPlayback: true
+                                              ) : Icon(Icons.error),
+                                            ],
+                                          )
+                                      );
+                                    }
+                                );
+                              } else {
+                                children = Center(child: CircularProgressIndicator());
+                              }
+                              return children;
+                            }
+                        )
+                    ),
+                  )
+              ),
+              // Window menu
+              Positioned(
+                  top: 0,
+                  child: Container(
+                      color: const Color(0xff0c0c0e),
+                      height: 32, width: MediaQuery.of(context).size.width,
+                      child: MoveWindow(
+                        child: appBarController!.windowBar,
+                      )
+                  )
+              ),
+              Positioned(
+                  top: 0,
+                  left: Platform.isMacOS ? 0 : null,
+                  right: !Platform.isMacOS ? 0 : null,
+                  child: Row(children: Platform.isMacOS ? [
+                    CloseWindowButton(),
+                    MinimizeWindowButton(),
+                    MaximizeWindowButton()
+                  ] : [
+                    MinimizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
+                    MaximizeWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary)),
+                    CloseWindowButton(colors: WindowButtonColors(iconNormal: Theme.of(context).colorScheme.primary))
+                  ]
+                  )
+              )
+            ],
+          );
+        }
     );
   }
 }

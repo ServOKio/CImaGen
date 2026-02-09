@@ -9,6 +9,7 @@ import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/JointTaggerProject.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/pages/sub/PhotoshopMini/Photoshop.dart';
+import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:file_picker/file_picker.dart';
@@ -24,6 +25,7 @@ import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../components/CustomActionButton.dart';
+import '../utils/ColorUtils.dart';
 import 'sub/DevicePreview.dart';
 import '../components/GalleryImageFullMain.dart';
 import '../components/XYZBuilder.dart';
@@ -228,6 +230,12 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               child: const Text('Fix Loras metadata'),
               onTap: (){
                 context.read<ImageManager>().getter.fixLorasMetadata();
+              },
+            ),
+            PopupMenuItem<int>(
+              child: const Text('Rebuild content rating'),
+              onTap: (){
+                sqLite.rebuildContentRating(context.read<ImageManager>().getter.host);
               },
             ),
             PopupMenuItem<int>(
@@ -829,6 +837,76 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   }
 }
 
+class FloatingPlaceholder extends StatefulWidget {
+  const FloatingPlaceholder({super.key});
+
+  @override
+  State<FloatingPlaceholder> createState() => _FloatingPlaceholderState();
+}
+
+class _FloatingPlaceholderState extends State<FloatingPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+    AnimationController(vsync: this, duration: const Duration(seconds: 4))
+      ..repeat();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 12,
+      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      itemBuilder: (context, index) {
+        return SizedBox(
+          height: 100,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final t = _controller.value;
+
+              return Container(
+                color: Colors.grey[900],
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 20 + 40 * t,
+                      top: 20,
+                      child: _blob(30),
+                    ),
+                    Positioned(
+                      right: 30 + 30 * (1 - t),
+                      bottom: 20,
+                      child: _blob(20),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _blob(double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.grey[700],
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+
 class FolderBlock extends StatefulWidget{
   final Folder folder;
   final int section;
@@ -849,18 +927,9 @@ class _FolderBlockState extends State<FolderBlock> {
 
   @override
   void initState(){
-    if(widget.folder.files.length <= 4){
-      displayFiles = widget.folder.files;
-    } else {
-      int l = widget.folder.files.length;
-
-      displayFiles.add(widget.folder.files[0]);
-      displayFiles.add(widget.folder.files[(l*33/100).round()]);
-      displayFiles.add(widget.folder.files[(l*66/100).round()]);
-      displayFiles.add(widget.folder.files[widget.folder.files.length - 1]);
-    }
     if(mounted) {
       setState(() {
+        displayFiles = widget.folder.files;
         origFiles = widget.folder.files;
         loaded = true;
       });
@@ -933,7 +1002,7 @@ class _FolderBlockState extends State<FolderBlock> {
                               children: [
                                 const Icon(Icons.image, color: Colors.white70, size: 12),
                                 const Gap(3),
-                                Text(origFiles.length.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
+                                Text(widget.folder.total.toString(), style: const TextStyle(fontSize: 12, color: Colors.white)),
                               ],
                             )
                         )
@@ -1424,6 +1493,39 @@ class PreviewImage extends StatelessWidget {
                 )
               ],
             ),
+            if(prefs.getBool('debug') ?? false) MenuItem.submenu(
+              label: const Text('Debug'),
+              icon: const Icon(Icons.bug_report),
+              items: [
+                MenuItem(
+                  label: const Text('Print content rating'),
+                  icon: const Icon(Icons.warning),
+                  onSelected: (_) {
+                    print(context.read<DataModel>().contentRatingModule.getContentRating(imageMeta.generationParams!.positive!).index);
+                  }
+                ),
+                MenuItem(
+                  label: const Text('Print raw tags'),
+                  icon: const Icon(Icons.text_increase),
+                  onSelected: (_) => print(getRawTags(imageMeta.generationParams!.positive!)),
+                ),
+                MenuItem(
+                  label: const Text('Extract colors'),
+                  icon: const Icon(Icons.palette),
+                  onSelected: (_) async {
+                    if(imageMeta.fullImage == null) await imageMeta.decodeToFull();
+                    final palettes = await extractObjectAndBackgroundPalettes(imageMeta.fullImage!);
+
+                    final bgColors = palettes['background']!;
+                    final objectColors = palettes['object']!;
+                    appBarController?.setWindowBar(Row(
+                      children: objectColors.map((el) => Container(color: el, width: 10, height: 10)).toList(),
+                    ));
+                    print(objectColors);
+                  },
+                ),
+              ],
+            ),
             const MenuDivider(),
             MenuItem(
               label: const Text('Show in explorer'),
@@ -1737,8 +1839,9 @@ class ImageWidget extends StatelessWidget{
       },
       progressIndicatorBuilder: (context, url, downloadProgress) => Shimmer.fromColors(
         baseColor: Colors.transparent,
-        highlightColor: Colors.white30,
-        child: AspectRatio(aspectRatio: imageMeta.size!.width / imageMeta.size!.height),
+        highlightColor: Colors.white.withAlpha(90),
+        period: const Duration(seconds: 4),
+        child: AspectRatio(aspectRatio: imageMeta.size!.aspectRatio()),
       ),
       errorWidget: (context, url, error) => Padding(padding: const EdgeInsets.all(8), child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:system_theme/system_theme.dart';
 
 import '../Utils.dart';
+import '../constants.dart';
 import '../main.dart';
 import '../modules/ConfigManager.dart';
 import '../utils/ImageManager.dart';
@@ -38,6 +39,7 @@ class _SettingsState extends State<Settings>{
   bool _debug = false;
   bool _imageview_use_fullscreen = false;
   bool _gallery_display_id = false;
+  bool _check_updates = true;
 
   String _custom_cache_dir = '-';
   String _custom_images_cache_dir = '-';
@@ -46,6 +48,7 @@ class _SettingsState extends State<Settings>{
   int _currentCacheSize = 0;
 
   String? e621ApiKey;
+  String? _language;
 
   String? _toolsOneTrainerDir;
   String? _toolsLETSDir;
@@ -98,6 +101,9 @@ class _SettingsState extends State<Settings>{
       _custom_images_cache_dir = context.read<ConfigManager>().imagesCacheDir;
       _maxCacheSize = (prefs.getDouble('max_cache_size') ?? 5);
       _maxDBSize = (prefs.getInt('max_db_size') ?? 4);
+
+      _check_updates = (prefs.getBool('check_updates') ?? false);
+      _language = prefs.getString('language');
     });
 
     getDirSizeIsolated(Directory(_custom_cache_dir)).then((value) => {
@@ -173,6 +179,16 @@ class _SettingsState extends State<Settings>{
             SettingsSection(
               title: const Text('Common'),
               tiles: <SettingsTile>[
+                SettingsTile.switchTile(
+                  leading: const Icon(Icons.downloading),
+                  title: Text('Check Updates on Startup'),
+                  onToggle: (v) {
+                    setState(() {
+                      _check_updates = v;
+                    });
+                    prefs.setBool('check_updates', v);
+                  }, initialValue: _check_updates,
+                ),
                 SettingsTile.navigation(
                   enabled: _use_remote_version == false,
                   leading: const Icon(Icons.web),
@@ -341,6 +357,24 @@ class _SettingsState extends State<Settings>{
               title: Text('UI & UX'),
               tiles:[
                 AppTheme(),
+                SettingsTile.navigation(
+                  leading: const Icon(Icons.message),
+                  title: const Text('Language'),
+                  value: PopupMenuButton(
+                    onSelected: (String value) {
+                      prefs.setString('language', value);
+                      setState(() {
+                        _language = value;
+                      });
+                    },
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    tooltip: '',
+                    child: Text('Language'),
+                    itemBuilder: (context) => [
+                      for (String key in kSupportedLanguages) PopupMenuItem(value: key, child: Text(key))
+                    ]
+                  )
+                ),
                 SettingsTile.switchTile(
                   leading: const Icon(Icons.fullscreen),
                   title: const Text('Full-screen mode when viewing images'),

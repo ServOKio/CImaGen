@@ -112,15 +112,13 @@ class OnLocal extends ChangeNotifier implements AbMain{
       _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
       sqLite.cleanUp(host);
       loaded = true;
-      int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
-          title: 'Welcome to Stable Diffusion',
-          description: 'Initialization was successful'
+      notificationManager!.show(
+        thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
+        title: 'Welcome to Stable Diffusion',
+        description: 'Initialization was successful',
+        duration: Duration(seconds: 10)
       );
       audioController!.player.play(AssetSource('audio/info.wav'));
-      Future.delayed(const Duration(seconds: 10), () {
-        notificationManager!.close(notID);
-      });
       notifyListeners();
 
       if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);

@@ -37,7 +37,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
   String? get host => _host;
 
   String _remoteAddress = '';
-  String _userAgent = 'CImaGen/Undefined.version';
 
   // Config
   Map<String, dynamic> _config = <String, dynamic>{};
@@ -98,9 +97,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
     useAddon.clear();
     inSMB.clear();
 
-
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    _userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
     // 0. Initial check
     if(!(prefs.containsKey('remote_webui_address') || prefs.containsKey('remote_webui_folder'))){
       int notID = 0;
@@ -389,7 +385,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
             path: '/infinite_image_browsing/global_setting',
           );
           http.Client().get(base, headers: {
-            "User-Agent": _userAgent,
+            "User-Agent": userAgent,
             "Accept": "*/*",
             "Accept-Language": "en,en-US;q=0.5",
             "Content-Type": "application/json"
@@ -466,7 +462,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               path: '/API/${session_id != 'null' ? 'GetCurrentStatus' : 'GetNewSession'}'
           );
           http.Client().post(base, headers: {
-            "User-Agent": _userAgent,
+            "User-Agent": userAgent,
             "Accept": "*/*",
             "Accept-Language": "en,en-US;q=0.5",
             "Content-Type": "application/json"
@@ -702,7 +698,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           path: '/API/ListImages'
       );
       var res = await http.Client().post(base, headers: {
-        "User-Agent": _userAgent,
+        "User-Agent": userAgent,
         "Accept": "*/*",
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"
@@ -741,7 +737,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           );
           try{
             res = await http.Client().post(base, headers: {
-              "User-Agent": _userAgent,
+              "User-Agent": userAgent,
               "Accept": "*/*",
               "Accept-Language": "en,en-US;q=0.5",
               "Content-Type": "application/json"
@@ -1138,7 +1134,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
           path: '/API/ListImages'
       );
       var res = await http.Client().post(base, headers: {
-        "User-Agent": _userAgent,
+        "User-Agent": userAgent,
         "Accept": "*/*",
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"
