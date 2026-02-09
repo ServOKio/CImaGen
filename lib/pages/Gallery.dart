@@ -291,7 +291,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
         if (wasEmpty && newItems.isNotEmpty) {
           if (_selected[tabIndex] == null || _selected[tabIndex] == 0) {
-            changeFolder(tabIndex, 0);  // ← this will also update imagesList
+            changeFolder(tabIndex, 0);
           }
         }
       });

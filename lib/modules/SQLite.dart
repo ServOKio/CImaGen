@@ -102,6 +102,7 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_re ON images(dbRe)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_pathHash ON images(pathHash)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_images_date ON images(dateModified)');
+        await db.execute('CREATE INDEX idx_gp_image_keyup ON generation_params(image_keyup)');
 
         await db.execute('''
       CREATE TABLE IF NOT EXISTS generation_params (
@@ -434,7 +435,6 @@ class SQLite{
     RenderEngine? re,
     int previewLimit = 4,
   }) async {
-    print('folders');
     final cacheKey = '${host ?? "_"}|${re?.index ?? -1}';
     if (foldersCache.containsKey(cacheKey)) {
       return foldersCache[cacheKey]!;
