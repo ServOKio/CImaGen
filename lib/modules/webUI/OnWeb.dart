@@ -203,7 +203,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<Folder>> getFolders(int index) async {
-    return objectbox.getFolders(host: _host);
+    return sqLite.getFolders(host: _host);
   }
 
   @override
@@ -214,7 +214,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
-    return objectbox.getImagesByDay(day, host: host);
+    return sqLite.getImagesByDay(day, host: host);
   }
 
   @override
@@ -573,7 +573,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   Map<String, String> get webuiPaths => {};
 
   Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) {
-    return objectbox.getFoldersPaged(re: _internalTabs[tabIndex], host: _host, offset: offset, limit: limit);
+    return sqLite.getFoldersPaged(re: _internalTabs[tabIndex], host: _host, offset: offset, limit: limit);
   }
 
   @override

@@ -1704,14 +1704,14 @@ class ImageMeta {
       if(makeThumbnail && thumbnail == null) {
         thumbnail = data != null ? hasAnim ?
           await compute(img.encodePng, img.copyResize(data, width: 256)) :
-          await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 50}) : null;
+          await compute(_encodeJpg, {'data': img.copyResize(data, width: 256), 'quality': 90}) : null;
       }
       if(makeCacheImage && data != null) {
         String imagesCacheDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
         Uint8List cachedImage = (
           hasAnim ?
             await compute(img.encodePng, data) :
-            await compute(_encodeJpg, {'data': data, 'quality': 80})
+            await compute(_encodeJpg, {'data': data, 'quality': 90})
         );
         await File(p.join(imagesCacheDir, '${host != null ? hostMD5 : 'unknown'}_$keyup.$fileTypeExtension')).writeAsBytes(cachedImage);
       }

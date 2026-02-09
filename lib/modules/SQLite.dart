@@ -688,19 +688,16 @@ class SQLite{
   }
 
   Future<Folder> getFolderByDay(
-      int ymd, {
+      int dayKey, {
         String? host,
         RenderEngine? re,
       }) async {
-    final y = ymd ~/ 10000;
-    final m = (ymd ~/ 100) % 100;
-    final d = ymd % 100;
+    final y = dayKey ~/ 10000;
+    final m = (dayKey ~/ 100) % 100;
+    final d = dayKey % 100;
 
-    final start = DateTime(y, m, d).toIso8601String();
-    final end = DateTime(y, m, d + 1).toIso8601String();
-
-    final where = StringBuffer('dateModified BETWEEN ? AND ?');
-    final args = <dynamic>[start, end];
+    final where = StringBuffer('dayKey = ?');
+    final args = <dynamic>[dayKey];
 
     if (host == null) {
       where.write(' AND host IS NULL');

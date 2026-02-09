@@ -674,11 +674,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     );
   }
 
-  int _getCount() {
-    RenderBox renderBox = _key.currentContext!.findRenderObject() as RenderBox;
-    return (renderBox.size.width / 200).round();
-  }
-
   Widget GalleryList({
     required AsyncSnapshot<dynamic> snapshot,
   }) {
