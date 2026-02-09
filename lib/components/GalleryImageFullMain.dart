@@ -361,7 +361,7 @@ class _GalleryImageFullMainState extends State<GalleryImageFullMain> {
                 ) : const Text('Error'),
                 Transform.rotate(
                     angle: 45 * math.pi / 180,
-                    child: Text('Deleted ${im.isLocal}', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
+                    child: Text('Deleted', style: TextStyle(color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold, fontSize: 32))
                 )
               ],
             );

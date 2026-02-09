@@ -47,11 +47,17 @@ class Publish extends StatefulWidget{
 class _PublishState extends State<Publish> {
 
   // Settings
+  bool keepData = prefs.getBool('publish_keep_data') ?? false;
   bool encryptData = prefs.getBool('publish_encrypt_data') ?? false;
   bool fuckParsingBots = prefs.getBool('publish_fuck_parsing_bots') ?? true;
   String? password = 'Syka';
+  String authorNotes = '''
+Copyright: Brack
+Social: @BadassFreakingHound
+''';
 
   bool authorship = prefs.getBool('publish_insert_authorship') ?? true;
+  bool resizeImage = prefs.getBool('publish_resize_image') ?? true;
 
 
   final TransformationController _transformationController = TransformationController();
@@ -104,19 +110,52 @@ class _PublishState extends State<Publish> {
     }
 
     img.Image newImage = img.decodeImage(await stripExif(data!))!;
+    if(resizeImage) newImage = img.resize(newImage, width: newImage.height > newImage.width ? 920 : null, height: newImage.width > newImage.height ? 920 : null);
+    String finalTextData = '';
 
-    if(widget.imageMeta?.generationParams != null && widget.imageMeta!.generationParams?.rawData != null){
-      final key = encrypt.Key.fromUtf8('my 32 length key................');
-      final iv = encrypt.IV.fromLength(16);
+    if(keepData){
+      if(widget.imageMeta?.generationParams != null && widget.imageMeta!.generationParams?.rawData != null){
 
-      final encrypter = encrypt.Encrypter(encrypt.AES(key));
+        String textData = widget.imageMeta!.generationParams!.rawData!;
+        if(encryptData){
+          final key = encrypt.Key.fromUtf8('32 xyina');
+          final iv = encrypt.IV.fromLength(16);
+          final encrypter = encrypt.Encrypter(encrypt.AES(key));
+          String encrypted = encrypter.encrypt(textData, iv: iv).base64;
+
+          if(fuckParsingBots){
+            finalTextData = '''\n#${authorNotes.split('\n').join('\n#')}
+# Encrypted by CImaGen
+# $encrypted
+white circle, gradient, glass,
+BREAK simple background, black background
+Negative prompt: red background
+Steps: 25, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7, Seed: 88005553535, Size: ${newImage.width}x${newImage.height}, Model hash: 210549a28c, Model: CImaGen_ServOKio, Denoising strength: 0.5, RNG: NV, Hires CFG Scale: 7, Hires upscale: 1.5, Hires upscaler: None, Version: 0.0.4
+''';
+          } else {
+            finalTextData = 'Encrypted by CImaGen. $encrypted';
+          }
+        }
+      } else {
+        if(fuckParsingBots){
+          finalTextData = '''\n#${authorNotes.split('\n').join('\n#')}
+# Encrypted by CImaGen
+white circle, gradient, glass,
+BREAK simple background, black background
+Negative prompt: red background
+Steps: 25, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7, Seed: 88005553535, Size: ${newImage.width}x${newImage.height}, Model hash: 210549a28c, Model: CImaGen_ServOKio, Denoising strength: 0.5, RNG: NV, Hires CFG Scale: 7, Hires upscale: 1.5, Hires upscaler: None, Version: 0.0.4
+''';
+        } else {
+          finalTextData = 'Encrypted by CImaGen';
+        }
+      }
 
       newImage.textData = {
-        'parameters': 'Encrypted by CImaGen. ${encrypter.encrypt(widget.imageMeta!.generationParams!.rawData!, iv: iv).base64}'
+        'parameters': finalTextData
       };
     }
 
-    File f = File('W:\\test1.png');
+    File f = File('W:\\${getRandomString(32)}.png');
     await f.writeAsBytes(img.encodePng(newImage));
   }
 
@@ -271,6 +310,17 @@ class _PublishState extends State<Publish> {
                         title: Text('Encryption'),
                         tiles:[
                           SettingsTile.switchTile(
+                            title: const Text('Keep image data'),
+                            description: Text('Don\'t remove EXIF metadata which may contain generation parameters'),
+                            onToggle: (v) {
+                              setState(() {
+                                keepData = v;
+                              });
+                              prefs.setBool('publish_keep_data', v);
+                            }, initialValue: keepData,
+                          ),
+                          SettingsTile.switchTile(
+                            enabled: keepData,
                             title: const Text('Encrypt the original data'),
                             description: Text('EXIF metadata (including UserComment and Parameters) which may contain generation parameters'),
                             onToggle: (v) {
@@ -281,7 +331,7 @@ class _PublishState extends State<Publish> {
                             }, initialValue: encryptData,
                           ),
                           SettingsTile.switchTile(
-                            enabled: encryptData,
+                            enabled: encryptData && keepData,
                             title: const Text('Fuck bots for parsing'),
                             description: Text('Replace the content of the generation with encrypted data, which will allow bots to parse it'),
                             onToggle: (v) {
@@ -305,6 +355,21 @@ class _PublishState extends State<Publish> {
                               });
                               prefs.setBool('publish_insert_authorship', v);
                             }, initialValue: authorship,
+                          ),
+                        ],
+                      ),
+                      SettingsSection(
+                        title: Text('Quality'),
+                        tiles:[
+                          SettingsTile.switchTile(
+                            title: const Text('Resize image to 1080px'),
+                            description: Text('To avoid revealing the original'),
+                            onToggle: (v) {
+                              setState(() {
+                                resizeImage = v;
+                              });
+                              prefs.setBool('publish_resize_image', v);
+                            }, initialValue: resizeImage,
                           ),
                         ],
                       ),

@@ -694,7 +694,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, 8);
+        final crossAxisCount = (constraints.maxWidth / 180).floor();
 
         return AnimationLimiter(
           child: viewStyle == 1

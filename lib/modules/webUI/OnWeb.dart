@@ -10,7 +10,6 @@ import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -89,8 +88,8 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
     // 2. Watch new json bathes
     watchDir(dP.absolute.path);
-    _tabs = ['txt2img', 'img2img'];
-    _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
+    _tabs = ['txt2img', 'img2img', 'comfUI'];
+    _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img, RenderEngine.comfUI];
     _host = 'furry-diffusion';
 
     loaded = true;
@@ -210,7 +209,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
-    return sqLite.getImagesByDay(day, host: host);
+    return sqLite.getImagesByDay(day, host: host, re: _internalTabs[section]);
   }
 
   @override
