@@ -274,9 +274,9 @@ class _ImageViewState extends State<ImageView> {
                 contextMenu: contextMenu,
                 child: Hero(
                     tag: widget.imageMeta.fileName,
-                    child: widget.imageMeta.fullImage != null ?
+                    child: widget.imageMeta.fullImage != null || ((widget.imageMeta.fullPath != null && !widget.imageMeta.isLocal) || widget.imageMeta.tempFilePath == null)  ?
                     Image.memory(
-                      widget.imageMeta.fullImage!,
+                      widget.imageMeta.fullImage ?? widget.imageMeta.thumbnail!,
                       width: widget.imageMeta.size!.width / devicePixelRatio,
                       gaplessPlayback: true,
                       filterQuality: FilterQuality.none,
@@ -293,21 +293,26 @@ class _ImageViewState extends State<ImageView> {
                         }
                       },
                       errorBuilder: (context, exception, stack) => Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 60,
-                            ),
-                            SelectableText('Error: $exception')
-                          ],
-                        ),
-                      ),
+                        child: Container(
+                          constraints: BoxConstraints(
+                              maxWidth: 310
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 60,
+                              ),
+                              SelectableText('Error: $exception')
+                            ],
+                          ),
+                        )
+                      )
                     ) : Image.file(
                       width: widget.imageMeta.size!.width / devicePixelRatio,
-                      File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? widget.imageMeta.cacheFilePath ?? 'e.png'),
+                      File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? 'e.png'),
                       gaplessPlayback: true,
                       filterQuality: FilterQuality.none,
                       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
@@ -323,18 +328,23 @@ class _ImageViewState extends State<ImageView> {
                         }
                       },
                       errorBuilder: (context, exception, stack) => Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 60,
+                          child: Container(
+                            constraints: BoxConstraints(
+                                maxWidth: 310
                             ),
-                            SelectableText('Error: $exception')
-                          ],
-                        ),
-                      ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red,
+                                  size: 60,
+                                ),
+                                SelectableText('Error: $exception')
+                              ],
+                            ),
+                          )
+                      )
                     )
             )) : FutureBuilder(
               future: lotsOfData,
@@ -347,17 +357,22 @@ class _ImageViewState extends State<ImageView> {
                   );
                 } else if (snapshot.hasError) {
                   children = Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 60,
+                      child: Container(
+                        constraints: BoxConstraints(
+                            maxWidth: 310
                         ),
-                        Text('Error: ${snapshot.error}')
-                      ],
-                    ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 60,
+                            ),
+                            SelectableText('Error: ${snapshot.error}')
+                          ],
+                        ),
+                      )
                   );
                 } else {
                   children = const CircularProgressIndicator();

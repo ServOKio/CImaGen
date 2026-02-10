@@ -864,12 +864,18 @@ class SQLite{
   }
 
   bool searchInProgress = false;
-  Future<List<ImageMeta>> search(String query) async {
+
+  Future<List<ImageMeta>> search(String query, String? host) async {
     if (searchInProgress) return [];
     searchInProgress = true;
 
     try {
-      final terms = query.split(',').map((e) => e.trim()).toList();
+      final cleanQuery = query.replaceAll(',', ' ').trim();
+      final terms = cleanQuery
+          .split(RegExp(r'\s+'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
 
       List<String> positiveTags = [];
       List<String> negativeTags = [];
@@ -877,62 +883,102 @@ class SQLite{
 
       for (var term in terms) {
         if (term.startsWith('-')) {
-          negativeTags.add(term.substring(1));
+          final tag = term.substring(1).trim();
+          if (tag.isNotEmpty) negativeTags.add(tag);
         } else if (term.contains(':')) {
           final parts = term.split(':');
-          filters[parts[0].toLowerCase()] = parts.sublist(1).join(':');
+          final key = parts[0].toLowerCase().trim();
+          final value = parts.sublist(1).join(':').trim();
+          if (key.isNotEmpty) filters[key] = value;
         } else {
-          positiveTags.add(term);
+          final tag = term.trim();
+          if (tag.isNotEmpty) positiveTags.add(tag);
         }
       }
 
-      // FTS query (positive tags)
-      String ftsWhere = '';
-      if (positiveTags.isNotEmpty) {
-        final ftsQuery = positiveTags.join(' AND '); // <- remove quotes
-        ftsWhere = "images_fts MATCH '$ftsQuery'";
+      final ftsPositive = positiveTags.join(' ');
+      final ftsNegative = negativeTags.map((t) => 'NOT $t').join(' ');
+
+      String ftsQuery;
+      if (positiveTags.isNotEmpty && negativeTags.isNotEmpty) {
+        ftsQuery = '$ftsPositive $ftsNegative';
+      } else if (positiveTags.isNotEmpty) {
+        ftsQuery = ftsPositive;
+      } else if (negativeTags.isNotEmpty) {
+        ftsQuery = negativeTags.map((t) => 'NOT $t').join(' ');
+      } else {
+        ftsQuery = '';
       }
 
-      // Negative tags
-      String negativeWhere = '';
-      if (negativeTags.isNotEmpty) {
-        negativeWhere =
-            negativeTags.map((tag) => "NOT (i.positive LIKE '%$tag%' OR i.negative LIKE '%$tag%' OR i.other LIKE '%$tag%' OR i.specific LIKE '%$tag%')").join(' AND ');
+      final useFts = ftsQuery.isNotEmpty;
+
+      final whereParts = <String>[];
+      final queryArgs = <Object?>[];
+
+      if (useFts) {
+        whereParts.add('images_fts MATCH ?');
+        queryArgs.add(ftsQuery);
       }
 
-      // Column filters
-      String filtersWhere = '';
       if (filters.isNotEmpty) {
-        List<String> fWhere = [];
-        filters.forEach((key, value) {
+        for (final entry in filters.entries) {
+          final key = entry.key;
+          final value = entry.value;
+
           switch (key) {
             case 'seed':
             case 'steps':
             case 'rating':
-              fWhere.add('gp.$key = ${int.tryParse(value) ?? 0}');
+              final intVal = int.tryParse(value);
+              if (intVal != null) {
+                whereParts.add('gp.$key = ?');
+                queryArgs.add(intVal);
+              }
               break;
+
             case 'cfgscale':
             case 'hiresupscale':
             case 'denoisingsstrength':
-              fWhere.add('gp.$key = ${double.tryParse(value) ?? 0}');
+              final doubleVal = double.tryParse(value);
+              if (doubleVal != null) {
+                whereParts.add('gp.$key = ?');
+                queryArgs.add(doubleVal);
+              }
               break;
+
             case 'file':
-              fWhere.add("i.fileName LIKE '%.${value}'");
+              whereParts.add("i.fileName LIKE ?");
+              queryArgs.add('%.${value.toLowerCase()}');
               break;
+
             default:
-              fWhere.add("i.$key LIKE '%$value%'");
+              whereParts.add("i.$key LIKE ?");
+              queryArgs.add('%$value%');
           }
-        });
-        filtersWhere = fWhere.join(' AND ');
+        }
       }
 
-      // Combine WHERE clauses
-      final whereClauses = [
-        if (ftsWhere.isNotEmpty) ftsWhere,
-        if (negativeWhere.isNotEmpty) negativeWhere,
-        if (filtersWhere.isNotEmpty) filtersWhere,
-      ];
-      final whereClause = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
+      if (host == null) {
+        whereParts.add('i.host IS NULL');
+      } else if (host.isNotEmpty) {
+        whereParts.add('i.host = ?');
+        queryArgs.add(host);
+      }
+
+      final whereClause = whereParts.isNotEmpty
+          ? 'WHERE ${whereParts.join(' AND ')}'
+          : '';
+
+      final fromClause = useFts
+          ? '''
+      FROM images_fts
+      JOIN images i ON images_fts.keyup = i.keyup
+      LEFT JOIN generation_params gp ON gp.image_keyup = i.keyup
+    '''
+          : '''
+      FROM images i
+      LEFT JOIN generation_params gp ON gp.image_keyup = i.keyup
+    ''';
 
       final sql = '''
       SELECT
@@ -960,17 +1006,13 @@ class SQLite{
         gp.params AS gp_params,
         gp.rawData AS gp_rawData,
         gp.rating AS gp_rating
-      FROM images i
-      JOIN images_fts
-        ON images_fts.keyup = i.keyup
-      LEFT JOIN generation_params gp
-        ON gp.image_keyup = i.keyup
+      $fromClause
       $whereClause
       ORDER BY i.dateModified DESC
-      LIMIT 100
+      LIMIT 1000
     ''';
 
-      final rows = await database.rawQuery(sql);
+      final rows = await database.rawQuery(sql, queryArgs);
 
       return rows.map((row) {
         final im = _mapImage(row);

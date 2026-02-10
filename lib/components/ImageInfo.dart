@@ -63,14 +63,44 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
         loaded = true;
       });
     } else {
-      String path = widget.data.fullPath ?? widget.data.tempFilePath ?? widget.data.cacheFilePath ?? '';
-      readAsBytesSync(path).then((v){
+      try{
+        await widget.data.decodeToFull();
         setState(() {
-          readMe = v;
+          readMe = widget.data.fullImage;
           paletteGenerator = genPalette();
           loaded = true;
         });
-      });
+      } on Exception catch(e) {
+        String? finalPath;
+        String? tempPath = widget.data.tempFilePath ?? widget.data.cacheFilePath;
+        if(tempPath != null){
+          finalPath = tempPath;
+        } else {
+          if(widget.data.isLocal){
+
+          } else {
+
+          }
+        }
+
+        if(finalPath != null && File(finalPath).existsSync()){
+          readAsBytesSync(finalPath).then((v){
+            setState(() {
+              readMe = v;
+              paletteGenerator = genPalette();
+              loaded = true;
+            });
+          });
+        } else {
+          // thumb
+          Uint8List data = widget.data.thumbnail!;
+          setState(() {
+            readMe = data;
+            paletteGenerator = genPalette();
+            loaded = true;
+          });
+        }
+      }
     }
   }
 

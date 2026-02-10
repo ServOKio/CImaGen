@@ -249,7 +249,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                     content: const Text('The application will take some time to delete all'),
                     actions: <Widget>[
                       TextButton(
-                        onPressed: () => objectbox.deleteAllFromHost(context.read<ImageManager>().getter.host).then((v) => Navigator.pop(context)),
+                        onPressed: () => sqLite.deleteAllFromHost(context.read<ImageManager>().getter.host).then((v) => Navigator.pop(context)),
                         child: const Text('Okay'),
                       ),
                       TextButton(
@@ -697,8 +697,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         final crossAxisCount = (constraints.maxWidth / 180).floor();
 
         return AnimationLimiter(
-          child: viewStyle == 1
-              ? MasonryGridView.count(
+          child: viewStyle == 1 ? MasonryGridView.count(
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
             mainAxisSpacing: 5,
@@ -717,7 +716,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                       key: Key(item.keyup),
                       imagesList: items,
                       imageMeta: item,
-                      selectedModel: selectionModel,
                       index: index,
                       onHover: (event, im) => _updateFloat(event, im),
                       onImageTap: () => Navigator.push(
@@ -729,8 +727,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                 ),
               );
             },
-          )
-              : AlignedGridView.count(
+          ) : AlignedGridView.count(
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
             mainAxisSpacing: 5,
@@ -749,7 +746,6 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
                       key: Key(item.keyup),
                       imagesList: items,
                       imageMeta: item,
-                      selectedModel: selectionModel,
                       index: index,
                       onHover: (event, im) => _updateFloat(event, im),
                       onImageTap: () => Navigator.push(
@@ -820,9 +816,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
   Widget _buildPreviewSection() {
     return SizedBox(
       width: MediaQuery.of(context).size.width / 3,
-      child: SidePreview(
-        initializer: _initFloat,
-      ),
+      child: SidePreview(initializer: _initFloat)
     );
   }
 
@@ -1176,8 +1170,8 @@ class _SidePreviewState extends State<SidePreview> {
   void changeImage(PointerHoverEvent event, ImageMeta im){
     if(mounted) {
       setState(() {
-      display = im;
-    });
+        display = im;
+      });
     }
   }
 
@@ -1189,10 +1183,7 @@ class _SidePreviewState extends State<SidePreview> {
 
   @override
   Widget build(BuildContext context) {
-    String pa = display == null ? '' : display!.fullNetworkPath ?? context
-        .read<ImageManager>()
-        .getter
-        .getFullUrlImage(display!);
+    String pa = display == null ? '' : display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!);
     Widget child;
     if (display != null) {
       if (display!.isLocal) {
@@ -1202,39 +1193,53 @@ class _SidePreviewState extends State<SidePreview> {
           child = Image.file(File(display!.cacheFilePath!));
         } else {
           child = CachedNetworkImage(
-              imageUrl: display!.fullNetworkPath ?? context
-                  .read<ImageManager>()
-                  .getter
-                  .getFullUrlImage(display!),
-              progressIndicatorBuilder: (context, url, downloadProgress) =>
-                  Stack(
+            imageUrl: display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!),
+            progressIndicatorBuilder: (context, url, downloadProgress) => Stack(
+              children: [
+                Center(
+                  child: Stack(
+                    children: [
+                      display!.thumbnail != null ? Image.memory(
+                        display!.thumbnail!,
+                        filterQuality: FilterQuality.low,
+                        gaplessPlayback: true,
+                      ) : Icon(Icons.error),
+                      if(display!.thumbnail != null) Shimmer.fromColors(
+                        baseColor: Colors.transparent,
+                        highlightColor: Colors.white.withAlpha(90),
+                        child: Image.memory(
+                          display!.thumbnail!,
+                          filterQuality: FilterQuality.low,
+                          gaplessPlayback: true,
+                        )
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(padding: EdgeInsets.all(14), child: LinearProgressIndicator(value: downloadProgress.progress, color: Colors.white))
+              ]
+            ),
+            errorWidget: (context, url, error) => Stack(
+                children: [
+                  Center(
+                    child: Stack(
                       children: [
-                        Center(
-                          child: Stack(
-                            children: [
-                              display!.thumbnail != null ? Image.memory(
-                                display!.thumbnail!,
-                                filterQuality: FilterQuality.low,
-                                gaplessPlayback: true,
-                              ) : Icon(Icons.error),
-                              if(display!.thumbnail != null) Shimmer.fromColors(
-                                  baseColor: Colors.transparent,
-                                  highlightColor: Colors.white.withAlpha(90),
-                                  child: Image.memory(
-                                    display!.thumbnail!,
-                                    filterQuality: FilterQuality.low,
-                                    gaplessPlayback: true,
-                                  )
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(padding: EdgeInsets.all(14),
-                            child: LinearProgressIndicator(
-                                value: downloadProgress.progress,
-                                color: Colors.white))
-                      ]
-                  )
+                        display!.thumbnail != null ? Image.memory(
+                          display!.thumbnail!,
+                          filterQuality: FilterQuality.low,
+                          gaplessPlayback: true,
+                        ) : Icon(Icons.error),
+                        if(display!.thumbnail != null) Image.memory(
+                          display!.thumbnail!,
+                          filterQuality: FilterQuality.low,
+                          gaplessPlayback: true,
+                        )
+                      ],
+                    ),
+                  ),
+                  Padding(padding: EdgeInsets.all(14), child: SelectableText('Error: $error'))
+                ]
+            ),
           );
         }
       }
@@ -1346,16 +1351,14 @@ class _XYZPlotForHiResState extends State<XYZPlotForHiRes> {
 
 class PreviewImage extends StatelessWidget {
   final ImageMeta imageMeta;
-  final SelectedModel selectedModel;
   final List<ImageMeta> imagesList;
   final VoidCallback onImageTap;
-  final Function(PointerHoverEvent event, ImageMeta im) onHover;
+  final Function(PointerHoverEvent event, ImageMeta im)? onHover;
   final int index;
 
   final bool dontBlink = true;
 
-
-  PreviewImage({ super.key, required this.imageMeta, required this.selectedModel, required this.imagesList, required this.onImageTap, required this.onHover, this.index = -1});
+  PreviewImage({ super.key, required this.imageMeta, required this.imagesList, required this.onImageTap, this.onHover, this.index = -1});
 
   @override
   Widget build(BuildContext context) {
@@ -1695,9 +1698,9 @@ class PreviewImage extends StatelessWidget {
                 }
               },
               child: MouseRegion(
-                onHover: (PointerHoverEvent event){
-                  onHover(event, imageMeta);
-                },
+                onHover: onHover != null ? (PointerHoverEvent event){
+                  onHover!(event, imageMeta);
+                } : null,
                 child: ContextMenuRegion(
                     contextMenu: contextMenu,
                     child: AspectRatio(

@@ -406,26 +406,38 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
     return AnimatedSizeAndFade(
       child: loaded ? Scaffold(
-        appBar: CAppBar(),
         body: Stack(
           children: [
-            PageView(
-              physics: const NeverScrollableScrollPhysics(),
-              controller: _pageViewController,
-              children: <Widget>[
-                loaded ? debug ? Column(
-                  children: [
-                    Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
-                  ],
-                ) : const Home() : LoadingState(loaded: loaded, error: error),
-                loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
-                loaded ? Timeline() : LoadingState(loaded: loaded, error: error),
-                loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
-                // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-                // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
-                const Settings()
-              ],
+            Positioned.fill(
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 92,
+                  ),
+                  Expanded(
+                    child: PageView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      controller: _pageViewController,
+                      children: <Widget>[
+                        loaded ? debug ? Column(
+                          children: [
+                            Text(p.normalize('Z:\stable-diffusion-webui\outputs\txt2img-images\2023-09-20\00001-2591663516.png'))
+                          ],
+                        ) : const Home() : LoadingState(loaded: loaded, error: error),
+                        loaded ? const Gallery() : LoadingState(loaded: loaded, error: error),
+                        loaded ? Timeline() : LoadingState(loaded: loaded, error: error),
+                        loaded ? const Comparison() : LoadingState(loaded: loaded, error: error),
+                        // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+                        // loaded ? P404() : LoadingState(loaded: loaded, errorMessage: error),
+                        const Settings()
+                      ],
+                    ),
+                  )
+                ],
+              ),
             ),
+            Positioned(child: CAppBar()),
+            // Notifications
             Positioned(
                 bottom: 90,
                 right: 14,
