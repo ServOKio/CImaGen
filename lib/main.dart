@@ -27,6 +27,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:gap/gap.dart';
+import 'package:image_background_remover/image_background_remover.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
@@ -62,6 +63,14 @@ late SQLite sqLite;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize ONNX once here (on root isolate)
+  try {
+    await BackgroundRemover.instance.initializeOrt();
+    debugPrint('ONNX runtime initialized successfully');
+  } catch (e) {
+    debugPrint('ONNX init failed: $e');
+    // Optionally show UI fallback or error
+  }
   prefs = await SharedPreferences.getInstance();
 
   PackageInfo packageInfo = await PackageInfo.fromPlatform();

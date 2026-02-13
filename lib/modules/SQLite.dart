@@ -109,7 +109,7 @@ class SQLite{
       CREATE TABLE IF NOT EXISTS generation_params (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         
-        image_keyup TEXT NOT NULL,
+        image_keyup TEXT NOT NULL UNIQUE,
 
         positive TEXT,
         negative TEXT,
@@ -145,8 +145,8 @@ class SQLite{
       )
     ''');
 
-        await db.execute('CREATE INDEX IF NOT EXISTS idx_gen_seed ON generation_params(seed)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_gp_image_keyup ON generation_params(image_keyup)');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_gen_seed ON generation_params(seed)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_gp_id ON generation_params(id)');
 
         await db.execute('''
@@ -1398,6 +1398,14 @@ class SQLite{
     LEFT JOIN images i ON i.keyup = gp.image_keyup
     WHERE i.keyup IS NULL
   ''');
+
+    // DELETE FROM generation_params
+    // WHERE rowid IN (
+    //     SELECT gp.rowid
+    //     FROM generation_params gp
+    //     LEFT JOIN images i ON i.keyup = gp.image_keyup
+    //     WHERE i.keyup IS NULL
+    // );
 
     if (orphans.isNotEmpty) {
       throw OrphanGenerationParamsException(

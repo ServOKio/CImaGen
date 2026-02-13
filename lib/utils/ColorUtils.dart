@@ -1,10 +1,13 @@
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:image/image.dart' as img;
 import 'dart:typed_data';
+
+import 'package:image_background_remover/image_background_remover.dart';
 
 
 List<List<List<int>>> imageToHxWxCArray(img.Image image){
@@ -727,140 +730,229 @@ double _labFInv(double t) {
   }
 }
 
-Future<Map<String, List<ui.Color>>> extractObjectAndBackgroundPalettes(
-    Uint8List imageBytes, {
-      int maxDimension = 1280,
-      int backgroundPaletteSize = 20,
-      int objectPaletteSize = 20,
-      int floodFillTolerance = 35,
-      int samplingStep = 1,
-    }) async {
-  img.Image? image = img.decodeImage(imageBytes);
-  if (image == null) throw Exception('Could not decode image');
-
-  if (image.width > maxDimension || image.height > maxDimension) {
-    final scale = maxDimension / math.max(image.width, image.height);
-    image = img.copyResize(
-      image,
-      width: (image.width * scale).round(),
-      height: (image.height * scale).round(),
-      interpolation: img.Interpolation.linear,
-    );
+Future<List<ui.Color>> extractPrimaryColors(Uint8List pngBytesWithTransparency, {
+  int desiredCount = 6,
+  double minAlpha = 0.08,       // ~20/255
+  double centerPower = 2.5,     // higher = stronger center bias
+  int quantStep = 8,            // color bin size (lower = more precise but slower)
+  int diversityThreshold = 40,  // min Manhattan diff to consider "different"
+}) async {
+  // Decode the (possibly transparent) PNG
+  final image = img.decodePng(pngBytesWithTransparency);
+  if (image == null || image.isEmpty) {
+    return [Colors.grey];
   }
 
   final w = image.width;
   final h = image.height;
 
-  final isBackground = List.generate(h, (_) => List.filled(w, false));
+  final weightedFreq = <int, double>{};
 
-  final queue = <(int, int)>[];
-  final visited = List.generate(h, (_) => List.filled(w, false));
-
-  for (int x = 0; x < w; x++) {
-    queue.add((x, 0));
-    queue.add((x, h - 1));
-    visited[0][x] = true;
-    visited[h - 1][x] = true;
-  }
   for (int y = 0; y < h; y++) {
-    queue.add((0, y));
-    queue.add((w - 1, y));
-    visited[y][0] = true;
-    visited[y][w - 1] = true;
-  }
+    for (int x = 0; x < w; x++) {
+      final pixel = image.getPixel(x, y);
 
-  int colorDistance(img.Color a, img.Color b) {
-    final dr = a.r - b.r;
-    final dg = a.g - b.g;
-    final db = a.b - b.b;
-    return math.sqrt(dr * dr + dg * dg + db * db).toInt();
-  }
+      // Skip transparent / nearly-transparent pixels
+      if (pixel.a < (minAlpha * 255).round()) continue;
 
-  while (queue.isNotEmpty) {
-    final (x, y) = queue.removeAt(0);
-    isBackground[y][x] = true;
+      // Center weighting: distance from center (0..1), higher weight near center
+      final dx = (x / w - 0.5).abs() * 2;
+      final dy = (y / h - 0.5).abs() * 2;
+      final dist = math.sqrt(dx * dx + dy * dy);
+      final weight = math.pow(1 - dist.clamp(0.0, 1.0), centerPower).toDouble();
 
-    final current = image.getPixel(x, y);
+      // Quantize to reduce bins (fast & good enough for palette)
+      final qr = (pixel.r.toInt() ~/ quantStep) * quantStep;
+      final qg = (pixel.g.toInt() ~/ quantStep) * quantStep;
+      final qb = (pixel.b.toInt() ~/ quantStep) * quantStep;
+      final key = (qr << 16) | (qg << 8) | qb;
 
-    for (final (dx, dy) in const [(0, 1), (1, 0), (0, -1), (-1, 0)]) {
-      final nx = x + dx;
-      final ny = y + dy;
-      if (nx < 0 || nx >= w || ny < 0 || ny >= h || visited[ny][nx]) continue;
-
-      if (colorDistance(current, image.getPixel(nx, ny)) <= floodFillTolerance) {
-        visited[ny][nx] = true;
-        queue.add((nx, ny));
-      }
+      weightedFreq.update(
+        key,
+            (value) => value + weight,
+        ifAbsent: () => weight,
+      );
     }
   }
 
-  final bgPixels = <img.Color>[];
-  final objPixels = <img.Color>[];
+  if (weightedFreq.isEmpty) return [Colors.grey];
 
-  for (int y = 0; y < h; y += samplingStep) {
-    for (int x = 0; x < w; x += samplingStep) {
-      final color = image.getPixel(x, y);
-      if (isBackground[y][x]) {
-        bgPixels.add(color);
-      } else {
-        objPixels.add(color);
+  // Sort by total weighted frequency (descending)
+  final sortedEntries = weightedFreq.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  final palette = <ui.Color>[];
+
+  for (final entry in sortedEntries) {
+    final key = entry.key;
+    final r = (key >> 16) & 0xFF;
+    final g = (key >> 8) & 0xFF;
+    final b = key & 0xFF;
+
+    final candidate = ui.Color.fromRGBO(r, g, b, 1.0);
+
+    // Skip if too similar to any already selected color
+    bool tooSimilar = false;
+    for (final prev in palette) {
+      final prevR = (prev.r * 255.0).round().clamp(0, 255);
+      final prevG = (prev.g * 255.0).round().clamp(0, 255);
+      final prevB = (prev.b * 255.0).round().clamp(0, 255);
+
+      final dr = (prevR - r).abs();
+      final dg = (prevG - g).abs();
+      final db = (prevB - b).abs();
+      if (dr + dg + db < diversityThreshold) {
+        tooSimilar = true;
+        break;
       }
     }
-  }
 
-  List<ui.Color> getBetterPalette(List<img.Color> allPixels, int desiredCount) {
-    if (allPixels.isEmpty) return [Colors.grey];
-
-    final weighted = <(img.Pixel, double)>[];  // change tuple type
-
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w; x++) {
-        final px = image!.getPixel(x, y);
-        if (px.a < 20) continue;
-
-        final dx = (x / w - 0.5).abs() * 2;
-        final dy = (y / h - 0.5).abs() * 2;
-        final dist = math.sqrt(dx*dx + dy*dy);
-        final weight = math.pow(1 - dist.clamp(0.0, 1.0), 2.5) as double;
-
-        weighted.add((px, weight));
-      }
-    }
-
-    final freq = <int, double>{};
-
-    for (final (p, weight) in weighted) {
-      final r = (p.r.toInt() ~/ 8) * 8;
-      final g = (p.g.toInt() ~/ 8) * 8;
-      final b = (p.b.toInt() ~/ 8) * 8;
-      final key = (r << 16) | (g << 8) | b;
-      freq[key] = (freq[key] ?? 0.0) + weight;
-    }
-
-    final sorted = freq.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    final palette = <ui.Color>[];
-    for (final entry in sorted) {
-      final r = (entry.key >> 16) & 0xFF;
-      final g = (entry.key >> 8) & 0xFF;
-      final b = entry.key & 0xFF;
-      final c = ui.Color.fromRGBO(r, g, b, 1.0);
-
-      if (palette.any((prev) =>
-      (prev.r - r).abs() + (prev.g - g).abs() + (prev.b - b).abs() < 40)) {
-        continue;
-      }
-
-      palette.add(c);
+    if (!tooSimilar) {
+      palette.add(candidate);
       if (palette.length >= desiredCount) break;
     }
-
-    return palette;
   }
 
-  return {
-    'background': getBetterPalette(bgPixels, backgroundPaletteSize),
-    'object': getBetterPalette(objPixels, objectPaletteSize),
-  };
+  if (palette.isEmpty) {
+    palette.add(Colors.grey);
+  }
+
+  return palette;
+}
+
+Future<List<ui.Color>> extractImagePalette(
+    Uint8List imageBytes, {
+      int maxColors = 6,
+      double minAlpha = 0.08,
+      double centerPower = 2.5,
+      int quantStep = 8,
+      int diversityThreshold = 40,
+      double bgRemovalThreshold = 0.45,
+    }) async {
+  // 1. Background removal on MAIN thread (package doesn't support isolates)
+  Uint8List? fgBytes;
+  try {
+    // Assume already initialized in main()
+    // Optional resize for speed
+    ui.Image? original;
+    try {
+      final codec = await ui.instantiateImageCodec(imageBytes);
+      final frame = await codec.getNextFrame();
+      original = frame.image;
+    } catch (_) {}
+
+    ui.Image? removed;
+    if (original != null && original.width > 512) {
+      final resized = await _resizeImage(original, 512);
+      final resizedPng = await _imageToPng(resized);
+      removed = await BackgroundRemover.instance.removeBg(
+        resizedPng,
+        threshold: bgRemovalThreshold,
+        smoothMask: true,
+        enhanceEdges: true,
+      );
+    } else {
+      removed = await BackgroundRemover.instance.removeBg(
+        imageBytes,
+        threshold: bgRemovalThreshold,
+        smoothMask: true,
+        enhanceEdges: true,
+      );
+    }
+
+    fgBytes = await _imageToPng(removed);
+  } catch (e) {
+    debugPrint('Background removal failed: $e');
+    fgBytes = imageBytes;
+  }
+
+  return _extractColorsFromBytes(fgBytes, maxColors, minAlpha, centerPower, quantStep, diversityThreshold);
+}
+
+Future<List<ui.Color>> _extractColorsFromBytes(
+    Uint8List pngBytes,
+    int maxColors,
+    double minAlpha,
+    double centerPower,
+    int quantStep,
+    int diversityThreshold,
+    ) async {
+  final image = img.decodePng(pngBytes);
+  if (image == null || image.isEmpty) return [Colors.grey];
+
+  final w = image.width;
+  final h = image.height;
+  final weightedFreq = <int, double>{};
+
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+      final pixel = image.getPixel(x, y);
+      if (pixel.a < (minAlpha * 255).round()) continue;
+
+      final dx = (x.toDouble() / w - 0.5).abs() * 2;
+      final dy = (y.toDouble() / h - 0.5).abs() * 2;
+      final dist = math.sqrt(dx * dx + dy * dy);
+      final weight = math.pow(1 - dist.clamp(0.0, 1.0), centerPower).toDouble();
+
+      final qr = (pixel.r.toInt() ~/ quantStep) * quantStep;
+      final qg = (pixel.g.toInt() ~/ quantStep) * quantStep;
+      final qb = (pixel.b.toInt() ~/ quantStep) * quantStep;
+      final key = (qr << 16) | (qg << 8) | qb;
+
+      weightedFreq.update(key, (v) => v + weight, ifAbsent: () => weight);
+    }
+  }
+
+  if (weightedFreq.isEmpty) return [Colors.grey];
+
+  final sorted = weightedFreq.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+  final palette = <ui.Color>[];
+  for (final entry in sorted) {
+    final key = entry.key;
+    final r = (key >> 16) & 0xFF;
+    final g = (key >> 8) & 0xFF;
+    final b = key & 0xFF;
+
+    final candidate = ui.Color.fromRGBO(r, g, b, 1.0);
+
+    final tooSimilar = palette.any((prev) {
+      final prevValue = prev.value;
+      final pr = (prevValue >> 16) & 0xFF;
+      final pg = (prevValue >> 8) & 0xFF;
+      final pb = prevValue & 0xFF;
+      final dr = (pr - r).abs();
+      final dg = (pg - g).abs();
+      final db = (pb - b).abs();
+      return dr + dg + db < diversityThreshold;
+    });
+
+    if (!tooSimilar) {
+      palette.add(candidate);
+      if (palette.length >= maxColors) break;
+    }
+  }
+
+  return palette.isEmpty ? [Colors.grey] : palette;
+}
+
+Future<ui.Image> _resizeImage(ui.Image image, int maxWidth) async {
+  final ratio = maxWidth / image.width;
+  final height = (image.height * ratio).round();
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawImageRect(
+    image,
+    Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+    Rect.fromLTWH(0, 0, maxWidth.toDouble(), height.toDouble()),
+    Paint(),
+  );
+  final picture = recorder.endRecording();
+  return picture.toImage(maxWidth, height);
+}
+
+Future<Uint8List> _imageToPng(ui.Image image) async {
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  return byteData!.buffer.asUint8List();
 }

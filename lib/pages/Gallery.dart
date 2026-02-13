@@ -10,6 +10,7 @@ import 'package:cimagen/pages/sub/JointTaggerProject.dart';
 import 'package:cimagen/pages/sub/MiniSD.dart';
 import 'package:cimagen/pages/sub/PhotoshopMini/Photoshop.dart';
 import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
+import 'package:cimagen/pages/sub/debug/ColorExtract.dart';
 import 'package:cimagen/utils/DataModel.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:file_picker/file_picker.dart';
@@ -24,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../components/Animations.dart';
 import '../components/CustomActionButton.dart';
 import '../utils/ColorUtils.dart';
 import 'sub/DevicePreview.dart';
@@ -359,7 +361,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       final stream = newImagesList as Stream<List<ImageMeta>>;
 
       stream
-          .where((data) => data != null && data.isNotEmpty)
+          .where((data) => data.isNotEmpty)
           .first
           .then((_) {
         if (mounted) setState(() => _isSwitchingFolder = false);
@@ -384,7 +386,7 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
+            LinearProgressIndicator(),
             SizedBox(height: 24),
             Text(
               'Preparing folder…',
@@ -1517,15 +1519,43 @@ class PreviewImage extends StatelessWidget {
                   icon: const Icon(Icons.palette),
                   onSelected: (_) async {
                     if(imageMeta.fullImage == null) await imageMeta.decodeToFull();
-                    final palettes = await extractObjectAndBackgroundPalettes(imageMeta.fullImage!);
+                    final colors = await extractImagePalette(
+                      imageMeta.fullImage!,
+                      bgRemovalThreshold: 0.3,
+                      quantStep: 2,
+                      diversityThreshold: 80,
+                      maxColors: 20,
+                      centerPower: 2.2,
+                    );
 
-                    final bgColors = palettes['background']!;
-                    final objectColors = palettes['object']!;
-                    appBarController?.setWindowBar(Row(
-                      children: objectColors.map((el) => Container(color: el, width: 10, height: 10)).toList(),
-                    ));
-                    print(objectColors);
+                    appBarController?.setWindowBar(
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 400),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: child,
+                        ),
+                        child: Row(
+                          key: ValueKey(colors.map((c) => c.value).join(',')),
+                          mainAxisSize: MainAxisSize.min,
+                          children: colors.map((color) => Container(
+                            width: 32,
+                            height: 32,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                          )).toList(),
+                        ),
+                      ),
+                    );
                   },
+                ),
+                MenuItem(
+                  label: const Text('Extract colors'),
+                  icon: const Icon(Icons.palette, color: Colors.orange),
+                  onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ColorExtract(imageMeta: imageMeta))),
                 ),
               ],
             ),

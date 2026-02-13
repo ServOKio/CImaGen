@@ -108,6 +108,7 @@ dependencies:
   dynamic_color: ^1.8.1
   flutter_localizations:
     sdk: flutter
+  image_background_remover: ^2.0.0
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
