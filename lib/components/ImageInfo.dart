@@ -9,6 +9,7 @@ import 'package:cimagen/components/Vectorscope.dart';
 import 'package:cimagen/components/popups/AspectSizes.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -368,13 +369,32 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                     padding: const EdgeInsets.all(4.0),
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      border: Border.all(color: Colors.green, width: 1),
+                      color: Colors.green.withAlpha(10),
+                      border: Border.all(color: Colors.green.withAlpha(100), width: 1),
                       borderRadius: const BorderRadius.all(Radius.circular(5.0)),
                     ),
                     child: FractionallySizedBox(
                         widthFactor: 1.0,
-                        child: SelectableText(gp.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+                        child: SelectableText.rich(
+                          PromptTextSpanBuilder(widget.data.generationParams!.positive ?? '').build(widget.data.generationParams!.positive ?? '', textStyle: const TextStyle(
+                            fontFamily: 'Open Sans',
+                            fontWeight: FontWeight.w400,
+                            fontSize: 10,
+                            color: Colors.white,
+                            height: 1.2,
+                          )),
+                          showCursor: true,
+                          strutStyle: const StrutStyle(),
+                          minLines: 1,
+                          maxLines: null,
+                          style: const TextStyle(
+                            fontFamily: 'Open Sans',
+                            fontWeight: FontWeight.w400,
+                            fontSize: 10,
+                          ),
+                          textAlign: TextAlign.left,
+                        )
+                        //child: SelectableText(gp.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
                     )
                 ),
                 Container(
@@ -386,7 +406,25 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                     ),
                     child: FractionallySizedBox(
                         widthFactor: 1.0,
-                        child: SelectableText(gp.negative ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
+                        child: SelectableText.rich(
+                          PromptTextSpanBuilder(widget.data.generationParams!.negative ?? '').build(widget.data.generationParams!.negative ?? '', textStyle: const TextStyle(
+                            fontFamily: 'Open Sans',
+                            fontWeight: FontWeight.w400,
+                            fontSize: 10,
+                            color: Colors.white,
+                            height: 1.2,
+                          )),
+                          showCursor: true,
+                          strutStyle: const StrutStyle(),
+                          minLines: 1,
+                          maxLines: null,
+                          style: const TextStyle(
+                            fontFamily: 'Open Sans',
+                            fontWeight: FontWeight.w400,
+                            fontSize: 10,
+                          ),
+                          textAlign: TextAlign.left,
+                        )
                     )
                 ),
                 Column(

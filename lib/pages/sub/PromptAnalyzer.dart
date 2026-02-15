@@ -9,6 +9,7 @@ import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
 import '../../components/Animations.dart';
+import '../../constants.dart';
 import '../../modules/DataManager.dart';
 import '../../utils/range.dart';
 
@@ -24,7 +25,6 @@ class PromptAnalyzer extends StatefulWidget{
 RegExp reAttention = RegExp(r'\\\(|\\\)|\\\[|\\]|\\\\|\\|\(|\[|:\s*([+-]?[.\d]+)\s*\)|\)|]|[^\\()\[\]:]+|:');
 RegExp reBreak = RegExp(r'\s*\bBREAK\b\s*');
 RegExp reBracketTokens = RegExp(r'(?<!\\)\)\s*(,)\s*\S');
-Map<String, TagInfo> _tags = {};
 Map<int, List<String>> _hasDubl = {
   0: [],
   1: []
@@ -33,6 +33,76 @@ Map<int, Map<String, double>> _tagsAndWeights = {
   0: {},
   1: {}
 };
+
+const double roundBracketMultiplier = 1.1;
+const double squareBracketMultiplier = 1.0 / 1.1;
+
+List<List<dynamic>> parsePromptTagsAndWeights(String text) {
+  final List<List<dynamic>> res = [];
+  final List<int> roundBrackets = [];
+  final List<int> squareBrackets = [];
+
+  for (final m in reAttention.allMatches(text)) {
+    final String token = m.group(0) ?? '';
+    final String? weightStr = m.group(1);
+    final double? explicitWeight = weightStr != null ? double.tryParse(weightStr) : null;
+
+    if (token.startsWith('\\')) {
+      res.add([token.substring(1), 1.0]);
+    } else if (token == '(') {
+      roundBrackets.add(res.length);
+    } else if (token == '[') {
+      squareBrackets.add(res.length);
+    } else if (explicitWeight != null && roundBrackets.isNotEmpty) {
+      _multiplyRange(res, roundBrackets.removeLast(), explicitWeight);
+    } else if (token == ')' && roundBrackets.isNotEmpty) {
+      _multiplyRange(res, roundBrackets.removeLast(), roundBracketMultiplier);
+    } else if (token == ']' && squareBrackets.isNotEmpty) {
+      _multiplyRange(res, squareBrackets.removeLast(), squareBracketMultiplier);
+    } else if (token == ':') {
+      // Lone :  usually ignored or error, but skip for now
+      continue;
+    } else {
+      final parts = token.split(RegExp(r'\s*BREAK\s*', caseSensitive: false));
+      for (int i = 0; i < parts.length; i++) {
+        final part = parts[i].trim();
+        if (i > 0) {
+          res.add(['BREAK', -1.0]);
+        }
+        if (part.isNotEmpty) {
+          res.add([part, 1.0]);
+        }
+      }
+    }
+  }
+
+  for (final pos in roundBrackets) {
+    _multiplyRange(res, pos, roundBracketMultiplier);
+  }
+  for (final pos in squareBrackets) {
+    _multiplyRange(res, pos, squareBracketMultiplier);
+  }
+
+  int i = 0;
+  while (i + 1 < res.length) {
+    if (res[i][1] == res[i + 1][1] && res[i][0] is String && res[i + 1][0] is String) {
+      res[i][0] = '${res[i][0]} ${res[i + 1][0]}'.trim();
+      res.removeAt(i + 1);
+    } else {
+      i++;
+    }
+  }
+
+  return res.isEmpty ? [['', 1.0]] : res;
+}
+
+void _multiplyRange(List<List<dynamic>> list, int start, double factor) {
+  for (int j = start; j < list.length; j++) {
+    if (list[j][1] is double) {
+      list[j][1] = (list[j][1] as double) * factor;
+    }
+  }
+}
 
 class _PromptAnalyzerState extends State<PromptAnalyzer> {
   bool loaded = false;
@@ -55,8 +125,6 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
   void initState(){
     super.initState();
 
-    _tags = context.read<DataManager>().e621Tags;
-
     positiveController = TextEditingController();
     positiveController.text = widget.generationParams.positive ?? '';
     negativeController = TextEditingController();
@@ -73,11 +141,19 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
 
   @override
   void dispose() {
-    _tags = {};
     super.dispose();
+    _hasDubl = {
+      0: [],
+      1: []
+    };
+    _tagsAndWeights = {
+      0: {},
+      1: {}
+    };
   }
 
   Future<void> analyzePrompt(int id) async {
+    Map<String, TagInfo> _tags = context.read<DataManager>().e621Tags;
     setState(() {
       loaded = false;
       if(id == 0){
@@ -323,16 +399,13 @@ class _PromptAnalyzerState extends State<PromptAnalyzer> {
                               child:
                               ExtendedTextField(
                                 focusNode: _posFocusNode,
-                                // key: _key,
                                 showCursor: true,
                                 strutStyle: const StrutStyle(),
-                                specialTextSpanBuilder: PromptTextSpanBuilder(),
+                                specialTextSpanBuilder: PromptTextSpanBuilder(positiveController.text),
                                 controller: positiveController,
                                 minLines: 1,
                                 maxLines: null,
                                 style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 13),
-                                // selectionControls: _myExtendedMaterialTextSelectionControls,
-                                // extendedContextMenuBuilder: MyTextSelectionControls.defaultContextMenuBuilder,
                                 decoration: const InputDecoration(
                                    isDense: true,
                                    border: InputBorder.none, hintText: '',
@@ -594,12 +667,15 @@ Widget hMTypeToIcon(HMType type){
 }
 
 class PromptTextSpanBuilder extends RegExpSpecialTextSpanBuilder {
+  final String text;
+  PromptTextSpanBuilder(this.text);
+
   @override
   List<RegExpSpecialText> get regExps => [
     RegExtraCommaText(),
     RegBreakText(),
     LoraSpecialText(),
-    RegAttentionText(),
+    RegAttentionText(text),
   ];
 }
 
@@ -607,8 +683,7 @@ class LoraSpecialText extends RegExpSpecialText {
   LoraSpecialText({TextStyle? textStyle}) : super();
 
   @override
-  InlineSpan finishText(int start, Match match,
-      {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
+  InlineSpan finishText(int start, Match match, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
     final fullText = match.group(0)!;
 
     final inner = fullText.substring(1, fullText.length - 1);
@@ -633,9 +708,6 @@ class LoraSpecialText extends RegExpSpecialText {
           style: textStyle?.copyWith(
             color: Colors.cyanAccent,
             fontStyle: FontStyle.italic,
-            // or: backgroundColor: Colors.cyan.withOpacity(0.12),
-            // decoration: TextDecoration.underline,
-            // decorationColor: Colors.cyan,
           ),
         ),
       ),
@@ -644,7 +716,7 @@ class LoraSpecialText extends RegExpSpecialText {
 
   @override
   RegExp get regExp => RegExp(
-    r'<(?:lora|lyco|hypernet|embedding|ti):[^>]+?>',
+    r'<(?:lora|lyco|hypernet|embedding|ti):[^>:]+?(?::[^>]*)?>',
     caseSensitive: false,
   );
 }
@@ -656,50 +728,122 @@ class RegExtraCommaText extends RegExpSpecialText {
     style: textStyle?.copyWith(color: Colors.pinkAccent, background: Paint()..color = Colors.pink.withAlpha(25)),
   );
   @override
-  RegExp get regExp => RegExp(r'(?<!\\)\)\s*(,)\s*\S|,,');
+  RegExp get regExp => RegExp(
+    r'(?<!\\)\)\s*,|,,|\(\s*,',
+  );
 }
 
 class RegAttentionText extends RegExpSpecialText {
+  final Map<String, TagInfo> _tags = kBaseNavigatorKey.currentContext!.read<DataManager>().e621Tags;
+  final Map<String, Map<String, dynamic>> _tagStats;
+
+  RegAttentionText(String fullText): _tagStats = parsePromptTagStats(fullText), super();
+
+  static Map<String, Map<String, dynamic>> parsePromptTagStats(String text) {
+    final parsed = parsePromptTagsAndWeights(text);
+
+    final stats = <String, Map<String, dynamic>>{};
+
+    for (final entry in parsed) {
+      final raw = entry[0] as String;
+      final weight = entry[1] as double;
+
+      if (raw == 'BREAK' || weight < 0) continue;
+
+      String norm = raw
+          .replaceAll('by ', '')
+          .trim()
+          .replaceAll(' ', '_')
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+
+      if (norm.isEmpty) continue;
+
+      if (!stats.containsKey(norm)) {
+        stats[norm] = {'weight': 0.0, 'count': 0};
+      }
+
+      stats[norm]!['weight'] = stats[norm]!['weight'] + weight;
+      stats[norm]!['count'] = stats[norm]!['count'] + 1;
+    }
+
+    return stats;
+  }
+
   @override
   InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}){
-    String tag = m.group(0)!.replaceAll('by ', '').trim().replaceAll(' ', '_').toLowerCase();
-    bool ok = !_hasDubl[0]!.contains(tag) && _tags.containsKey(tag) && _tags[tag]!.count >= 50;
-    bool calculated = _tagsAndWeights[0]![tag] != null;
-    return ok ? ExtendedWidgetSpan(
-        actualText: m.group(0)!,
-        child: Tooltip(
-          padding: EdgeInsets.all(7),
-          showDuration: Duration(seconds: 10),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: const BorderRadius.all(Radius.circular(4)),
+    String raw = m.group(0)!;
+    String normTag = raw
+        .replaceAll('by ', '')
+        .trim()
+        .replaceAll(' ', '_')
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+
+    final stats = _tagStats[normTag];
+    final promptWeight = stats?['weight'] as double? ?? 1.0;
+    final occurrenceCount = stats?['count'] as int? ?? 1;
+
+    final tagInfo = _tags[normTag];
+    final bool hasInfo = tagInfo != null;
+    final bool popular = hasInfo && tagInfo.count >= 50;
+    final bool isDuplicate = occurrenceCount > 1;
+
+    Color? textColor;
+    Paint? bgPaint;
+
+    if (isDuplicate) {
+      textColor = Colors.purple;
+      bgPaint = Paint()..color = Colors.purple.withAlpha(50);
+    } else if (!hasInfo) {
+      textColor = Colors.red;
+      bgPaint = Paint()..color = Colors.red.withAlpha(40);
+    } else if (!popular) {
+      textColor = Colors.yellow;
+      bgPaint = Paint()..color = Colors.yellow.withAlpha(35);
+    }
+
+    if (bgPaint != null) {
+      final factor = (promptWeight.clamp(0.6, 2.5) - 0.6) / 1.9;
+      final alpha = (bgPaint.color.alpha * (0.5 + factor * 0.5)).round();
+      bgPaint.color = bgPaint.color.withAlpha(alpha);
+    }
+
+    final tooltipLines = <TextSpan>[
+      TextSpan(text: 'Tag count: '), TextSpan(text: '${tagInfo?.count ?? '-'}\n', style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+      TextSpan(text: 'Prompt weight: '), TextSpan(text: '${promptWeight.toStringAsFixed(2)}\n', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+      if(tagInfo?.count != null) ...[TextSpan(text: 'Count*weight: '), TextSpan(text: '${(tagInfo!.count * promptWeight).toStringAsFixed(2)}\n', style: const TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold))],
+      if (occurrenceCount > 1) ...[TextSpan(text: 'Appears in prompt: '),TextSpan(text: '$occurrenceCount×\n', style: const TextStyle(color: Colors.purpleAccent)),]
+    ];
+
+    return ExtendedWidgetSpan(
+      actualText: raw,
+      child: Tooltip(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        textStyle: const TextStyle(color: Colors.white),
+        richMessage: TextSpan(children: tooltipLines),
+        preferBelow: true,
+        child: Text(
+          raw,
+          style: textStyle?.copyWith(
+            color: textColor,
+            background: bgPaint,
+            fontWeight: promptWeight > 1.25 || isDuplicate ? FontWeight.w600 : null,
           ),
-          textStyle: TextStyle(color: Colors.white),
-          preferBelow: true,
-          richMessage: TextSpan(
-            text: 'Count: ',
-            children: <TextSpan>[
-              TextSpan(text: '${_tags[tag]!.count}\n', style: TextStyle(color: Colors.amberAccent)),
-              if(calculated) TextSpan(text: 'User weight: '),
-              if(calculated) TextSpan(text: '${_tagsAndWeights[0]![tag]!.toStringAsFixed(2)}\n', style: TextStyle(color: Colors.blue)),
-              if(calculated) TextSpan(text: 'Count*weight: '),
-              if(calculated) TextSpan(text: '${(_tags[tag]!.count * _tagsAndWeights[0]![tag]!).toStringAsFixed(2)}\n', style: TextStyle(color: Colors.lightBlueAccent)),
-            ],
-          ),
-          child: Text(m.group(0)!, style: textStyle),
-        )
-    ) : SpecialTextSpan(
-      text: m.group(0)!,
-      style: _hasDubl[0]!.contains(tag) ? textStyle?.copyWith(color: Colors.purple, background: Paint()..color = Colors.purple.withAlpha(25)) :
-      _tags.containsKey(tag) ?
-        _tags[tag]!.count < 50 ?
-          textStyle?.copyWith(color: Colors.yellow, background: Paint()..color = Colors.yellow.withAlpha(25)) :
-          textStyle :
-        textStyle?.copyWith(color: Colors.red, background: Paint()..color = Colors.red.withAlpha(25))
+        ),
+      )
     );
   }
+
   @override
-  RegExp get regExp => RegExp(r'\b(?![\d\.:][\d\.:]*\b)[a-zA-Z][^\s,\\\[\]():|]*(?:\s+[a-zA-Z][^\s,\\\[\]():|]*)*\b');
+  RegExp get regExp => RegExp(
+    r'(?<!<[^>]*:)(?![0-9:.+-]+\b)[^\s,\\\[\](){}: ]+(?:\s+[^\s,\\\[\](){}: ]+)*(?=[,\s:()]|$)',
+    caseSensitive: false,
+  );
 }
 
 class RegBreakText extends RegExpSpecialText {

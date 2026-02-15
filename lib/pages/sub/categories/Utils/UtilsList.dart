@@ -1,3 +1,4 @@
+import 'package:cimagen/pages/sub/InkJetUnclog.dart';
 import 'package:cimagen/pages/sub/categories/Utils/LoraMakerList.dart';
 import 'package:flutter/material.dart';
 
@@ -34,7 +35,14 @@ class UtilsList extends StatelessWidget {
           description: 'A utility for quickly, for example, transferring tags from one character to another',
           color: Color(0xffd38ae0),
           icon: Icons.tag,
-        )
+        ),
+        Util(
+            title: 'InkJet Unclog',
+            description: 'Printing a pattern for cleaning the printer',
+            color: Color(0xff9270c9),
+            icon: Icons.print,
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InkJetUnclog()))
+        ),
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
       itemBuilder: (ii) {
