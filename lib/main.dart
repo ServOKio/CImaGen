@@ -17,7 +17,6 @@ import 'package:cimagen/modules/Objectbox.dart';
 import 'package:cimagen/modules/SQLite.dart';
 import 'package:cimagen/modules/SaveManager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:dynamic_color/dynamic_color.dart';
 import 'package:floaty_nav_bar/res/floaty_nav_bar.dart';
 import 'package:floaty_nav_bar/res/models/floaty_action_button.dart';
 import 'package:floaty_nav_bar/res/models/floaty_tab.dart';
@@ -40,10 +39,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:system_theme/system_theme.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:intl/locale.dart' as intl;
 
+import 'components/Animations.dart';
 import 'components/AppBar.dart';
 import 'components/LoadingState.dart';
 import 'components/NotesSection.dart';
@@ -63,14 +64,13 @@ late SQLite sqLite;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize ONNX once here (on root isolate)
   try {
     await BackgroundRemover.instance.initializeOrt();
     debugPrint('ONNX runtime initialized successfully');
   } catch (e) {
     debugPrint('ONNX init failed: $e');
-    // Optionally show UI fallback or error
   }
+  await SystemTheme.accentColor.load();
   prefs = await SharedPreferences.getInstance();
 
   PackageInfo packageInfo = await PackageInfo.fromPlatform();
@@ -124,53 +124,55 @@ class Base extends StatelessWidget {
             ],
           ),
           child: Consumer(
-            builder: (context, provider, child) => DynamicColorBuilder(builder: (light, dark) {
-              intl.Locale? parsedLocale = (prefs.getString('language') ?? 'default') == 'default' ? null : intl.Locale.tryParse(prefs.getString('language')!);
-              return MaterialApp(
-                title: 'CImaGen',
-                navigatorKey: kBaseNavigatorKey,
-                theme: ThemeData(
-                    colorScheme: light != null ? light : ColorScheme.fromSeed(seedColor: Colors.lightBlue),
-                    useMaterial3: true,
-                ),
-                darkTheme: ThemeData(
-                    colorScheme: dark != null ? dark.copyWith(
-                      onSecondary: Color(0xffeeeaff),
-                      background: Colors.red,
-                      onBackground: Colors.redAccent,
-                      // onSurface: const Color(0xFF1a1c20),
-                      //surfaceContainerHighest: Color(0xff725cff),
-                      surface: const Color(0xFF1a1c20),
-                    ) : ColorScheme.fromSeed(seedColor: Colors.lightBlue, brightness: Brightness.dark),
-                    useMaterial3: true,
-                ).copyWith(
-                  scaffoldBackgroundColor: const Color(0xFF131517),
-                  dividerColor: const Color(0xFF2d2f32),
-                  dividerTheme: const DividerThemeData(
-                    color: Color(0xFF2d2f32),
-                  ),
-                ),
-                localizationsDelegates: [
-                  FlutterI18nDelegate(
-                    translationLoader: FileTranslationLoader(
-                      useCountryCode: true,
-                      fallbackFile: 'en_US',
-                      basePath: "assets/i18n",
-                      forcedLocale: parsedLocale != null ? Locale.fromSubtags(
-                        languageCode: parsedLocale.languageCode,
-                        countryCode: parsedLocale.countryCode,
-                        scriptCode: parsedLocale.scriptCode
-                      ) : null
-                    )
-                  ),
-                  GlobalMaterialLocalizations.delegate,
-                  GlobalWidgetsLocalizations.delegate
-                ],
-                debugShowCheckedModeBanner: true,
-                builder: FlutterI18n.rootAppBuilder(),
-                home: const Main()
-              );
-            })
+            builder: (context, provider, child) => SystemThemeBuilder(
+                builder: (BuildContext context, SystemAccentColor accent) {
+                  intl.Locale? parsedLocale = (prefs.getString('language') ?? 'default') == 'default' ? null : intl.Locale.tryParse(prefs.getString('language')!);
+                  return MaterialApp(
+                      title: 'CImaGen',
+                      navigatorKey: kBaseNavigatorKey,
+                      theme: ThemeData(
+                        colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.light),
+                        useMaterial3: true,
+                      ),
+                      darkTheme: ThemeData(
+                        colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.dark).copyWith(
+                          onSecondary: Color(0xffeeeaff),
+                          background: Colors.red,
+                          onBackground: Colors.redAccent,
+                          // onSurface: const Color(0xFF1a1c20),
+                          //surfaceContainerHighest: Color(0xff725cff),
+                          surface: const Color(0xFF1a1c20),
+                        ),
+                        useMaterial3: true,
+                      ).copyWith(
+                        scaffoldBackgroundColor: const Color(0xFF131517),
+                        dividerColor: const Color(0xFF2d2f32),
+                        dividerTheme: const DividerThemeData(
+                          color: Color(0xFF2d2f32),
+                        ),
+                      ),
+                      localizationsDelegates: [
+                        FlutterI18nDelegate(
+                            translationLoader: FileTranslationLoader(
+                                useCountryCode: true,
+                                fallbackFile: 'en_US',
+                                basePath: "assets/i18n",
+                                forcedLocale: parsedLocale != null ? Locale.fromSubtags(
+                                    languageCode: parsedLocale.languageCode,
+                                    countryCode: parsedLocale.countryCode,
+                                    scriptCode: parsedLocale.scriptCode
+                                ) : null
+                            )
+                        ),
+                        GlobalMaterialLocalizations.delegate,
+                        GlobalWidgetsLocalizations.delegate
+                      ],
+                      debugShowCheckedModeBanner: true,
+                      builder: FlutterI18n.rootAppBuilder(),
+                      home: const Main()
+                  );
+                }
+            )
           )
       )
     );
@@ -448,26 +450,71 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             Positioned(child: CAppBar()),
             // Notifications
             Positioned(
-                bottom: 90,
-                right: 14,
-                child: Container(
-                  // color: Colors.red,
-                    constraints: BoxConstraints(
-                        maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720,
-                        maxHeight: MediaQuery.of(context).size.height - (changeNotify ? 220 : 156)
-                    ),
-                    child: ChangeNotifierProvider(
-                        create: (context) => notificationManager,
-                        child:  Consumer<NotificationManager>(
-                            builder: (context, manager, child) => SingleChildScrollView(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!)).toList()
-                              ),
-                            )
-                        )
+              bottom: 90,
+              right: 14,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: changeNotify ? MediaQuery.of(context).size.width - 28 : 720,
+                  maxHeight: MediaQuery.of(context).size.height - (changeNotify ? 220 : 156)
+                ),
+                child: ChangeNotifierProvider(
+                  create: (context) => notificationManager,
+                  child:  Consumer<NotificationManager>(
+                    builder: (context, manager, child) => SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            // clipBehavior: Clip.none,
+                            margin: const EdgeInsets.only(top: 7),
+                            padding: const EdgeInsets.all(28),
+                            decoration: const BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.circular(7)),
+                              color: Colors.black,
+                            ),
+                            child: Row(
+                              children: [
+                                AnimatedSizeAndFade(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(7)
+                                        ),
+                                        width: 64,
+                                        height: 64,
+                                        child: Icon(Icons.snippet_folder_rounded, size: 64),
+                                      ),
+                                      const Gap(21),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('A gradient, with rounded corners, and a smooth (faded) background.', style: const TextStyle(fontWeight: FontWeight.w500)),
+                                      SelectableText('25% Complete', style: const TextStyle(color: Colors.grey)),
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 10),
+                                        child: CImaGenLinearProgressIndicator(progress: 0.5),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 21, color: Colors.grey), onPressed: () {  },
+                                )
+                              ],
+                            ),
+                          ),
+                          ...manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!))
+                        ]
+                      ),
                     )
+                  )
                 )
+              )
             ),
             if(Platform.isWindows || Platform.isLinux) Align(
               alignment: Alignment.bottomCenter,

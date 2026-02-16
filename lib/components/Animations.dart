@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 
 class AnimatedText extends StatefulWidget {
   const AnimatedText(
@@ -752,3 +753,61 @@ class _FadingCurvePainter extends CustomPainter {
 //   @override
 //   bool shouldRepaint(covariant _ShiftingCurvePainter old) => old.progress != progress;
 // }
+
+class CImaGenLinearProgressIndicator extends StatefulWidget {
+  double? progress;
+  CImaGenLinearProgressIndicator({
+    super.key,
+    this.progress
+  });
+
+  @override
+  State<CImaGenLinearProgressIndicator> createState() => _CImaGenLinearProgressIndicatorState();
+}
+
+class _CImaGenLinearProgressIndicatorState extends State<CImaGenLinearProgressIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints constraints) {
+        return Stack(
+          children: [
+            Container(
+              height: 5,
+              width: constraints.maxWidth,
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2.5),
+                  gradient: LinearGradient(colors: [
+                    Theme.of(context).colorScheme.primary.withAlpha(100),
+                    Color(0xFFFFFFFF).withAlpha(50),
+                  ], stops: [0, 1])
+              ),
+            ),
+            Container(
+              clipBehavior: Clip.antiAlias,
+              height: 5,
+              width: constraints.maxWidth / 2,
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2.5),
+                  gradient: LinearGradient(colors: [
+                    Theme.of(context).colorScheme.primaryContainer.withAlpha(120),
+                    Theme.of(context).colorScheme.primary
+                  ], stops: [0, 1])
+              ),
+              child: Shimmer.fromColors(
+                baseColor: Colors.transparent,
+                highlightColor: Colors.white.withAlpha(200),
+                child: Container(
+                  width: constraints.maxWidth / 2,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          ],
+        );
+      },
+    );
+  }
+}

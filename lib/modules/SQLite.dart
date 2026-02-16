@@ -521,6 +521,7 @@ class SQLite{
         String? host,
         RenderEngine? re,
       }) async {
+    debugPrint('sql:getImagesByDay $day $host $re');
     final dt = DateFormat('yyyy-MM-dd').parse(day);
     final dayKey = dt.year * 10000 + dt.month * 100 + dt.day;
 
@@ -841,6 +842,7 @@ class SQLite{
     required int offset,
     required int limit,
   }) async {
+    debugPrint('sql:getFoldersPaged $host $re $offset $limit');
     final days = await getAvailableDays(
       host: host,
       re: re,
@@ -1165,6 +1167,9 @@ class SQLite{
   ImageMeta _mapImage(Map<String, dynamic> m) => ImageMeta.fromSqlMap(m);
 
   String _cachePath(ImageMeta im) {
+    if(!im.isLocal && im.fullNetworkPath == null && im.fullPath != null){
+      return im.fullPath!;
+    }
     final cacheDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesCacheDir;
 
     final ext = im.specific?['hasAnimation'] == true ? 'png' : 'jpg';

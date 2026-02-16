@@ -8,9 +8,9 @@ import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gap/gap.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -23,6 +23,7 @@ import '../swarmUI/swarmModule.dart';
 class OnRemote extends ChangeNotifier implements AbMain{
   @override
   bool loaded = false;
+  bool offlineMode = false;
   String? error;
   @override
   bool get hasError => error != null;
@@ -52,13 +53,22 @@ class OnRemote extends ChangeNotifier implements AbMain{
   List<RenderEngine> _internalTabs = [];
 
   void findError(){
-    int notID = notificationManager!.show(
+    notificationManager!.show(
       thumbnail: const Icon(Icons.error, color: Colors.redAccent),
       title: 'Initialization problem',
       description: '${error!.startsWith('TimeoutException') ? 'The host did not return the information within 10 seconds' : 'Unknown error'}\nError: $error',
-      content: ElevatedButton(
-          onPressed: () => init(),
-          child: const Text("Try again", style: TextStyle(fontSize: 12))
+      content: Row(
+        children: [
+          ElevatedButton(
+              onPressed: () => init(offline: true),
+              child: const Text("Offline mode", style: TextStyle(fontSize: 12))
+          ),
+          Gap(7),
+          ElevatedButton(
+              onPressed: () => init(),
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          )
+        ],
       )
     );
     audioController!.player.play(AssetSource('audio/error.wav'));
@@ -83,9 +93,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   List<RenderEngine> inSMB = [];
 
   @override
-  Future<void> init() async {
-    bool _has_connection = false;
-    bool _has_200_code = false;
+  Future<void> init({bool? offline}) async {
     bool _has_infinite_image_browsing_extension = false;
 
     for (var e in watchList) {
@@ -98,6 +106,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
     inSMB.clear();
 
     // 0. Initial check
+
+
     if(!(prefs.containsKey('remote_webui_address') || prefs.containsKey('remote_webui_folder'))){
       int notID = 0;
       notID = notificationManager!.show(
@@ -344,11 +354,31 @@ class OnRemote extends ChangeNotifier implements AbMain{
           path: '/internal/sysinfo',
           queryParameters: {'attachment': 'false'}
       );
+
+      _host = Uri(
+          host: parse.host,
+          port: parse.port
+      ).toString();
+
+      if(offline ?? false){
+        _tabs = ['txt2img', 'img2img'];
+        _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
+        offlineMode = true;
+        loaded = true;
+
+        notificationManager!.show(
+          thumbnail: const Icon(Icons.signal_wifi_connected_no_internet_4, color: Colors.blue),
+          title: 'Offline mode is enabled',
+          description: 'You won\'t be able to index images or work with remote files, only with what\'s in the cache or local folder',
+          duration: Duration(seconds: 10)
+        );
+        audioController!.player.play(AssetSource('audio/info.wav'));
+
+        return;
+      }
       http.Client().get(base).then((res) async {
-        _has_connection = true;
         if(res.statusCode == 200){
           //print(res.body);
-          _has_200_code = true;
           var data = await json.decode(res.body);
           var exNames = data['Extensions'].map((ex) => ex['name'] as String).toList();
           _has_infinite_image_browsing_extension = exNames.contains('sd-webui-infinite-image-browsing');
@@ -374,10 +404,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
             return;
           }
 
-          _host = Uri(
-              host: parse.host,
-              port: parse.port
-          ).toString();
           Uri base = Uri(
             scheme: parse.scheme,
             host: parse.host,
@@ -471,11 +497,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
           })).then((res) async {
             if(res.statusCode == 200){
               //print(res.body);
-              _has_200_code = true;
-              _host = Uri(
-                  host: parse.host,
-                  port: parse.port
-              ).toString();
               var data = await json.decode(res.body);
               if(session_id == 'null'){
                 kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] = SwarmClientInfo(
@@ -550,17 +571,36 @@ class OnRemote extends ChangeNotifier implements AbMain{
             thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
             title: 'Initialization problem',
             description: 'Error: $e',
-            content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                style: ButtonStyle(
-                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                ),
-                onPressed: (){
-                  notificationManager!.close(notID);
-                  init();
-                },
-                child: const Text("Try again", style: TextStyle(fontSize: 12))
-            ))
+            content: Padding(
+                padding: EdgeInsets.only(top: 7),
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                        style: ButtonStyle(
+                            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                            shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                        ),
+                        onPressed: (){
+                          notificationManager!.close(notID);
+                          init(offline: true);
+                        },
+                        child: const Text("Offline mode", style: TextStyle(fontSize: 12))
+                    ),
+                    Gap(14),
+                    ElevatedButton(
+                        style: ButtonStyle(
+                            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                            shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                        ),
+                        onPressed: (){
+                          notificationManager!.close(notID);
+                          init();
+                        },
+                        child: const Text("Try again", style: TextStyle(fontSize: 12))
+                    ),
+                  ],
+                )
+            )
         );
         audioController!.player.play(AssetSource('audio/error.wav'));
       });
@@ -813,8 +853,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   Future<List<ImageMeta>> getFolderFiles(int section, String day) async {
-    // SELECT DISTINCT DATE(dateModified) AS dates, count(keyup) as total FROM images ORDER BY dates; // fasted
-    // SELECT DATE(dateModified) AS dates, count(keyup) as total FROM images GROUP BY DATE(dateModified) ORDER BY dates;
     return sqLite.getImagesByDay(day, host: host, re: software != Software.swarmUI ? _internalTabs[section] : null);
   }
 
@@ -888,6 +926,15 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   bool indexAll(int index) {
+    if(offlineMode){
+      notificationManager!.show(
+        thumbnail: const Icon(Icons.wifi_off, color: Colors.grey, size: 64),
+        title: 'Oops, problem...',
+        description: 'You are offline, so indexing is unavailable',
+        duration: Duration(seconds: 10)
+      );
+      return false;
+    }
     int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
         title: 'Starting indexing',
@@ -1245,7 +1292,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   Future getFoldersPaged(int tabIndex, {required int offset, required int limit}) {
-    return sqLite.getFoldersPaged(re: _internalTabs[tabIndex], offset: offset, limit: limit);
+    return sqLite.getFoldersPaged(re: _internalTabs[tabIndex], offset: offset, limit: limit, host: _host);
   }
 
   @override

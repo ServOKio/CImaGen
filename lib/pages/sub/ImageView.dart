@@ -274,7 +274,7 @@ class _ImageViewState extends State<ImageView> {
                 contextMenu: contextMenu,
                 child: Hero(
                     tag: widget.imageMeta.fileName,
-                    child: widget.imageMeta.fullImage != null || ((widget.imageMeta.fullPath != null && !widget.imageMeta.isLocal) || widget.imageMeta.tempFilePath == null)  ?
+                    child: !widget.imageMeta.isLocal ?
                     Image.memory(
                       widget.imageMeta.fullImage ?? widget.imageMeta.thumbnail!,
                       width: widget.imageMeta.size!.width / devicePixelRatio,
