@@ -62,7 +62,7 @@ dependencies:
   image_painter: ^0.7.1
   win32: ^5.5.0
   ffi: ^2.1.2
-  sqlite3_flutter_libs: ^0.5.21
+  sqlite3_flutter_libs: ^0.6.0+eol
   super_drag_and_drop: ^0.9.0-dev.6
   flutter_staggered_animations: ^1.1.1
   fast_csv: ^0.2.11
