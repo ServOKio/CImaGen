@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
+import '../../components/Animations.dart';
 import '../../constants.dart';
 import '../DataManager.dart';
 import '../swarmUI/swarmModule.dart';
@@ -106,8 +107,6 @@ class OnRemote extends ChangeNotifier implements AbMain{
     inSMB.clear();
 
     // 0. Initial check
-
-
     if(!(prefs.containsKey('remote_webui_address') || prefs.containsKey('remote_webui_folder'))){
       int notID = 0;
       notID = notificationManager!.show(
@@ -134,6 +133,34 @@ class OnRemote extends ChangeNotifier implements AbMain{
     bool useRemoteFolder = false;
 
     if(prefs.containsKey('remote_webui_folder')) {
+      if(!prefs.containsKey('remote_webui_address')){
+        int notID = 0;
+        notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.password_outlined, color: Colors.yellow),
+            title: 'It seems like something is missing...',
+            description: 'The remote address of the panel is not specified (it is needed for correct host indication and synchronization). Specify it in the settings in the remote connection section\bDev: remote_webui_address key',
+            content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                style: ButtonStyle(
+                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                ),
+                onPressed: (){
+                  notificationManager!.close(notID);
+                  init();
+                },
+                child: const Text("Try again", style: TextStyle(fontSize: 12))
+            ))
+        );
+        audioController!.player.play(AssetSource('audio/error.wav'));
+        return;
+      }
+      _remoteAddress = prefs.getString('remote_webui_address')!;
+      Uri parse = Uri.parse(_remoteAddress);
+
+      _host = Uri(
+          host: parse.host,
+          port: parse.port
+      ).toString();
       String remoteWebuiFolder = prefs.getString('remote_webui_folder')!;
       bool swarnPS = File('$remoteWebuiFolder/SwarmUI.sln').existsSync();
       bool sdWebUIConfig = File('$remoteWebuiFolder/config.json').existsSync();
@@ -756,9 +783,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
         notificationManager!.update(notID, 'title', 'Not bad...');
         notificationManager!.update(notID, 'description', 'We have received $co folders, and they are being read...');
         notificationManager!.update(notID, 'content', Container(
-          margin: const EdgeInsets.only(top: 7),
-          width: 100,
-          child: const LinearProgressIndicator(),
+          margin: const EdgeInsets.only(top: 10),
+          child: CImaGenLinearProgressIndicator(),
         ));
         notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
           baseColor: Colors.lightBlueAccent,
@@ -858,6 +884,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   String getFullUrlImage(ImageMeta im) {
+    if(!im.isLocal && im.fullNetworkPath == null) return '';
     Uri parse = Uri.parse(_remoteAddress);
     if(software == Software.stableDiffusionWebUI) {
       Uri full = Uri(
@@ -946,9 +973,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
       notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
       notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
       notificationManager!.update(notID, 'content', Container(
-        margin: const EdgeInsets.only(top: 7),
-        width: 100,
-        child: const LinearProgressIndicator(),
+        margin: const EdgeInsets.only(top: 10),
+        child: CImaGenLinearProgressIndicator(),
       ));
       notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
         baseColor: Colors.lightBlueAccent,
@@ -967,9 +993,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
           await _isDone();
           d++;
           notificationManager!.update(notID, 'content', Container(
-              margin: const EdgeInsets.only(top: 7),
-              width: 100,
-              child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
+            margin: const EdgeInsets.only(top: 10),
+            child: CImaGenLinearProgressIndicator(value: d * 1 / fo.length),
           ));
         } catch(e){
           int notID = notificationManager!.show(
@@ -1035,7 +1060,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         }
 
         ParseJob job = ParseJob(re: re);
-        int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false));
+        int jobID = await job.putAndGetJobID(fe.map((e) => e.path).toList(growable: false), host: _host);
 
         int notID = -1;
         if(fe.isNotEmpty) {
@@ -1043,9 +1068,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
               title: 'Indexing ${di.path}',
               description: 'We are processing ${fe.length} images, please wait',
               content: Container(
-                margin: const EdgeInsets.only(top: 7),
-                width: 100,
-                child: const LinearProgressIndicator(),
+                margin: const EdgeInsets.only(top: 10),
+                child: CImaGenLinearProgressIndicator(),
               )
           );
         }
@@ -1058,6 +1082,10 @@ class OnRemote extends ChangeNotifier implements AbMain{
             onProcess: (total, current, thumbnail) {
               if(notID == -1) return;
               notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
+              notificationManager!.update(notID, 'content', Container(
+                margin: const EdgeInsets.only(top: 10),
+                child: CImaGenLinearProgressIndicator(value: current * 1 / total),
+              ));
               if(thumbnail != null) {
                 notificationManager!.update(notID, 'thumbnail', Image.memory(
                   thumbnail,
@@ -1133,9 +1161,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
                 title: 'Indexing ${folder.getter}',
                 description: 'We are processing ${folderFilesRaw.length} images, please wait',
                 content: Container(
-                  margin: const EdgeInsets.only(top: 7),
-                  width: 100,
-                  child: const LinearProgressIndicator(),
+                  margin: const EdgeInsets.only(top: 10),
+                  child: CImaGenLinearProgressIndicator(),
                 )
             );
           }
@@ -1239,9 +1266,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
               title: 'Indexing ${folder.getter}',
               description: 'We are processing ${folderFilesPaths.length} images, please wait',
               content: Container(
-                margin: const EdgeInsets.only(top: 7),
-                width: 100,
-                child: const LinearProgressIndicator(),
+                margin: const EdgeInsets.only(top: 10),
+                child: CImaGenLinearProgressIndicator(),
               )
           );
         }

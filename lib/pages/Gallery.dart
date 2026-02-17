@@ -1187,6 +1187,11 @@ class _SidePreviewState extends State<SidePreview> {
   Widget build(BuildContext context) {
     String pa = display == null ? '' : display!.fullNetworkPath ?? context.read<ImageManager>().getter.getFullUrlImage(display!);
     Widget child;
+    // return Column(
+    //   children: [
+    //     SelectableText('isLocal ${display!.isLocal ? 'true' : 'false'}\nfullPath ${display!.fullPath}\ncacheFilePath ${display!.cacheFilePath}\nfullNetworkPath ${display!.fullNetworkPath}\ngetFullUrlImage ${context.read<ImageManager>().getter.getFullUrlImage(display!)}')
+    //   ],
+    // );
     if (display != null) {
       if (display!.isLocal) {
         child = Image.file(File(display!.fullPath!), gaplessPlayback: true);

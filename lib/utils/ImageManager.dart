@@ -220,6 +220,7 @@ class ParseJob {
 
   // path НОРМАЛИЗОВАНО
   Future<void> _parse(String? host) async {
+    // Host not work ONLY on local (not even SMB)
     if(_cache.isEmpty){
       if (kDebugMode) {
         print('putAndGetJobID: _cache.isEmpty');
@@ -250,10 +251,12 @@ class ParseJob {
         }
       }
       if(yes){
-        if(host == null){
+        JobImageFile? jobFile = raw.runtimeType == JobImageFile ? raw : null;
+        if(jobFile == null){
           try{
             ImageMeta? value = await parseImage(RenderEngine.unknown, path);
             if(value != null){
+              if(host != null) value.updateHost(host);
               _done.add(value);
               _controller.add(finished);
               if(filterByRe != null){
@@ -1583,6 +1586,13 @@ class ImageMeta {
     }
   }
 
+  void updateHost(String host){
+    this.host = host;
+    hostMD5 = md5.convert(utf8.encode(host)).toString();
+    final String parentFolder = p.basename(File(fullPath!).parent.path);
+    keyup = genHash(re, parentFolder, fileName, host: host);
+  }
+
   // ======================
   // SQL MAPPING
   // ======================
@@ -1648,11 +1658,6 @@ class ImageMeta {
 
     im.re = RenderEngine.values[im.dbRe];
     return im;
-  }
-
-
-  void updateHost(String host){
-    this.host = host;
   }
 
   ImageKey getKey(){

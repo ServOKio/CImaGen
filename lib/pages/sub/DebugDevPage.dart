@@ -130,10 +130,14 @@ class _DebugDevPageState extends State<DebugDevPage> {
                   duration: const Duration(milliseconds: 3800), // slower = calmer
                 ),
                 Gap(10),
-                FadingCurveLoader(
-                  size: const Size(400, 180),
-                  pathColor: Theme.of(context).colorScheme.primary,
-                ),
+                SizedBox(
+                  width: 100,
+                  height: 200,
+                  child: FadingCurveLoader(
+                    pathColor: Theme.of(context).colorScheme.primary,
+                    gridColor: Colors.transparent,
+                  ),
+                )
               ],
             ),
           )

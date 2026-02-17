@@ -131,10 +131,12 @@ class Base extends StatelessWidget {
                       title: 'CImaGen',
                       navigatorKey: kBaseNavigatorKey,
                       theme: ThemeData(
+                        fontFamily: 'Poppins',
                         colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.light),
                         useMaterial3: true,
                       ),
                       darkTheme: ThemeData(
+                        fontFamily: 'Poppins',
                         colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.dark).copyWith(
                           onSecondary: Color(0xffeeeaff),
                           background: Colors.red,
@@ -464,50 +466,51 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Container(
-                            // clipBehavior: Clip.none,
-                            margin: const EdgeInsets.only(top: 7),
-                            padding: const EdgeInsets.all(28),
-                            decoration: const BoxDecoration(
-                              borderRadius: BorderRadius.all(Radius.circular(7)),
-                              color: Colors.black,
-                            ),
-                            child: Row(
-                              children: [
-                                AnimatedSizeAndFade(
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(7)
-                                        ),
-                                        width: 64,
-                                        height: 64,
-                                        child: Icon(Icons.snippet_folder_rounded, size: 64),
-                                      ),
-                                      const Gap(21),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('A gradient, with rounded corners, and a smooth (faded) background.', style: const TextStyle(fontWeight: FontWeight.w500)),
-                                      SelectableText('25% Complete', style: const TextStyle(color: Colors.grey)),
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 10),
-                                        child: CImaGenLinearProgressIndicator(progress: 0.5),
-                                      )
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 21, color: Colors.grey), onPressed: () {  },
-                                )
-                              ],
-                            ),
-                          ),
+                          //Debug for notication
+                          // Container(
+                          //   // clipBehavior: Clip.none,
+                          //   margin: const EdgeInsets.only(top: 7),
+                          //   padding: const EdgeInsets.all(28),
+                          //   decoration: const BoxDecoration(
+                          //     borderRadius: BorderRadius.all(Radius.circular(7)),
+                          //     color: Colors.black,
+                          //   ),
+                          //   child: Row(
+                          //     children: [
+                          //       AnimatedSizeAndFade(
+                          //         child: Row(
+                          //           children: [
+                          //             Container(
+                          //               decoration: BoxDecoration(
+                          //                   borderRadius: BorderRadius.circular(7)
+                          //               ),
+                          //               width: 64,
+                          //               height: 64,
+                          //               child: Icon(Icons.snippet_folder_rounded, size: 64),
+                          //             ),
+                          //             const Gap(21),
+                          //           ],
+                          //         ),
+                          //       ),
+                          //       Expanded(
+                          //         child: Column(
+                          //           crossAxisAlignment: CrossAxisAlignment.start,
+                          //           children: [
+                          //             Text('A gradient, with rounded corners, and a smooth (faded) background.', style: const TextStyle(fontWeight: FontWeight.w500)),
+                          //             SelectableText('25% Complete', style: const TextStyle(color: Colors.grey)),
+                          //             Container(
+                          //               margin: const EdgeInsets.only(top: 10),
+                          //               child: CImaGenLinearProgressIndicator(value: 0.3),
+                          //             )
+                          //           ],
+                          //         ),
+                          //       ),
+                          //       IconButton(
+                          //         icon: const Icon(Icons.close, size: 21, color: Colors.grey), onPressed: () {  },
+                          //       )
+                          //     ],
+                          //   ),
+                          // ),
                           ...manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!))
                         ]
                       ),

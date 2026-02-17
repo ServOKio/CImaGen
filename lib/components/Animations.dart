@@ -349,20 +349,16 @@ double lerpDouble(double a, double b, double t) => a + (b - a) * t;
 class FadingCurveLoader extends StatefulWidget {
   const FadingCurveLoader({
     super.key,
-    this.size = const Size(360, 160),
     this.cycleDuration = const Duration(milliseconds: 3400),
     this.pathColor = const Color(0xFF2196F3),
     this.dotColor = Colors.white,
-    this.gridColor = Colors.grey,
-    this.gridOpacity = 0.14,
+    this.gridColor = Colors.grey
   });
 
-  final Size size;
   final Duration cycleDuration;
   final Color pathColor;
   final Color dotColor;
   final Color gridColor;
-  final double gridOpacity;
 
   @override
   State<FadingCurveLoader> createState() => _FadingCurveLoaderState();
@@ -389,20 +385,14 @@ class _FadingCurveLoaderState extends State<FadingCurveLoader>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: widget.size.width,
-      height: widget.size.height,
-      color: const Color(0xFF0F0F0F),
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) => CustomPaint(
-          painter: _FadingCurvePainter(
-            globalProgress: _controller.value,
-            pathColor: widget.pathColor,
-            dotColor: widget.dotColor,
-            gridColor: widget.gridColor.withOpacity(widget.gridOpacity),
-          ),
-          size: widget.size,
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => CustomPaint(
+        painter: _FadingCurvePainter(
+          globalProgress: _controller.value,
+          pathColor: widget.pathColor,
+          dotColor: widget.dotColor,
+          gridColor: widget.gridColor,
         ),
       ),
     );
@@ -455,10 +445,12 @@ class _FadingCurvePainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    final gridPaint = Paint()..color = gridColor..strokeWidth = 1.0;
-    const step = 20.0;
-    for (double x = 0; x <= w; x += step) canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
-    for (double y = 0; y <= h; y += step) canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+    if(gridColor != Colors.transparent){
+      final gridPaint = Paint()..color = gridColor..strokeWidth = 1.0;
+      const step = 20.0;
+      for (double x = 0; x <= w; x += step) canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
+      for (double y = 0; y <= h; y += step) canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+    }
 
     final pathPaint = Paint()
       ..style = PaintingStyle.stroke
@@ -515,24 +507,9 @@ class _FadingCurvePainter extends CustomPainter {
         }
       }
 
-     
-      bool showDot = true;
       double dotT = laneT;
 
-      if (inTransition) {
-        final t = _transProgress[i];
-        if (t < 0.65) {
-          showDot = false;          
-        } else {
-          dotT = (t - 0.65) / (1.0 - 0.65); 
-          final x = _cubicBezier(dotT, 0, w * 0.25, w * 0.75, w);
-          final y = _cubicBezier(dotT, targ.startY, targ.startY, targ.endY, targ.endY);
-          canvas.drawCircle(Offset(x, y.clamp(marginY, h - marginY)), 6.0, dotPaint);
-          showDot = false;
-        }
-      }
-
-      if (showDot) {
+      if (!inTransition) {
         final x = _cubicBezier(dotT, 0, w * 0.25, w * 0.75, w);
         final y = _cubicBezier(dotT, curr.startY, curr.startY, curr.endY, curr.endY);
         canvas.drawCircle(Offset(x, y.clamp(marginY, h - marginY)), 6.0, dotPaint);
@@ -755,10 +732,10 @@ class _FadingCurvePainter extends CustomPainter {
 // }
 
 class CImaGenLinearProgressIndicator extends StatefulWidget {
-  double? progress;
-  CImaGenLinearProgressIndicator({
+  final double? value;
+  const CImaGenLinearProgressIndicator({
     super.key,
-    this.progress
+    this.value
   });
 
   @override
@@ -772,6 +749,7 @@ class _CImaGenLinearProgressIndicatorState extends State<CImaGenLinearProgressIn
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        double? pro = widget.value != null ? widget.value! * constraints.maxWidth / 1 : null;
         return Stack(
           children: [
             Container(
@@ -788,7 +766,7 @@ class _CImaGenLinearProgressIndicatorState extends State<CImaGenLinearProgressIn
             Container(
               clipBehavior: Clip.antiAlias,
               height: 5,
-              width: constraints.maxWidth / 2,
+              width: pro,
               decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2.5),
                   gradient: LinearGradient(colors: [
@@ -800,7 +778,7 @@ class _CImaGenLinearProgressIndicatorState extends State<CImaGenLinearProgressIn
                 baseColor: Colors.transparent,
                 highlightColor: Colors.white.withAlpha(200),
                 child: Container(
-                  width: constraints.maxWidth / 2,
+                  width: pro,
                   color: Colors.white,
                 ),
               ),
