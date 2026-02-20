@@ -108,6 +108,8 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   image_background_remover: ^2.0.0
+  lottie: ^3.3.2
+  flutter_screenutil: ^5.9.3
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
@@ -131,6 +133,7 @@ flutter:
     - assets/audio/open.wav
     - assets/audio/wrong.wav
     - assets/icons/icon128white.png
+    - assets/icons/lottie/
   fonts:
     - family: Montserrat
       fonts:

@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:provider/provider.dart';
 
@@ -39,6 +41,7 @@ class _DevicePreviewState extends State<DevicePreview> {
       provider = widget.imageMeta.fullImage != null ? MemoryImage(widget.imageMeta.fullImage!) : FileImage(File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? widget.imageMeta.cacheFilePath ?? 'e.png'));
     }
 
+    ImageSize? size = widget.imageMeta.size;
     return Scaffold(
         extendBodyBehindAppBar: true,
         appBar: appBar,
@@ -47,18 +50,84 @@ class _DevicePreviewState extends State<DevicePreview> {
             child: SingleChildScrollView(
               child: Wrap(
                 children: [
-                  IMac(provider, widget.imageMeta.size),
-                  Samsung(provider, widget.imageMeta.size),
-                  ViewSonic(provider, widget.imageMeta.size),
-                  LG(provider, widget.imageMeta.size),
-                  RedMagic8SPro(provider, widget.imageMeta.size),
-                  SamsungS20Plus(provider, widget.imageMeta.size),
-                  WatchFit(provider, widget.imageMeta.size),
-                  Qin(provider, widget.imageMeta.size),
-                  SteamDesk(provider, widget.imageMeta.size)
+                  YourDevice(provider, size),
+                  IMac(provider, size),
+                  Samsung(provider, size),
+                  ViewSonic(provider, size),
+                  LG(provider, size),
+                  RedMagic8SPro(provider, size),
+                  SamsungS20Plus(provider, size),
+                  WatchFit(provider, size),
+                  Qin(provider, size),
+                  SteamDesk(provider, size)
                 ],
               ),
             )
+        )
+    );
+  }
+
+  Widget YourDevice(ImageProvider provider, ImageSize? size){
+
+    ImageSize deviceSize = ImageSize(width: ScreenUtil().screenWidth.toInt(), height: MediaQuery.of(context).size.height.toInt());
+
+    return Container(
+        padding: EdgeInsets.all(18),
+        decoration: BoxDecoration(
+            border: Border.all(
+                color: Color(0xffd8d8d8)
+            )
+        ),
+        width: 500,
+        child: Column(
+          children: [
+            Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                  color: Color(0xff2c2c2c),
+                  borderRadius: BorderRadius.circular(2)
+              ),
+              padding: EdgeInsets.only(bottom: 10),
+              child: Container(
+                  color: Color(0xff222020),
+                  padding: EdgeInsets.all(3),
+                  child: Stack(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: deviceSize.aspectRatio(),
+                        child: Image(
+                          fit: BoxFit.cover,
+                          image: provider,
+                        ),
+                      ),
+                      Positioned.fill(child: Container(color: Colors.black.withAlpha(50))),
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('7:39', style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w400)),
+                            Text('Monday, January 8', style: const TextStyle(fontWeight: FontWeight.w200)),
+                          ],
+                        ),
+                      )
+                    ],
+                  )
+              ),
+            ),
+            Column(
+              children: [
+                Text('Your Device', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
+                Text('21:9 ${View.of(context).physicalSize.width}x${deviceSize.height}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= deviceSize.width && size.height >= deviceSize.height ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
+              ],
+            )
+          ],
         )
     );
   }

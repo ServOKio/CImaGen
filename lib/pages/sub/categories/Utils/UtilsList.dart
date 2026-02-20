@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../components/CustomMasonryView.dart';
 import '../../../Home.dart';
+import '../../LottieJsonPreview.dart';
 
 class UtilsList extends StatelessWidget {
   final double breakpoint = 600.0;
@@ -42,6 +43,13 @@ class UtilsList extends StatelessWidget {
             color: Color(0xff9270c9),
             icon: Icons.print,
             onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InkJetUnclog()))
+        ),
+        Util(
+            title: 'Lottie JSON bath preview',
+            description: 'Select folder and preview all icons',
+            color: Color(0xffc2e35f),
+            icon: Icons.find_in_page,
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LottieJsonPreview(directoryPath: 'D:\\icons',)))
         ),
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),

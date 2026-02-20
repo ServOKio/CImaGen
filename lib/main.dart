@@ -25,8 +25,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gap/gap.dart';
 import 'package:image_background_remover/image_background_remover.dart';
+import 'package:lottie/lottie.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:feedback/feedback.dart';
@@ -44,7 +46,6 @@ import 'package:system_theme/system_theme.dart';
 import 'package:path/path.dart' as p;
 import 'package:intl/locale.dart' as intl;
 
-import 'components/Animations.dart';
 import 'components/AppBar.dart';
 import 'components/LoadingState.dart';
 import 'components/NotesSection.dart';
@@ -64,6 +65,7 @@ late SQLite sqLite;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ScreenUtil.ensureScreenSize();
   try {
     await BackgroundRemover.instance.initializeOrt();
     debugPrint('ONNX runtime initialized successfully');
@@ -124,57 +126,60 @@ class Base extends StatelessWidget {
             ],
           ),
           child: Consumer(
-            builder: (context, provider, child) => SystemThemeBuilder(
-                builder: (BuildContext context, SystemAccentColor accent) {
-                  intl.Locale? parsedLocale = (prefs.getString('language') ?? 'default') == 'default' ? null : intl.Locale.tryParse(prefs.getString('language')!);
-                  return MaterialApp(
-                      title: 'CImaGen',
-                      navigatorKey: kBaseNavigatorKey,
-                      theme: ThemeData(
-                        fontFamily: 'Poppins',
-                        colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.light),
-                        useMaterial3: true,
-                      ),
-                      darkTheme: ThemeData(
-                        fontFamily: 'Poppins',
-                        colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.dark).copyWith(
-                          onSecondary: Color(0xffeeeaff),
-                          background: Colors.red,
-                          onBackground: Colors.redAccent,
-                          // onSurface: const Color(0xFF1a1c20),
-                          //surfaceContainerHighest: Color(0xff725cff),
-                          surface: const Color(0xFF1a1c20),
+            builder: (ctx, provider, child) {
+              ScreenUtil.init(ctx);
+              return SystemThemeBuilder(
+                  builder: (BuildContext context, SystemAccentColor accent) {
+                    intl.Locale? parsedLocale = (prefs.getString('language') ?? 'default') == 'default' ? null : intl.Locale.tryParse(prefs.getString('language')!);
+                    return MaterialApp(
+                        title: 'CImaGen',
+                        navigatorKey: kBaseNavigatorKey,
+                        theme: ThemeData(
+                          fontFamily: 'Poppins',
+                          colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.light),
+                          useMaterial3: true,
                         ),
-                        useMaterial3: true,
-                      ).copyWith(
-                        scaffoldBackgroundColor: const Color(0xFF131517),
-                        dividerColor: const Color(0xFF2d2f32),
-                        dividerTheme: const DividerThemeData(
-                          color: Color(0xFF2d2f32),
+                        darkTheme: ThemeData(
+                          fontFamily: 'Poppins',
+                          colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.dark).copyWith(
+                            onSecondary: Color(0xffeeeaff),
+                            background: Colors.red,
+                            onBackground: Colors.redAccent,
+                            // onSurface: const Color(0xFF1a1c20),
+                            //surfaceContainerHighest: Color(0xff725cff),
+                            surface: const Color(0xFF1a1c20),
+                          ),
+                          useMaterial3: true,
+                        ).copyWith(
+                          scaffoldBackgroundColor: const Color(0xFF131517),
+                          dividerColor: const Color(0xFF2d2f32),
+                          dividerTheme: const DividerThemeData(
+                            color: Color(0xFF2d2f32),
+                          ),
                         ),
-                      ),
-                      localizationsDelegates: [
-                        FlutterI18nDelegate(
-                            translationLoader: FileTranslationLoader(
-                                useCountryCode: true,
-                                fallbackFile: 'en_US',
-                                basePath: "assets/i18n",
-                                forcedLocale: parsedLocale != null ? Locale.fromSubtags(
-                                    languageCode: parsedLocale.languageCode,
-                                    countryCode: parsedLocale.countryCode,
-                                    scriptCode: parsedLocale.scriptCode
-                                ) : null
-                            )
-                        ),
-                        GlobalMaterialLocalizations.delegate,
-                        GlobalWidgetsLocalizations.delegate
-                      ],
-                      debugShowCheckedModeBanner: true,
-                      builder: FlutterI18n.rootAppBuilder(),
-                      home: const Main()
-                  );
-                }
-            )
+                        localizationsDelegates: [
+                          FlutterI18nDelegate(
+                              translationLoader: FileTranslationLoader(
+                                  useCountryCode: true,
+                                  fallbackFile: 'en_US',
+                                  basePath: "assets/i18n",
+                                  forcedLocale: parsedLocale != null ? Locale.fromSubtags(
+                                      languageCode: parsedLocale.languageCode,
+                                      countryCode: parsedLocale.countryCode,
+                                      scriptCode: parsedLocale.scriptCode
+                                  ) : null
+                              )
+                          ),
+                          GlobalMaterialLocalizations.delegate,
+                          GlobalWidgetsLocalizations.delegate
+                        ],
+                        debugShowCheckedModeBanner: true,
+                        builder: FlutterI18n.rootAppBuilder(),
+                        home: const Main()
+                    );
+                  }
+              );
+            }
           )
       )
     );
@@ -529,59 +534,74 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                     titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(0),
                     title: 'Home',
-                    icon: Icon(Icons.inbox),
-                    floatyActionButton: FloatyActionButton(
-                      icon: const Icon(Icons.chair),
-                      onTap: (){
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => YearEndResults(year: 2025)));
-                      },
+                    icon: LottieTabIcon(
+                      isSelected: _currentPageIndex == 0,
+                      asset: 'assets/icons/lottie/direct normal.json',
                     ),
+                    // floatyActionButton: FloatyActionButton(
+                    //   icon: const Icon(Icons.chair),
+                    //   onTap: (){
+                    //     Navigator.push(context, MaterialPageRoute(builder: (context) => YearEndResults(year: 2025)));
+                    //   },
+                    // ),
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 1,
                     titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(1),
                     title: 'Gallery',
-                    icon: Icon(Icons.auto_awesome_mosaic_outlined),
-                    floatyActionButton: FloatyActionButton(
-                      icon: const Icon(Icons.autorenew),
-                      onTap: (){
-
-                      },
+                    icon: LottieTabIcon(
+                      isSelected: _currentPageIndex == 1,
+                      asset: 'assets/icons/lottie/element-4.json',
                     ),
+                    // floatyActionButton: FloatyActionButton(
+                    //   icon: const Icon(Icons.autorenew),
+                    //   onTap: (){
+                    //
+                    //   },
+                    // ),
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 2,
                     titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(2),
                     title: 'Render History',
-                    icon: Icon(Icons.account_tree_sharp),
-                    floatyActionButton: FloatyActionButton(
-                      icon: const Icon(Icons.auto_graph),
-                      onTap: (){
-
-                      },
+                    icon: LottieTabIcon(
+                      isSelected: _currentPageIndex == 2,
+                      asset: 'assets/icons/lottie/data-2.json',
                     ),
+                    // floatyActionButton: FloatyActionButton(
+                    //   icon: const Icon(Icons.auto_graph),
+                    //   onTap: (){
+                    //
+                    //   },
+                    // ),
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 3,
                     titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(3),
                     title: 'Comparison',
-                    icon: Icon(Icons.compare),
-                    floatyActionButton: FloatyActionButton(
-                      icon: const Icon(Icons.share),
-                      onTap: (){
-
-                      },
+                    icon: LottieTabIcon(
+                      isSelected: _currentPageIndex == 3,
+                      asset: 'assets/icons/lottie/clipboard.json',
                     ),
+                    // floatyActionButton: FloatyActionButton(
+                    //   icon: const Icon(Icons.share),
+                    //   onTap: (){
+                    //
+                    //   },
+                    // ),
                   ),
                   FloatyTab(
                     isSelected: _currentPageIndex == 4,
                     titleStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary),
                     onTap: () => _updateCurrentPageIndex(4),
                     title: 'Settings',
-                    icon: Icon(Icons.settings),
+                    icon: LottieTabIcon(
+                      isSelected: _currentPageIndex == 4,
+                      asset: 'assets/icons/lottie/setting.json',
+                    ),
                   ),
                 ],
               ),
@@ -691,6 +711,63 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
       index,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
+    );
+  }
+}
+
+class LottieTabIcon extends StatefulWidget {
+  final bool isSelected;
+  final String asset;
+
+  const LottieTabIcon({super.key, required this.isSelected, required this.asset});
+
+  @override
+  State<LottieTabIcon> createState() => _LottieTabIconState();
+}
+
+class _LottieTabIconState extends State<LottieTabIcon> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+
+    if (widget.isSelected) _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(LottieTabIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isSelected && !oldWidget.isSelected) {
+      _controller.reset();
+      _controller.forward();
+    } else if (!widget.isSelected) {
+      _controller.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorFiltered(
+      colorFilter: ColorFilter.mode(
+        widget.isSelected ? Theme.of(context).colorScheme.onPrimary : Theme.of(context).iconTheme.color!,
+        BlendMode.srcIn,
+      ),
+      child: Lottie.asset(
+        widget.asset,
+        controller: _controller,
+        width: 30,
+        height: 30,
+        fit: BoxFit.fill,
+        onLoaded: (composition) => _controller.duration = composition.duration,
+      ),
     );
   }
 }

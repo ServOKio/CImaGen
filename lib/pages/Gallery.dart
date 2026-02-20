@@ -21,6 +21,7 @@ import 'package:flutter_resizable_container/flutter_resizable_container.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:gap/gap.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
@@ -1112,14 +1113,25 @@ class _FloatPreviewState extends State<FloatPreview> {
         }
       }
     } else {
-      child = const Center(
+      child = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
-            Gap(4),
-            Text('Well well well...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            Text('Just hover over the image to see it', style: TextStyle(color: Colors.grey)),
+            ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+                child:  Lottie.asset(
+                  'assets/icons/lottie/image-two.json',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.fill,
+                )
+            ),
+            const Gap(4),
+            const Text('Well well well...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text('Just hover over the image to see it', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -1251,16 +1263,25 @@ class _SidePreviewState extends State<SidePreview> {
         }
       }
     } else {
-      child = const Center(
+      child = Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.image_search_outlined, size: 50, color: Colors.white),
-            Gap(4),
-            Text('Well well well...',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            Text('Just hover over the image to see it',
-                style: TextStyle(color: Colors.grey)),
+            ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                Colors.white,
+                BlendMode.srcIn,
+              ),
+              child:  Lottie.asset(
+                'assets/icons/lottie/image-two.json',
+                width: 64,
+                height: 64,
+                fit: BoxFit.fill,
+              )
+            ),
+            const Gap(4),
+            const Text('Well well well...', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text('Just hover over the image to see it', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
