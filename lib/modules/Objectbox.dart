@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
@@ -445,17 +446,17 @@ class ObjectboxDB {
               if (kDebugMode) {
                 print('ok $i / ${files.length - i}');
               }
-              notificationManager!.update(notID, 'description', 'ok $i / ${files.length - i}');
+              notificationManager!.update(notID, (o) => o.setDescription('ok $i / ${files.length - i}'));
             } else if (kDebugMode) {
               print('Can\'t parse ${ent.path}');
             }
           } catch (e) {
-            int d2 = notificationManager!.show(
-                thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-                title: 'Error in for',
-                description: 'Error: $e\nFile: ${ent.path}'
+            notificationManager!.show(
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+              title: 'Error in for',
+              description: 'Error: $e\nFile: ${ent.path}',
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
           }
           i++;
         }
@@ -467,7 +468,7 @@ class ObjectboxDB {
         // 3. Save to json
         File file = File(p.join(dbPath.absolute.path, 'broken_sizes_images.json'));
         await file.writeAsString(jsonEncode(sizes));
-        notificationManager!.update(notID, 'description', 'Loaded, check ${file.path}');
+        notificationManager!.update(notID, (o) => o.setDescription('Loaded, check ${file.path}'));
         Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
       });
     }
@@ -482,8 +483,8 @@ class ObjectboxDB {
         .build();
 
     final biggest = query.findFirst();
-    print(readableFileSize(biggest!.fileSize!));
-    print(biggest.getTempFilePath());
+    debugPrint(readableFileSize(biggest!.fileSize!));
+    debugPrint(biggest.getTempFilePath());
     query.close();
   }
 }

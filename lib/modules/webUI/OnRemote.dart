@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   @override
   bool loaded = false;
   bool offlineMode = false;
+  @override
   String? error;
   @override
   bool get hasError => error != null;
@@ -45,8 +47,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   Map<String, dynamic> get config => _config;
 
   // WebUI
-  String _webui_root = '';
-  String _webui_outputs_folder = '';
+  String webuiRoot = '';
 
   List<String> _tabs = [];
   @override
@@ -70,18 +71,19 @@ class OnRemote extends ChangeNotifier implements AbMain{
               child: const Text("Try again", style: TextStyle(fontSize: 12))
           )
         ],
-      )
+      ),
+      sound: NtSound.error
     );
-    audioController!.player.play(AssetSource('audio/error.wav'));
   }
 
-  String _sd_root = '';
+  String sdRoot = '';
 
-  Map<String, String> _webuiPaths = {};
+  final Map<String, String> _webuiPaths = {};
   @override
   Map<String, String> get webuiPaths => _webuiPaths;
 
-  Map<int, ParseJob> _jobs = {};
+  final Map<int, ParseJob> _jobs = {};
+  @override
   Map<int, ParseJob> get getJobs => _jobs;
   int getJobCountActive() {
     _jobs.removeWhere((key, value) => value.controller.isClosed);
@@ -95,7 +97,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
   @override
   Future<void> init({bool? offline}) async {
-    bool _has_infinite_image_browsing_extension = false;
+    bool hasInfiniteImageBrowsingExtension = false;
 
     for (var e in watchList) {
       e.cancel();
@@ -123,9 +125,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
                 init();
               },
               child: const Text('Try again', style: TextStyle(fontSize: 12))
-          ))
+          )),
+        sound: NtSound.error
       );
-      audioController!.player.play(AssetSource('audio/error.wav'));
       return;
     }
 
@@ -136,22 +138,22 @@ class OnRemote extends ChangeNotifier implements AbMain{
       if(!prefs.containsKey('remote_webui_address')){
         int notID = 0;
         notID = notificationManager!.show(
-            thumbnail: const Icon(Icons.password_outlined, color: Colors.yellow),
-            title: 'It seems like something is missing...',
-            description: 'The remote address of the panel is not specified (it is needed for correct host indication and synchronization). Specify it in the settings in the remote connection section\bDev: remote_webui_address key',
-            content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                style: ButtonStyle(
-                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                ),
-                onPressed: (){
-                  notificationManager!.close(notID);
-                  init();
-                },
-                child: const Text("Try again", style: TextStyle(fontSize: 12))
-            ))
+          thumbnail: const Icon(Icons.password_outlined, color: Colors.yellow),
+          title: 'It seems like something is missing...',
+          description: 'The remote address of the panel is not specified (it is needed for correct host indication and synchronization). Specify it in the settings in the remote connection section\bDev: remote_webui_address key',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                init();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          )),
+          sound: NtSound.error
         );
-        audioController!.player.play(AssetSource('audio/error.wav'));
         return;
       }
       _remoteAddress = prefs.getString('remote_webui_address')!;
@@ -167,13 +169,13 @@ class OnRemote extends ChangeNotifier implements AbMain{
       if (swarnPS || sdWebUIConfig) {
         useRemoteFolder = true;
       } else {
-        int notID = notificationManager!.show(
-            thumbnail: const Icon(Icons.forest_outlined, color: Colors.yellow),
-            title: 'We cannot recognize the system used in the folder $remoteWebuiFolder',
-            description: 'We will try to use remote access to the web panel if it is specified'
+        notificationManager!.show(
+          thumbnail: const Icon(Icons.forest_outlined, color: Colors.yellow),
+          title: 'We cannot recognize the system used in the folder $remoteWebuiFolder',
+          description: 'We will try to use remote access to the web panel if it is specified',
+          autoCloseDuration: const Duration(milliseconds: 10000),
+          sound: NtSound.wrong
         );
-        audioController!.player.play(AssetSource('audio/wrong.wav'));
-        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
       }
     }
 
@@ -183,24 +185,24 @@ class OnRemote extends ChangeNotifier implements AbMain{
       bool sdWebUIConfig = File('$remoteWebuiFolder/config.json').existsSync();
       if(swarnPS){
         // Output / local /
-        int notID = notificationManager!.show(
-            thumbnail: const Icon(Icons.forest_outlined, color: Colors.yellow),
-            title: 'SwarmUI is not supported locally at this time',
-            description: 'In the future we will add support for it as soon as we understand how it differs from the swan'
+        notificationManager!.show(
+          thumbnail: const Icon(Icons.forest_outlined, color: Colors.yellow),
+          title: 'SwarmUI is not supported locally at this time',
+          description: 'In the future we will add support for it as soon as we understand how it differs from the swan',
+          autoCloseDuration: const Duration(milliseconds: 10000),
+          sound: NtSound.wrong
         );
-        audioController!.player.play(AssetSource('audio/wrong.wav'));
-        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
       } else if(sdWebUIConfig){
         // HAhhDbawey8dQ3EDI7vw673vf6 (died)
-        _webui_root = remoteWebuiFolder;
+        webuiRoot = remoteWebuiFolder;
         final String response = File('$remoteWebuiFolder/config.json').readAsStringSync();
         _config = await json.decode(response);
         // paths
-        String i2igOut = p.join(_webui_root, _config['outdir_img2img_grids']);
-        String i2iOut = p.join(_webui_root, _config['outdir_img2img_samples']);
-        String t2igOut = p.join(_webui_root, _config['outdir_txt2img_grids']);
-        String t2iOut = p.join(_webui_root, _config['outdir_txt2img_samples']);
-        String eiOut = p.join(_webui_root, _config['outdir_extras_samples']);
+        String i2igOut = p.join(webuiRoot, _config['outdir_img2img_grids']);
+        String i2iOut = p.join(webuiRoot, _config['outdir_img2img_samples']);
+        String t2igOut = p.join(webuiRoot, _config['outdir_txt2img_grids']);
+        String t2iOut = p.join(webuiRoot, _config['outdir_txt2img_samples']);
+        String eiOut = p.join(webuiRoot, _config['outdir_extras_samples']);
 
         bool hasOutputsFolder = prefs.containsKey('remote_webui_outputs_folder');
         String outBase = hasOutputsFolder ? normalizePath(p.join(prefs.getString('remote_webui_outputs_folder')!.split('outputs')[0], 'outputs')) : '';
@@ -261,7 +263,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         // extra
         bool eE = Directory(eiOut).existsSync();
         if(!eE){
-          t = p.join(outBase, eiOut.split('outputs').last.replaceFirst(RegExp(r'\\|/'), ''));
+          t = p.join(outBase, eiOut.split('outputs').last.replaceFirst(RegExp(r'[\\/]'), ''));
           if(Directory(t).existsSync()){
             eiOut = t;
             eE = true;
@@ -289,40 +291,40 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
         if(useAddon.isNotEmpty){
           if(hasOutputsFolder) {
-            int notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.network_ping, color: Colors.blueAccent, size: 32),
-                title: 'Some access points have been changed',
-                description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} will be processed over the internet, not locally'
+            notificationManager!.show(
+              thumbnail: const Icon(Icons.network_ping, color: Colors.blueAccent, size: 32),
+              title: 'Some access points have been changed',
+              description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} will be processed over the internet, not locally',
+              sound: NtSound.wrong
             );
-            audioController!.player.play(AssetSource('audio/wrong.wav'));
           } else {
             int notID = 0;
             notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.network_ping, color: Colors.redAccent, size: 32),
-                title: 'Some access points require remote access',
-                description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} should be processed over the internet, not locally, but "outputs folder" is not configured',
-                content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                    style: ButtonStyle(
-                        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                    ),
-                    onPressed: (){
-                      notificationManager!.close(notID);
-                      init();
-                    },
-                    child: const Text("Try again", style: TextStyle(fontSize: 12))
-                ))
+              thumbnail: const Icon(Icons.network_ping, color: Colors.redAccent, size: 32),
+              title: 'Some access points require remote access',
+              description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} should be processed over the internet, not locally, but "outputs folder" is not configured',
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
+                  child: const Text("Try again", style: TextStyle(fontSize: 12))
+              )),
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
           }
         } else {
-          int notID = notificationManager!.show(
-              thumbnail: const Icon(Icons.auto_awesome, color: Colors.blue),
-              title: 'Welcome to remote Stable Diffusion',
-              description: 'It seems that all folders work stably, the application will work through a remote folder at maximum speed\n${_webuiPaths.keys.map((key) => _webuiPaths[key]).join('\n')}'
+          notificationManager!.show(
+            thumbnail: const Icon(Icons.auto_awesome, color: Colors.blue),
+            title: 'Welcome to remote Stable Diffusion',
+            description: 'It seems that all folders work stably, the application will work through a remote folder at maximum speed\n${_webuiPaths.keys.map((key) => _webuiPaths[key]).join('\n')}',
+            autoCloseDuration: const Duration(milliseconds: 10000),
+            sound: NtSound.info
           );
-          audioController!.player.play(AssetSource('audio/info.wav'));
-          Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
         }
 
         if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
@@ -330,44 +332,44 @@ class OnRemote extends ChangeNotifier implements AbMain{
       } else {
         int notID = 0;
         notID = notificationManager!.show(
-            thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-            title: 'Initialization problem',
-            description: 'We cannot recognize the system used in the folder $remoteWebuiFolder',
-            content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                style: ButtonStyle(
-                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                ),
-                onPressed: (){
-                  notificationManager!.close(notID);
-                  init();
-                },
-                child: const Text("Try again", style: TextStyle(fontSize: 12))
-            ))
+          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+          title: 'Initialization problem',
+          description: 'We cannot recognize the system used in the folder $remoteWebuiFolder',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                init();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          )),
+          sound: NtSound.error
         );
-        audioController!.player.play(AssetSource('audio/error.wav'));
         return;
       }
     } else {
       if(!prefs.containsKey('remote_webui_address')){
         int notID = 0;
         notID = notificationManager!.show(
-            thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-            title: 'Initialization problem',
-            description: 'The remote address of the panel is not specified. Specify it in the settings in the remote connection section\bDev: remote_webui_address key',
-            content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                style: ButtonStyle(
-                    foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                ),
-                onPressed: (){
-                  notificationManager!.close(notID);
-                  init();
-                },
-                child: const Text("Try again", style: TextStyle(fontSize: 12))
-            ))
+          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+          title: 'Initialization problem',
+          description: 'The remote address of the panel is not specified. Specify it in the settings in the remote connection section\bDev: remote_webui_address key',
+          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+              style: ButtonStyle(
+                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+              ),
+              onPressed: (){
+                notificationManager!.close(notID);
+                init();
+              },
+              child: const Text("Try again", style: TextStyle(fontSize: 12))
+          )),
+          sound: NtSound.error
         );
-        audioController!.player.play(AssetSource('audio/error.wav'));
         return;
       }
       _remoteAddress = prefs.getString('remote_webui_address')!;
@@ -397,10 +399,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
           thumbnail: const Icon(Icons.signal_wifi_connected_no_internet_4, color: Colors.blue),
           title: 'Offline mode is enabled',
           description: 'You won\'t be able to index images or work with remote files, only with what\'s in the cache or local folder',
-          duration: Duration(seconds: 10)
+          autoCloseDuration: Duration(seconds: 10),
+          sound: NtSound.info
         );
-        audioController!.player.play(AssetSource('audio/info.wav'));
-
         return;
       }
       http.Client().get(base).then((res) async {
@@ -408,26 +409,26 @@ class OnRemote extends ChangeNotifier implements AbMain{
           //print(res.body);
           var data = await json.decode(res.body);
           var exNames = data['Extensions'].map((ex) => ex['name'] as String).toList();
-          _has_infinite_image_browsing_extension = exNames.contains('sd-webui-infinite-image-browsing');
-          if(!_has_infinite_image_browsing_extension){
+          hasInfiniteImageBrowsingExtension = exNames.contains('sd-webui-infinite-image-browsing');
+          if(!hasInfiniteImageBrowsingExtension){
             int notID = 0;
             notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.warning, color: Colors.redAccent),
-                title: 'One of the Dependencies is missing',
-                description: 'sd-webui-infinite-image-browsing addon not found',
-                content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                    style: ButtonStyle(
-                        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                    ),
-                    onPressed: (){
-                      notificationManager!.close(notID);
-                      init();
-                    },
-                    child: const Text("Try again", style: TextStyle(fontSize: 12))
-                ))
+              thumbnail: const Icon(Icons.warning, color: Colors.redAccent),
+              title: 'One of the Dependencies is missing',
+              description: 'sd-webui-infinite-image-browsing addon not found',
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
+                  child: const Text("Try again", style: TextStyle(fontSize: 12))
+              )),
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
             return;
           }
 
@@ -445,17 +446,17 @@ class OnRemote extends ChangeNotifier implements AbMain{
           }).timeout(const Duration(seconds: 10)).then((res) async {
             if(res.statusCode == 200){
               var data = await json.decode(res.body);
-              _sd_root = data['sd_cwd'];
+              sdRoot = data['sd_cwd'];
 
               //reForge has difference
               _webuiPaths.addAll({
-                'outdir_extras-images': data['global_setting']['outdir_extras_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/extras-images')),
-                'outdir_img2img-grids': data['global_setting']['outdir_img2img_grids'] ?? normalizePath(p.join(_sd_root, 'outputs/img2img-grids')),
-                'outdir_img2img-images': data['global_setting']['outdir_img2img_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/img2img-images')),
-                'outdir_txt2img-grids': data['global_setting']['outdir_txt2img_grids'] ?? normalizePath(p.join(_sd_root, 'outputs/txt2img-grids')),
-                'outdir_txt2img-images': data['global_setting']['outdir_txt2img_samples'] ?? normalizePath(p.join(_sd_root, 'outputs/txt2img-images')),
-                'outdir_save': data['global_setting']['outdir_save'] ?? normalizePath(p.join(_sd_root, data['global_setting']['outdir_save'])),
-                'outdir_init': data['global_setting']['outdir_init_images'] ?? normalizePath(p.join(_sd_root, data['global_setting']['outdir_init_images']))
+                'outdir_extras-images': data['global_setting']['outdir_extras_samples'] ?? normalizePath(p.join(sdRoot, 'outputs/extras-images')),
+                'outdir_img2img-grids': data['global_setting']['outdir_img2img_grids'] ?? normalizePath(p.join(sdRoot, 'outputs/img2img-grids')),
+                'outdir_img2img-images': data['global_setting']['outdir_img2img_samples'] ?? normalizePath(p.join(sdRoot, 'outputs/img2img-images')),
+                'outdir_txt2img-grids': data['global_setting']['outdir_txt2img_grids'] ?? normalizePath(p.join(sdRoot, 'outputs/txt2img-grids')),
+                'outdir_txt2img-images': data['global_setting']['outdir_txt2img_samples'] ?? normalizePath(p.join(sdRoot, 'outputs/txt2img-images')),
+                'outdir_save': data['global_setting']['outdir_save'] ?? normalizePath(p.join(sdRoot, data['global_setting']['outdir_save'])),
+                'outdir_init': data['global_setting']['outdir_init_images'] ?? normalizePath(p.join(sdRoot, data['global_setting']['outdir_init_images']))
               });
               software = Software.stableDiffusionWebUI;
               _tabs = ['txt2img', 'img2img'];
@@ -463,14 +464,12 @@ class OnRemote extends ChangeNotifier implements AbMain{
               useAddon.addAll(_internalTabs);
               loaded = true;
               int notID = notificationManager!.show(
-                  thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
-                  title: 'Welcome to remote Stable Diffusion',
-                  description: 'Connected to $_remoteAddress\n${useAddon.join(', ')}\n${_webuiPaths.keys.map((k) => _webuiPaths[k]).join('\n')}'
+                thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
+                title: 'Welcome to remote Stable Diffusion',
+                description: 'Connected to $_remoteAddress\n${useAddon.join(', ')}\n${_webuiPaths.keys.map((k) => _webuiPaths[k]).join('\n')}',
+                autoCloseDuration: const Duration(milliseconds: 10000),
+                sound: NtSound.info
               );
-              audioController!.player.play(AssetSource('audio/info.wav'));
-              Future.delayed(const Duration(milliseconds: 10000), () {
-                notificationManager!.close(notID);
-              });
             } else {
               if (kDebugMode) {
                 print('idi naxyi ${res.statusCode}');
@@ -485,34 +484,34 @@ class OnRemote extends ChangeNotifier implements AbMain{
 
             int notID = 0;
             notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
-                title: 'Error on OnRemote.dart',
-                description: e.toString(),
-                content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                    style: ButtonStyle(
-                        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                        shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                    ),
-                    onPressed: (){
-                      notificationManager!.close(notID);
-                      init();
-                    },
-                    child: const Text("Try again", style: TextStyle(fontSize: 12))
-                ))
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
+              title: 'Error on OnRemote.dart',
+              description: e.toString(),
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
+                  child: const Text("Try again", style: TextStyle(fontSize: 12))
+              )),
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
             findError();
           });
         } else {
           // Not sd, swarm ?
           // 1. Need session token
-          String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+          String sessionId = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
 
           Uri base = Uri(
               scheme: parse.scheme,
               host: parse.host,
               port: parse.port,
-              path: '/API/${session_id != 'null' ? 'GetCurrentStatus' : 'GetNewSession'}'
+              path: '/API/${sessionId != 'null' ? 'GetCurrentStatus' : 'GetNewSession'}'
           );
           http.Client().post(base, headers: {
             "User-Agent": userAgent,
@@ -520,12 +519,12 @@ class OnRemote extends ChangeNotifier implements AbMain{
             "Accept-Language": "en,en-US;q=0.5",
             "Content-Type": "application/json"
           }, body: jsonEncode(<String, String>{
-            'session_id': session_id
+            'session_id': sessionId
           })).then((res) async {
             if(res.statusCode == 200){
               //print(res.body);
               var data = await json.decode(res.body);
-              if(session_id == 'null'){
+              if(sessionId == 'null'){
                 kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] = SwarmClientInfo(
                     sessionID: data['session_id'],
                     userID: data['user_id'],
@@ -541,42 +540,20 @@ class OnRemote extends ChangeNotifier implements AbMain{
               loaded = true;
               SwarmClientInfo info = (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo);
               int notID = notificationManager!.show(
-                  thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
-                  title: 'Welcome to SwarmUI, ${info.userID}',
-                  description: 'Server: ${info.serverID}\nSession ID: ${info.sessionID}'
+                thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
+                title: 'Welcome to SwarmUI, ${info.userID}',
+                description: 'Server: ${info.serverID}\nSession ID: ${info.sessionID}',
+                autoCloseDuration: const Duration(milliseconds: 10000),
+                sound: NtSound.info
               );
-              audioController!.player.play(AssetSource('audio/info.wav'));
-              Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
             } else {
               // TODO
               // Not swarm, comfui ?
               int notID = 0;
               notID = notificationManager!.show(
-                  thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
-                  title: 'Initialization problem',
-                  description: 'Error: Code is not 200: ${res.statusCode}\n${res.body}',
-                  content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-                      style: ButtonStyle(
-                          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                      ),
-                      onPressed: (){
-                        notificationManager!.close(notID);
-                        init();
-                      },
-                      child: const Text("Try again", style: TextStyle(fontSize: 12))
-                  ))
-              );
-              audioController!.player.play(AssetSource('audio/error.wav'));
-            }
-            notifyListeners();
-            if(!loaded) findError();
-          }).catchError((e, stack){
-            int notID = 0;
-            notID = notificationManager!.show(
                 thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
-                title: 'SwarmUI initialization problem',
-                description: 'Error: $e\n$stack',
+                title: 'Initialization problem',
+                description: 'Error: Code is not 200: ${res.statusCode}\n${res.body}',
                 content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
                     style: ButtonStyle(
                         foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
@@ -587,9 +564,31 @@ class OnRemote extends ChangeNotifier implements AbMain{
                       init();
                     },
                     child: const Text("Try again", style: TextStyle(fontSize: 12))
-                ))
+                )),
+                sound: NtSound.error
+              );
+            }
+            notifyListeners();
+            if(!loaded) findError();
+          }).catchError((e, stack){
+            int notID = 0;
+            notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
+              title: 'SwarmUI initialization problem',
+              description: 'Error: $e\n$stack',
+              content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+                  style: ButtonStyle(
+                      foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                      shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                  ),
+                  onPressed: (){
+                    notificationManager!.close(notID);
+                    init();
+                  },
+                  child: const Text("Try again", style: TextStyle(fontSize: 12))
+              )),
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
           });
         }
       }).catchError((e){
@@ -599,37 +598,37 @@ class OnRemote extends ChangeNotifier implements AbMain{
             title: 'Initialization problem',
             description: 'Error: $e',
             content: Padding(
-                padding: EdgeInsets.only(top: 7),
-                child: Row(
-                  children: [
-                    ElevatedButton(
-                        style: ButtonStyle(
-                            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                            shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                        ),
-                        onPressed: (){
-                          notificationManager!.close(notID);
-                          init(offline: true);
-                        },
-                        child: const Text("Offline mode", style: TextStyle(fontSize: 12))
-                    ),
-                    Gap(14),
-                    ElevatedButton(
-                        style: ButtonStyle(
-                            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                            shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                        ),
-                        onPressed: (){
-                          notificationManager!.close(notID);
-                          init();
-                        },
-                        child: const Text("Try again", style: TextStyle(fontSize: 12))
-                    ),
-                  ],
-                )
-            )
+              padding: EdgeInsets.only(top: 7),
+              child: Row(
+                children: [
+                  ElevatedButton(
+                      style: ButtonStyle(
+                          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                      ),
+                      onPressed: (){
+                        notificationManager!.close(notID);
+                        init(offline: true);
+                      },
+                      child: const Text("Offline mode", style: TextStyle(fontSize: 12))
+                  ),
+                  Gap(14),
+                  ElevatedButton(
+                      style: ButtonStyle(
+                          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                      ),
+                      onPressed: (){
+                        notificationManager!.close(notID);
+                        init();
+                      },
+                      child: const Text("Try again", style: TextStyle(fontSize: 12))
+                  ),
+                ],
+              )
+          ),
+          sound: NtSound.error
         );
-        audioController!.player.play(AssetSource('audio/error.wav'));
       });
     }
   }
@@ -725,7 +724,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
             i++;
           }
         } else {
-          print('idi naxyi ${res.statusCode}');
+          debugPrint('idi naxyi ${res.statusCode}');
         }
       } else {
         // Local files (SMB!)
@@ -751,13 +750,13 @@ class OnRemote extends ChangeNotifier implements AbMain{
       }
     } else if(software == Software.swarmUI) {
       int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.inbox_outlined, color: Colors.blue),
-          title: 'Getting all folders',
-          description: 'Preparations are underway...'
+        thumbnail: const Icon(Icons.inbox_outlined, color: Colors.blue),
+        title: 'Getting all folders',
+        description: 'Preparations are underway...',
+        sound: NtSound.info
       );
-      audioController!.player.play(AssetSource('audio/info.wav'));
 
-      String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+      String sessionId = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,
@@ -770,7 +769,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"
       }, body: jsonEncode(<String, String>{
-        'session_id': session_id,
+        'session_id': sessionId,
         'depth': '10',
         'path': '',
         'sortBy': 'Name',
@@ -780,17 +779,19 @@ class OnRemote extends ChangeNotifier implements AbMain{
         List<String> files = List<String>.from(await json.decode(res.body)['folders']);
         int co = files.length;
 
-        notificationManager!.update(notID, 'title', 'Not bad...');
-        notificationManager!.update(notID, 'description', 'We have received $co folders, and they are being read...');
-        notificationManager!.update(notID, 'content', Container(
-          margin: const EdgeInsets.only(top: 10),
-          child: CImaGenLinearProgressIndicator(),
-        ));
-        notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
-          baseColor: Colors.lightBlueAccent,
-          highlightColor: Colors.blueAccent.withOpacity(0.3),
-          child: const Icon(Icons.inbox, color: Colors.white, size: 64),
-        ));
+        notificationManager!.update(notID, (o){
+          o.setTitle('Not bad...');
+          o.setDescription('We have received $co folders, and they are being read...');
+          o.setContent(Container(
+            margin: const EdgeInsets.only(top: 10),
+            child: CImaGenLinearProgressIndicator(),
+          ));
+          o.setThumbnail(Shimmer.fromColors(
+            baseColor: Colors.lightBlueAccent,
+            highlightColor: Colors.blueAccent.withAlpha(76),
+            child: const Icon(Icons.inbox, color: Colors.white, size: 64),
+          ));
+        });
 
         for (var i = 0; i < co; i++) {
           String folderPath = files[i];
@@ -808,7 +809,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
               "Accept-Language": "en,en-US;q=0.5",
               "Content-Type": "application/json"
             }, body: jsonEncode(<String, String>{
-              'session_id': session_id,
+              'session_id': sessionId,
               'depth': '1',
               'path': folderPath,
               'sortBy': 'Name',
@@ -844,21 +845,23 @@ class OnRemote extends ChangeNotifier implements AbMain{
                 isLocal: false
             ));
           } on Exception catch(e){
-            int notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.error_outline, color: Colors.yellow),
-                title: 'Can\'t parse $folderPath',
-                description: 'Error: $e'
+            notificationManager!.show(
+              thumbnail: const Icon(Icons.error_outline, color: Colors.yellow),
+              title: 'Can\'t parse $folderPath',
+              description: 'Error: $e',
+              autoCloseDuration: const Duration(milliseconds: 10000),
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
-            Future.delayed(const Duration(milliseconds: 10000), () {
-              notificationManager!.close(notID);
-            });
           }
-          notificationManager!.update(notID, 'content', Container(
+          notificationManager!.update(notID, (o) => o.setContent(Container(
               margin: const EdgeInsets.only(top: 7),
               width: 100,
               child: LinearProgressIndicator(value: (i * 100 / co) / 100)
-          ));
+          )));
+
+          // +---------------------------
+          // Don't touch
+          // +---------------------------
           await Future.delayed(const Duration(milliseconds: 500), (){});
         }
       } else if (kDebugMode) {
@@ -869,9 +872,9 @@ class OnRemote extends ChangeNotifier implements AbMain{
       int notID = notificationManager!.show(
         thumbnail: const Icon(Icons.error, color: Colors.redAccent),
         title: 'Internal error',
-        description: 'software: ${software.toString()}'
+        description: 'software: ${software.toString()}',
+        sound: NtSound.error
       );
-      audioController!.player.play(AssetSource('audio/error.wav'));
       Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
     }
     return list;
@@ -958,7 +961,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         thumbnail: const Icon(Icons.wifi_off, color: Colors.grey, size: 64),
         title: 'Oops, problem...',
         description: 'You are offline, so indexing is unavailable',
-        duration: Duration(seconds: 10)
+        autoCloseDuration: Duration(seconds: 10)
       );
       return false;
     }
@@ -970,39 +973,41 @@ class OnRemote extends ChangeNotifier implements AbMain{
     getAllFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
-      notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
-      notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
-      notificationManager!.update(notID, 'content', Container(
-        margin: const EdgeInsets.only(top: 10),
-        child: CImaGenLinearProgressIndicator(),
-      ));
-      notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
-        baseColor: Colors.lightBlueAccent,
-        highlightColor: Colors.blueAccent.withOpacity(0.3),
-        child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
-      ));
+      notificationManager!.update(notID, (o){
+        o.setTitle('Indexing ${tabs[index]}');
+        o.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+        o.setContent(Container(
+          margin: const EdgeInsets.only(top: 10),
+          child: CImaGenLinearProgressIndicator(),
+        ));
+        o.setThumbnail(Shimmer.fromColors(
+          baseColor: Colors.lightBlueAccent,
+          highlightColor: Colors.blueAccent.withAlpha(76),
+          child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+        ));
+      });
       int d = 0;
       for(Folder f in fo){
         try{
           // То что уже есть, чтобы не трогать
           List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
-          StreamController co = await indexFolder(f, hashes: ima, re: _internalTabs[index]);
+          await indexFolder(f, hashes: ima, re: _internalTabs[index]);
           if (kDebugMode) {
             print('jobs co $getJobCountActive()');
           }
           await _isDone();
           d++;
-          notificationManager!.update(notID, 'content', Container(
+          notificationManager!.update(notID, (o) => o.setContent(Container(
             margin: const EdgeInsets.only(top: 10),
             child: CImaGenLinearProgressIndicator(value: d * 1 / fo.length),
-          ));
+          )));
         } catch(e){
           int notID = notificationManager!.show(
-              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-              title: 'Error processing folder ${f.getter}',
-              description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e'
+            thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+            title: 'Error processing folder ${f.getter}',
+            description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e',
+            sound: NtSound.error
           );
-          audioController!.player.play(AssetSource('audio/error.wav'));
           Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
         }
       }
@@ -1025,7 +1030,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
   DateFormat format = DateFormat("yyyy-MM-dd HH:mm:ss");
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
+  Future<StreamController<ImageMeta>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     Uri parse = Uri.parse(_remoteAddress);
     if (kDebugMode) {
       print('indexFolder: ${folder.getter} ${hashes?.length}');
@@ -1081,18 +1086,20 @@ class OnRemote extends ChangeNotifier implements AbMain{
             },
             onProcess: (total, current, thumbnail) {
               if(notID == -1) return;
-              notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-              notificationManager!.update(notID, 'content', Container(
-                margin: const EdgeInsets.only(top: 10),
-                child: CImaGenLinearProgressIndicator(value: current * 1 / total),
-              ));
-              if(thumbnail != null) {
-                notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  thumbnail,
-                  filterQuality: FilterQuality.low,
-                  gaplessPlayback: true,
+              notificationManager!.update(notID, (o) {
+                o.setDescription('We are processing $total/$current images, please wait');
+                o.setContent(Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  child: CImaGenLinearProgressIndicator(value: current * 1 / total),
                 ));
-              }
+                if(thumbnail != null) {
+                  o.setThumbnail(Image.memory(
+                    thumbnail,
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                  ));
+                }
+              });
             }
         );
 
@@ -1175,14 +1182,16 @@ class OnRemote extends ChangeNotifier implements AbMain{
               },
               onProcess: (total, current, thumbnail) {
                 if(notID == -1) return;
-                notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-                if(thumbnail != null) {
-                  notificationManager!.update(notID, 'thumbnail', Image.memory(
-                    thumbnail,
-                    filterQuality: FilterQuality.low,
-                    gaplessPlayback: true,
-                  ));
-                }
+                notificationManager!.update(notID, (o){
+                  o.setDescription('We are processing $total/$current images, please wait');
+                  if(thumbnail != null) {
+                    o.setThumbnail(Image.memory(
+                      thumbnail,
+                      filterQuality: FilterQuality.low,
+                      gaplessPlayback: true,
+                    ));
+                  }
+                });
               }
           );
           _jobs[jobID] = job;
@@ -1190,8 +1199,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
           // Return job id
           return job.controller;
         } else {
-          late final StreamController<List<ImageMeta>> controller;
-          controller = StreamController<List<ImageMeta>>(
+          late final StreamController<ImageMeta> controller;
+          controller = StreamController<ImageMeta>(
             onListen: () async {
               await controller.close();
             },
@@ -1200,7 +1209,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         }
       }
     } else if(software == Software.swarmUI) {
-      String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+      String sessionId = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,
@@ -1213,7 +1222,7 @@ class OnRemote extends ChangeNotifier implements AbMain{
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"
       }, body: jsonEncode(<String, String>{
-        'session_id': session_id,
+        'session_id': sessionId,
         'depth': '1',
         'path': folder.getter,
         'sortBy': 'Name',
@@ -1280,14 +1289,16 @@ class OnRemote extends ChangeNotifier implements AbMain{
             },
             onProcess: (total, current, thumbnail) {
               if(notID == -1) return;
-              notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-              if(thumbnail != null) {
-                notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  thumbnail,
-                  filterQuality: FilterQuality.low,
-                  gaplessPlayback: true,
-                ));
-              }
+              notificationManager!.update(notID, (o){
+                o.setDescription('We are processing $total/$current images, please wait');
+                if(thumbnail != null) {
+                  o.setThumbnail(Image.memory(
+                    thumbnail,
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                  ));
+                }
+              });
             }
         );
         _jobs[jobID] = job;
@@ -1295,8 +1306,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
         // Return job id
         return job.controller;
       } else {
-        late final StreamController<List<ImageMeta>> controller;
-        controller = StreamController<List<ImageMeta>>(
+        late final StreamController<ImageMeta> controller;
+        controller = StreamController<ImageMeta>(
           onListen: () async {
             await controller.close();
           },
@@ -1304,8 +1315,8 @@ class OnRemote extends ChangeNotifier implements AbMain{
         return controller;
       }
     } else {
-      late final StreamController<List<ImageMeta>> controller;
-      controller = StreamController<List<ImageMeta>>(
+      late final StreamController<ImageMeta> controller;
+      controller = StreamController<ImageMeta>(
         onListen: () async {
           await controller.close();
         },

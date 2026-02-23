@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/components/ArtistDefaultStypeFinder.dart';
 import 'package:cimagen/components/TagSearcher.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:extended_text_field/extended_text_field.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_charts/flutter_charts.dart';
 import 'package:gap/gap.dart';
@@ -693,24 +696,15 @@ class LoraSpecialText extends RegExpSpecialText {
     final weightStr = parts.length > 2 ? parts[2].trim() : '1.0';
     final weight = double.tryParse(weightStr) ?? 1.0;
 
-    return ExtendedWidgetSpan(
+    final displayStyle = textStyle?.copyWith(
+      color: Colors.cyanAccent,
+      fontStyle: FontStyle.italic,
+    );
+
+    return SpecialTextSpan(
+      text: fullText,
       actualText: fullText,
-      child: Tooltip(
-        message: '$type: $name\nweight: $weight',
-        preferBelow: true,
-        decoration: BoxDecoration(
-          color: Colors.black87,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        textStyle: const TextStyle(color: Colors.white),
-        child: Text(
-          fullText,
-          style: textStyle?.copyWith(
-            color: Colors.cyanAccent,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ),
+      style: displayStyle,
     );
   }
 
@@ -733,119 +727,6 @@ class RegExtraCommaText extends RegExpSpecialText {
   );
 }
 
-class RegAttentionText extends RegExpSpecialText {
-  final Map<String, TagInfo> _tags = kBaseNavigatorKey.currentContext!.read<DataManager>().e621Tags;
-  final Map<String, Map<String, dynamic>> _tagStats;
-
-  RegAttentionText(String fullText): _tagStats = parsePromptTagStats(fullText), super();
-
-  static Map<String, Map<String, dynamic>> parsePromptTagStats(String text) {
-    final parsed = parsePromptTagsAndWeights(text);
-
-    final stats = <String, Map<String, dynamic>>{};
-
-    for (final entry in parsed) {
-      final raw = entry[0] as String;
-      final weight = entry[1] as double;
-
-      if (raw == 'BREAK' || weight < 0) continue;
-
-      String norm = raw
-          .replaceAll('by ', '')
-          .trim()
-          .replaceAll(' ', '_')
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
-
-      if (norm.isEmpty) continue;
-
-      if (!stats.containsKey(norm)) {
-        stats[norm] = {'weight': 0.0, 'count': 0};
-      }
-
-      stats[norm]!['weight'] = stats[norm]!['weight'] + weight;
-      stats[norm]!['count'] = stats[norm]!['count'] + 1;
-    }
-
-    return stats;
-  }
-
-  @override
-  InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}){
-    String raw = m.group(0)!;
-    String normTag = raw
-        .replaceAll('by ', '')
-        .trim()
-        .replaceAll(' ', '_')
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
-
-    final stats = _tagStats[normTag];
-    final promptWeight = stats?['weight'] as double? ?? 1.0;
-    final occurrenceCount = stats?['count'] as int? ?? 1;
-
-    final tagInfo = _tags[normTag];
-    final bool hasInfo = tagInfo != null;
-    final bool popular = hasInfo && tagInfo.count >= 50;
-    final bool isDuplicate = occurrenceCount > 1;
-
-    Color? textColor;
-    Paint? bgPaint;
-
-    if (isDuplicate) {
-      textColor = Colors.purple;
-      bgPaint = Paint()..color = Colors.purple.withAlpha(50);
-    } else if (!hasInfo) {
-      textColor = Colors.red;
-      bgPaint = Paint()..color = Colors.red.withAlpha(40);
-    } else if (!popular) {
-      textColor = Colors.yellow;
-      bgPaint = Paint()..color = Colors.yellow.withAlpha(35);
-    }
-
-    if (bgPaint != null) {
-      final factor = (promptWeight.clamp(0.6, 2.5) - 0.6) / 1.9;
-      final alpha = (bgPaint.color.alpha * (0.5 + factor * 0.5)).round();
-      bgPaint.color = bgPaint.color.withAlpha(alpha);
-    }
-
-    final tooltipLines = <TextSpan>[
-      TextSpan(text: 'Tag count: '), TextSpan(text: '${tagInfo?.count ?? '-'}\n', style: const TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
-      TextSpan(text: 'Prompt weight: '), TextSpan(text: '${promptWeight.toStringAsFixed(2)}\n', style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-      if(tagInfo?.count != null) ...[TextSpan(text: 'Count*weight: '), TextSpan(text: '${(tagInfo!.count * promptWeight).toStringAsFixed(2)}\n', style: const TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold))],
-      if (occurrenceCount > 1) ...[TextSpan(text: 'Appears in prompt: '),TextSpan(text: '$occurrenceCount×\n', style: const TextStyle(color: Colors.purpleAccent)),]
-    ];
-
-    return ExtendedWidgetSpan(
-      actualText: raw,
-      child: Tooltip(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        textStyle: const TextStyle(color: Colors.white),
-        richMessage: TextSpan(children: tooltipLines),
-        preferBelow: true,
-        child: Text(
-          raw,
-          style: textStyle?.copyWith(
-            color: textColor,
-            background: bgPaint,
-            fontWeight: promptWeight > 1.25 || isDuplicate ? FontWeight.w600 : null,
-          ),
-        ),
-      )
-    );
-  }
-
-  @override
-  RegExp get regExp => RegExp(
-    r'(?<!<[^>]*:)(?![0-9:.+-]+\b)[^\s,\\\[\](){}: ]+(?:\s+[^\s,\\\[\](){}: ]+)*(?=[,\s:()]|$)',
-    caseSensitive: false,
-  );
-}
-
 class RegBreakText extends RegExpSpecialText {
   @override
   InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
@@ -857,4 +738,338 @@ class RegBreakText extends RegExpSpecialText {
   }
   @override
   RegExp get regExp => reBreak;
+}
+
+class PromptSelectableWithHover extends StatefulWidget {
+  final String text;
+  final TextStyle baseStyle;
+
+  const PromptSelectableWithHover({
+    Key? key,
+    required this.text,
+    required this.baseStyle,
+  }) : super(key: key);
+
+  @override
+  _PromptSelectableWithHoverState createState() => _PromptSelectableWithHoverState();
+}
+
+class RegAttentionText extends RegExpSpecialText {
+  final Map<String, TagInfo> _tags = kBaseNavigatorKey.currentContext!.read<DataManager>().e621Tags;
+  final Map<String, Map<String, dynamic>> _tagStats;
+  RegAttentionText(String fullText) : _tagStats = parsePromptTagStats(fullText), super();
+
+  static Map<String, Map<String, dynamic>> parsePromptTagStats(String text) {
+    final parsed = parsePromptTagsAndWeights(text);
+    final stats = <String, Map<String, dynamic>>{};
+    for (final entry in parsed) {
+      final raw = entry[0] as String;
+      final weight = entry[1] as double;
+      if (raw == 'BREAK' || weight < 0) continue;
+      String norm = raw
+          .replaceAll('by ', '')
+          .trim()
+          .replaceAll(' ', '_')
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+      if (norm.isEmpty) continue;
+      stats.putIfAbsent(norm, () => {'weight': 0.0, 'count': 0});
+      stats[norm]!['weight'] = stats[norm]!['weight'] + weight;
+      stats[norm]!['count'] = stats[norm]!['count'] + 1;
+    }
+    return stats;
+  }
+
+  @override
+  InlineSpan finishText(int s, Match m, {TextStyle? textStyle, SpecialTextGestureTapCallback? onTap}) {
+    final raw = m.group(0)!;
+    final normTag = raw
+        .replaceAll('by ', '')
+        .trim()
+        .replaceAll(' ', '_')
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+
+    final stats = _tagStats[normTag];
+    final promptWeight = stats?['weight'] as double? ?? 1.0;
+    final occurrenceCount = stats?['count'] as int? ?? 1;
+    final tagInfo = _tags[normTag];
+    final bool hasInfo = tagInfo != null;
+    final bool popular = hasInfo && tagInfo.count >= 50;
+    final bool isDuplicate = occurrenceCount > 1;
+
+    Color? textColor;
+    Paint? bgPaint;
+    if (isDuplicate) {
+      textColor = Colors.purple;
+      bgPaint = Paint()..color = Colors.purple.withAlpha(50);
+    } else if (!hasInfo) {
+      textColor = Colors.red;
+      bgPaint = Paint()..color = Colors.red.withAlpha(40);
+    } else if (!popular) {
+      textColor = Colors.yellow;
+      bgPaint = Paint()..color = Colors.yellow.withAlpha(35);
+    }
+    if (bgPaint != null) {
+      final factor = (promptWeight.clamp(0.6, 2.5) - 0.6) / 1.9;
+      final alpha = (bgPaint.color.alpha * (0.5 + factor * 0.5)).round();
+      bgPaint.color = bgPaint.color.withAlpha(alpha);
+    }
+
+    return SpecialTextSpan(
+      text: raw,
+      actualText: raw,
+      style: textStyle?.copyWith(
+        color: textColor,
+        background: bgPaint,
+        fontWeight: promptWeight > 1.25 || isDuplicate ? FontWeight.w600 : null,
+      ),
+    );
+  }
+
+  @override
+  RegExp get regExp => RegExp(
+    r'(?<!<[^>]*:)(?![0-9:.+-]+\b)[^\s,\\\[\](){}: ]+(?:\s+[^\s,\\\[\](){}: ]+)*(?=[,\s:()]|$)',
+    caseSensitive: false,
+  );
+}
+
+class _PromptSelectableWithHoverState extends State<PromptSelectableWithHover> {
+  final GlobalKey _textKey = GlobalKey();
+  OverlayEntry? _overlay;
+  Timer? _hideTimer;
+  final Duration _tooltipShowDelay = Duration(milliseconds: 100);
+  final Duration _tooltipHideDelay = Duration(milliseconds: 150);
+  TextSpan? _builtSpan;
+  List<_TokenRange> _tokens = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _buildSpanAndTokens();
+  }
+
+  @override
+  void didUpdateWidget(covariant PromptSelectableWithHover oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text || oldWidget.baseStyle != widget.baseStyle) {
+      _buildSpanAndTokens();
+    }
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _buildSpanAndTokens() {
+    _builtSpan = PromptTextSpanBuilder(widget.text).build(widget.text, textStyle: widget.baseStyle);
+
+    final attentionReg = RegAttentionText('').regExp;
+    final loraReg = RegExp(r'<(?:lora|lyco|hypernet|embedding|ti):[^>:]+?(?::[^>]*)?>', caseSensitive: false);
+
+    final matches = <Match>[];
+    matches.addAll(attentionReg.allMatches(widget.text));
+    matches.addAll(loraReg.allMatches(widget.text));
+
+    matches.sort((a, b) => a.start.compareTo(b.start));
+
+    _tokens = matches.map((m) {
+      final raw = m.group(0)!;
+      final token = _TokenRange(start: m.start, end: m.end, raw: raw);
+      token.tooltip = _createTooltipFor(raw, widget.text);
+      return token;
+    }).toList();
+  }
+
+
+  Map<String, String> _createTooltipFor(String raw, String fullText) {
+    if (raw.startsWith('<') && raw.contains(':')) {
+      final inner = raw.substring(1, raw.length - 1);
+      final parts = inner.split(':');
+      final type = parts.isNotEmpty ? parts[0].trim() : '';
+      final name = parts.length > 1 ? parts[1].trim() : '';
+      final weightStr = parts.length > 2 ? parts[2].trim() : '1.0';
+      final weight = double.tryParse(weightStr) ?? 1.0;
+
+      return {
+        'tag': raw,
+        'type': type,
+        'name': name,
+        'weight': weight.toStringAsFixed(2),
+
+        'count': '-',
+        'countWeight': '-',
+        'occurrences': '1',
+      };
+    }
+
+    final normTag = raw
+        .replaceAll('by ', '')
+        .trim()
+        .replaceAll(' ', '_')
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9_]'), '_');
+
+    final parsedStats = RegAttentionText.parsePromptTagStats(fullText);
+    final stats = parsedStats[normTag];
+    final promptWeight = stats?['weight'] as double? ?? 1.0;
+    final occurrenceCount = stats?['count'] as int? ?? 1;
+    final tagInfo = kBaseNavigatorKey.currentContext!.read<DataManager>().e621Tags[normTag];
+
+    final countStr = tagInfo?.count.toString() ?? '-';
+    final countWeightStr = tagInfo != null ? (tagInfo.count * promptWeight).toStringAsFixed(2) : '-';
+
+    return {
+      'tag': raw,
+      'count': countStr,
+      'weight': promptWeight.toStringAsFixed(2),
+      'countWeight': countWeightStr,
+      'occurrences': occurrenceCount.toString(),
+    };
+  }
+
+  void _showOverlayAt(Offset globalPosition, Map<String, String> tooltipData) {
+    _hideTimer?.cancel();
+    _removeOverlay();
+    final overlay = Overlay.of(context);
+
+    final overlayEntry = OverlayEntry(
+      builder: (ctx) {
+        final p = globalPosition + const Offset(12, -10);
+        return Positioned(
+          left: p.dx,
+          top: p.dy,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 300),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+              ),
+              child: DefaultTextStyle(
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tooltipData['tag'] ?? '-', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text('Tag count: ${tooltipData['count']}'),
+                    Text('Prompt weight: ${tooltipData['weight']}'),
+                    Text('Count*weight: ${tooltipData['countWeight']}'),
+                    if ((tooltipData['occurrences'] ?? '1') != '1') Text('Appears: ${tooltipData['occurrences']}×'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    overlay.insert(overlayEntry);
+    _overlay = overlayEntry;
+  }
+
+  void _removeOverlay() {
+    _overlay?.remove();
+    _overlay = null;
+  }
+
+  void _onHover(PointerHoverEvent event) {
+    final box = _textKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || _builtSpan == null) {
+      _removeOverlay();
+      return;
+    }
+    final local = box.globalToLocal(event.position);
+
+    final tp = TextPainter(
+      text: _builtSpan,
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.left,
+      textScaleFactor: MediaQuery.of(context).textScaleFactor,
+      maxLines: null,
+    );
+
+    tp.layout(maxWidth: box.size.width);
+
+    if (local.dy < 0 || local.dy > tp.height || local.dx < 0 || local.dx > box.size.width) {
+      _hideTimer?.cancel();
+      _hideTimer = Timer(_tooltipHideDelay, () => _removeOverlay());
+      return;
+    }
+
+    final textPos = tp.getPositionForOffset(local);
+    final idx = textPos.offset;
+
+    final token = _tokens.firstWhere(
+          (t) => idx >= t.start && idx <= t.end,
+      orElse: () => _TokenRange.none(),
+    );
+
+    if (token.isNone) {
+      _hideTimer?.cancel();
+      _hideTimer = Timer(_tooltipHideDelay, () => _removeOverlay());
+      return;
+    }
+
+    _hideTimer?.cancel();
+    _hideTimer = Timer(_tooltipShowDelay, () {
+      _showOverlayAt(event.position, token.tooltip ?? {});
+    });
+  }
+
+  void _onExit(PointerExitEvent event) {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(_tooltipHideDelay, () => _removeOverlay());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.hasBoundedWidth ? constraints.maxWidth : MediaQuery.of(context).size.width;
+        final span = _builtSpan ?? PromptTextSpanBuilder(widget.text).build(widget.text, textStyle: widget.baseStyle);
+
+        return MouseRegion(
+          onHover: _onHover,
+          onExit: _onExit,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: width),
+            child: Container(
+              key: _textKey,
+              width: width,
+              child: ExtendedSelectableText.rich(
+                span,
+                showCursor: true,
+                minLines: 1,
+                maxLines: null,
+                style: widget.baseStyle,
+                textAlign: TextAlign.left,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TokenRange {
+  final int start;
+  final int end;
+  final String raw;
+  Map<String, String>? tooltip;
+  final bool isNoneToken;
+
+  _TokenRange({required this.start, required this.end, required this.raw, this.tooltip}) : isNoneToken = false;
+  _TokenRange.none() : start = -1, end = -1, raw = '', isNoneToken = true;
+  bool get isNone => isNoneToken;
 }

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,7 +15,6 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
 import '../../constants.dart';
-import '../SQLite.dart';
 import 'AbMain.dart';
 
 class OnNetworkLocation extends ChangeNotifier implements AbMain {
@@ -160,29 +160,29 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
 
         if(useAddon.isNotEmpty){
           if(hasOutputsFolder) {
-            int notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.network_ping, color: Colors.blueAccent, size: 32),
-                title: 'Some access points have been changed',
-                description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} will be processed over the internet, not locally'
+            notificationManager!.show(
+              thumbnail: const Icon(Icons.network_ping, color: Colors.blueAccent, size: 32),
+              title: 'Some access points have been changed',
+              description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} will be processed over the internet, not locally',
+              sound: NtSound.wrong
             );
-            audioController!.player.play(AssetSource('audio/wrong.wav'));
           } else {
-            int notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.network_ping, color: Colors.redAccent, size: 32),
-                title: 'Some access points require remote access',
-                description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} should be processed over the internet, not locally, but "outputs folder" is not configured'
+            notificationManager!.show(
+              thumbnail: const Icon(Icons.network_ping, color: Colors.redAccent, size: 32),
+              title: 'Some access points require remote access',
+              description: '${useAddon.map((e) => renderEngineToString(e)).join(', ')} should be processed over the internet, not locally, but "outputs folder" is not configured',
+              sound: NtSound.error
             );
-            audioController!.player.play(AssetSource('audio/error.wav'));
           }
         }
 
         if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
         if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
       } else {
-        print('emply');
+        debugPrint('emply');
       }
     } else {
-      print('use $useMethod');
+      debugPrint('use $useMethod');
     }
   }
 
@@ -206,7 +206,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
 
   @override
   Future<List<Folder>> getFolders(int index, {String? host}) async {
-    if(useAddon.contains(index)) return getNetworkFolders(index);
+    if(useAddon.contains(RenderEngine.values[index])) return getNetworkFolders(index);
     List<Folder> f = [];
     int ind = 0;
     Directory di = Directory([
@@ -246,7 +246,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           _webuiPaths['outdir_img2img-images']
         ][index]!}
     );
-    print(base.toString());
+    debugPrint(base.toString());
     var res = await http.Client().get(base).timeout(const Duration(seconds: 10));
     if(res.statusCode == 200){
       List<dynamic> files = await json.decode(res.body)['files'];
@@ -331,36 +331,40 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
     getFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
-      notificationManager!.update(notID, 'title', 'Indexing ${_tabs[index]}');
-      notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
-      notificationManager!.update(notID, 'content', Container(
-        margin: const EdgeInsets.only(top: 7),
-        width: 100,
-        child: const LinearProgressIndicator(),
-      ));
-      notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
-        baseColor: Colors.lightBlueAccent,
-        highlightColor: Colors.blueAccent.withOpacity(0.3),
-        child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
-      ));
+      notificationManager!.update(notID, (o){
+        o.setTitle('Indexing ${_tabs[index]}');
+        o.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+        o.setContent(Container(
+          margin: const EdgeInsets.only(top: 7),
+          width: 100,
+          child: const LinearProgressIndicator(),
+        ));
+        o.setThumbnail(Shimmer.fromColors(
+          baseColor: Colors.lightBlueAccent,
+          highlightColor: Colors.blueAccent.withOpacity(0.3),
+          child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+        ));
+      });
       int d = 0;
       for(var f in fo){
         List<ImageMeta> ima = await getFolderFiles(index, f.name);
         StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
         await _isDone(co);
         d++;
-        notificationManager!.update(notID, 'content', Container(
+        notificationManager!.update(notID, (o) => o.setContent(Container(
             margin: const EdgeInsets.only(top: 7),
             width: 100,
             child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
-        ));
+        )));
       }
       if(notID != -1) notificationManager!.close(notID);
       isIndexingAll = false;
     }).catchError((err) {
-      notificationManager!.update(notID, 'title', 'Error');
-      notificationManager!.update(notID, 'description', 'Error: $err');
-      notificationManager!.update(notID, 'content', const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      notificationManager!.update(notID, (o){
+        o.setTitle('Error');
+        o.setDescription('Error: $err');
+        o.setContent(const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      });
       return true;
     });
     return true;
@@ -374,7 +378,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
+  Future<StreamController<ImageMeta>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     // Read all files sizes and get hash
     Directory di = Directory(folder.getter);
     List<FileSystemEntity> fe = await dirContents(di);
@@ -417,14 +421,16 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
         },
         onProcess: (total, current, thumbnail) {
           if(notID == -1) return;
-          notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-          if(thumbnail != null) {
-            notificationManager!.update(notID, 'thumbnail', Image.memory(
-              thumbnail,
-              filterQuality: FilterQuality.low,
-              gaplessPlayback: true,
-            ));
-          }
+          notificationManager!.update(notID, (o){
+            o.setDescription('We are processing $total/$current images, please wait');
+            if(thumbnail != null) {
+              o.setThumbnail(Image.memory(
+                thumbnail,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+              ));
+            }
+          });
         }
     );
     _jobs[jobID] = job;
@@ -434,7 +440,7 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
   }
 
   @override
-  Future<Stream<List<ImageMeta>>> indexNetworkFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
+  Future<Stream<ImageMeta>> indexNetworkFolder(RenderEngine renderEngine, String sub, {List<String>? hashes}) async {
     Uri parse = Uri.parse(_remoteAddress);
     Uri base = Uri(
         scheme: parse.scheme,
@@ -485,14 +491,16 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
           },
           onProcess: (total, current, thumbnail) {
             if(notID == -1) return;
-            notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-            if(thumbnail != null) {
-              notificationManager!.update(notID, 'thumbnail', Image.memory(
-                thumbnail,
-                filterQuality: FilterQuality.low,
-                gaplessPlayback: true,
-              ));
-            }
+            notificationManager!.update(notID, (o){
+              o.setDescription('We are processing $total/$current images, please wait');
+              if(thumbnail != null) {
+                o.setThumbnail(Image.memory(
+                  thumbnail,
+                  filterQuality: FilterQuality.low,
+                  gaplessPlayback: true,
+                ));
+              }
+            });
           }
       );
       _jobs[jobID] = job;
@@ -500,8 +508,8 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
       // Return job id
       return job.controller.stream;
     } else {
-      late final StreamController<List<ImageMeta>> controller;
-      controller = StreamController<List<ImageMeta>>(
+      late final StreamController<ImageMeta> controller;
+      controller = StreamController<ImageMeta>(
         onListen: () async {
           await controller.close();
         },

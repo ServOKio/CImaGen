@@ -7,7 +7,6 @@ import 'package:cimagen/components/SimpleWindowBar.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
-import 'package:cimagen/pages/sub/YearEndResults.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DBExceptions.dart';
 import 'package:cimagen/utils/DataModel.dart';
@@ -15,10 +14,8 @@ import 'package:cimagen/utils/GitHub.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:cimagen/modules/Objectbox.dart';
 import 'package:cimagen/modules/SQLite.dart';
-import 'package:cimagen/modules/SaveManager.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:floaty_nav_bar/res/floaty_nav_bar.dart';
-import 'package:floaty_nav_bar/res/models/floaty_action_button.dart';
 import 'package:floaty_nav_bar/res/models/floaty_tab.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -96,6 +93,7 @@ Future<void> main() async {
 class Base extends StatelessWidget {
 
   Base({super.key}) {
+    audioController = AudioController()..init();
     appBarController = AppBarController();
     notificationManager = NotificationManager();
     notificationManager?.init();
@@ -110,7 +108,6 @@ class Base extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ConfigManager()),
         ChangeNotifierProvider(create: (_) => DataManager()),
         ChangeNotifierProvider(create: (_) => ImageManager()),
-        ChangeNotifierProvider(create: (_) => SaveManager()),
       ],
       child: BetterFeedback(
           theme: FeedbackThemeData(
@@ -263,7 +260,6 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   Future<void> initMe() async {
     githubAPI = GitHub();
-    audioController = AudioController();
     if(Platform.isAndroid){
       bool permissionStatus;
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -340,7 +336,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             //     child: const Text("Try again", style: TextStyle(fontSize: 12))
             // )
           );
-          audioController!.player.play(AssetSource('audio/wrong.wav'));
+          audioController!.play(NtSound.wrong);
           if (error is DatabaseCheckException) {
 
           } else {
@@ -352,12 +348,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           setState(() {
             _imgManagerPass = true;
             _dataManagerPass = true;
-          });
-          context.read<SaveManager>().init(context).then((v){
-            setState(() {
-              _saveManagerPass = true;
-              loaded = true;
-            });
+            loaded = true;
           });
         }).catchError((e){
           if (kDebugMode) print(e);
@@ -471,52 +462,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          //Debug for notication
-                          // Container(
-                          //   // clipBehavior: Clip.none,
-                          //   margin: const EdgeInsets.only(top: 7),
-                          //   padding: const EdgeInsets.all(28),
-                          //   decoration: const BoxDecoration(
-                          //     borderRadius: BorderRadius.all(Radius.circular(7)),
-                          //     color: Colors.black,
-                          //   ),
-                          //   child: Row(
-                          //     children: [
-                          //       AnimatedSizeAndFade(
-                          //         child: Row(
-                          //           children: [
-                          //             Container(
-                          //               decoration: BoxDecoration(
-                          //                   borderRadius: BorderRadius.circular(7)
-                          //               ),
-                          //               width: 64,
-                          //               height: 64,
-                          //               child: Icon(Icons.snippet_folder_rounded, size: 64),
-                          //             ),
-                          //             const Gap(21),
-                          //           ],
-                          //         ),
-                          //       ),
-                          //       Expanded(
-                          //         child: Column(
-                          //           crossAxisAlignment: CrossAxisAlignment.start,
-                          //           children: [
-                          //             Text('A gradient, with rounded corners, and a smooth (faded) background.', style: const TextStyle(fontWeight: FontWeight.w500)),
-                          //             SelectableText('25% Complete', style: const TextStyle(color: Colors.grey)),
-                          //             Container(
-                          //               margin: const EdgeInsets.only(top: 10),
-                          //               child: CImaGenLinearProgressIndicator(value: 0.3),
-                          //             )
-                          //           ],
-                          //         ),
-                          //       ),
-                          //       IconButton(
-                          //         icon: const Icon(Icons.close, size: 21, color: Colors.grey), onPressed: () {  },
-                          //       )
-                          //     ],
-                          //   ),
-                          // ),
-                          ...manager.notifications.keys.map((key) => NotificationWidget(context, manager, manager.notifications[key]!))
+                          ...manager.notifications.map((obj) => NotificationWidget(notificationObject: obj, manager: manager))
                         ]
                       ),
                     )

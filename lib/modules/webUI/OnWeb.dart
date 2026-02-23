@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
@@ -40,7 +41,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
   @override
   String? get host => _host;
 
-  String _remoteAddress = '';
+  final String _remoteAddress = '';
 
   List<String> _tabs = [];
   @override
@@ -48,19 +49,20 @@ class OnWeb extends ChangeNotifier implements AbMain{
   List<RenderEngine> _internalTabs = [];
 
   void findError(){
-    int notID = notificationManager!.show(
-        thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-        title: 'Initialization problem',
-        description: '${error!.startsWith('TimeoutException') ? 'The host did not return the information within 10 seconds' : 'Unknown error'}\nError: $error',
-        content: ElevatedButton(
-            onPressed: () => init(),
-            child: const Text("Try again", style: TextStyle(fontSize: 12))
-        )
+    notificationManager!.show(
+      thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+      title: 'Initialization problem',
+      description: '${error!.startsWith('TimeoutException') ? 'The host did not return the information within 10 seconds' : 'Unknown error'}\nError: $error',
+      content: ElevatedButton(
+        onPressed: () => init(),
+        child: const Text("Try again", style: TextStyle(fontSize: 12))
+      ),
+      sound: NtSound.error
     );
-    audioController!.player.play(AssetSource('audio/error.wav'));
   }
 
-  Map<int, ParseJob> _jobs = {};
+  final Map<int, ParseJob> _jobs = {};
+  @override
   Map<int, ParseJob> get getJobs => _jobs;
   int getJobCountActive() {
     _jobs.removeWhere((key, value) => value.controller.isClosed);
@@ -75,12 +77,12 @@ class OnWeb extends ChangeNotifier implements AbMain{
     // 1. Check download folder
     Directory? dP = await getDownloadsDirectory();
     if(dP == null){
-      int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.warning, color: Colors.redAccent),
-          title: 'Downloads folder not found',
-          description: 'The system cannot find the path specified'
+      notificationManager!.show(
+        thumbnail: const Icon(Icons.warning, color: Colors.redAccent),
+        title: 'Downloads folder not found',
+        description: 'The system cannot find the path specified',
+        sound: NtSound.error
       );
-      audioController!.player.play(AssetSource('audio/error.wav'));
       return;
     }
 
@@ -95,13 +97,13 @@ class OnWeb extends ChangeNotifier implements AbMain{
     loaded = true;
     notifyListeners();
 
-    int notID = notificationManager!.show(
-        thumbnail: const Icon(Icons.web, color: Colors.blue),
-        title: 'Welcome to web',
-        description: 'Now when we find a new file with a name starting with "images_batch", we will immediately start analyzing it\nWe are watching: ${dP.absolute.path}'
+    notificationManager!.show(
+      thumbnail: const Icon(Icons.web, color: Colors.blue),
+      title: 'Welcome to web',
+      description: 'Now when we find a new file with a name starting with "images_batch", we will immediately start analyzing it\nWe are watching: ${dP.absolute.path}',
+      autoCloseDuration: const Duration(milliseconds: 10000),
+      sound: NtSound.info
     );
-    audioController!.player.play(AssetSource('audio/info.wav'));
-    Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
   }
 
   @override
@@ -145,13 +147,13 @@ class OnWeb extends ChangeNotifier implements AbMain{
         Icons.filter_8_rounded,
         Icons.filter_9_rounded,
       ];
-      int notID = notificationManager!.show(
-          thumbnail: Icon(_jobQueue.length > 9 ? Icons.filter_9_plus_rounded : ic[_jobQueue.length-1], color: Colors.amberAccent),
-          title: 'Queue growing: ${_jobQueue.length}',
-          description: 'It seems the system can\'t process files quickly enough.'
+      notificationManager!.show(
+        thumbnail: Icon(_jobQueue.length > 9 ? Icons.filter_9_plus_rounded : ic[_jobQueue.length-1], color: Colors.amberAccent),
+        title: 'Queue growing: ${_jobQueue.length}',
+        description: 'It seems the system can\'t process files quickly enough',
+        autoCloseDuration: const Duration(milliseconds: 10000),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
-      Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
     }
     _jobQueue.add(_IndexJob(urls));
     _tryRunNextJob();
@@ -278,14 +280,16 @@ class OnWeb extends ChangeNotifier implements AbMain{
         },
         onProcess: (total, current, thumbnail) {
           if (notID == -1) return;
-          notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-          if (thumbnail != null) {
-            notificationManager!.update(notID, 'thumbnail', Image.memory(
-              thumbnail,
-              filterQuality: FilterQuality.low,
-              gaplessPlayback: true,
-            ));
-          }
+          notificationManager!.update(notID, (o){
+            o.setDescription('We are processing $total/$current images, please wait');
+            if (thumbnail != null) {
+              o.setThumbnail(Image.memory(
+                thumbnail,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+              ));
+            }
+          });
         }
     );
     _jobs[jobID] = job;
@@ -296,52 +300,11 @@ class OnWeb extends ChangeNotifier implements AbMain{
 
   @override
   bool indexAll(int index) {
-    // int notID = notificationManager!.show(
-    //     thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
-    //     title: 'Starting indexing',
-    //     description: 'Give us a few minutes, you will receive the folder data...'
-    // );
-    // getAllFolders(index).then((fo) async {
-    //   if(isIndexingAll) return false;
-    //   isIndexingAll = true;
-    //   notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
-    //   notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
-    //   notificationManager!.update(notID, 'content', Container(
-    //     margin: const EdgeInsets.only(top: 7),
-    //     width: 100,
-    //     child: const LinearProgressIndicator(),
-    //   ));
-    //   notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
-    //     baseColor: Colors.lightBlueAccent,
-    //     highlightColor: Colors.blueAccent.withOpacity(0.3),
-    //     child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
-    //   ));
-    //   int d = 0;
-    //   for(var f in fo){
-    //     // То что уже есть, чтобы не трогать
-    //     List<String> ima = await getFolderHashes(normalizePath(f.getter), host: host);
-    //     StreamController co = await indexFolder(f, hashes: ima);
-    //     print('jobs co $getJobCountActive()');
-    //     bool cont = await _isDone(co);
-    //     d++;
-    //     notificationManager!.update(notID, 'content', Container(
-    //         margin: const EdgeInsets.only(top: 7),
-    //         width: 100,
-    //         child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
-    //     ));
-    //   }
-    //   if(notID != -1) notificationManager!.close(notID);
-    //   isIndexingAll = false;
-    // });
-    return true;
+    throw Exception('Haha, not here');
   }
 
-  // Future<List<String>> getFolderHashes(String folder, {String? host}) async {
-  //   return sqLite.getFolderHashes(folder, host: _host);
-  // }
-
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
+  Future<StreamController<ImageMeta>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     Uri parse = Uri.parse(_remoteAddress);
     if (kDebugMode) {
       print('indexFolder: ${folder.getter} ${hashes?.length}');
@@ -423,14 +386,16 @@ class OnWeb extends ChangeNotifier implements AbMain{
             },
             onProcess: (total, current, thumbnail) {
               if(notID == -1) return;
-              notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-              if(thumbnail != null) {
-                notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  thumbnail,
-                  filterQuality: FilterQuality.low,
-                  gaplessPlayback: true,
-                ));
-              }
+              notificationManager!.update(notID, (o){
+                o.setDescription('We are processing $total/$current images, please wait');
+                if(thumbnail != null) {
+                  o.setThumbnail(Image.memory(
+                    thumbnail,
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                  ));
+                }
+              });
             }
         );
         _jobs[jobID] = job;
@@ -438,8 +403,8 @@ class OnWeb extends ChangeNotifier implements AbMain{
         // Return job id
         return job.controller;
       } else {
-        late final StreamController<List<ImageMeta>> controller;
-        controller = StreamController<List<ImageMeta>>(
+        late final StreamController<ImageMeta> controller;
+        controller = StreamController<ImageMeta>(
           onListen: () async {
             await controller.close();
           },
@@ -447,7 +412,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
         return controller;
       }
     } else if(software == Software.swarmUI) {
-      String session_id = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
+      String sessionId = kBaseNavigatorKey.currentContext!.read<DataManager>().temp.containsKey('swarm_client_info') ? (kBaseNavigatorKey.currentContext!.read<DataManager>().temp['swarm_client_info'] as SwarmClientInfo).sessionID! : 'null';
       Uri base = Uri(
           scheme: parse.scheme,
           host: parse.host,
@@ -460,7 +425,7 @@ class OnWeb extends ChangeNotifier implements AbMain{
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"
       }, body: jsonEncode(<String, String>{
-        'session_id': session_id,
+        'session_id': sessionId,
         'depth': '1',
         'path': folder.getter,
         'sortBy': 'Name',
@@ -528,14 +493,16 @@ class OnWeb extends ChangeNotifier implements AbMain{
             },
             onProcess: (total, current, thumbnail) {
               if(notID == -1) return;
-              notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-              if(thumbnail != null) {
-                notificationManager!.update(notID, 'thumbnail', Image.memory(
-                  thumbnail,
-                  filterQuality: FilterQuality.low,
-                  gaplessPlayback: true,
-                ));
-              }
+              notificationManager!.update(notID, (o){
+                o.setDescription('We are processing $total/$current images, please wait');
+                if(thumbnail != null) {
+                  o.setThumbnail(Image.memory(
+                    thumbnail,
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                  ));
+                }
+              });
             }
         );
         _jobs[jobID] = job;
@@ -543,8 +510,8 @@ class OnWeb extends ChangeNotifier implements AbMain{
         // Return job id
         return job.controller;
       } else {
-        late final StreamController<List<ImageMeta>> controller;
-        controller = StreamController<List<ImageMeta>>(
+        late final StreamController<ImageMeta> controller;
+        controller = StreamController<ImageMeta>(
           onListen: () async {
             await controller.close();
           },
@@ -552,8 +519,8 @@ class OnWeb extends ChangeNotifier implements AbMain{
         return controller;
       }
     } else {
-      late final StreamController<List<ImageMeta>> controller;
-      controller = StreamController<List<ImageMeta>>(
+      late final StreamController<ImageMeta> controller;
+      controller = StreamController<ImageMeta>(
         onListen: () async {
           await controller.close();
         },

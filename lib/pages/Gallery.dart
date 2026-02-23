@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -26,7 +27,6 @@ import 'package:provider/provider.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:shimmer/shimmer.dart';
 
-import '../components/Animations.dart';
 import '../components/CustomActionButton.dart';
 import '../utils/ColorUtils.dart';
 import 'sub/DevicePreview.dart';
@@ -534,24 +534,26 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
     }
 
     if (folders.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(14),
+      return Padding(
+        padding: const EdgeInsets.all(14),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.nights_stay_rounded,
-              color: Colors.white,
-              size: 60,
+            ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
+                child: Lottie.asset(
+                  'assets/icons/lottie/search normal-two.json',
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.fill,
+                )
             ),
-            Padding(
-              padding: EdgeInsets.only(top: 16),
-              child: Text(
-                'It looks like it\'s empty\nTry indexing all',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, height: 1.4),
-              ),
-            ),
+            const Gap(4),
+            const Text('It looks like it\'s empty', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text('Try indexing folders', style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -703,8 +705,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           child: viewStyle == 1 ? MasonryGridView.count(
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
-            mainAxisSpacing: 5,
-            crossAxisSpacing: 5,
+            mainAxisSpacing: 3,
+            crossAxisSpacing: 3,
             crossAxisCount: crossAxisCount,
             itemBuilder: (context, index) {
               final item = items[index];
@@ -733,8 +735,8 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
           ) : AlignedGridView.count(
             physics: const BouncingScrollPhysics(),
             itemCount: items.length,
-            mainAxisSpacing: 5,
-            crossAxisSpacing: 5,
+            mainAxisSpacing: 3,
+            crossAxisSpacing: 3,
             crossAxisCount: crossAxisCount,
             itemBuilder: (context, index) {
               final item = items[index];
@@ -831,6 +833,25 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
       return false;
     }
     return true;
+  }
+}
+
+final class WidgetContextMenuItem<T> extends ContextMenuItem<T> {
+  final Widget widget;
+
+  const WidgetContextMenuItem({
+    required this.widget,
+    super.value,
+  });
+
+  const WidgetContextMenuItem.submenu({
+    required this.widget,
+    required super.items
+  }) : super.submenu();
+
+  @override
+  Widget builder(BuildContext context, ContextMenuState menuState, [FocusNode? focusNode]) {
+    return widget;
   }
 }
 
@@ -1602,6 +1623,50 @@ class PreviewImage extends StatelessWidget {
               label: const Text('Copy...'),
               icon: const Icon(Icons.copy),
               items: [
+                if(imageMeta.generationParams!.positive != null) WidgetContextMenuItem(
+                  widget: AspectRatio(aspectRatio: 16/9, child: Container(
+                    width: 300,
+                    height: 200,
+                    padding: const EdgeInsets.all(4.0),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(25),
+                      borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                    ),
+                    child: PromptSelectableWithHover(
+                      text: imageMeta.generationParams!.positive ?? '',
+                      baseStyle: const TextStyle(
+                        fontFamily: 'Open Sans',
+                        fontWeight: FontWeight.w400,
+                        fontSize: 10,
+                        color: Colors.white,
+                        height: 1.4,
+                      ),
+                    ),
+                  ))
+                ),
+                if(imageMeta.generationParams!.negative != null) WidgetContextMenuItem(
+                    widget: AspectRatio(aspectRatio: 16/9, child: Container(
+                      width: 300,
+                      height: 200,
+                      padding: const EdgeInsets.all(4.0),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withAlpha(25),
+                        borderRadius: const BorderRadius.all(Radius.circular(5.0)),
+                      ),
+                      child: PromptSelectableWithHover(
+                        text: imageMeta.generationParams!.negative ?? '',
+                        baseStyle: const TextStyle(
+                          fontFamily: 'Open Sans',
+                          fontWeight: FontWeight.w400,
+                          fontSize: 10,
+                          color: Colors.white,
+                          height: 1.4,
+                        ),
+                      ),
+                    ))
+                ),
                 if(imageMeta.generationParams?.seed != null) MenuItem(
                   label: const Text('Seed'),
                   icon: const Icon(Icons.abc),
@@ -1711,25 +1776,41 @@ class PreviewImage extends StatelessWidget {
 
           //Rating
           ContentRating r = imageMeta.generationParams?.rating ?? ContentRating.Unknown;
-          Widget ratingBlock = Container(
-            margin: const EdgeInsets.only(bottom: 3),
-            width: 18,
-            height: 18,
-            padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-            decoration: BoxDecoration(
-                borderRadius: const BorderRadius.all(Radius.circular(2)),
-                color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff).withOpacity(0.7)
-            ),
-            child: Text(r.name, textAlign: TextAlign.center, style: TextStyle(color: Color([
-              0xff5500ff,
-              0xff006835,
-              0xfff15a24,
-              0xff803d99,
-              0xffd8121a,
-              0xff1b3e9b,
-              0xffffffff,
-              0xffffffff
-            ][r.index]), fontSize: 12, fontWeight: FontWeight.bold)),
+          Widget ratingBlock = ClipRRect(
+              borderRadius: BorderRadius.circular(4), // Increased radius for smoother look
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Blur for glass effect
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 3),
+                  width: 18,
+                  height: 18,
+                  padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: Color(r == ContentRating.X || r == ContentRating.XXX ? 0xff000000 : 0xffffffff).withOpacity(0.2), // Reduced opacity for glass transparency
+                    border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.5), // Subtle border for depth
+                  ),
+                  child: Text(
+                    r.name,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color([
+                        0xff5500ff,
+                        0xff006835,
+                        0xfff15a24,
+                        0xff803d99,
+                        0xffd8121a,
+                        0xff1b3e9b,
+                        0xffffffff,
+                        0xffffffff
+                      ][r.index]),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      shadows: [Shadow(blurRadius: 1, color: Colors.black.withOpacity(0.3))], // Added subtle shadow for text pop
+                    ),
+                  ),
+                ),
+              )
           );
 
           return GestureDetector(
@@ -1759,103 +1840,160 @@ class PreviewImage extends StatelessWidget {
                 } : null,
                 child: ContextMenuRegion(
                     contextMenu: contextMenu,
-                    child: AspectRatio(
-                        aspectRatio: imageMeta.size!.width / imageMeta.size!.height,
-                        child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Stack(
-                              alignment: Alignment.topRight,
-                              children: [
-                                AnimatedScale(
-                                    scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
+                    child: Container(
+                      clipBehavior: Clip.antiAlias,
+                      // Added wrapper for overall modern style: rounded corners and shadow
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4), // Subtle rounding for the entire block
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2), // Light elevation shadow
+                            ),
+                          ],
+                        ),
+                        child: AspectRatio(
+                          aspectRatio: imageMeta.size!.width / imageMeta.size!.height,
+                          child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Stack(
+                                alignment: Alignment.topRight,
+                                children: [
+                                  AnimatedScale(
+                                      scale: sp.selected.contains(imageMeta.keyup) ? 0.9 : 1,
+                                      duration: const Duration(milliseconds: 200),
+                                      curve: Curves.ease,
+                                      child: AnimatedOpacity(
+                                          opacity: galleryManager.showOnlyFavorite && !imageManager.favoritePaths.contains(imageMeta.fullPath) ? 0.3 : 1,
+                                          duration: const Duration(milliseconds: 200),
+                                          child: ImageWidget(imageMeta, dontBlink: dontBlink)
+                                      )
+                                  ),
+                                  AnimatedScale(
+                                    scale: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 1 : 0,
                                     duration: const Duration(milliseconds: 200),
                                     curve: Curves.ease,
-                                    child: AnimatedOpacity(opacity: galleryManager.showOnlyFavorite && !imageManager.favoritePaths.contains(imageMeta.fullPath) ? 0.3 : 1, duration: const Duration(milliseconds: 200), child: ImageWidget(imageMeta, dontBlink: dontBlink))
-                                ),
-                                AnimatedScale(
-                                  scale: imageManager.favoritePaths.contains(imageMeta.fullPath) ? 1 : 0,
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.ease,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.5),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    padding:
-                                    const EdgeInsets.all(4),
-                                    margin: const EdgeInsets.only(top: 4, right: 4),
-                                    child: Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.onSecondary),
-                                  ),
-                                ),
-                                AnimatedScale(
-                                  scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup) ? 1 : 0 : 0,
-                                  duration: const Duration(milliseconds: 200),
-                                  curve: Curves.ease,
-                                  child: Container(
-                                      decoration:
-                                      BoxDecoration(
-                                        color: Theme.of(context).colorScheme.secondary,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.5),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
+                                      padding:
+                                      const EdgeInsets.all(4),
+                                      margin: const EdgeInsets.only(top: 4, right: 4),
+                                      child: Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.onSecondary),
+                                    ),
                                   ),
-                                ),
-                                Positioned(
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
+                                  AnimatedScale(
+                                    scale: imageMeta.runtimeType == ImageMeta ? sp.selected.contains(imageMeta.keyup) ? 1 : 0 : 0,
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.ease,
                                     child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          gradient: LinearGradient(
-                                              colors: [
-                                                Color.fromRGBO(0, 0, 0, 0.0),
-                                                Color.fromRGBO(0, 0, 0, 0.4),
-                                                Color.fromRGBO(0, 0, 0, 0.8)
-                                              ],
-                                              stops: [0, 0.2, 1.0],
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter
-                                          ),
+                                        decoration:
+                                        BoxDecoration(
+                                          color: Theme.of(context).colorScheme.secondary,
+                                          shape: BoxShape.circle,
                                         ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            ratingBlock,
-                                            Tooltip(
-                                              message: '${imageMeta.fileName}\n${imageMeta.generationParams?.sampler ?? '-'}',
-                                              child: Container(
-                                                margin: const EdgeInsets.only(bottom: 3),
-                                                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                                decoration: BoxDecoration(
-                                                    borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                    color: const Color(0xFF5fa9b5).withOpacity(0.7)
-                                                ),
-                                                child: Text(renderEngineToString(imageMeta.re), style: const TextStyle(color: Color(0xfff1fcff), fontSize: 8)),
-                                              ),
+                                        child: Icon(Icons.check, color: Theme.of(context).colorScheme.onSecondary)
+                                    ),
+                                  ),
+                                  Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: const BoxDecoration(
+                                            gradient: LinearGradient(
+                                                colors: [
+                                                  Color.fromRGBO(0, 0, 0, 0.0),
+                                                  Color.fromRGBO(0, 0, 0, 0.4),
+                                                  Color.fromRGBO(0, 0, 0, 0.8)
+                                                ],
+                                                stops: [0, 0.2, 1.0],
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter
                                             ),
-                                            imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null ? Tooltip(
-                                              message: '${imageMeta.generationParams?.hiresUpscale != null ? '${imageMeta.generationParams!.hiresUpscale}x ${imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)'}, ' : ''}${imageMeta.generationParams!.denoisingStrength}${imageMeta.generationParams?.hiresSampler != null ? '\n${imageMeta.generationParams?.hiresSampler}' : ''}',
-                                              child: Container(
-                                                padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
-                                                decoration: BoxDecoration(
-                                                    borderRadius: const BorderRadius.all(Radius.circular(2)),
-                                                    color: (imageMeta.generationParams?.hiresSampler != null ? Color(0xffa69955) : Color(0xff5f55a6)).withAlpha(180)
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              ratingBlock,
+                                              ClipRRect(
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: BackdropFilter(
+                                                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Blur for engine tag
+                                                  child: Tooltip(
+                                                    message: '${imageMeta.fileName}\n${imageMeta.generationParams?.sampler ?? '-'}',
+                                                    child: Container(
+                                                      margin: const EdgeInsets.only(bottom: 3),
+                                                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        color: const Color(0xFF5fa9b5).withOpacity(0.2),
+                                                        border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.5),
+                                                      ),
+                                                      child: Text(
+                                                        renderEngineToString(imageMeta.re),
+                                                        style: TextStyle(
+                                                          color: const Color(0xfff1fcff),
+                                                          fontSize: 8,
+                                                          shadows: [Shadow(blurRadius: 1, color: Colors.black.withOpacity(0.3))],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
-                                                child: Text('Hi-Res', style: TextStyle(color: imageMeta.generationParams?.hiresSampler != null ? Color(0xfff5e7c4) : Color(0xffc8c4f5), fontSize: 12)),
                                               ),
-                                            ) : const SizedBox.shrink(),
-                                          ],
-                                        )
-                                    )
-                                ),
-                                // Positioned(
-                                //     top: 4,
-                                //     left: 4,
-                                //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
-                                // )
-                              ],
-                            )
+                                              if(imageMeta.generationParams?.denoisingStrength != null && imageMeta.generationParams?.hiresUpscale != null) ClipRRect(
+                                                borderRadius: BorderRadius.circular(4),
+                                                child: BackdropFilter(
+                                                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // Blur for Hi-Res tag
+                                                  child: Tooltip(
+                                                    padding: const EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black.withAlpha(220),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                    ),
+                                                    textStyle: const TextStyle(color: Colors.white),
+                                                    richMessage: TextSpan(children: <TextSpan>[
+                                                      TextSpan(text: 'U: '), TextSpan(text: '${(imageMeta.generationParams!.hiresUpscaler != null ? imageMeta.generationParams!.hiresUpscaler == 'None' ? 'None (Lanczos)' : imageMeta.generationParams!.hiresUpscaler : 'None (Lanczos)')}\n', style: const TextStyle(color: Color(0xffc8c4f5))),
+                                                      TextSpan(text: 'B: '), TextSpan(text: '${imageMeta.generationParams!.hiresUpscale}x ', style: const TextStyle(color: Colors.blue)),
+                                                      TextSpan(text: 'D: '), TextSpan(text: '${imageMeta.generationParams!.denoisingStrength}', style: const TextStyle(color: Colors.lightBlueAccent)),
+                                                    ], style: TextStyle(color: Colors.white38)),
+                                                    preferBelow: true,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.only(left: 2, right: 2, bottom: 1),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        color: (imageMeta.generationParams?.hiresSampler != null ? const Color(0xffa69955) : const Color(0xff5f55a6)).withOpacity(0.2),
+                                                        border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.5),
+                                                      ),
+                                                      child: Text(
+                                                        'Hi-Res',
+                                                        style: TextStyle(
+                                                          color: imageMeta.generationParams?.hiresSampler != null ? const Color(0xfff5e7c4) : const Color(0xffc8c4f5),
+                                                          fontSize: 12,
+                                                          shadows: [Shadow(blurRadius: 1, color: Colors.black.withOpacity(0.3))],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                            ],
+                                          )
+                                      )
+                                  ),
+                                  // Positioned(
+                                  //     top: 4,
+                                  //     left: 4,
+                                  //     child: Container(width: 10, height: 10, color: imageMeta.isLocal ? Colors.greenAccent : Colors.red)
+                                  // )
+                                ],
+                              )
+                          )
                         )
                     )
                 ),
@@ -1879,6 +2017,7 @@ class ImageWidget extends StatelessWidget{
       imageMeta.thumbnail!,
       filterQuality: FilterQuality.low,
       gaplessPlayback: dontBlink,
+      fit: BoxFit.contain,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded) {
           return child;

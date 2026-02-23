@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class DataManager with ChangeNotifier {
   int get count => _count;
 
   String? latestE621Tags;
-  Map<String, TagInfo> _e621Tags = {};
+  final Map<String, TagInfo> _e621Tags = {};
   Map<String, TagInfo> get e621Tags => _e621Tags;
   Map<String, List<String>> _contentRatingTags = {};
   Map<String, List<String>> get contentRatingTags => _contentRatingTags;
@@ -68,25 +69,25 @@ class DataManager with ChangeNotifier {
       docDir = await getApplicationDocumentsDirectory();
     }
 
-    if (docDir == null || !docDir.existsSync()) {
+    if (!docDir.existsSync()) {
       int notID = 0;
       notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Documents folder not found',
-          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: (){
-                notificationManager!.close(notID);
-                loadE621Tags();
-              },
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Documents folder not found',
+        description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+          style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+              shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+          ),
+          onPressed: (){
+            notificationManager!.close(notID);
+            loadE621Tags();
+          },
+          child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
       return;
     }
 
@@ -142,8 +143,8 @@ class DataManager with ChangeNotifier {
             child: const Text("Try again", style: TextStyle(fontSize: 12)),
           ),
         ),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
       return;
     }
 
@@ -198,7 +199,7 @@ class DataManager with ChangeNotifier {
           thumbnail: const Icon(Icons.warning_amber, color: Colors.yellow, size: 32),
           title: 'Outdated tags database',
           description: warningMessage,
-          duration: const Duration(seconds: 12),
+          autoCloseDuration: const Duration(seconds: 12),
           content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
               style: ButtonStyle(
                   foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
@@ -226,7 +227,7 @@ class DataManager with ChangeNotifier {
                     thumbnail: const Icon(Icons.check_circle, color: Colors.green, size: 32),
                     title: 'Tags updated',
                     description: 'Latest tags loaded from e621.',
-                    duration: const Duration(seconds: 6),
+                    autoCloseDuration: const Duration(seconds: 6),
                   );
                   loadE621Tags();
                 } else {
@@ -234,7 +235,7 @@ class DataManager with ChangeNotifier {
                     thumbnail: const Icon(Icons.warning_amber, color: Colors.orange, size: 32),
                     title: 'Update failed',
                     description: 'Could not download fresh tags.\nUsing existing file (may be outdated).',
-                    duration: const Duration(seconds: 10),
+                    autoCloseDuration: const Duration(seconds: 10),
                   );
                 }
               },
@@ -247,8 +248,8 @@ class DataManager with ChangeNotifier {
         thumbnail: const Icon(Icons.error, color: Colors.redAccent, size: 32),
         title: 'Failed to parse tags',
         description: 'The CSV file may be corrupted.\n$e',
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
   }
 
@@ -330,22 +331,22 @@ class DataManager with ChangeNotifier {
     if(dD == null){
       int notID = 0;
       notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Documents folder not found',
-          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: (){
-                notificationManager!.close(notID);
-                loadContentRatingTags();
-              },
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Documents folder not found',
+        description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+          style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+              shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+          ),
+          onPressed: (){
+            notificationManager!.close(notID);
+            loadContentRatingTags();
+          },
+          child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
       return;
     }
     dynamic jsonPath = Directory(p.join(dD.path, 'CImaGen', 'json'));
@@ -370,22 +371,22 @@ class DataManager with ChangeNotifier {
     } else {
       int notID = 0;
       notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Content rating tags not found',
-          description: 'Put the content-rating.json file in folder:\n   "${crtFile.parent.path}"\nYou can ask someone for this file or create it yourself',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: (){
-                notificationManager!.close(notID);
-                loadContentRatingTags();
-              },
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Content rating tags not found',
+        description: 'Put the content-rating.json file in folder:\n   "${crtFile.parent.path}"\nYou can ask someone for this file or create it yourself',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+          style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+              shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+          ),
+          onPressed: (){
+            notificationManager!.close(notID);
+            loadContentRatingTags();
+          },
+          child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
   }
 
@@ -399,22 +400,22 @@ class DataManager with ChangeNotifier {
     if(dD == null){
       int notID = 0;
       notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Documents folder not found',
-          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: (){
-                notificationManager!.close(notID);
-                loadE621Tags();
-              },
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Documents folder not found',
+        description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+          style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+              shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+          ),
+          onPressed: (){
+            notificationManager!.close(notID);
+            loadE621Tags();
+          },
+          child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
       return;
     }
     dynamic csvPath = Directory(p.join(dD.path, 'CImaGen', 'csv'));
@@ -444,22 +445,22 @@ class DataManager with ChangeNotifier {
     } else {
       int notID = 0;
       notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Posts not found',
-          description: 'Put the posts-YYYY-mm-dd.csv file in folder:\n   "${csvPath.parent.path}"\nYou can download tags, for example, from https://e621.net/db_export/',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: (){
-                notificationManager!.close(notID);
-                init();
-              },
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Posts not found',
+        description: 'Put the posts-YYYY-mm-dd.csv file in folder:\n   "${csvPath.parent.path}"\nYou can download tags, for example, from https://e621.net/db_export/',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+          style: ButtonStyle(
+              foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+              shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+          ),
+          onPressed: (){
+            notificationManager!.close(notID);
+            init();
+          },
+          child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
   }
 

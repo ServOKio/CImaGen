@@ -11,7 +11,6 @@ import 'package:cimagen/pages/sub/MiniWorld.dart';
 import 'package:cimagen/pages/sub/SafetensorsModelView.dart';
 import 'package:cimagen/pages/sub/categories/Main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
-import 'package:cimagen/modules/SaveManager.dart';
 import 'package:collection/collection.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/foundation.dart';
@@ -33,7 +32,6 @@ import '../components/ImageInfo.dart';
 import '../main.dart';
 import '../modules/CheckpointInfo.dart';
 import '../modules/ICCProfiles.dart';
-import '../modules/SaveManager.dart' as sm;
 import '../utils/DataModel.dart';
 
 class Home extends StatefulWidget {
@@ -310,8 +308,6 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
     animatedController.dispose();
     super.dispose();
   }
-
-  late Future<List<sm.Category>> categoriesFuture;
 
   @override
   Widget build(BuildContext context) {
@@ -1021,14 +1017,14 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                             child: I18nText('generic.create'),
                             onPressed: () {
                               if (formKey.currentState!.validate()) {
-                                sqLite.createCategory(
-                                    title: title.text.trim(),
-                                    description: description.text.trim()
-                                ).then((category){
-                                  context.read<SaveManager>().addCategory(category);
-                                  //loadCaregories();
-                                  Navigator.pop(context);
-                                });
+                                // sqLite.createCategory(
+                                //     title: title.text.trim(),
+                                //     description: description.text.trim()
+                                // ).then((category){
+                                //   context.read<SaveManager>().addCategory(category);
+                                //   //loadCaregories();
+                                //   Navigator.pop(context);
+                                // });
                               }
                             },
                           ),

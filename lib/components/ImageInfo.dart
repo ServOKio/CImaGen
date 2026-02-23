@@ -9,6 +9,7 @@ import 'package:cimagen/components/Vectorscope.dart';
 import 'package:cimagen/components/popups/AspectSizes.dart';
 import 'package:collection/collection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:extended_text_field/extended_text_field.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -164,6 +165,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                       ),
                       child: AspectRatio(aspectRatio: 1/1, child: Vectorscope(readMe!)),
                     ),
+                    Gap(6),
                     if(loaded) FutureBuilder(
                         future: paletteGenerator,
                         builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {
@@ -374,24 +376,15 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                     ),
                     child: FractionallySizedBox(
                         widthFactor: 1.0,
-                        child: SelectableText.rich(
-                          PromptTextSpanBuilder(widget.data.generationParams!.positive ?? '').build(widget.data.generationParams!.positive ?? '', textStyle: const TextStyle(
+                        child: PromptSelectableWithHover(
+                          text: widget.data.generationParams!.positive ?? '',
+                          baseStyle: const TextStyle(
                             fontFamily: 'Open Sans',
                             fontWeight: FontWeight.w400,
                             fontSize: 10,
                             color: Colors.white,
-                            height: 1.2,
-                          )),
-                          showCursor: true,
-                          strutStyle: const StrutStyle(),
-                          minLines: 1,
-                          maxLines: null,
-                          style: const TextStyle(
-                            fontFamily: 'Open Sans',
-                            fontWeight: FontWeight.w400,
-                            fontSize: 10,
+                            height: 1.4,
                           ),
-                          textAlign: TextAlign.left,
                         )
                         //child: SelectableText(gp.positive ?? '', style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
                     )
@@ -405,7 +398,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                     ),
                     child: FractionallySizedBox(
                         widthFactor: 1.0,
-                        child: SelectableText.rich(
+                        child: ExtendedSelectableText.rich(
                           PromptTextSpanBuilder(widget.data.generationParams!.negative ?? '').build(widget.data.generationParams!.negative ?? '', textStyle: const TextStyle(
                             fontFamily: 'Open Sans',
                             fontWeight: FontWeight.w400,
@@ -429,9 +422,18 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if(gp.checkpointType != null) InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType!), withGap: false),
-                    if(gp.checkpoint != null) InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
-                    gp.params?['vae'] != null ? InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : '')) : const SizedBox.shrink(),
+                    if(gp.checkpointType != null) ...[
+                      Gap(6),
+                      InfoBox(one: 'Checkpoint type', two: checkpointTypeToString(gp.checkpointType!), withGap: false)
+                    ],
+                    if(gp.checkpoint != null) ...[
+                      Gap(6),
+                      InfoBox(one: 'Checkpoint', two: '${gp.checkpoint}${gp.checkpointHash != null ? ' (${gp.checkpointHash})' : ''}', withGap: false),
+                    ],
+                    if(gp.params?['vae'] != null) ...[
+                      Gap(6),
+                      InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : ''))
+                    ],
                     gp.params?['loras'] != null ? Container(
                         margin: const EdgeInsets.only(top: 4),
                         clipBehavior: Clip.hardEdge,
@@ -1554,8 +1556,8 @@ class PaletteSwatch extends StatelessWidget {
         child: Row(
           children: <Widget>[
             swatch,
-            Container(width: 5.0),
-            Text(label!),
+            Gap(5),
+            Text(label!, style: TextStyle(fontSize: 12)),
           ],
         ),
       );

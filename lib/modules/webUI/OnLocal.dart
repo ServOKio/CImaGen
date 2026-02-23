@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
+import '../../components/Animations.dart';
 import 'AbMain.dart';
 
 class OnLocal extends ChangeNotifier implements AbMain{
@@ -69,20 +70,20 @@ class OnLocal extends ChangeNotifier implements AbMain{
 
     String? webuiFolder = prefs.getString('webui_folder');
     if(webuiFolder == null) {
-      int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-          title: 'Initialization problem',
-          description: 'The folder containing Stable Diffusion WebUI is not specified. Specify in the settings',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: () => init(),
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+      notificationManager!.show(
+        thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+        title: 'Initialization problem',
+        description: 'The folder containing Stable Diffusion WebUI is not specified. Specify in the settings',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+            style: ButtonStyle(
+                foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+            ),
+            onPressed: () => init(),
+            child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.error
       );
-      audioController!.player.play(AssetSource('audio/error.wav'));
       return;
     }
     _webui_root = webuiFolder;
@@ -116,9 +117,9 @@ class OnLocal extends ChangeNotifier implements AbMain{
         thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
         title: 'Welcome to Stable Diffusion',
         description: 'Initialization was successful',
-        duration: Duration(seconds: 10)
+        autoCloseDuration: Duration(seconds: 10),
+        sound: NtSound.info
       );
-      audioController!.player.play(AssetSource('audio/info.wav'));
       notifyListeners();
 
       if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
@@ -164,20 +165,24 @@ class OnLocal extends ChangeNotifier implements AbMain{
                     shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
                   ),
                   onPressed: () async {
-                    if(loraInfoNot != null) notificationManager!.update(loraInfoNot, 'content', null);
+                    if(loraInfoNot != null) {
+                      notificationManager!.update(loraInfoNot, (obj) => obj.setContent(null));
+                    }
                     for(String path in metaAndFileName[key]!){
                       await changeLoraOutputNameMeta(path, p.basenameWithoutExtension(path));
                     }
                     if(loraInfoNot != null){
-                      notificationManager!.update(loraInfoNot, 'title', 'Done');
-                      notificationManager!.update(loraInfoNot, 'description', 'metadata in\n${metaAndFileName[key]!.join(',\n')}\nhas been corrected. Please index the loras in the web-panel again');
-                      notificationManager!.update(loraInfoNot, 'thumbnail', const Icon(Icons.done, color: Colors.greenAccent, size: 64));
+                      notificationManager!.update(loraInfoNot, (obj) {
+                        obj.setTitle('Done');
+                        obj.setDescription('metadata in\n${metaAndFileName[key]!.join(',\n')}\nhas been corrected. Please index the loras in the web-panel again');
+                        obj.setThumbnail(const Icon(Icons.done, color: Colors.greenAccent, size: 64));
+                      });
                     }
                   },
                   child: const Text('Fix:Change keys to filenames', style: TextStyle(fontSize: 12))
-                ))
+                )),
+                sound: NtSound.wrong
               );
-              audioController!.player.play(AssetSource('audio/wrong.wav'));
               //Future.delayed(const Duration(seconds: 10), () => notificationManager!.close(loraInfoNot));
             }
           }
@@ -308,18 +313,19 @@ class OnLocal extends ChangeNotifier implements AbMain{
     getAllFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
-      notificationManager!.update(notID, 'title', 'Indexing ${tabs[index]}');
-      notificationManager!.update(notID, 'description', 'We are processing ${fo.length} folders,\nmeantime, you can have some tea');
-      notificationManager!.update(notID, 'content', Container(
-        margin: const EdgeInsets.only(top: 7),
-        width: 100,
-        child: const LinearProgressIndicator(),
-      ));
-      notificationManager!.update(notID, 'thumbnail', Shimmer.fromColors(
-        baseColor: Colors.lightBlueAccent,
-        highlightColor: Colors.blueAccent.withOpacity(0.3),
-        child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
-      ));
+      notificationManager!.update(notID, (obj) {
+        obj.setTitle('Indexing ${tabs[index]}');
+        obj.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+        obj.setContent(Container(
+          margin: const EdgeInsets.only(top: 10),
+          child: CImaGenLinearProgressIndicator(),
+        ));
+        obj.setThumbnail(Shimmer.fromColors(
+          baseColor: Colors.lightBlueAccent,
+          highlightColor: Colors.blueAccent.withOpacity(0.3),
+          child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+        ));
+      });
       int d = 0;
       for(var f in fo){
         try{
@@ -328,27 +334,28 @@ class OnLocal extends ChangeNotifier implements AbMain{
           StreamController co = await indexFolder(f, hashes: ima, re: _internalTabs[index]);
           bool cont = await _isDone(co);
           d++;
-          notificationManager!.update(notID, 'content', Container(
-              margin: const EdgeInsets.only(top: 7),
-              width: 100,
-              child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
-          ));
+          notificationManager!.update(notID, (o) => o.setContent(Container(
+            margin: const EdgeInsets.only(top: 10),
+            child: CImaGenLinearProgressIndicator(value: d * 1 / fo.length),
+          )));
         } catch(e){
           int notID = notificationManager!.show(
-              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-              title: 'Error processing folder ${f.getter}',
-              description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e'
+            thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+            title: 'Error processing folder ${f.getter}',
+            description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e',
+            autoCloseDuration: const Duration(milliseconds: 10000),
+            sound: NtSound.error
           );
-          audioController!.player.play(AssetSource('audio/error.wav'));
-          Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
         }
       }
       if(notID != -1) notificationManager!.close(notID);
       isIndexingAll = false;
     }).catchError((err) {
-      notificationManager!.update(notID, 'title', 'Error');
-      notificationManager!.update(notID, 'description', 'Error: $err');
-      notificationManager!.update(notID, 'content', const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      notificationManager!.update(notID, (o){
+        o.setTitle('Error');
+        o.setDescription('Error: $err');
+        o.setContent(const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      });
       return true;
     });
     return true;
@@ -362,7 +369,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   @override
-  Future<StreamController<List<ImageMeta>>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
+  Future<StreamController<ImageMeta>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     print('indexFolder: ${folder.getter} ${hashes?.length ?? 'null'} with re: ${re != null ? re.toString() : 'null'}');
     // Read all files sizes and get hash
     //print(p.join(_webuiPaths[ke[renderEngine]]!, sub));
@@ -395,9 +402,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
         title: 'Indexing ${di.path}',
         description: 'We are processing ${fe.length} images, please wait',
         content: Container(
-          margin: const EdgeInsets.only(top: 7),
-          width: 100,
-          child: const LinearProgressIndicator(),
+          margin: const EdgeInsets.only(top: 10),
+          child: CImaGenLinearProgressIndicator(),
         )
       );
     }
@@ -409,14 +415,20 @@ class OnLocal extends ChangeNotifier implements AbMain{
         },
         onProcess: (total, current, thumbnail) {
           if(notID == -1) return;
-          notificationManager!.update(notID, 'description', 'We are processing $total/$current images, please wait');
-          if(thumbnail != null) {
-            notificationManager!.update(notID, 'thumbnail', Image.memory(
-              thumbnail,
-              filterQuality: FilterQuality.low,
-              gaplessPlayback: true,
+          notificationManager!.update(notID, (o){
+            o.setDescription('We are processing $total/$current images, please wait');
+            o.setContent(Container(
+              margin: const EdgeInsets.only(top: 10),
+              child: CImaGenLinearProgressIndicator(value: current * 1 / total),
             ));
-          }
+            if(thumbnail != null) {
+              o.setThumbnail(Image.memory(
+                thumbnail,
+                filterQuality: FilterQuality.low,
+                gaplessPlayback: true,
+              ));
+            }
+          });
         }
     );
 

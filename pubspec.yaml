@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 0.0.4
 
 environment:
-  sdk: ^3.6.1
+  sdk: ^3.10.8
 
 dependencies:
   flutter:
@@ -84,7 +84,6 @@ dependencies:
   palette_generator: ^0.3.3+5
   icc_parser: ^0.2.0
   extended_text_field: ^16.0.2
-  extended_text: ^15.0.2
   matrix2d: ^1.0.4
   ml_linalg: ^13.12.6
   matrix_utils: ^0.1.9
@@ -99,10 +98,10 @@ dependencies:
   snow_fall_animation: ^0.0.1+3
   wcg_image:
     path: ./wcg_image
-  flutter_gl: ^0.0.21
+#  flutter_gl: ^0.0.21
   image: ^4.7.2
-  three_js: ^0.2.6
-  three_js_controls: ^0.2.2
+#  three_js: ^0.2.6
+#  three_js_controls: ^0.2.2
   fl_chart: ^1.1.1
   flutter_i18n: ^0.37.1
   flutter_localizations:
@@ -110,6 +109,8 @@ dependencies:
   image_background_remover: ^2.0.0
   lottie: ^3.3.2
   flutter_screenutil: ^5.9.3
+  flutter_soloud: ^3.4.10
+  fftea: ^1.5.0+1
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:
@@ -127,11 +128,7 @@ flutter:
   generate: true
   assets:
     - assets/i18n/
-    - assets/audio/error.wav
-    - assets/audio/info.wav
-    - assets/audio/okay.wav
-    - assets/audio/open.wav
-    - assets/audio/wrong.wav
+    - assets/audio/
     - assets/icons/icon128white.png
     - assets/icons/lottie/
   fonts:

@@ -3,7 +3,6 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/modules/webUI/OnLocal.dart';
@@ -28,6 +27,7 @@ import 'package:png_chunks_extract/png_chunks_extract.dart' as png_extract;
 import 'package:http/http.dart' as http;
 
 import '../constants.dart';
+import '../modules/AudioController.dart';
 import '../modules/ConfigManager.dart';
 import '../modules/ICCProfiles.dart';
 import '../modules/webUI/OnNetworkLocation.dart';
@@ -176,8 +176,8 @@ class ParseJob {
   RenderEngine? filterByRe;
   bool _skipCached = false;
 
-  late StreamController<List<ImageMeta>> _controller;
-  StreamController<List<ImageMeta>> get controller => _controller;
+  late StreamController<ImageMeta> _controller;
+  StreamController<ImageMeta> get controller => _controller;
 
   List<ImageMeta> get finished => _done;
 
@@ -192,7 +192,7 @@ class ParseJob {
   ParseJob({RenderEngine? re, bool skipCached = false}){
     filterByRe = re;
     _skipCached = skipCached;
-    _controller = StreamController<List<ImageMeta>>();
+    _controller = StreamController<ImageMeta>();
   }
 
   String? host;
@@ -227,149 +227,153 @@ class ParseJob {
       }
       return _isDone();
     }
-    for(dynamic raw in _cache){
-      if(_forceStop) {
-        _doneTotal++;
-        _isDone();
-        continue;
-      }
-      bool yes = true;
-      String path = normalizePath(raw.runtimeType == String ? raw : raw.runtimeType == JobImageFile ? (raw as JobImageFile).fullPath : raw);
-      // Check file type
-      final String e = p.extension(path);
-      if(!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
+
+    List<Future<void>> tasks = [];
+    for (dynamic raw in _cache.toList()) {
+      tasks.add(_processOne(raw));
+    }
+    await Future.wait(tasks);
+    _isDone();
+  }
+
+  Future<void> _processOne(dynamic raw) async {
+    Uint8List? thisThumbnail;
+    if (_forceStop) {
+      _doneTotal++;
+      if (_onProcess != null) _onProcess!(_cache.length, _doneTotal, null);
+      return;
+    }
+    bool yes = true;
+    String path = normalizePath(raw.runtimeType == String ? raw : raw.runtimeType == JobImageFile ? (raw as JobImageFile).fullPath : raw);
+    // Check file type
+    final String e = p.extension(path);
+    if (!['png', 'jpg', 'webp', 'jpeg'].contains(e.replaceFirst('.', ''))) {
+      if (kDebugMode) {
         print('putAndGetJobID: invalid ex: ${e.replaceFirst('.', '')} ($e)');
-        yes = false;
-        _doneTotal++;
-        _isDone();
-        continue;
       }
+      yes = false;
+    }
+    if (yes) {
       final String b = p.basename(path);
-      for(String d in ['mask', 'before']){
-        if(b.contains(d)) {
+      for (String d in ['mask', 'before']) {
+        if (b.contains(d)) {
           yes = false;
         }
       }
-      if(yes){
-        JobImageFile? jobFile = raw.runtimeType == JobImageFile ? raw : null;
-        if(jobFile == null){
-          try{
-            ImageMeta? value = await parseImage(RenderEngine.unknown, path);
-            if(value != null){
-              if(host != null) value.updateHost(host);
-              _done.add(value);
-              _controller.add(finished);
-              if(filterByRe != null){
-                if(value.re == filterByRe){
-                  sqLite.updateImages(imageMeta: value).then((value){
-                    _doneTotal++;
-                    _isDone();
-                  });
-                } else {
-                  if(
-                    (filterByRe == RenderEngine.txt2img && [RenderEngine.inpaint, RenderEngine.img2img].contains(value.re)) || (filterByRe == RenderEngine.img2img && value.re == RenderEngine.txt2img)
-                  ) {
-                    // Delete // TODO
-                    File file = File(path);
-                    file.delete().then((file) {
-                      print('Deleted $path');
-                    });
-                  }
-                  _doneTotal++;
-                  _isDone();
-                }
-              } else {
-                sqLite.updateImages(imageMeta: value).then((value){
-                _doneTotal++;
-                _isDone();
-              });
-              }
-            } else {
-              _doneTotal++;
-              _isDone();
-            }
-          } catch(e){
-            if (kDebugMode) {
-              print(e);
-            }
-            _doneTotal++;
-            _isDone();
-          }
-        } else {
-          // Если изображение в сети
-          JobImageFile jf = raw as JobImageFile;
-          ImageMeta im = ImageMeta(
-            host: host,
-            re: RenderEngine.unknown,
-            fileTypeExtension: e.replaceFirst('.', ''),
-            fullPath: path,
-            fullNetworkPath: jf.fullNetworkPath,
-            networkThumbnail: jf.networkThumbhail,
-            dateModified: jf.dateModified
-          );
+    }
+    if (!yes) {
+      _doneTotal++;
+      if (_onProcess != null) _onProcess!(_cache.length, _doneTotal, null);
+      return;
+    }
 
-          int attempts = 0;
-          bool okay = false;
-          String? err;
-          while(attempts < 3 && okay != true){
-            try {
-              await im.parseNetworkImage(makeCachedImage: true, skipCached: _skipCached);
-              if(!im.skipped){
-                _done.add(im);
-                if(!_controller.isClosed) _controller.add(finished);
-                okay = true;
-                sqLite.updateImages(imageMeta: im).then((value){
-                  _doneTotal++;
-                  _isDone();
-                });
-              } else {
-                okay = true;
-                _doneTotal++;
-                _isDone();
+    JobImageFile? jobFile = raw.runtimeType == JobImageFile ? raw : null;
+    if (jobFile == null) {
+      try {
+        ImageMeta? value = await parseImage(RenderEngine.unknown, path);
+        if (value != null) {
+          if (host != null) value.updateHost(host);
+          _done.add(value);
+          _controller.add(value);
+          thisThumbnail = value.thumbnail; // Assuming thumbnail is Uint8List?
+          if (filterByRe != null) {
+            if (value.re == filterByRe) {
+              await sqLite.updateImages(imageMeta: value);
+            } else {
+              if (
+              (filterByRe == RenderEngine.txt2img && [RenderEngine.inpaint, RenderEngine.img2img].contains(value.re)) ||
+                  (filterByRe == RenderEngine.img2img && value.re == RenderEngine.txt2img)
+              ) {
+                // Delete
+                File file = File(path);
+                await file.delete();
+                if (kDebugMode) {
+                  print('Deleted $path');
+                }
               }
-            } catch (e, t){
-              err = e.toString();
-              if (kDebugMode) {
-                print(t);
-              }
-              attempts++;
-              await Future.delayed(const Duration(seconds: 3));
             }
-          }
-          if(okay != true && attempts >= 3){
-            _doneTotal++;
-            _isDone();
-            // Save broken image
-            bool s = false;
-            if(im.tempFilePath != null){
-              s = true;
-              String imagesErrorDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesErrorDir;
-              File(im.tempFilePath!).copy(p.join(imagesErrorDir, im.fileName));
-            }
-            int notID = notificationManager!.show(
-                thumbnail: const Icon(Icons.error, color: Colors.redAccent),
-                title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
-                description: 'We were unable to process the image, 3 attempts were made\n$path${s ? ', save to error folder':''}\nError: $err\nJob ID: $jobID'
-            );
-            audioController!.player.play(AssetSource('audio/error.wav'));
-            Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+          } else {
+            await sqLite.updateImages(imageMeta: value);
           }
         }
-      } else {
-        _doneTotal++;
-        _isDone();
+      } catch (e, t) {
+        if (kDebugMode) {
+          print('$e\n$t');
+        }
       }
+      _doneTotal++;
+      if (_onProcess != null) _onProcess!(_cache.length, _doneTotal, thisThumbnail);
+      return;
+    } else {
+      // Если изображение в сети
+      JobImageFile jf = raw as JobImageFile;
+      ImageMeta im = ImageMeta(
+          host: host,
+          re: RenderEngine.unknown,
+          fileTypeExtension: e.replaceFirst('.', ''),
+          fullPath: path,
+          fullNetworkPath: jf.fullNetworkPath,
+          networkThumbnail: jf.networkThumbhail,
+          dateModified: jf.dateModified
+      );
+
+      int attempts = 0;
+      bool okay = false;
+      String? err;
+      while (attempts < 3 && !okay) {
+        try {
+          await im.parseNetworkImage(makeCachedImage: true, skipCached: _skipCached);
+          if (!im.skipped) {
+            _done.add(im);
+            if (!_controller.isClosed) _controller.add(im);
+            thisThumbnail = im.thumbnail; // Assuming
+            okay = true;
+            await sqLite.updateImages(imageMeta: im);
+          } else {
+            okay = true;
+          }
+        } catch (e, t) {
+          err = e.toString();
+          if (kDebugMode) {
+            print(t);
+          }
+          attempts++;
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
+      if (!okay && attempts >= 3) {
+        // Save broken image
+        bool s = false;
+        if (im.tempFilePath != null) {
+          s = true;
+          String imagesErrorDir = kBaseNavigatorKey.currentContext!.read<ConfigManager>().imagesErrorDir;
+          await File(im.tempFilePath!).copy(p.join(imagesErrorDir, im.fileName));
+        }
+        int notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+            title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
+            description: 'We were unable to process the image, 3 attempts were made\n$path${s ? ', save to error folder':''}\nError: $err\nJob ID: $jobID',
+            sound: NtSound.error
+        );
+        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+      }
+      _doneTotal++;
+      if (_onProcess != null) _onProcess!(_cache.length, _doneTotal, thisThumbnail);
+      return;
     }
   }
 
-  void _isDone(){
-    if(_onProcess != null) _onProcess!(_cache.length, _doneTotal, _done.isNotEmpty ? _done.last.thumbnail : null);
-    if(isDone){
+  void _isDone() {
+    if (isDone) {
       if (kDebugMode) {
         print('done with $_jobID');
       }
       _controller.close();
-      if(_onDone != null) _onDone!();
+      if (_onDone != null) _onDone!();
+      _cache.clear();
+      _done.clear();
+      _onDone = null;
+      _onProcess = null;
     }
   }
 }
@@ -399,7 +403,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
 
     List<Map<String, dynamic>> chunks = [];
     try{
-      chunks = png_extract.extractChunks(fileBytes!);
+      chunks = await compute(png_extract.extractChunks, fileBytes!);
     } catch(e){
       if(e.runtimeType == RangeError){
         fixThis = true;
@@ -410,7 +414,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
 
     if(fixThis || chunks.where((e) => e["name"] == 'IHDR').toList(growable: false).isEmpty){
       Uint8List fixed = fixPng(fileBytes!);
-      chunks = png_extract.extractChunks(fixed);
+      chunks = await compute(png_extract.extractChunks, fixed);
       hasChunkError = true;
       fileBytes = fixed;
       // print('fixed');
@@ -1586,9 +1590,13 @@ class ImageMeta {
     }
   }
 
-  void updateHost(String host){
+  void updateHost(String? host){
     this.host = host;
-    hostMD5 = md5.convert(utf8.encode(host)).toString();
+    if(host != null){
+      hostMD5 = md5.convert(utf8.encode(host)).toString();
+    } else {
+      hostMD5 = null;
+    }
     final String parentFolder = p.basename(File(fullPath!).parent.path);
     keyup = genHash(re, parentFolder, fileName, host: host);
   }

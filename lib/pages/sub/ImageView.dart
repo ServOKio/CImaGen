@@ -274,60 +274,25 @@ class _ImageViewState extends State<ImageView> {
                 contextMenu: contextMenu,
                 child: Hero(
                     tag: widget.imageMeta.fileName,
-                    child: !widget.imageMeta.isLocal ?
-                    Image.memory(
-                      widget.imageMeta.fullImage ?? widget.imageMeta.thumbnail!,
-                      width: widget.imageMeta.size!.width / devicePixelRatio,
-                      gaplessPlayback: true,
-                      filterQuality: FilterQuality.none,
-                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                        if (wasSynchronouslyLoaded) {
-                          return child;
-                        } else {
-                          return AnimatedOpacity(
-                            opacity: frame == null ? 0 : 1,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            child: child,
-                          );
-                        }
-                      },
-                      errorBuilder: (context, exception, stack) => Center(
-                        child: Container(
-                          constraints: BoxConstraints(
-                              maxWidth: 310
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 60,
-                              ),
-                              SelectableText('Error: $exception')
-                            ],
-                          ),
-                        )
-                      )
-                    ) : Image.file(
-                      width: widget.imageMeta.size!.width / devicePixelRatio,
-                      File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? 'e.png'),
-                      gaplessPlayback: true,
-                      filterQuality: FilterQuality.none,
-                      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                        if (wasSynchronouslyLoaded) {
-                          return child;
-                        } else {
-                          return AnimatedOpacity(
-                            opacity: frame == null ? 0 : 1,
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.easeOut,
-                            child: child,
-                          );
-                        }
-                      },
-                      errorBuilder: (context, exception, stack) => Center(
+                    child: !widget.imageMeta.isLocal && widget.imageMeta.tempFilePath == null ?
+                      Image.memory(
+                        widget.imageMeta.fullImage ?? widget.imageMeta.thumbnail!,
+                        width: widget.imageMeta.size!.width / devicePixelRatio,
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.none,
+                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                          if (wasSynchronouslyLoaded) {
+                            return child;
+                          } else {
+                            return AnimatedOpacity(
+                              opacity: frame == null ? 0 : 1,
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              child: child,
+                            );
+                          }
+                        },
+                        errorBuilder: (context, exception, stack) => Center(
                           child: Container(
                             constraints: BoxConstraints(
                                 maxWidth: 310
@@ -344,8 +309,43 @@ class _ImageViewState extends State<ImageView> {
                               ],
                             ),
                           )
+                        )
+                      ) : Image.file(
+                        width: widget.imageMeta.size!.width / devicePixelRatio,
+                        File(widget.imageMeta.fullPath ?? widget.imageMeta.tempFilePath ?? 'e.png'),
+                        gaplessPlayback: true,
+                        filterQuality: FilterQuality.none,
+                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                          if (wasSynchronouslyLoaded) {
+                            return child;
+                          } else {
+                            return AnimatedOpacity(
+                              opacity: frame == null ? 0 : 1,
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOut,
+                              child: child,
+                            );
+                          }
+                        },
+                        errorBuilder: (context, exception, stack) => Center(
+                            child: Container(
+                              constraints: BoxConstraints(
+                                  maxWidth: 310
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.red,
+                                    size: 60,
+                                  ),
+                                  SelectableText('Error: $exception')
+                                ],
+                              ),
+                            )
+                        )
                       )
-                    )
             )) : FutureBuilder(
               future: lotsOfData,
               builder: (BuildContext context, AsyncSnapshot<dynamic> snapshot) {

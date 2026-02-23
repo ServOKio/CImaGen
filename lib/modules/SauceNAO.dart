@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/modules/saucenao/Result.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/foundation.dart';
@@ -176,11 +177,11 @@ class _SauceNAOState extends State<SauceNAO> {
                                             onPressed: () async {
                                               int notID = 0;
                                               notID = notificationManager!.show(
-                                                  thumbnail: const Icon(Icons.change_circle, color: Colors.blueAccent, size: 32),
-                                                  title: 'Let\'s try to find...',
-                                                  description: 'It shouldn\'t take long',
+                                                thumbnail: const Icon(Icons.change_circle, color: Colors.blueAccent, size: 32),
+                                                title: 'Let\'s try to find...',
+                                                description: 'It shouldn\'t take long',
+                                                sound: NtSound.open
                                               );
-                                              audioController!.player.play(AssetSource('audio/open.wav'));
 
                                               context.read<DataManager>().getE621Post(el.data.e621_id!).then((e) => Future.delayed(const Duration(seconds: 2), () => notificationManager!.close(notID)));
                                               //downloadToDownloadFolder('test123.png', el.data.)

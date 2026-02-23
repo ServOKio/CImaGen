@@ -102,9 +102,11 @@ class ConfigManager with ChangeNotifier {
               }
             }
           }
-          notificationManager!.update(notID, 'thumbnail', const Icon(Icons.restore_from_trash, color: Colors.greenAccent));
-          notificationManager!.update(notID, 'title', 'Well...done!');
-          notificationManager!.update(notID, 'description', 'Everything is clear!');
+          notificationManager!.update(notID, (o){
+            o.setTitle('Well...done!');
+            o.setDescription('Everything is clear!');
+            o.setThumbnail(const Icon(Icons.restore_from_trash, color: Colors.greenAccent));
+          });
           Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
         });
       }

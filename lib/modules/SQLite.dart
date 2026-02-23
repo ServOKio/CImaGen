@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:cimagen/components/Animations.dart';
 import 'package:cimagen/components/NotesSection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:external_path/external_path.dart';
@@ -22,7 +24,6 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:provider/provider.dart';
 import 'dart:io' show Directory, File, Platform;
-import 'package:cimagen/modules/SaveManager.dart';
 
 import '../Utils.dart';
 import 'Objectbox.dart';
@@ -225,15 +226,15 @@ class SQLite{
           ')'
         );
 
-        db.execute(
-          'CREATE TABLE IF NOT EXISTS notes('
-            'id INTEGER PRIMARY KEY AUTOINCREMENT,'
-            'title VARCHAR(256),'
-            'content TEXT,'
-            'color VARCHAR(16),'
-            'icon VARCHAR(128)'
-          ')'
-        );
+        db.execute('''
+          CREATE TABLE IF NOT EXISTS notes (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            title   TEXT NOT NULL DEFAULT 'New note',
+            content TEXT NOT NULL DEFAULT '',
+            color   TEXT NOT NULL DEFAULT '#FF3F51B5',
+            icon    TEXT NOT NULL DEFAULT 'note_alt_outlined'
+          )
+        ''');
 
         db.execute(
           'CREATE TABLE IF NOT EXISTS saved_categories('
@@ -396,16 +397,20 @@ class SQLite{
       sqlDb: database,
       sqlQueue: sqlQueue,
     ).listen((progress) {
-      notificationManager!.update(notID, 'content', Container(
-          margin: const EdgeInsets.only(top: 7),
-          width: 100,
-          child: LinearProgressIndicator(value: progress.percent / 100)
-      ));
-      notificationManager!.update(notID, 'description', 'Process: ${progress.percent.toStringAsFixed(2)}%, stage: ${progress.stage}');
+      notificationManager!.update(notID, (o){
+        o.setDescription('Process: ${progress.percent.toStringAsFixed(2)}%, stage: ${progress.stage}');
+        o.setContent(Container(
+            margin: const EdgeInsets.only(top: 7),
+            width: 100,
+            child: LinearProgressIndicator(value: progress.percent / 100)
+        ));
+      });
     }, onDone: () async {
       await sqlQueue.dispose();
-      print('Migration complete & flushed');
-      notificationManager!.update(notID, 'title', 'Migration complete & flushed');
+      notificationManager!.update(notID, (o){
+        o.setDescription(null);
+        o.setTitle('Migration complete & flushed');
+      });
     });
   }
 
@@ -1075,8 +1080,7 @@ class SQLite{
       final int total = sqLite.firstIntValue(totalResult) ?? 0;
 
       if (total == 0) {
-        notificationManager!.update(
-            notificationId, 'title', 'Nothing to rebuild.');
+        notificationManager!.update(notificationId, (o) => o.setTitle('Nothing to rebuild'));
         return;
       }
 
@@ -1124,40 +1128,26 @@ class SQLite{
 
         final progress = processed / total;
 
-        notificationManager!.update(notificationId, 'content',
-            LinearProgressIndicator(value: progress));
-
-        notificationManager!.update(
-            notificationId,
-            'description',
-            'Processed: $processed / $total '
-                '(${(progress * 100).toStringAsFixed(1)}%)');
-
+        notificationManager!.update(notificationId, (o) {
+          o.setDescription('Processed: $processed / $total (${(progress * 100).toStringAsFixed(1)}%)');
+          o.setContent(Container(
+            margin: const EdgeInsets.only(top: 10),
+            child: CImaGenLinearProgressIndicator(value: progress),
+          ));
+        });
         await Future.delayed(const Duration(milliseconds: 10));
       }
 
-      notificationManager!.update(
-          notificationId,
-          'title',
-          'Content rating rebuild completed');
-
-      notificationManager!.update(
-          notificationId,
-          'description',
-          'Processed $processed records');
-
+      notificationManager!.update(notificationId, (o) {
+        o.setTitle('Content rating rebuild completed');
+        o.setDescription('Processed $processed records');
+      });
       notificationManager!.close(warningId);
     } catch (e) {
-      notificationManager!.update(
-          notificationId,
-          'title',
-          'Error during rebuild');
-
-      notificationManager!.update(
-          notificationId,
-          'description',
-          e.toString());
-
+      notificationManager!.update(notificationId, (o) {
+        o.setTitle('Error during rebuild');
+        o.setDescription(e.toString());
+      });
       rethrow;
     }
   }
@@ -1238,33 +1228,107 @@ class SQLite{
   }
 
   // Notes
-  Future<Note> createNote() async {
-    Color color = getRandomColor();
-    String title = 'New note';
-    List<IconData> ic = [
-      Icons.note_alt_outlined,
-      Icons.ac_unit,
-      Icons.photo_rounded,
-      Icons.stadium_rounded,
-      Icons.linear_scale_rounded
-    ];
-    int id = await constDatabase.insert(
-        'notes',
-        {
-          'title': title,
-          'color': '#FF${color.value.toRadixString(16).substring(2, 8)}'
-        },
-        conflictAlgorithm: ConflictAlgorithm.abort
+  Future<Note> createNote({
+    String title = 'New note',
+    Color? color,
+    IconData? icon,
+  }) async {
+    color ??= _getRandomColor();
+    icon ??= _getRandomIcon();
+
+    final String colorHex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2)}';
+
+    final id = await constDatabase.insert(
+      'notes',
+      {
+        'title': title,
+        'content': '',
+        'color': colorHex,
+        'icon': iconToString(icon),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    return Note(id: id, title: title, content: '', color: color, icon: ic[0]);
+
+    return Note(
+      id: id,
+      title: title,
+      content: '',
+      color: color,
+      icon: icon,
+    );
+  }
+
+// Helper functions
+  Color _getRandomColor() {
+    final colors = [
+      Colors.indigoAccent,
+      Colors.redAccent,
+      Colors.greenAccent,
+      Colors.yellowAccent.shade700,
+      Colors.purpleAccent,
+      Colors.tealAccent,
+      Colors.orangeAccent,
+      Colors.cyanAccent,
+    ];
+    return colors[Random().nextInt(colors.length)];
+  }
+
+  IconData _getRandomIcon() {
+    final icons = [
+      Icons.note_alt_outlined,
+      Icons.lightbulb_outline,
+      Icons.star_outline,
+      Icons.check_circle_outline,
+      Icons.favorite_border,
+      Icons.palette_outlined,
+      Icons.music_note_outlined,
+      Icons.book_outlined,
+    ];
+    return icons[Random().nextInt(icons.length)];
+  }
+
+  String iconToString(IconData icon) {
+    return icon.toString().split('.').last;
+  }
+
+  IconData stringToIcon(String iconName) {
+    final iconMap = {
+      'note_alt_outlined': Icons.note_alt_outlined,
+      'lightbulb_outline': Icons.lightbulb_outline,
+      'star_outline': Icons.star_outline,
+      'check_circle_outline': Icons.check_circle_outline,
+      'favorite_border': Icons.favorite_border,
+      'palette_outlined': Icons.palette_outlined,
+      'music_note_outlined': Icons.music_note_outlined,
+      'book_outlined': Icons.book_outlined,
+      'ac_unit': Icons.ac_unit,
+      'photo_rounded': Icons.photo_rounded,
+    };
+
+    return iconMap[iconName] ?? Icons.note_alt_outlined;
   }
 
   Future<List<Note>> getNotes() async {
     final List<Map<String, dynamic>> maps = await constDatabase.query('notes');
+
     return List.generate(maps.length, (i) {
-      var d = maps[i];
-      return Note(id: d['id'] as int, title: d['title'] as String, content: d['content'] == null ? '' : d['content'] as String, color: fromHex(d['color'] as String), icon: Icons.sticky_note_2_sharp);
+      final map = maps[i];
+      return Note(
+        id: map['id'] as int,
+        title: map['title'] as String? ?? 'New note',
+        content: map['content'] as String? ?? '',
+        color: _hexToColor(map['color'] as String? ?? '#FF3F51B5'),
+        icon: stringToIcon(map['icon'] as String? ?? 'note_alt_outlined'),
+      );
     });
+  }
+
+  Color _hexToColor(String hex) {
+    hex = hex.replaceFirst('#', '');
+    if (hex.length == 6) {
+      hex = 'FF$hex';
+    }
+    return Color(int.parse(hex, radix: 16));
   }
 
   Future<void> updateNoteTitle(int noteID, String title) async {
@@ -1292,41 +1356,26 @@ class SQLite{
     );
   }
 
-  // Categories
-  Future<Category> createCategory({required String title, String? description}) async {
-    Color color = getRandomColor();
-    int id = await constDatabase.insert(
-        'saved_categories',
-        {
-          'title': title.trim(),
-          'description': description,
-          'color': '#FF${color.value.toRadixString(16).substring(2, 8)}'
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace
-    );
+  Future<void> updateNoteColor(int id, Color newColor) async {
+    final String colorHex = '#${newColor.value.toRadixString(16).padLeft(8, '0').substring(2)}';
 
-    return Category(
-        id: id,
-        title: title.trim(),
-        description: description,
-        color: color,
-        icon: Icons.category
+    await constDatabase.update(
+      'notes',
+      {'color': colorHex},
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 
-  Future<List<Category>> getCategories() async {
-    final List<Map<String, dynamic>> maps = await constDatabase.query('saved_categories');
-    return List.generate(maps.length, (i) {
-      var d = maps[i];
-      return Category(
-        id: d['id'] as int,
-        title: d['title'] as String,
-        description: d['description'] == null ? '' : d['description'] as String,
-        color: fromHex(d['color'] as String),
-        icon: Icons.category,
-        thumbnail: d['thumbnail']
-      );
-    });
+  Future<void> updateNoteIcon(int id, IconData newIcon) async {
+    final String iconName = iconToString(newIcon);
+
+    await constDatabase.update(
+      'notes',
+      {'icon': iconName},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // System

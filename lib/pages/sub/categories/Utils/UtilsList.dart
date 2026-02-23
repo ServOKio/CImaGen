@@ -3,7 +3,9 @@ import 'package:cimagen/pages/sub/categories/Utils/LoraMakerList.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../components/CustomMasonryView.dart';
+import '../../../../main.dart';
 import '../../../Home.dart';
+import '../../AudioAnalyzer.dart';
 import '../../LottieJsonPreview.dart';
 
 class UtilsList extends StatelessWidget {
@@ -44,12 +46,19 @@ class UtilsList extends StatelessWidget {
             icon: Icons.print,
             onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InkJetUnclog()))
         ),
-        Util(
+        if(prefs.getBool('debug') ?? false) Util(
             title: 'Lottie JSON bath preview',
             description: 'Select folder and preview all icons',
             color: Color(0xffc2e35f),
             icon: Icons.find_in_page,
-            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LottieJsonPreview(directoryPath: 'D:\\icons',)))
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => LottieJsonPreview(directoryPath: 'W:\\icons',)))
+        ),
+        if(prefs.getBool('debug') ?? false) Util(
+            title: 'Audio Analyzer',
+            description: '-',
+            color: Color(0xffe08ba9),
+            icon: Icons.audiotrack,
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AudioAnalyzer()))
         ),
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),

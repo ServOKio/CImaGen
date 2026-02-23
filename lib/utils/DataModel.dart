@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
@@ -440,22 +441,22 @@ class ContentRatingModule {
     if(dD == null){
       int notID = 0;
       notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Documents folder not found',
-          description: 'It seems to be some kind of system error. Check the settings section and folder paths',
-          content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-              style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                  shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-              ),
-              onPressed: (){
-                notificationManager!.close(notID);
-                loadCRTags();
-              },
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          ))
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Documents folder not found',
+        description: 'It seems to be some kind of system error. Check the settings section and folder paths',
+        content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
+            style: ButtonStyle(
+                foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+            ),
+            onPressed: (){
+              notificationManager!.close(notID);
+              loadCRTags();
+            },
+            child: const Text("Try again", style: TextStyle(fontSize: 12))
+        )),
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
       return;
     }
     dynamic jsonPath = Directory(p.join(dD.path, 'CImaGen', 'json'));
@@ -475,12 +476,12 @@ class ContentRatingModule {
         XXX.addAll(List<String>.from(data['XXX']));
       });
     } else {
-      int notID = notificationManager!.show(
-          thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-          title: 'Content rating tags not found',
-          description: 'Put the content-rating.json file in the "$jsonPath" folder'
+      notificationManager!.show(
+        thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
+        title: 'Content rating tags not found',
+        description: 'Put the content-rating.json file in the "$jsonPath" folder',
+        sound: NtSound.wrong
       );
-      audioController!.player.play(AssetSource('audio/wrong.wav'));
     }
   }
 

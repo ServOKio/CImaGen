@@ -1,73 +1,140 @@
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:cimagen/Utils.dart';
-import 'package:flutter/foundation.dart';
+import 'package:cimagen/main.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:get/get_navigation/src/root/parse_route.dart';
 import 'package:provider/provider.dart';
 
-import '../main.dart';
-
 class NotificationManager with ChangeNotifier {
-  int active = 0;
-  Map<int, NotificationObject> _notifications= {};
-    // NotificationObject(id: 12312, title: 'Test', content: Container(
-    //   margin: EdgeInsets.only(top: 7),
-    //   width: 100,
-    //   child: LinearProgressIndicator(),
-    // ))
+  final List<NotificationObject> _notifications = [];
+  int _nextId = 0;
 
-  Map<int, NotificationObject> get notifications => _notifications;
+  List<NotificationObject> get notifications => List.unmodifiable(_notifications);
 
-  void init(){
+  int get active => _notifications.length;
 
+  void init() {
+    // Call AudioController.instance.init() in main.dart or here if needed
   }
 
-  int show({required String title, Widget? thumbnail, String? description, Color color = Colors.red, Widget? content, Duration? duration}){
-    int id = getRandomInt(10000, 50000);
-    _notifications[id] = NotificationObject(id: id, thumbnail: thumbnail, title: title, description: description, content: content);
+  int show({
+    required String title,
+    Widget? thumbnail,
+    String? description,
+    Color color = Colors.red, // Unused in code, but kept for future
+    Widget? content,
+    Duration? autoCloseDuration,
+    NtSound? sound,
+  }) {
+    final id = _nextId++;
+    final obj = NotificationObject(
+      id: id,
+      thumbnail: thumbnail,
+      title: title,
+      description: description,
+      content: content,
+    );
+    _notifications.add(obj);
     notifyListeners();
-    if(duration != null){
-      Future.delayed(duration, () => close(id));
+    if(sound != null){
+      audioController!.play(sound);
     }
-    if (kDebugMode) {
-      print('show with id:$id: $title');
+    if (autoCloseDuration != null) {
+      Future.delayed(autoCloseDuration, () => close(id));
     }
-    active++;
     return id;
   }
 
-  void update(int id, String key, dynamic value) {
-    NotificationObject? object = _notifications[id];
-    if(object != null){
-      object.update(key, value);
+  void update(int id, void Function(NotificationObject obj) updater) {
+    final obj = _notifications.firstWhereOrNull((n) => n.id == id);
+    if (obj != null) {
+      updater(obj);
+      obj.notifyListeners(); // Single notify after all changes in the callback
     }
   }
 
-  void close(int id){
-    print('close $id');
-    NotificationObject? object = _notifications[id];
-    if(object != null){
-      object.close();
+  void close(int id) {
+    final obj = _notifications.firstWhereOrNull((n) => n.id == id);
+    if (obj != null) {
+      obj.close();
     }
   }
 
-  void remove(int id){
-    active--;
-    audioController!.player.play(AssetSource('audio/okay.wav'));
-    if(active <= 0){
-      _notifications.clear();
-      notifyListeners();
-      print('clean');
+  void closeAll() {
+    for (final obj in _notifications) {
+      obj.close();
     }
+  }
+
+  void _remove(int id) {
+    _notifications.removeWhere((n) => n.id == id);
+    audioController!.play(NtSound.okay);
+    if (_notifications.isEmpty) {
+      // Optional: SoLoud.instance.disposeAllSources(); for cleanup
+    }
+    notifyListeners();
   }
 }
 
-class NotificationWidget extends StatefulWidget{
+class NotificationObject with ChangeNotifier {
+  final int id;
+  Widget? thumbnail;
+  String title;
+  String? description;
+  Widget? content;
+
+  VoidCallback? _closeCallback;
+  bool closed = false;
+
+  NotificationObject({
+    required this.id,
+    this.thumbnail,
+    required this.title,
+    this.description,
+    this.content,
+  });
+
+  void setThumbnail(Widget? newThumbnail) {
+    thumbnail = newThumbnail;
+    // No notify here - handled by manager.update()
+  }
+
+  void setTitle(String newTitle) {
+    title = newTitle;
+    // No notify here
+  }
+
+  void setDescription(String? newDescription) {
+    description = newDescription;
+    // No notify here
+  }
+
+  void setContent(Widget? newContent) {
+    content = newContent;
+    // No notify here
+  }
+
+  void setCloseCallback(VoidCallback callback) {
+    _closeCallback = callback;
+  }
+
+  void close() {
+    if (closed) return;
+    closed = true;
+    _closeCallback?.call();
+  }
+}
+
+class NotificationWidget extends StatefulWidget {
   final NotificationObject notificationObject;
   final NotificationManager manager;
-  final BuildContext context;
-  const NotificationWidget(this.context, this.manager, this.notificationObject, { super.key });
+
+  const NotificationWidget({
+    super.key,
+    required this.notificationObject,
+    required this.manager,
+  });
 
   @override
   State<NotificationWidget> createState() => _NotificationWidgetState();
@@ -76,13 +143,12 @@ class NotificationWidget extends StatefulWidget{
 class _NotificationWidgetState extends State<NotificationWidget> with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-
-  bool shown = false;
+  bool _shown = false;
 
   @override
   void initState() {
     super.initState();
-    widget.notificationObject.setClose(close);
+    widget.notificationObject.setCloseCallback(_close);
     _controller = AnimationController(
       duration: const Duration(seconds: 1),
       vsync: this,
@@ -92,118 +158,100 @@ class _NotificationWidgetState extends State<NotificationWidget> with TickerProv
       curve: Curves.fastLinearToSlowEaseIn,
     );
     _controller.forward().then((v){
-      shown = true;
-      if(widget.notificationObject.closed) close();
+      _shown = true;
+      if(widget.notificationObject.closed) _close();
     });
   }
 
   @override
   void dispose() {
-    super.dispose();
     _controller.dispose();
+    super.dispose();
   }
 
-  void close() {
-    if (shown && _animation.status == AnimationStatus.completed) {
-      _controller.animateBack(0, duration: const Duration(seconds: 1)).then((onValue){
-        widget.manager.remove(widget.notificationObject.id);
+  void _close() {
+    if (_shown && _controller.status == AnimationStatus.completed) {
+      _controller.animateBack(0, duration: const Duration(seconds: 1)).then((_) {
+        widget.manager._remove(widget.notificationObject.id);
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => widget.notificationObject,
-      child:  Consumer<NotificationObject>(builder: (context, notiData, child) => SizeTransition(
-        sizeFactor: _animation,
-        axis: Axis.vertical,
-        child: Container(
-          // clipBehavior: Clip.none,
-          margin: const EdgeInsets.only(top: 7),
-          padding: const EdgeInsets.all(28),
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.all(Radius.circular(7)),
-            color: Colors.black,
-          ),
-          child: Row(
-            children: [
-              AnimatedSizeAndFade(
-                child: notiData.thumbnail != null ? Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(7)
+    return ChangeNotifierProvider.value(
+        value: widget.notificationObject,
+        child:  Consumer<NotificationObject>(builder: (context, notiData, child) => SizeTransition(
+          sizeFactor: _animation,
+          axis: Axis.vertical,
+          child: Container(
+            // clipBehavior: Clip.none,
+            margin: const EdgeInsets.only(top: 7),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12), // Softer corners
+              color: Colors.black.withAlpha(240), // Semi-transparent for modern look
+            ),
+            child: Row(
+              children: [
+                AnimatedSizeAndFade(
+                  child: notiData.thumbnail != null ? Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(7)
+                        ),
+                        width: 64,
+                        height: 64,
+                        child: notiData.thumbnail!,
                       ),
-                      width: 64,
-                      height: 64,
-                      child: notiData.thumbnail!,
-                    ),
-                    const Gap(21),
-                  ],
-                ) : const SizedBox.shrink(),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(notiData.title, style: const TextStyle(fontWeight: FontWeight.w500)),
-                    if(notiData.description != null) SelectableText(notiData.description!, style: const TextStyle(color: Colors.grey)),
-                    if(notiData.content != null) notiData.content!,
-                  ],
+                      const Gap(21),
+                    ],
+                  ) : const SizedBox.shrink(),
                 ),
-              ),
-              IconButton(
-                onPressed: () => close(),
-                icon: const Icon(Icons.close, size: 21, color: Colors.grey),
-              )
-            ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(notiData.title, style: const TextStyle(fontWeight: FontWeight.w500)),
+                      if(notiData.description != null) SelectableText(notiData.description!, style: const TextStyle(color: Colors.grey)),
+                      if(notiData.content != null) notiData.content!,
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _close,
+                  icon: const Icon(Icons.close, size: 21, color: Colors.grey),
+                )
+              ],
+            ),
           ),
-        ),
-      ))
+        ))
     );
   }
 }
 
-class NotificationObject with ChangeNotifier{
-  final int id;
-  Widget? thumbnail;
-  String title;
-  String? description;
-  Widget? content;
+// Example usage: Add this overlay in your app's root Scaffold or via OverlayEntry
+class NotificationsOverlay extends StatelessWidget {
+  const NotificationsOverlay({super.key});
 
-  Function? _closeFunction;
-  Function? changeFunction;
-  bool closed = false;
-
-  NotificationObject({
-    required this.id,
-    this.thumbnail,
-    required this.title,
-    this.description,
-    this.content
-  });
-
-  void update(String key, dynamic value){
-    switch (key) {
-      case 'thumbnail':
-        thumbnail = value;
-        notifyListeners();
-      case 'title':
-        title = value;
-        notifyListeners();
-      case 'description':
-        description = value;
-        notifyListeners();
-      case 'content':
-        content = value;
-        notifyListeners();
-    }
-  }
-
-  void setClose(void Function() f) => _closeFunction = f;
-  void close(){
-    closed = true;
-    if(_closeFunction != null) _closeFunction!();
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<NotificationManager>(
+      builder: (context, manager, child) {
+        if (manager.notifications.isEmpty) return const SizedBox.shrink();
+        return Positioned(
+          bottom: 20, // Or top/right for toast-style
+          right: 20,
+          child: Column(
+            children: manager.notifications.map((obj) => NotificationWidget(
+              key: ValueKey(obj.id), // For smooth list animations
+              notificationObject: obj,
+              manager: manager,
+            )).toList(),
+          ),
+        );
+      },
+    );
   }
 }
