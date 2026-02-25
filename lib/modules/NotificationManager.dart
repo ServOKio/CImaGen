@@ -15,14 +15,13 @@ class NotificationManager with ChangeNotifier {
   int get active => _notifications.length;
 
   void init() {
-    // Call AudioController.instance.init() in main.dart or here if needed
   }
 
   int show({
     required String title,
     Widget? thumbnail,
     String? description,
-    Color color = Colors.red, // Unused in code, but kept for future
+    Color color = Colors.red,
     Widget? content,
     Duration? autoCloseDuration,
     NtSound? sound,
@@ -50,7 +49,7 @@ class NotificationManager with ChangeNotifier {
     final obj = _notifications.firstWhereOrNull((n) => n.id == id);
     if (obj != null) {
       updater(obj);
-      obj.notifyListeners(); // Single notify after all changes in the callback
+      obj.notifyListeners();
     }
   }
 
@@ -171,9 +170,7 @@ class _NotificationWidgetState extends State<NotificationWidget> with TickerProv
 
   void _close() {
     if (_shown && _controller.status == AnimationStatus.completed) {
-      _controller.animateBack(0, duration: const Duration(seconds: 1)).then((_) {
-        widget.manager._remove(widget.notificationObject.id);
-      });
+      _controller.animateBack(0, duration: const Duration(seconds: 1)).then((_) => widget.manager._remove(widget.notificationObject.id));
     }
   }
 
@@ -227,31 +224,6 @@ class _NotificationWidgetState extends State<NotificationWidget> with TickerProv
             ),
           ),
         ))
-    );
-  }
-}
-
-// Example usage: Add this overlay in your app's root Scaffold or via OverlayEntry
-class NotificationsOverlay extends StatelessWidget {
-  const NotificationsOverlay({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<NotificationManager>(
-      builder: (context, manager, child) {
-        if (manager.notifications.isEmpty) return const SizedBox.shrink();
-        return Positioned(
-          bottom: 20, // Or top/right for toast-style
-          right: 20,
-          child: Column(
-            children: manager.notifications.map((obj) => NotificationWidget(
-              key: ValueKey(obj.id), // For smooth list animations
-              notificationObject: obj,
-              manager: manager,
-            )).toList(),
-          ),
-        );
-      },
     );
   }
 }

@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:cimagen/components/Animations.dart';
 import 'package:cimagen/components/NotesSection.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:csv/csv.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -186,6 +187,76 @@ class SQLite{
           CREATE TRIGGER IF NOT EXISTS images_after_delete AFTER DELETE ON generation_params
           BEGIN
             DELETE FROM images_fts WHERE keyup = old.image_keyup;
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS e621posts (
+            id INTEGER PRIMARY KEY,
+            uploader_id INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            md5 TEXT NOT NULL,
+            source TEXT,
+            rating TEXT NOT NULL,
+            image_width INTEGER NOT NULL,
+            image_height INTEGER NOT NULL,
+            tag_string TEXT NOT NULL,
+            locked_tags TEXT,
+            fav_count INTEGER NOT NULL,
+            file_ext TEXT NOT NULL,
+            parent_id INTEGER,
+            change_seq INTEGER NOT NULL,
+            approver_id INTEGER,
+            file_size INTEGER NOT NULL,
+            comment_count INTEGER NOT NULL,
+            description TEXT,
+            duration TEXT,
+            updated_at TEXT,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
+            is_pending INTEGER NOT NULL DEFAULT 0,
+            is_flagged INTEGER NOT NULL DEFAULT 0,
+            score INTEGER NOT NULL,
+            up_score INTEGER NOT NULL,
+            down_score INTEGER NOT NULL,
+            is_rating_locked INTEGER NOT NULL DEFAULT 0,
+            is_status_locked INTEGER NOT NULL DEFAULT 0,
+            is_note_locked INTEGER NOT NULL DEFAULT 0
+          )
+        ''');
+
+        await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_md5 ON e621posts(md5);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON e621posts(created_at);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_score ON e621posts(score);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_fav_count ON e621posts(fav_count);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_uploader_id ON e621posts(uploader_id);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_parent_id ON e621posts(parent_id);');
+        await db.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
+
+        await db.execute('''
+          CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts5(
+            tag_string,
+            content='e621posts',
+            content_rowid='id',
+            tokenize='unicode61 tokenchars "_()-'' "'
+          );
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS e621posts_ai AFTER INSERT ON e621posts BEGIN
+            INSERT INTO post_tags_fts(rowid, tag_string) VALUES (new.id, new.tag_string);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS e621posts_au AFTER UPDATE OF tag_string ON e621posts BEGIN
+            INSERT INTO post_tags_fts(post_tags_fts, rowid, tag_string) VALUES('delete', old.id, old.tag_string);
+            INSERT INTO post_tags_fts(rowid, tag_string) VALUES (new.id, new.tag_string);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS e621posts_ad AFTER DELETE ON e621posts BEGIN
+            INSERT INTO post_tags_fts(post_tags_fts, rowid, tag_string) VALUES('delete', old.id, old.tag_string);
           END;
         ''');
 
@@ -1430,6 +1501,148 @@ class SQLite{
     }
 
     return res.first['id'] as int;
+  }
+
+  // e621
+  Future<void> updatePosts(File csvFile) async {
+    const int batchSize = 1000;
+    List<List<dynamic>> pendingRows = [];
+
+    final inputStream = csvFile.openRead();
+    final rowStream = inputStream.transform(utf8.decoder).transform(const CsvToListConverter());
+
+    await for (var row in rowStream) {
+      pendingRows.add(row);
+      if (pendingRows.length >= batchSize) {
+        await _processBatch(pendingRows);
+        pendingRows = []; // Clear to free memory
+      }
+    }
+
+    // Process any remaining rows
+    if (pendingRows.isNotEmpty) {
+      await _processBatch(pendingRows);
+    }
+  }
+
+  Future<void> _processBatch(List<List<dynamic>> rows) async {
+    final batch = database.batch();
+
+    for (var rawData in rows) {
+      if (rawData.length < 29) continue; // Skip invalid rows
+
+      final data = rawData.map((e) => e?.toString() ?? '').toList(); // Ensure strings
+
+      try {
+        final int id = int.parse(data[0]);
+        final int uploaderID = int.parse(data[1]);
+        final String createdAt = data[2];
+        final String md5 = data[3];
+        final String source = data[4];
+        final String rating = data[5];
+        final int width = int.parse(data[6]);
+        final int height = int.parse(data[7]);
+        final String tagString = data[8];
+        final String lockedTags = data[9];
+        final int favCount = int.parse(data[10]);
+        final String fileExt = data[11];
+        final int? parentID = data[12].isEmpty ? null : int.parse(data[12]);
+        final int changeSeq = int.parse(data[13]);
+        final int? approverID = data[14].isEmpty ? null : int.parse(data[14]);
+        final int fileSize = int.parse(data[15]);
+        final int commentCount = int.parse(data[16]);
+        final String? description = data[17].isEmpty ? null : data[17];
+        final String duration = data[18];
+        final String updatedAt = data[19];
+        final int isDeleted = data[20] == 't' ? 1 : 0;
+        final int isPending = data[21] == 't' ? 1 : 0;
+        final int isFlagged = data[22] == 't' ? 1 : 0;
+        final int score = int.parse(data[23]);
+        final int upScore = int.parse(data[24]);
+        final int downScore = int.parse(data[25]);
+        final int isRatingLocked = data[26] == 't' ? 1 : 0;
+        final int isStatusLocked = data[27] == 't' ? 1 : 0;
+        final int isNoteLocked = data[28] == 't' ? 1 : 0;
+
+        batch.insert(
+          'e621posts',
+          {
+            'id': id,
+            'uploader_id': uploaderID,
+            'created_at': createdAt,
+            'md5': md5,
+            'source': source.isEmpty ? null : source,
+            'rating': rating,
+            'image_width': width,
+            'image_height': height,
+            'tag_string': tagString,
+            'locked_tags': lockedTags.isEmpty ? null : lockedTags,
+            'fav_count': favCount,
+            'file_ext': fileExt,
+            'parent_id': parentID,
+            'change_seq': changeSeq,
+            'approver_id': approverID,
+            'file_size': fileSize,
+            'comment_count': commentCount,
+            'description': description,
+            'duration': duration.isEmpty ? null : duration,
+            'updated_at': updatedAt.isEmpty ? null : updatedAt,
+            'is_deleted': isDeleted,
+            'is_pending': isPending,
+            'is_flagged': isFlagged,
+            'score': score,
+            'up_score': upScore,
+            'down_score': downScore,
+            'is_rating_locked': isRatingLocked,
+            'is_status_locked': isStatusLocked,
+            'is_note_locked': isNoteLocked,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      } catch (e) {
+        // Handle parsing errors, e.g., print(e) or log
+        continue;
+      }
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  Future<List<Map<String, dynamic>>> getCooccurringTags(String targetTag, Database db) async {
+    String matchQuery = '"$targetTag"';
+
+    final cursor = await db.rawQueryCursor(
+      '''
+    SELECT e621posts.tag_string 
+    FROM e621posts 
+    INNER JOIN post_tags_fts ON e621posts.id = post_tags_fts.rowid 
+    WHERE post_tags_fts.tag_string MATCH ?
+    ''',
+      [matchQuery],
+    );
+
+    Map<String, int> counts = {};
+
+    while (await cursor.moveNext()) {
+      final row = cursor.current;
+      final String tagString = row['tag_string'] as String;
+      final List<String> tags = tagString.split(' ');
+      for (final tag in tags) {
+        if (tag != targetTag && tag.isNotEmpty) {
+          counts.update(tag, (value) => value + 1, ifAbsent: () => 1);
+        }
+      }
+    }
+
+    await cursor.close();
+
+    final List<Map<String, dynamic>> result = counts.entries
+        .map((e) => {'tag': e.key, 'count': e.value})
+        .toList();
+
+    result.sort((a, b) => (a['count'] as int).compareTo(b['count'] as int));
+
+    return result;
   }
 
   Future<void> checkDBErrors() async {

@@ -104,6 +104,12 @@ class _DebugDevPageState extends State<DebugDevPage> {
                   },
                   child: Text('get big ass'),
                 ),
+                TextButton(
+                  onPressed: () async {
+                    sqLite.updatePosts(File('D:\\PC\\Documents\\CImaGen\\csv\\posts-2026-02-25.csv'));
+                  },
+                  child: Text('Import eFile'),
+                ),
                 Text("Jobs"),
                 Column(
                   children: context.read<ImageManager>().getter.getJobs.keys.map((key){

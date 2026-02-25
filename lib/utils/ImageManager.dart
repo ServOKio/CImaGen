@@ -353,9 +353,9 @@ class ParseJob {
             thumbnail: const Icon(Icons.error, color: Colors.redAccent),
             title: 'Error in image processing${kDebugMode ? ', look at console' : ''}',
             description: 'We were unable to process the image, 3 attempts were made\n$path${s ? ', save to error folder':''}\nError: $err\nJob ID: $jobID',
+            autoCloseDuration: const Duration(milliseconds: 10000),
             sound: NtSound.error
         );
-        Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
       }
       _doneTotal++;
       if (_onProcess != null) _onProcess!(_cache.length, _doneTotal, thisThumbnail);

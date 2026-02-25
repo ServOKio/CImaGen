@@ -461,9 +461,11 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                     builder: (context, manager, child) => SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          ...manager.notifications.map((obj) => NotificationWidget(notificationObject: obj, manager: manager))
-                        ]
+                        children: manager.notifications.map((obj) => NotificationWidget(
+                          key: ValueKey(obj.id),
+                          notificationObject: obj,
+                          manager: manager,
+                        )).toList()
                       ),
                     )
                   )
