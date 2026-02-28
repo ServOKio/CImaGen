@@ -66,7 +66,9 @@ class SQLite{
       dbPath.path,
       version: dbVersion,
       onOpen: (db) async {
-
+        await db.execute('PRAGMA journal_mode = WAL;');
+        await db.execute('PRAGMA synchronous = NORMAL;');
+        await db.execute('PRAGMA cache_size = -20000;');
         await db.execute('''
       CREATE TABLE IF NOT EXISTS images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -237,27 +239,8 @@ class SQLite{
             tag_string,
             content='e621posts',
             content_rowid='id',
-            tokenize='unicode61 tokenchars "_()-'' "'
+            tokenize="unicode61 tokenchars '_()-'' '"
           );
-        ''');
-
-        await db.execute('''
-          CREATE TRIGGER IF NOT EXISTS e621posts_ai AFTER INSERT ON e621posts BEGIN
-            INSERT INTO post_tags_fts(rowid, tag_string) VALUES (new.id, new.tag_string);
-          END;
-        ''');
-
-        await db.execute('''
-          CREATE TRIGGER IF NOT EXISTS e621posts_au AFTER UPDATE OF tag_string ON e621posts BEGIN
-            INSERT INTO post_tags_fts(post_tags_fts, rowid, tag_string) VALUES('delete', old.id, old.tag_string);
-            INSERT INTO post_tags_fts(rowid, tag_string) VALUES (new.id, new.tag_string);
-          END;
-        ''');
-
-        await db.execute('''
-          CREATE TRIGGER IF NOT EXISTS e621posts_ad AFTER DELETE ON e621posts BEGIN
-            INSERT INTO post_tags_fts(post_tags_fts, rowid, tag_string) VALUES('delete', old.id, old.tag_string);
-          END;
         ''');
 
         if (kDebugMode) print('DB path: ${db.path}');
@@ -1505,107 +1488,183 @@ class SQLite{
 
   // e621
   Future<void> updatePosts(File csvFile) async {
-    const int batchSize = 1000;
-    List<List<dynamic>> pendingRows = [];
+    print('File exists: ${csvFile.existsSync()}');
+    print('File size: ${await csvFile.length()} bytes');
 
-    final inputStream = csvFile.openRead();
-    final rowStream = inputStream.transform(utf8.decoder).transform(const CsvToListConverter());
-
-    await for (var row in rowStream) {
-      pendingRows.add(row);
-      if (pendingRows.length >= batchSize) {
-        await _processBatch(pendingRows);
-        pendingRows = []; // Clear to free memory
-      }
+    if (await csvFile.length() == 0) {
+      print('File is empty → nothing to process');
+      return;
     }
 
-    // Process any remaining rows
-    if (pendingRows.isNotEmpty) {
-      await _processBatch(pendingRows);
+    await _dropIndexes(database);
+
+    const int batchSize = 5000;
+    const int commitEvery = 20;
+    List<List<dynamic>> pendingRows = [];
+    int rowCount = 0;
+
+    try {
+      final bytes = await csvFile.readAsBytes();
+      int startOffset = 0;
+      if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        print('Detected UTF-8 BOM → skipping it');
+        startOffset = 3;
+      }
+
+      final inputStream = csvFile.openRead(startOffset);
+      final rowStream = inputStream
+          .transform(utf8.decoder)
+          .transform(const CsvToListConverter(
+            shouldParseNumbers: false,
+            eol: '\n',
+          )).handleError((error, stack) {
+            print('Stream error: $error');
+          });
+
+      await for (var row in rowStream) {
+        rowCount++;
+        if (rowCount <= 3) {
+          print('First few rows: $row');
+        }
+
+        pendingRows.add(row);
+
+        if (pendingRows.length >= batchSize * commitEvery) {
+          await _processLargeChunk(pendingRows);
+          pendingRows = [];
+          print('Processed large chunk (total rows: $rowCount)');
+        }
+      }
+
+      print('Stream completed. Total rows read: $rowCount');
+
+      if (pendingRows.isNotEmpty) {
+        await _processLargeChunk(pendingRows);
+        print('Processed final chunk');
+      }
+
+      await _createIndexes(database);
+
+      print('Import finished successfully');
+    } catch (e, st) {
+      print('Fatal error during streaming: $e');
+      print(st);
+      rethrow;
     }
   }
 
-  Future<void> _processBatch(List<List<dynamic>> rows) async {
-    final batch = database.batch();
+  Future<void> _processLargeChunk(List<List<dynamic>> rows) async {
+    const int batchSize = 5000;
+    await database.transaction((txn) async {
+      Batch batch = txn.batch();
+      int subBatchCount = 0;
 
-    for (var rawData in rows) {
-      if (rawData.length < 29) continue; // Skip invalid rows
+      for (var rawData in rows) {
+        if (rawData.length < 29) continue;
 
-      final data = rawData.map((e) => e?.toString() ?? '').toList(); // Ensure strings
+        final data = rawData.map((e) => e?.toString() ?? '').toList();
 
-      try {
-        final int id = int.parse(data[0]);
-        final int uploaderID = int.parse(data[1]);
-        final String createdAt = data[2];
-        final String md5 = data[3];
-        final String source = data[4];
-        final String rating = data[5];
-        final int width = int.parse(data[6]);
-        final int height = int.parse(data[7]);
-        final String tagString = data[8];
-        final String lockedTags = data[9];
-        final int favCount = int.parse(data[10]);
-        final String fileExt = data[11];
-        final int? parentID = data[12].isEmpty ? null : int.parse(data[12]);
-        final int changeSeq = int.parse(data[13]);
-        final int? approverID = data[14].isEmpty ? null : int.parse(data[14]);
-        final int fileSize = int.parse(data[15]);
-        final int commentCount = int.parse(data[16]);
-        final String? description = data[17].isEmpty ? null : data[17];
-        final String duration = data[18];
-        final String updatedAt = data[19];
-        final int isDeleted = data[20] == 't' ? 1 : 0;
-        final int isPending = data[21] == 't' ? 1 : 0;
-        final int isFlagged = data[22] == 't' ? 1 : 0;
-        final int score = int.parse(data[23]);
-        final int upScore = int.parse(data[24]);
-        final int downScore = int.parse(data[25]);
-        final int isRatingLocked = data[26] == 't' ? 1 : 0;
-        final int isStatusLocked = data[27] == 't' ? 1 : 0;
-        final int isNoteLocked = data[28] == 't' ? 1 : 0;
+        try {
+          final int id = int.parse(data[0]);
+          final int uploaderID = int.parse(data[1]);
+          final String createdAt = data[2];
+          final String md5 = data[3];
+          final String source = data[4];
+          final String rating = data[5];
+          final int width = int.parse(data[6]);
+          final int height = int.parse(data[7]);
+          final String tagString = data[8];
+          final String lockedTags = data[9];
+          final int favCount = int.parse(data[10]);
+          final String fileExt = data[11];
+          final int? parentID = data[12].isEmpty ? null : int.parse(data[12]);
+          final int changeSeq = int.parse(data[13]);
+          final int? approverID = data[14].isEmpty ? null : int.parse(data[14]);
+          final int fileSize = int.parse(data[15]);
+          final int commentCount = int.parse(data[16]);
+          final String? description = data[17].isEmpty ? null : data[17];
+          final String duration = data[18];
+          final String updatedAt = data[19];
+          final int isDeleted = data[20] == 't' ? 1 : 0;
+          final int isPending = data[21] == 't' ? 1 : 0;
+          final int isFlagged = data[22] == 't' ? 1 : 0;
+          final int score = int.parse(data[23]);
+          final int upScore = int.parse(data[24]);
+          final int downScore = int.parse(data[25]);
+          final int isRatingLocked = data[26] == 't' ? 1 : 0;
+          final int isStatusLocked = data[27] == 't' ? 1 : 0;
+          final int isNoteLocked = data[28] == 't' ? 1 : 0;
 
-        batch.insert(
-          'e621posts',
-          {
-            'id': id,
-            'uploader_id': uploaderID,
-            'created_at': createdAt,
-            'md5': md5,
-            'source': source.isEmpty ? null : source,
-            'rating': rating,
-            'image_width': width,
-            'image_height': height,
-            'tag_string': tagString,
-            'locked_tags': lockedTags.isEmpty ? null : lockedTags,
-            'fav_count': favCount,
-            'file_ext': fileExt,
-            'parent_id': parentID,
-            'change_seq': changeSeq,
-            'approver_id': approverID,
-            'file_size': fileSize,
-            'comment_count': commentCount,
-            'description': description,
-            'duration': duration.isEmpty ? null : duration,
-            'updated_at': updatedAt.isEmpty ? null : updatedAt,
-            'is_deleted': isDeleted,
-            'is_pending': isPending,
-            'is_flagged': isFlagged,
-            'score': score,
-            'up_score': upScore,
-            'down_score': downScore,
-            'is_rating_locked': isRatingLocked,
-            'is_status_locked': isStatusLocked,
-            'is_note_locked': isNoteLocked,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      } catch (e) {
-        // Handle parsing errors, e.g., print(e) or log
-        continue;
+          batch.insert(
+            'e621posts',
+            {
+              'id': id,
+              'uploader_id': uploaderID,
+              'created_at': createdAt,
+              'md5': md5,
+              'source': source.isEmpty ? null : source,
+              'rating': rating,
+              'image_width': width,
+              'image_height': height,
+              'tag_string': tagString,
+              'locked_tags': lockedTags.isEmpty ? null : lockedTags,
+              'fav_count': favCount,
+              'file_ext': fileExt,
+              'parent_id': parentID,
+              'change_seq': changeSeq,
+              'approver_id': approverID,
+              'file_size': fileSize,
+              'comment_count': commentCount,
+              'description': description,
+              'duration': duration.isEmpty ? null : duration,
+              'updated_at': updatedAt.isEmpty ? null : updatedAt,
+              'is_deleted': isDeleted,
+              'is_pending': isPending,
+              'is_flagged': isFlagged,
+              'score': score,
+              'up_score': upScore,
+              'down_score': downScore,
+              'is_rating_locked': isRatingLocked,
+              'is_status_locked': isStatusLocked,
+              'is_note_locked': isNoteLocked,
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+
+          subBatchCount++;
+          if (subBatchCount % batchSize == 0) {
+            await batch.commit(noResult: true);
+            batch = txn.batch();
+          }
+        } catch (e) {
+          continue;
+        }
       }
-    }
 
-    await batch.commit(noResult: true);
+      if (subBatchCount % batchSize != 0) {
+        await batch.commit(noResult: true);
+      }
+    });
+  }
+
+  Future<void> _dropIndexes(Database database) async {
+    await database.execute('DROP INDEX IF EXISTS idx_md5;');
+    await database.execute('DROP INDEX IF EXISTS idx_created_at;');
+    await database.execute('DROP INDEX IF EXISTS idx_score;');
+    await database.execute('DROP INDEX IF EXISTS idx_fav_count;');
+    await database.execute('DROP INDEX IF EXISTS idx_uploader_id;');
+    await database.execute('DROP INDEX IF EXISTS idx_parent_id;');
+    await database.execute('DROP INDEX IF EXISTS idx_rating;');
+  }
+
+  Future<void> _createIndexes(Database database) async {
+    await database.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_md5 ON e621posts(md5);');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_created_at ON e621posts(created_at);');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_score ON e621posts(score);');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_fav_count ON e621posts(fav_count);');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_uploader_id ON e621posts(uploader_id);');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_parent_id ON e621posts(parent_id);');
+    await database.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
   }
 
   Future<List<Map<String, dynamic>>> getCooccurringTags(String targetTag, Database db) async {
@@ -1613,10 +1672,10 @@ class SQLite{
 
     final cursor = await db.rawQueryCursor(
       '''
-    SELECT e621posts.tag_string 
-    FROM e621posts 
-    INNER JOIN post_tags_fts ON e621posts.id = post_tags_fts.rowid 
-    WHERE post_tags_fts.tag_string MATCH ?
+      SELECT e621posts.tag_string 
+      FROM e621posts 
+      INNER JOIN post_tags_fts ON e621posts.id = post_tags_fts.rowid 
+      WHERE post_tags_fts.tag_string MATCH ?
     ''',
       [matchQuery],
     );
