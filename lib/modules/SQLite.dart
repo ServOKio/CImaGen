@@ -15,6 +15,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:sqflite/utils/utils.dart' as sqLite show firstIntValue;
 import '../constants.dart';
 import '../main.dart';
+import '../pages/sub/E621Search.dart';
 import '../utils/DBExceptions.dart';
 import 'ConfigManager.dart';
 import 'webUI/AbMain.dart';
@@ -234,13 +235,32 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_parent_id ON e621posts(parent_id);');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
 
-        await db.execute('''
+        await db.execute("""
           CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts5(
             tag_string,
             content='e621posts',
             content_rowid='id',
-            tokenize="unicode61 tokenchars '_()-'' '"
+            tokenize="unicode61 tokenchars '_()-/.:'''"
           );
+        """);
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS e621posts_ai AFTER INSERT ON e621posts BEGIN
+            INSERT INTO post_tags_fts(rowid, tag_string) VALUES (new.id, new.tag_string);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS e621posts_au AFTER UPDATE OF tag_string ON e621posts BEGIN
+            INSERT INTO post_tags_fts(post_tags_fts, rowid, tag_string) VALUES('delete', old.id, old.tag_string);
+            INSERT INTO post_tags_fts(rowid, tag_string) VALUES (new.id, new.tag_string);
+          END;
+        ''');
+
+        await db.execute('''
+          CREATE TRIGGER IF NOT EXISTS e621posts_ad AFTER DELETE ON e621posts BEGIN
+            INSERT INTO post_tags_fts(post_tags_fts, rowid, tag_string) VALUES('delete', old.id, old.tag_string);
+          END;
         ''');
 
         if (kDebugMode) print('DB path: ${db.path}');
@@ -1535,7 +1555,7 @@ class SQLite{
           print('Processed large chunk (total rows: $rowCount)');
         }
       }
-
+      await database.execute("INSERT INTO post_tags_fts(post_tags_fts) VALUES('rebuild');");
       print('Stream completed. Total rows read: $rowCount');
 
       if (pendingRows.isNotEmpty) {
@@ -1702,6 +1722,178 @@ class SQLite{
     result.sort((a, b) => (a['count'] as int).compareTo(b['count'] as int));
 
     return result;
+  }
+
+  Future<Map<String, dynamic>> searchPosts(String query, int page, int limit) async {
+    List<String> terms = query.trim().split(RegExp(r'\s+'));
+
+    List<String> positiveTags = [];
+    List<String> negativeTags = [];
+    List<String> whereClauses = [];
+    List<dynamic> params = [];
+    String orderBy = 'created_at DESC';
+
+    for (String term in terms) {
+      if (term.isEmpty) continue;
+
+      if (term.contains(':')) {
+        // Metatag
+        var parts = term.split(':');
+        String meta = parts[0].toLowerCase();
+        String value = parts.sublist(1).join(':');
+
+        switch (meta) {
+          case 'rating':
+            String r = value.toLowerCase()[0]; // s, q, e
+            whereClauses.add('rating = ?');
+            params.add(r);
+            break;
+          case 'score':
+          case 'favcount':
+          case 'id':
+            String column = meta == 'favcount' ? 'fav_count' : meta;
+            _parseNumericMetatag(column, value, whereClauses, params);
+            break;
+          case 'type':
+            whereClauses.add('file_ext = ?');
+            params.add(value.toLowerCase());
+            break;
+          case 'md5':
+            whereClauses.add('md5 = ?');
+            params.add(value);
+            break;
+          case 'order':
+            orderBy = _parseOrder(value);
+            break;
+        // Add more metatags as needed, e.g., width, height, source:*example*
+          default:
+          // Unknown metatag, ignore or handle as tag
+            _handleTag(term, positiveTags, negativeTags);
+        }
+      } else {
+        // Regular tag
+        _handleTag(term, positiveTags, negativeTags);
+      }
+    }
+
+    // Build SQL
+    String baseSelect = 'SELECT * FROM e621posts';
+    bool useFts = positiveTags.isNotEmpty || negativeTags.isNotEmpty;
+
+    if (useFts) {
+      baseSelect += ' INNER JOIN post_tags_fts ON e621posts.id = post_tags_fts.rowid';
+    }
+
+    String where = '';
+    List<dynamic> matchParams = [];
+
+    if (positiveTags.isNotEmpty) {
+      where += 'post_tags_fts.tag_string MATCH ?';
+      matchParams.add(positiveTags.map((t) => '"$t"').join(' AND '));
+    }
+
+    if (negativeTags.isNotEmpty) {
+      if (where.isNotEmpty) where += ' AND ';
+      where += 'NOT (post_tags_fts.tag_string MATCH ?)';
+      matchParams.add(negativeTags.map((t) => '"$t"').join(' OR '));
+    }
+
+    if (whereClauses.isNotEmpty) {
+      if (where.isNotEmpty) where += ' AND ';
+      where += whereClauses.join(' AND ');
+    }
+
+    List<dynamic> allParams = [...matchParams, ...params];
+
+    if (where.isNotEmpty) {
+      baseSelect += ' WHERE $where';
+    }
+
+    baseSelect += ' ORDER BY $orderBy LIMIT ? OFFSET ?';
+    allParams.add(limit);
+    allParams.add((page - 1) * limit);
+
+    print(baseSelect);
+    print(allParams);
+
+    var rawPosts = await database.rawQuery(baseSelect, allParams);
+    var posts = rawPosts.map((map) => E621Post.fromMap(map)).toList();
+
+    bool hasMore = posts.length == limit;
+
+    return {
+      'posts': posts,
+      'hasMore': hasMore,
+    };
+  }
+
+  void _handleTag(String term, List<String> positiveTags, List<String> negativeTags) {
+    if (term.startsWith('-')) {
+      negativeTags.add(term.substring(1));
+    } else if (term.startsWith('~')) {
+      // OR not supported in basic version
+      positiveTags.add(term.substring(1));
+    } else {
+      positiveTags.add(term);
+    }
+  }
+
+  void _parseNumericMetatag(String column, String value, List<String> clauses, List<dynamic> params) {
+    if (value.contains(',')) {
+      List<int> nums = value.split(',').map((s) => int.parse(s.trim())).toList();
+      clauses.add('$column IN (${List.filled(nums.length, '?').join(', ')})');
+      params.addAll(nums);
+    } else if (value.contains('..')) {
+      var range = value.split('..');
+      String start = range[0].trim();
+      String end = range[1].trim();
+      if (start.isEmpty) {
+        clauses.add('$column <= ?');
+        params.add(int.parse(end));
+      } else if (end.isEmpty) {
+        clauses.add('$column >= ?');
+        params.add(int.parse(start));
+      } else {
+        clauses.add('$column BETWEEN ? AND ?');
+        params.add(int.parse(start));
+        params.add(int.parse(end));
+      }
+    } else if (value.startsWith('>=')) {
+      clauses.add('$column >= ?');
+      params.add(int.parse(value.substring(2)));
+    } else if (value.startsWith('>')) {
+      clauses.add('$column > ?');
+      params.add(int.parse(value.substring(1)));
+    } else if (value.startsWith('<=')) {
+      clauses.add('$column <= ?');
+      params.add(int.parse(value.substring(2)));
+    } else if (value.startsWith('<')) {
+      clauses.add('$column < ?');
+      params.add(int.parse(value.substring(1)));
+    } else {
+      clauses.add('$column = ?');
+      params.add(int.parse(value));
+    }
+  }
+
+  String _parseOrder(String value) {
+    bool asc = value.endsWith('_asc');
+    String field = asc ? value.substring(0, value.length - 4) : value;
+    String dir = asc ? 'ASC' : 'DESC';
+
+    switch (field) {
+      case 'score':
+        return 'score $dir';
+      case 'favcount':
+        return 'fav_count $dir';
+      case 'id':
+        return 'id $dir';
+    // Add more: random (but needs special handling, e.g., 'RANDOM()')
+      case 'random':
+        return 'RANDOM()';
+      default:
+        return 'id DESC';
+    }
   }
 
   Future<void> checkDBErrors() async {

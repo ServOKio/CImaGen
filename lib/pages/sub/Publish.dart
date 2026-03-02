@@ -70,6 +70,7 @@ Social: @BadassFreakingHound
 
   @override
   void initState(){
+    super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_){
       showDialog<String>(
         context: context,
@@ -190,7 +191,6 @@ Steps: 25, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7, Seed: 88005
   Widget _buildMain(){
 
     double devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
-
     return InteractiveViewer(
       transformationController: _transformationController,
       boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -204,7 +204,7 @@ Steps: 25, Sampler: Euler a, Schedule type: Automatic, CFG scale: 7, Seed: 88005
         child: Center(
             child: Stack(
               children: [
-                ['png', 'jpeg', 'gif', 'webp', 'bmp', 'bmp'].contains(widget.imageMeta!.fileTypeExtension) ? Hero(
+                ['png', 'jpeg', 'jpg', 'gif', 'webp', 'bmp', 'bmp'].contains(widget.imageMeta!.fileTypeExtension) ? Hero(
                   tag: widget.imageMeta!.fileName,
                   child: Image.file(
                     File(widget.imageMeta!.fullPath ?? widget.imageMeta!.tempFilePath ?? widget.imageMeta!.cacheFilePath ?? 'e.png'),

@@ -46,13 +46,14 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
         maximumColorCount: 28,
         Image.memory(img.encodePng(data!)).image
       );
-    } on PathNotFoundException catch (e){
+    } on PathNotFoundException {
       throw 'We\'ll fix it later.'; // TODO
     }
   }
 
   @override
   void initState(){
+    super.initState();
     init();
   }
 
@@ -71,7 +72,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
           paletteGenerator = genPalette();
           loaded = true;
         });
-      } on Exception catch(e) {
+      } on Exception {
         String? finalPath;
         String? tempPath = widget.data.tempFilePath ?? widget.data.cacheFilePath;
         if(tempPath != null){
@@ -115,6 +116,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
     String wUIV = '';
     String parentVersion = '';
     bool byImageLib = im.fileTypeExtension != 'png';
+    GamutClass? gamutClass;
 
     if(im.generationParams != null){
       gp = im.generationParams;
@@ -136,6 +138,23 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
     int bitsPerChannel = byImageLib ? (im.specific?['bitsPerChannel'] ?? 0) : im.specific?['bitDepth'] ?? 0;
     String? colorType = im.specific?['numChannels'] != null ? numChannelsToString(im.specific?['numChannels']) : im.specific?['colorType'] != null ? getColorType(im.specific?['colorType']) : null;
     NumberFormat f = NumberFormat("0.####");
+
+    if(im.specific?['hasIccProfile']){
+      dynamic rXYZ = im.specific?['iccTag1918392666'];
+      dynamic gXYZ = im.specific?['iccTag1733843290'];
+      dynamic bXYZ = im.specific?['iccTag1649957210'];
+      if(rXYZ != null && gXYZ != null && bXYZ != null){
+        rXYZ = parseXYZ(readTag(rXYZ));
+        gXYZ = parseXYZ(readTag(gXYZ));
+        bXYZ = parseXYZ(readTag(bXYZ));
+        gamutClass = detectGamut(rXYZ, gXYZ, bXYZ, im.specific?['iccTag1684370275'] != null ? readTag(im.specific?['iccTag1684370275']) : null);
+        print(gamutClass);
+        rXYZ = null;
+        gXYZ = null;
+        bXYZ = null;
+      }
+    }
+
     return SafeArea(
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,6 +168,35 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    //   Container(
+                    //       decoration: const BoxDecoration(
+                    //           color: Color(0xff303030),
+                    //           borderRadius: BorderRadius.all(Radius.circular(4))
+                    //       ),
+                    //       child: Padding(
+                    //           padding: const EdgeInsets.all(8),
+                    //           child: Column(
+                    //             crossAxisAlignment: CrossAxisAlignment.start,
+                    //             children: [
+                    //               const Text('Debug', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                    //               const Gap(6),
+                    //               Column(
+                    //                 children: [
+                    //                   InfoBox(one: 'fullPath', two: im.fullPath, inner: true),
+                    //                   InfoBox(one: 'fileTypeExtension', two: im.fileTypeExtension, inner: true),
+                    //                   InfoBox(one: 'fileName', two: im.fileName, inner: true),
+                    //                   InfoBox(one: 'fileTypeExtension', two: im.keyup, inner: true),
+                    //                   InfoBox(one: 'host', two: im.host, inner: true),
+                    //                   InfoBox(one: 'fullImage != null', two: im.fullImage != null ? 't' : 'f', inner: true),
+                    //                   InfoBox(one: 'tempFilePath', two: im.tempFilePath, inner: true),
+                    //                   InfoBox(one: 'isLocal', two: im.isLocal ? 't' : 'f', inner: true),
+                    //                 ],
+                    //               )
+                    //             ],
+                    //           )
+                    //       )
+                    //   ),
+                    //   const Gap(4),
                     if(loaded) AspectRatio(aspectRatio: 16/9, child: HistogramWidget(readMe!)),
                     if(loaded) GestureDetector(
                       onTap: () => showDialog<String>(
@@ -197,11 +245,11 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                 const Gap(6),
                                 Column(
                                   children: [
-                                    im.dateModified != null ? InfoBox(one: 'Date modified', two: im.dateModified!.toIso8601String(), inner: true, withGap: false) : const SizedBox.shrink(),
+                                    if(im.dateModified != null) InfoBox(one: 'Date modified', two: im.dateModified!.toIso8601String(), inner: true, withGap: false),
                                     InfoBox(one: 'File size', two: readableFileSize(im.fileSize ?? 0), inner: true),
-                                    InfoBox(one: 'File name', two: im.fileName ?? '', inner: true),
-                                    im.size != null ? InfoBox(one: 'Size', two: '${im.size.toString()} (${aspectRatioFromSize(im.size!)})', inner: true) : const SizedBox.shrink(),
-                                    im.fullPath != null ? InfoBox(one: 'Path', two: im.fullPath, inner: true) : const SizedBox.shrink(),
+                                    InfoBox(one: 'File name', two: im.fileName, inner: true),
+                                    if(im.size != null) InfoBox(one: 'Size', two: '${im.size.toString()} (${aspectRatioFromSize(im.size!)})', inner: true),
+                                    if(im.fullPath != null) InfoBox(one: 'Path', two: im.fullPath, inner: true),
                                   ],
                                 )
                               ],
@@ -234,7 +282,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                         ));
                                       }),
                                     ),
-                                    colorType != null ? InfoBox(one: 'Color type', two: Row(children: [
+                                    if(colorType != null) InfoBox(one: 'Color type', two: Row(children: [
                                       SelectableText(colorType, style: const TextStyle(fontSize: 13)),
                                       const Gap(2),
                                       SizedBox(
@@ -248,13 +296,13 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                           ],
                                         ),
                                       )
-                                    ]), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['compression'] != null ? InfoBox(one: 'Compression', two: getCompression(im.specific?['compression']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['filter'] != null ? InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['colorMode'] != null ? InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['profileName'] != null ? InfoBox(one: 'Profile Name', two: im.specific?['profileName'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['pixelUnits'] != null ? InfoBox(one: 'Pixel units', two: im.specific?['pixelUnits'] == 1 ? 'Meters' : 'Not specified', inner: true) : const SizedBox.shrink(),
-                                    im.specific?['pixelsPerUnitX'] != null ? InfoBox(one: 'Pixels per unit X/Y', two: '${im.specific?['pixelsPerUnitX']}x${im.specific?['pixelsPerUnitY']}', inner: true) : const SizedBox.shrink(),
+                                    ]), inner: true),
+                                    if(im.specific?['compression'] != null) InfoBox(one: 'Compression', two: getCompression(im.specific?['compression']), inner: true),
+                                    if(im.specific?['filter'] != null) InfoBox(one: 'Filter', two: getFilterType(im.specific?['filter']), inner: true),
+                                    if(im.specific?['colorMode'] != null) InfoBox(one: 'Interlace method', two: getInterlaceMethod(im.specific?['colorMode']), inner: true),
+                                    if(im.specific?['profileName'] != null) InfoBox(one: 'Profile Name', two: im.specific?['profileName'], inner: true),
+                                    if(im.specific?['pixelUnits'] != null) InfoBox(one: 'Pixel units', two: im.specific?['pixelUnits'] == 1 ? 'Meters' : 'Not specified', inner: true),
+                                    if(im.specific?['pixelsPerUnitX'] != null) InfoBox(one: 'Pixels per unit X/Y', two: '${im.specific?['pixelsPerUnitX']}x${im.specific?['pixelsPerUnitY']}', inner: true),
                                     ElevatedButton(
                                         style: ElevatedButton.styleFrom(
                                           minimumSize: Size.zero, // Set this
@@ -269,91 +317,98 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                             )
                         )
                     ),
-                    im.specific?['hasIccProfile'] != null ? const Gap(4) : const SizedBox.shrink(),
-                    im.specific?['hasIccProfile'] != null ? Container(
-                        decoration: const BoxDecoration(
-                            color: Color(0xff303030),
-                            borderRadius: BorderRadius.all(Radius.circular(4))
-                        ),
-                        child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Text('ICC Profile', style: TextStyle(fontSize: 12, color: Colors.white70)),
-                                    im.specific?['iccProfileName'] != null ? const Spacer() : const SizedBox.shrink(),
-                                    im.specific?['iccProfileName'] != null && isHDR(im.specific?['iccProfileName']) ? Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(4),
-                                        color: Colors.black38,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      child: const Icon(Icons.hdr_on_rounded, color: Colors.white),
-                                    ) : const SizedBox.shrink()
-                                  ],
-                                ),
-                                const Gap(6),
-                                Column(
-                                  children: [
-                                    // SelectableText(im.specific.toString()),
-                                    im.specific?['iccProfileName'] != null ? InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccCompressionMethod'] != null ? InfoBox(one: 'Compression method', two: im.specific?['iccCompressionMethod'].toString(), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccProfileSize'] != null ? InfoBox(one: 'Profile size', two: im.specific?['iccProfileSize'].toString(), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccCmmType'] != null ? InfoBox(one: 'CMM type', two: im.specific?['iccCmmType'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccVersion'] != null ? InfoBox(one: 'Version', two: getProfileVersionDescription(im.specific?['iccVersion']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccClass'] != null ? InfoBox(one: 'Profile Class', two: getProfileClass(im.specific?['iccClass']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccColorSpace'] != null ? InfoBox(one: 'Color space', two: im.specific?['iccColorSpace'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccConnectionSpace'] != null ? InfoBox(one: 'Connection space', two: im.specific?['iccConnectionSpace'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccDateTime'] != null ? InfoBox(one: 'Date Time', two: im.specific?['iccDateTime'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccSignature'] != null ? InfoBox(one: 'Signature', two: im.specific?['iccSignature'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccPlatform'] != null ? InfoBox(one: 'Platform', two: getPlatform(im.specific?['iccPlatform']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccFlags'] != null ? InfoBox(one: 'Flags', two: im.specific?['iccFlags'].toString(), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccDeviceMake'] != null ? InfoBox(one: 'Device make', two: im.specific?['iccDeviceMake'].toString(), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccRenderingIntent'] != null ? InfoBox(one: 'Rendering intent', two: getIndexedDescription(im.specific?['iccRenderingIntent']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccXYZValues'] != null ? InfoBox(one: 'XYZ values', two: im.specific?['iccXYZValues'].map((e) => f.format(e)).toString(), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['iccTagCount'] != null ? InfoBox(one: 'Tag count', two: im.specific?['iccTagCount'].toString(), inner: true) : const SizedBox.shrink(),
-                                    ...im.specific?['iccTagKeys'].map((el){
-                                      int pa = int.parse(el.replaceFirst('iccTag', ''));
-                                      String t = readTag(im.specific?[el]);
-                                      return InfoBox(one: getTag(pa), two: pa == 1952801640 ? '$t (${getTechnologyDescription(t)})' : t, inner: true);
-                                    }),
-                                  ],
-                                )
-                              ],
-                            )
-                        )
-                    ) : const SizedBox.shrink(),
-                    im.specific?['xmpCreatorTool'] != null ? const Gap(4) : const SizedBox.shrink(),
-                    im.specific?['xmpCreatorTool'] != null ? Container(
-                        decoration: const BoxDecoration(
-                            color: Color(0xff303030),
-                            borderRadius: BorderRadius.all(Radius.circular(4))
-                        ),
-                        child: Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('Editor', style: TextStyle(fontSize: 12, color: Colors.white70)),
-                                const Gap(6),
-                                Column(
-                                  children: [
-                                    // SelectableText(im.specific.toString()),
-                                    InfoBox(one: 'Creator tool', two: im.specific?['xmpCreatorTool'], inner: true),
-                                    im.specific?['xmpPhotoshopColorMode'] != null ? InfoBox(one: 'Photoshop colormode', two: xmpColorModeToString(im.specific?['xmpPhotoshopColorMode']), inner: true) : const SizedBox.shrink(),
-                                    im.specific?['xmpCreateDate'] != null ? InfoBox(one: 'Create date', two: im.specific?['xmpCreateDate'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['xmpModifyDate'] != null ? InfoBox(one: 'Modify date', two: im.specific?['xmpModifyDate'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['xmpMetadataDate'] != null ? InfoBox(one: 'Metadata date', two: im.specific?['xmpMetadataDate'], inner: true) : const SizedBox.shrink(),
-                                    im.specific?['xmpDcFormat'] != null ? InfoBox(one: 'DC format', two: im.specific?['xmpDcFormat'], inner: true) : const SizedBox.shrink(),
-                                  ],
-                                )
-                              ],
-                            )
-                        )
-                    ) : const SizedBox.shrink(),
-                    const Gap(6),
+                    if(im.specific?['hasIccProfile'] != null) ...[
+                      const Gap(4),
+                      Container(
+                          decoration: const BoxDecoration(
+                              color: Color(0xff303030),
+                              borderRadius: BorderRadius.all(Radius.circular(4))
+                          ),
+                          child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text('ICC Profile', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                                      if(im.specific?['iccProfileName'] != null) ...[
+                                        const Spacer(),
+                                        if(isHDR(im.specific?['iccProfileName'])) Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(4),
+                                            color: Colors.black38,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          child: const Icon(Icons.hdr_on_rounded, color: Colors.white),
+                                        )
+                                      ]
+                                    ],
+                                  ),
+                                  const Gap(6),
+                                  Column(
+                                    children: [
+                                      // SelectableText(im.specific.toString()),
+                                      // if()
+                                      if(gamutClass != null) InfoBox(one: 'Gamut Class', two: humanizeGamutClass(gamutClass), inner: true),
+                                      if(im.specific?['iccProfileName'] != null) InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true),
+                                      if(im.specific?['iccCompressionMethod'] != null) InfoBox(one: 'Compression method', two: im.specific?['iccCompressionMethod'].toString(), inner: true),
+                                      if(im.specific?['iccProfileSize'] != null) InfoBox(one: 'Profile size', two: im.specific?['iccProfileSize'].toString(), inner: true),
+                                      if(im.specific?['iccCmmType'] != null) InfoBox(one: 'CMM type', two: im.specific?['iccCmmType'], inner: true),
+                                      if(im.specific?['iccVersion'] != null) InfoBox(one: 'Version', two: getProfileVersionDescription(im.specific?['iccVersion']), inner: true),
+                                      if(im.specific?['iccClass'] != null) InfoBox(one: 'Profile Class', two: getProfileClass(im.specific?['iccClass']), inner: true),
+                                      if(im.specific?['iccColorSpace'] != null) InfoBox(one: 'Color space', two: im.specific?['iccColorSpace'], inner: true),
+                                      if(im.specific?['iccConnectionSpace'] != null) InfoBox(one: 'Connection space', two: im.specific?['iccConnectionSpace'], inner: true),
+                                      if(im.specific?['iccDateTime'] != null) InfoBox(one: 'Date Time', two: im.specific?['iccDateTime'], inner: true),
+                                      if(im.specific?['iccSignature'] != null) InfoBox(one: 'Signature', two: im.specific?['iccSignature'], inner: true),
+                                      if(im.specific?['iccPlatform'] != null) InfoBox(one: 'Platform', two: getPlatform(im.specific?['iccPlatform']), inner: true),
+                                      if(im.specific?['iccFlags'] != null) InfoBox(one: 'Flags', two: im.specific?['iccFlags'].toString(), inner: true),
+                                      if(im.specific?['iccDeviceMake'] != null) InfoBox(one: 'Device make', two: im.specific?['iccDeviceMake'].toString(), inner: true),
+                                      if(im.specific?['iccRenderingIntent'] != null) InfoBox(one: 'Rendering intent', two: getIndexedDescription(im.specific?['iccRenderingIntent']), inner: true),
+                                      if(im.specific?['iccXYZValues'] != null) InfoBox(one: 'XYZ values', two: im.specific?['iccXYZValues'].map((e) => f.format(e)).toString(), inner: true),
+                                      if(im.specific?['iccTagCount'] != null) InfoBox(one: 'Tag count', two: im.specific?['iccTagCount'].toString(), inner: true),
+                                      ...im.specific?['iccTagKeys'].map((el){
+                                        int pa = int.parse(el.replaceFirst('iccTag', ''));
+                                        String t = readTag(im.specific?[el]);
+                                        return InfoBox(one: getTag(pa), two: pa == 1952801640 ? '$t (${getTechnologyDescription(t)})' : t, inner: true);
+                                      }),
+                                    ],
+                                  )
+                                ],
+                              )
+                          )
+                      )
+                    ],
+                    if(im.specific?['xmpCreatorTool'] != null) ...[
+                      const Gap(4),
+                      Container(
+                          decoration: const BoxDecoration(
+                              color: Color(0xff303030),
+                              borderRadius: BorderRadius.all(Radius.circular(4))
+                          ),
+                          child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Editor', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                                  const Gap(6),
+                                  Column(
+                                    children: [
+                                      // SelectableText(im.specific.toString()),
+                                      InfoBox(one: 'Creator tool', two: im.specific?['xmpCreatorTool'], inner: true),
+                                      if(im.specific?['xmpPhotoshopColorMode'] != null) InfoBox(one: 'Photoshop colormode', two: xmpColorModeToString(im.specific?['xmpPhotoshopColorMode']), inner: true),
+                                      if(im.specific?['xmpCreateDate'] != null) InfoBox(one: 'Create date', two: im.specific?['xmpCreateDate'], inner: true),
+                                      if(im.specific?['xmpModifyDate'] != null) InfoBox(one: 'Modify date', two: im.specific?['xmpModifyDate'], inner: true),
+                                      if(im.specific?['xmpMetadataDate'] != null) InfoBox(one: 'Metadata date', two: im.specific?['xmpMetadataDate'], inner: true),
+                                      if(im.specific?['xmpDcFormat'] != null) InfoBox(one: 'DC format', two: im.specific?['xmpDcFormat'], inner: true),
+                                    ],
+                                  )
+                                ],
+                              )
+                          )
+                      )
+                    ]
                   ],
                 )
               ],
@@ -363,9 +418,9 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
               initiallyExpanded: true,
               title: Text('Generation info', style: TextStyle(color: Colors.deepPurple.shade50, fontWeight: FontWeight.w600, fontSize: 18)),
               children: <Widget>[
-                im.re != RenderEngine.unknown ? InfoBox(one: 'Render engine', two: renderEngineToString(im.re), withGap: false) : const SizedBox.shrink(),
-                im.other?['softwareType'] != null ? InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])) : const SizedBox.shrink(),
-                im.generationParams!.params?['internalbackendtype'] != null ? InfoBox(one: 'Internal Backend Type', two: im.generationParams!.params!['internalbackendtype']) : const SizedBox.shrink(),
+                if(im.re != RenderEngine.unknown) InfoBox(one: 'Render engine', two: renderEngineToString(im.re), withGap: false),
+                if(im.other?['softwareType'] != null) InfoBox(one: 'Software', two: softwareToString(Software.values[im.other?['softwareType']])),
+                if(im.generationParams!.params?['internalbackendtype'] != null) InfoBox(one: 'Internal Backend Type', two: im.generationParams!.params!['internalbackendtype']),
                 Container(
                     padding: const EdgeInsets.all(4.0),
                     margin: const EdgeInsets.only(bottom: 8),
@@ -434,7 +489,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                       Gap(6),
                       InfoBox(one: 'VAE', two: gp.params?['vae']+(gp.params?['vae_hash'] != null ? ' (${gp.params?['vae_hash']})' : ''))
                     ],
-                    gp.params?['loras'] != null ? Container(
+                    if(gp.params?['loras'] != null) Container(
                         margin: const EdgeInsets.only(top: 4),
                         clipBehavior: Clip.hardEdge,
                         decoration: const BoxDecoration(
@@ -466,7 +521,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                               ],
                             )
                         )
-                    ) : const SizedBox.shrink(),
+                    ),
                     const Gap(6),
                     Container(
                         decoration: const BoxDecoration(
@@ -534,7 +589,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                     if(gp.hiresSampler != null) InfoBox(one: 'Sampler', two: gp.hiresSampler ?? 'None', inner: true, withGap: false),
                                     InfoBox(one: 'Denoising strength', two: gp.denoisingStrength.toString(), inner: true),
                                     InfoBox(one: 'Upscaler', two: gp.hiresUpscaler ?? 'None (Lanczos)', inner: true),
-                                    if(gp.size != null) InfoBox(one: 'Upscale', two: '${gp.hiresUpscale} (${gp.size!.withMultiply(gp.hiresUpscale ?? 0)})' ?? '', inner: true),
+                                    if(gp.size != null) InfoBox(one: 'Upscale', two: '${gp.hiresUpscale} (${gp.size!.withMultiply(gp.hiresUpscale ?? 0)})', inner: true),
                                   ],
                                 )
                               ],
@@ -588,7 +643,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                               ],
                             )
                         )
-                    ) : gp.version != null ? InfoBox(one: 'Version', two: gp.version ?? '') : const SizedBox.shrink(),
+                    ) : gp.version != null ? InfoBox(one: 'Version', two: gp.version ?? '') : SizedBox.shrink(),
                     // InfoBox(one: 'Has cached image', two: (im.cachedImage != null) ? 'true' : 'false')
                   ],
                 ),
@@ -699,7 +754,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                     ),
                   ],
                 ),
-                gp.rawData != null ? ExpansionTile(
+                if(gp.rawData != null) ExpansionTile(
                   tilePadding: const EdgeInsets.symmetric(horizontal: 6),
                   title: const Text('All parameters', style: TextStyle(fontSize: 13)),
                   subtitle: const Text('View raw generation parameters without parsing', style: TextStyle(fontSize: 12, color: Colors.white70)),
@@ -735,7 +790,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                       }
                     })
                   ],
-                ) : const SizedBox.shrink(),
+                ),
               ],
             ),
             if (im.specific?['comfUINodes'] != null) ExpansionTile(
@@ -745,7 +800,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
               subtitle: const Text('Direct connection of nodes for image generation', style: TextStyle(fontSize: 12, color: Colors.white70)),
               children: [
                 ...withSpaceBetween(list: im.specific!['comfUINodes'].map<Widget>((el)=>ComfUINodePreview(data: el)).toList(), element: const Icon(Icons.arrow_downward)),
-                im.other?['prompt'] != null ? ExpansionTile(
+                if(im.other?['prompt'] != null) ExpansionTile(
                   tilePadding: const EdgeInsets.symmetric(horizontal: 6),
                   title: const Text('All parameters', style: TextStyle(fontSize: 13)),
                   subtitle: const Text('View raw generation parameters without parsing', style: TextStyle(fontSize: 12, color: Colors.white70)),
@@ -762,7 +817,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                         )
                     ),
                   ],
-                ) : const SizedBox.shrink(),
+                ),
               ]
             ),
             if (im.other?['chara'] != null) CharacterCardImageInfo(im.other?['chara']),
@@ -873,7 +928,7 @@ List<Widget> getForType(dynamic data){
                 child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
         ),
-        data['negative'].trim() != '' ? Container(
+        if(data['negative'].trim() != '') Container(
             padding: const EdgeInsets.all(4.0),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
@@ -885,7 +940,7 @@ List<Widget> getForType(dynamic data){
                 widthFactor: 1.0,
                 child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
-        ) : const SizedBox.shrink(),
+        ),
       ];
     case 'KSampler':
       return [
@@ -953,7 +1008,7 @@ List<Widget> getForType(dynamic data){
                 child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
         ),
-        data['negative'].trim() != '' ? Container(
+        if(data['negative'].trim() != '') Container(
             padding: const EdgeInsets.all(4.0),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
@@ -965,7 +1020,7 @@ List<Widget> getForType(dynamic data){
                 widthFactor: 1.0,
                 child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
-        ) : const SizedBox.shrink(),
+        ),
       ];
     case 'KSamplerAdvanced':
       return [
@@ -1037,7 +1092,7 @@ List<Widget> getForType(dynamic data){
                 child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
         ),
-        data['negative'].trim() != '' ? Container(
+        if(data['negative'].trim() != '') Container(
             padding: const EdgeInsets.all(4.0),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
@@ -1049,7 +1104,7 @@ List<Widget> getForType(dynamic data){
                 widthFactor: 1.0,
                 child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
-        ) : const SizedBox.shrink(),
+        ),
       ];
     case 'KSampler_A1111':
       return [
@@ -1133,7 +1188,7 @@ List<Widget> getForType(dynamic data){
                 child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
         ),
-        data['negative'].trim() != '' ? Container(
+        if(data['negative'].trim() != '') Container(
             padding: const EdgeInsets.all(4.0),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
@@ -1145,7 +1200,7 @@ List<Widget> getForType(dynamic data){
                 widthFactor: 1.0,
                 child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
-        ) : const SizedBox.shrink(),
+        ),
       ];
     case 'VAEDecodeTiled':
       return [
@@ -1253,7 +1308,7 @@ List<Widget> getForType(dynamic data){
                 child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
         ),
-        data['negative'].trim() != '' ? Container(
+        if(data['negative'].trim() != '') Container(
             padding: const EdgeInsets.all(4.0),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
@@ -1265,7 +1320,7 @@ List<Widget> getForType(dynamic data){
                 widthFactor: 1.0,
                 child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
-        ) : const SizedBox.shrink(),
+        ),
         InfoBox(one: 'VAE', two: data['vae'], inner: true),
         InfoBox(one: 'Upscale model', two: data['upscaleModel'], inner: true),
       ];
@@ -1380,7 +1435,7 @@ List<Widget> getForType(dynamic data){
                 child: SelectableText(data['positive'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
         ),
-        data['negative'].trim() != '' ? Container(
+        if(data['negative'].trim() != '') Container(
             padding: const EdgeInsets.all(4.0),
             margin: const EdgeInsets.only(top: 8),
             decoration: BoxDecoration(
@@ -1392,7 +1447,7 @@ List<Widget> getForType(dynamic data){
                 widthFactor: 1.0,
                 child: SelectableText(data['negative'], style: const TextStyle(fontFamily: 'Open Sans', fontWeight: FontWeight.w400, fontSize: 10))
             )
-        ) : const SizedBox.shrink(),
+        ),
         InfoBox(one: 'VAE', two: data['vae'], inner: true),
         InfoBox(one: 'BBox detector', two: data['bboxDetector'], inner: true),
         if(data['samModelOpt'] != null) InfoBox(one: 'Sam model name', two: data['samModelOpt']['modelName'], inner: true),

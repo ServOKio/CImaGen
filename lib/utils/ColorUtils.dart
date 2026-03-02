@@ -956,3 +956,18 @@ Future<Uint8List> _imageToPng(ui.Image image) async {
   final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
   return byteData!.buffer.asUint8List();
 }
+
+Map<String,double> xyzToXy(List xyz) {
+  final X = (xyz[0] as num).toDouble();
+  final Y = (xyz[1] as num).toDouble();
+  final Z = (xyz[2] as num).toDouble();
+  final sum = X + Y + Z;
+  if (sum == 0) return {'x': 0.0, 'y': 0.0};
+  return {'x': X / sum, 'y': Y / sum};
+}
+
+double chromaDist(Map<String,double> a, Map<String,double> b) {
+  final dx = a['x']! - b['x']!;
+  final dy = a['y']! - b['y']!;
+  return math.sqrt(dx*dx + dy*dy);
+}

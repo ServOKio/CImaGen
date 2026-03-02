@@ -363,3 +363,25 @@ class _GradientPainter extends CustomPainter {
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => oldDelegate != this;
 }
+
+class DraggableAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final Widget child;
+  const DraggableAppBar({super.key, required this.child});
+  @override
+  Widget build(BuildContext context) {
+    return WindowTitleBarBox(
+      child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: MoveWindow(child: Padding(padding: EdgeInsetsGeometry.all(3), child: child))),
+            MinimizeWindowButton(),
+            MaximizeWindowButton(),
+            CloseWindowButton(),
+          ]
+      )
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}

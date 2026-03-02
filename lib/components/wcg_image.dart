@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 
@@ -50,15 +49,14 @@ class _WcgImageState extends State<WcgImage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return FittedBox(
-          fit: BoxFit.contain, // 👈 SAME AS Image.file
+          fit: BoxFit.contain,
           child: SizedBox(
-            width: _width!.toDouble(),   // 👈 intrinsic width
-            height: _height!.toDouble(), // 👈 intrinsic height
+            width: _width!.toDouble(),
+            height: _height!.toDouble(),
             child: Texture(textureId: _textureId!),
           ),
         );
       },
     );
   }
-
 }

@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/components/SimpleWindowBar.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
+import 'package:cimagen/pages/sub/E621Search.dart';
 import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/utils/AppBarController.dart';
 import 'package:cimagen/utils/DBExceptions.dart';
@@ -20,6 +21,7 @@ import 'package:floaty_nav_bar/res/models/floaty_tab.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -170,7 +172,7 @@ class Base extends StatelessWidget {
                           GlobalMaterialLocalizations.delegate,
                           GlobalWidgetsLocalizations.delegate
                         ],
-                        debugShowCheckedModeBanner: true,
+                        debugShowCheckedModeBanner: false,
                         builder: FlutterI18n.rootAppBuilder(),
                         home: const Main()
                     );
@@ -193,6 +195,7 @@ class Main extends StatefulWidget {
 class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
 
   static const platform = MethodChannel('app.channel.shared.data');
+  final _fabKey = GlobalKey<ExpandableFabState>();
   String dataShared = 'No data';
 
   late PageController _pageViewController;
@@ -556,14 +559,61 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed:(){
-            _showModalBottomSheet(context);
-            //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
-          },
-          tooltip: 'Notes',
-          child: const Icon(Icons.note),
+        floatingActionButtonLocation: ExpandableFab.location,
+        floatingActionButton: ExpandableFab(
+          key: _fabKey,
+          duration: Duration(milliseconds: 150),
+          //type: ExpandableFabType.side,
+          distance: 70,
+          childrenAnimation: ExpandableFabAnimation.none,
+          children: [
+            FloatingActionButton.small(
+              heroTag: null,
+              child: const Icon(Icons.note),
+              onPressed: () {
+                _showModalBottomSheet(context);
+                final state = _fabKey.currentState;
+                if (state != null) {
+                  state.toggle();
+                }
+              },
+            ),
+            FloatingActionButton.small(
+              heroTag: null,
+              child: const Icon(Icons.search),
+              onPressed: () {
+                showModalBottomSheet(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 95 / 100,
+                    minWidth: 100,
+                    maxWidth: MediaQuery.of(context).size.width * 95 / 100
+                  ),
+                  context: context,
+                  useSafeArea: true,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(30),
+                      )
+                  ),
+                  builder: (context) => const E621Search(),
+                );
+                final state = _fabKey.currentState;
+                if (state != null) {
+                  state.toggle();
+                }
+              },
+            ),
+          ],
         ),
+        // floatingActionButton: FloatingActionButton(
+        //   onPressed:(){
+        //     _showModalBottomSheet(context);
+        //     //theme.setTheme(theme.getTheme==lightTheme?darkTheme:lightTheme);
+        //   },
+        //   tooltip: 'Notes',
+        //   child: const Icon(Icons.note),
+        // ),
         bottomNavigationBar: changeNotify ? NavigationBar(
           height: 70,
           backgroundColor: Theme.of(context).colorScheme.surface,

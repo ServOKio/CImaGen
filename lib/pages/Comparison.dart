@@ -315,7 +315,7 @@ class _ViewBlockState extends State<ViewBlock> {
       ),
       MenuItem(
         label: const Text('Show in auticolor + autocontrast'),
-        icon: const Icon(Icons.contrast),
+        icon: Icon(_useAutoColor ? Icons.circle : Icons.contrast),
         onSelected: (_) => setState(() {
           _useAutoColor = !_useAutoColor;
         })

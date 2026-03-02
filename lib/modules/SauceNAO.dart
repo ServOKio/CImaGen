@@ -183,7 +183,8 @@ class _SauceNAOState extends State<SauceNAO> {
                                                 sound: NtSound.open
                                               );
 
-                                              context.read<DataManager>().getE621Post(el.data.e621_id!).then((e) => Future.delayed(const Duration(seconds: 2), () => notificationManager!.close(notID)));
+                                              //TODO
+                                              // context.read<DataManager>().getE621Post(el.data.e621_id!).then((e) => Future.delayed(const Duration(seconds: 2), () => notificationManager!.close(notID)));
                                               //downloadToDownloadFolder('test123.png', el.data.)
                                             },
                                             child: const Text("Try download original", style: TextStyle(fontSize: 12))

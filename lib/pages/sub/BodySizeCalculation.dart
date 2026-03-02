@@ -357,7 +357,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
             },
             child: Stack(
               children: [
-                if (['png', 'jpeg', 'gif', 'webp', 'bmp'].contains(widget.imageMeta!.fileTypeExtension))
+                if (['png', 'jpeg', 'jpg', 'gif', 'webp', 'bmp'].contains(widget.imageMeta!.fileTypeExtension))
                   Hero(
                     tag: widget.imageMeta!.fileName,
                     child: Image.file(

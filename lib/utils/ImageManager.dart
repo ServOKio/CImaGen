@@ -1581,6 +1581,13 @@ class ImageMeta {
       Uri uri = Uri.parse(fullNetworkPath!);
       fileName = p.basename(uri.path);
       pathHash = genPathHash(uri.path);
+      if(host == null){
+        Uri parse = Uri.parse(fullNetworkPath!);
+        host = Uri(
+            host: parse.host,
+            port: parse.port
+        ).toString();
+      }
       keyup = genHash(re, 'undefined', fileName, host: host);
     }
     if(host != null) hostMD5 = md5.convert(utf8.encode(host!)).toString();

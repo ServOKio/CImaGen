@@ -1015,9 +1015,14 @@ String genPathHash(String path){
   return hash;
 }
 
-bool isImage(dynamic file){
-  final String e = p.extension(file.path);
-  return ['png', 'jpg', 'webp', 'jpeg', 'psd'].contains(e.replaceFirst('.', '').toLowerCase());
+bool isImage(dynamic filePathOrName){
+  List<String> ifo = ['png', 'jpg', 'webp', 'jpeg', 'psd', 'gif'];
+  if(filePathOrName.runtimeType == String){
+    return ifo.contains(filePathOrName.split('.').last);
+  } else {
+    final String e = p.extension(filePathOrName.path);
+    return ifo.contains(e.replaceFirst('.', '').toLowerCase());
+  }
 }
 
 T? von<T>(x) => x is T ? x : null;

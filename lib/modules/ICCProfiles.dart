@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:intl/intl.dart';
 
 import '../utils/BufferUtils.dart';
+import '../utils/ColorUtils.dart';
 import '../utils/utf16.dart';
 
 import "dart:math" as math;
@@ -199,7 +200,7 @@ String readTag(List<int> bytes){
     case ICC_TAG_TYPE_CURV:
       return readCurv(temp);
     default:
-      return '${temp.getStringFromInt32(iccTagType)} ${iccTagType}: ${temp.bytes.length} bytes';
+      return '${temp.getStringFromInt32(iccTagType)} $iccTagType: ${temp.bytes.length} bytes';
   }
 }
 
@@ -475,4 +476,59 @@ Map<String, dynamic> extract(List<int> inflated){
   specific['iccTagKeys'] = tagKeys;
   specific['hasIccProfile'] = true;
   return specific;
+}
+
+enum GamutClass {
+  narrowSrgb,
+  displayP3,
+  adobeRgb,
+  unknown
+}
+
+String humanizeGamutClass(GamutClass gamutClass){
+  return {
+    GamutClass.narrowSrgb: 'Narrow sRGB',
+    GamutClass.displayP3: 'DCI-P3',
+    GamutClass.adobeRgb: 'AdobeRGB'
+  }[gamutClass] ?? 'Unknown';
+}
+
+GamutClass detectGamut(List<double> rXYZ, List<double> gXYZ, List<double> bXYZ, String? descEntry) {
+  print('r: ${rXYZ.join(', ')}');
+  print('g: ${gXYZ.join(', ')}');
+  print('b: ${bXYZ.join(', ')}');
+  print('desc: $descEntry');
+  const dciP3R = [0.5151, 0.2412, 0.6550];
+  const dciP3G = [0.292, 0.6922, 0.0419];
+  const dciP3B = [0.1571, 0.0666, 0.7841];
+
+  const sRGBR = [0.4360747, 0.2225045, 0.0139322];
+  const sRGBG = [0.3850649, 0.7168786, 0.0971045];
+  const sRGBB = [0.1430804, 0.0606169, 0.7141733];
+
+  if (_closeEnough(rXYZ, dciP3R) &&
+      _closeEnough(gXYZ, dciP3G) &&
+      _closeEnough(bXYZ, dciP3B)) {
+    return GamutClass.displayP3;
+  }
+
+  if (_closeEnough(rXYZ, sRGBR) &&
+      _closeEnough(gXYZ, sRGBG) &&
+      _closeEnough(bXYZ, sRGBB)) {
+    return GamutClass.narrowSrgb;
+  }
+
+  return GamutClass.unknown;
+}
+
+List<double> parseXYZ(String s) {
+  s = s.replaceAll('(', '').replaceAll(')', '').trim();
+  return s.split(',').map((e) => double.parse(e.trim())).toList();
+}
+
+bool _closeEnough(List<double> a, List<double> b, [double tol = 0.1]) {
+  for (int i = 0; i < a.length; i++) {
+    if ((a[i] - b[i]).abs() > tol) return false;
+  }
+  return true;
 }
