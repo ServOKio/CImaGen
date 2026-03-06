@@ -7,6 +7,7 @@
 #include <d3d11_4.h>
 #include <dxgi1_6.h>
 #include <wincodec.h>
+#include <DirectXPackedVector.h>
 #include <wrl/client.h>
 
 #pragma comment(lib, "d2d1.lib")
@@ -213,7 +214,7 @@ namespace wcg_image {
         D2D1_BITMAP_PROPERTIES1 targetProps =
                 D2D1::BitmapProperties1(
                         D2D1_BITMAP_OPTIONS_TARGET,
-                        D2D1::PixelFormat(DXGI_FORMAT_R10G10B10A2_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
+                        D2D1::PixelFormat(DXGI_FORMAT_R16G16B16A16_FLOAT, D2D1_ALPHA_MODE_PREMULTIPLIED),
                         96, 96);
         hr = d2dContext->CreateBitmap(D2D1::SizeU(width, height), nullptr, 0, &targetProps, &targetBitmap);
         if (!CheckHR(hr, "Create targetBitmap")) return false;
@@ -231,55 +232,46 @@ namespace wcg_image {
         ComPtr<ID2D1Bitmap1> cpuBitmap;
         D2D1_BITMAP_PROPERTIES1 cpuProps =
                 D2D1::BitmapProperties1(
-                // CPU_READ requires CANNOT_DRAW
-                static_cast<D2D1_BITMAP_OPTIONS>(D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW),
-                D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
-                96, 96);
+                        static_cast<D2D1_BITMAP_OPTIONS>(D2D1_BITMAP_OPTIONS_CPU_READ | D2D1_BITMAP_OPTIONS_CANNOT_DRAW),
+                        D2D1::PixelFormat(DXGI_FORMAT_R16G16B16A16_FLOAT, D2D1_ALPHA_MODE_PREMULTIPLIED),
+                        96, 96);
 
         hr = d2dContext->CreateBitmap(D2D1::SizeU(width, height), nullptr, 0, &cpuProps, &cpuBitmap);
-        {
-            char out[128];
-            sprintf_s(out, "Create cpuBitmap HR = 0x%08X", (unsigned)hr);
-            printf("%s\n", out);
-            fflush(stdout);
-        }
         if (!CheckHR(hr, "Create CPU bitmap")) return false;
         LogToFlutterConsole(L"Created cpuBitmap");
 
-        hr = cpuBitmap->CopyFromBitmap(
-                nullptr,
-                targetBitmap.Get(),
-                nullptr);
-        {
-            char out[128];
-            sprintf_s(out, "CopyFromBitmap HR = 0x%08X", (unsigned)hr);
-            printf("%s\n", out);
-            fflush(stdout);
-        }
+        hr = cpuBitmap->CopyFromBitmap(nullptr, targetBitmap.Get(), nullptr);
         if (!CheckHR(hr, "cpuBitmap::CopyFromBitmap")) return false;
         LogToFlutterConsole(L"Copied into cpuBitmap");
 
         D2D1_MAPPED_RECT mapped;
         hr = cpuBitmap->Map(D2D1_MAP_OPTIONS_READ, &mapped);
-        {
-            char out[128];
-            sprintf_s(out, "cpuBitmap::Map HR = 0x%08X", (unsigned)hr);
-            printf("%s\n", out);
-            fflush(stdout);
-        }
         if (!CheckHR(hr, "cpuBitmap::Map")) return false;
         LogToFlutterConsole(L"cpuBitmap mapped");
 
-        outPixels.resize(width * height * 4);
+        outPixels.resize(width * height * 4); // Still 8-bit output
         for (uint32_t y = 0; y < height; ++y) {
-            uint8_t* src = mapped.bits + y * mapped.pitch;
+            uint8_t* rowStart = mapped.bits + y * mapped.pitch;
             uint8_t* dst = outPixels.data() + y * width * 4;
             for (uint32_t x = 0; x < width; ++x) {
-                dst[0] = src[2]; // R
-                dst[1] = src[1]; // G
-                dst[2] = src[0]; // B
-                dst[3] = src[3]; // A
-                src += 4;
+                uint16_t* channels = reinterpret_cast<uint16_t*>(rowStart + x * 8); // 8 bytes per pixel (4 * 2)
+
+                float r = DirectX::PackedVector::XMConvertHalfToFloat(channels[0]);
+                float g = DirectX::PackedVector::XMConvertHalfToFloat(channels[1]);
+                float b = DirectX::PackedVector::XMConvertHalfToFloat(channels[2]);
+                float a = DirectX::PackedVector::XMConvertHalfToFloat(channels[3]);
+
+                // Simple Reinhard tone mapping (per channel, preserves white point)
+                r = r / (r + 1.0f);
+                g = g / (g + 1.0f);
+                b = b / (b + 1.0f);
+
+                // Convert to 8-bit (clamp for safety, though tone map should be [0,1])
+                dst[0] = static_cast<uint8_t>((std::max)(0.0f, (std::min)(255.0f, r * 255.0f + 0.5f)));
+                dst[1] = static_cast<uint8_t>((std::max)(0.0f, (std::min)(255.0f, g * 255.0f + 0.5f)));
+                dst[2] = static_cast<uint8_t>((std::max)(0.0f, (std::min)(255.0f, b * 255.0f + 0.5f)));
+                dst[3] = static_cast<uint8_t>((std::max)(0.0f, (std::min)(255.0f, a * 255.0f + 0.5f)));
+
                 dst += 4;
             }
         }
@@ -384,5 +376,4 @@ namespace wcg_image {
             });
         }
     }
-
 } // namespace wcg_image

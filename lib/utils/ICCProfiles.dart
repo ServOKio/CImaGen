@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
 
-import '../utils/BufferUtils.dart';
-import '../utils/ColorUtils.dart';
-import '../utils/utf16.dart';
+import 'BufferUtils.dart';
+import 'utf16.dart';
 
 import "dart:math" as math;
+import 'package:image/image.dart' as img;
 
 class ICCProfile {
   String version;
@@ -493,42 +493,245 @@ String humanizeGamutClass(GamutClass gamutClass){
   }[gamutClass] ?? 'Unknown';
 }
 
-GamutClass detectGamut(List<double> rXYZ, List<double> gXYZ, List<double> bXYZ, String? descEntry) {
-  print('r: ${rXYZ.join(', ')}');
-  print('g: ${gXYZ.join(', ')}');
-  print('b: ${bXYZ.join(', ')}');
-  print('desc: $descEntry');
-  const dciP3R = [0.5151, 0.2412, 0.6550];
-  const dciP3G = [0.292, 0.6922, 0.0419];
-  const dciP3B = [0.1571, 0.0666, 0.7841];
-
-  const sRGBR = [0.4360747, 0.2225045, 0.0139322];
-  const sRGBG = [0.3850649, 0.7168786, 0.0971045];
-  const sRGBB = [0.1430804, 0.0606169, 0.7141733];
-
-  if (_closeEnough(rXYZ, dciP3R) &&
-      _closeEnough(gXYZ, dciP3G) &&
-      _closeEnough(bXYZ, dciP3B)) {
-    return GamutClass.displayP3;
-  }
-
-  if (_closeEnough(rXYZ, sRGBR) &&
-      _closeEnough(gXYZ, sRGBG) &&
-      _closeEnough(bXYZ, sRGBB)) {
-    return GamutClass.narrowSrgb;
-  }
-
-  return GamutClass.unknown;
+Map<String, dynamic> checkWideGamutImage(Uint8List imageBytes) {
+  // img.Image? image = img.decodeImage(imageBytes);
+  // if (image == null) {
+  //   return {'error': 'Invalid image'};
+  // }
+  //
+  // Uint8List? iccData = image.iccProfile;
+  // if (iccData == null || iccData.isEmpty) {
+  //   return {'hasICC': false, 'isWideGamut': false, 'type': 'No profile', 'presentTags': <String>[]};
+  // }
+  //
+  // if (iccData.length < 132) {
+  //   return {'error': 'Invalid ICC profile'};
+  // }
+  //
+  // ByteData bd = ByteData.sublistView(iccData);
+  // int profileSize = bd.getUint32(0, Endian.big);
+  // if (profileSize != iccData.length) {
+  //   return {'error': 'ICC size mismatch'};
+  // }
+  //
+  // String signature = String.fromCharCodes(iccData.sublist(36, 40));
+  // if (signature != 'acsp') {
+  //   return {'error': 'Not a valid ICC profile'};
+  // }
+  //
+  // int tagCount = bd.getUint32(128, Endian.big);
+  // Map<int, Map<String, int>> tags = {};
+  // for (int i = 0; i < tagCount; i++) {
+  //   int base = 132 + i * 12;
+  //   int sig = bd.getUint32(base, Endian.big);
+  //   int offset = bd.getUint32(base + 4, Endian.big);
+  //   int size = bd.getUint32(base + 8, Endian.big);
+  //   tags[sig] = {'offset': offset, 'size': size};
+  // }
+  //
+  // // Define the tag constants as provided
+  // Map<int, String> knownTags = {
+  //   0x41324230: 'A2B0',
+  //   0x41324231: 'A2B1',
+  //   0x41324232: 'A2B2',
+  //   0x6258595A: 'bXYZ',
+  //   0x62545243: 'bTRC',
+  //   0x42324130: 'B2A0',
+  //   0x42324131: 'B2A1',
+  //   0x42324132: 'B2A2',
+  //   0x63616C74: 'calt',
+  //   0x74617267: 'targ',
+  //   0x63686164: 'chad',
+  //   0x6368726D: 'chrm',
+  //   0x63707274: 'cprt',
+  //   0x63726469: 'crdi',
+  //   0x646D6E64: 'dmnd',
+  //   0x646D6464: 'dmdd',
+  //   0x64657673: 'devs',
+  //   0x67616D74: 'gamt',
+  //   0x6B545243: 'kTRC',
+  //   0x6758595A: 'gXYZ',
+  //   0x67545243: 'gTRC',
+  //   0x6C756D69: 'lumi',
+  //   0x6D656173: 'meas',
+  //   0x626B7074: 'bkpt',
+  //   0x77747074: 'wtpt',
+  //   0x6E636F6C: 'ncol',
+  //   0x6E636C32: 'ncl2',
+  //   0x72657370: 'resp',
+  //   0x70726530: 'pre0',
+  //   0x70726531: 'pre1',
+  //   0x70726532: 'pre2',
+  //   0x64657363: 'desc',
+  //   0x70736571: 'pseq',
+  //   0x70736430: 'psd0',
+  //   0x70736431: 'psd1',
+  //   0x70736432: 'psd2',
+  //   0x70736433: 'psd3',
+  //   0x70733273: 'ps2s',
+  //   0x70733269: 'ps2i',
+  //   0x7258595A: 'rXYZ',
+  //   0x72545243: 'rTRC',
+  //   0x73637264: 'scrd',
+  //   0x7363726E: 'scrn',
+  //   0x74656368: 'tech',
+  //   0x62666420: 'bfd ',
+  //   0x76756564: 'vued',
+  //   0x76696577: 'view',
+  //   0x61616267: 'aabg',
+  //   0x61616767: 'aagg',
+  //   0x61617267: 'aarg',
+  //   0x6D6D6F64: 'mmod',
+  //   0x6E64696E: 'ndin',
+  //   0x76636774: 'vcgt',
+  // };
+  //
+  List<String> presentTags = [];
+  // tags.keys.forEach((sig) {
+  //   if (knownTags.containsKey(sig)) {
+  //     presentTags.add(knownTags[sig]!);
+  //   }
+  // });
+  //
+  String profileType = 'Unknown';
+  bool isWideGamut = false;
+  // int descTag = 0x64657363; // 'desc'
+  //
+  // if (tags.containsKey(descTag)) {
+  //   int offset = tags[descTag]!['offset']!;
+  //   int typeSig = bd.getUint32(offset, Endian.big);
+  //
+  //   String desc = '';
+  //   if (typeSig == 0x64657363) { // simple 'desc'
+  //     int count = bd.getUint32(offset + 8, Endian.big);
+  //     int start = offset + 12;
+  //     int end = start;
+  //     while (end < start + count && bd.getUint8(end) != 0) end++;
+  //     desc = String.fromCharCodes(iccData.sublist(start, end));
+  //   } else if (typeSig == 0x6D6C7563) { // 'mluc'
+  //     int numRecords = bd.getUint32(offset + 8, Endian.big);
+  //     int recordSize = bd.getUint32(offset + 12, Endian.big);
+  //     for (int r = 0; r < numRecords; r++) {
+  //       int recOffset = offset + 16 + r * recordSize;
+  //       String lang = String.fromCharCodes(iccData.sublist(recOffset, recOffset + 2));
+  //       String country = String.fromCharCodes(iccData.sublist(recOffset + 2, recOffset + 4));
+  //       if (lang == 'en' && country == 'US') {
+  //         int len = bd.getUint32(recOffset + 4, Endian.big);
+  //         int strOffset = bd.getUint32(recOffset + 8, Endian.big);
+  //         desc = String.fromCharCodes(iccData.sublist(strOffset, strOffset + len));
+  //         break;
+  //       }
+  //     }
+  //   }
+  //
+  //   if (desc.isNotEmpty) {
+  //     String lowerDesc = desc.toLowerCase();
+  //     if (lowerDesc.contains('srgb')) {
+  //       profileType = 'sRGB';
+  //     } else if (lowerDesc.contains('adobe')) {
+  //       profileType = 'Adobe RGB';
+  //       isWideGamut = true;
+  //     } else if (lowerDesc.contains('p3')) {
+  //       profileType = 'Display P3';
+  //       isWideGamut = true;
+  //     } else if (lowerDesc.contains('rec2020') || lowerDesc.contains('rec. 2020')) {
+  //       profileType = 'Rec. 2020';
+  //       isWideGamut = true;
+  //     } else {
+  //       profileType = desc;
+  //     }
+  //   }
+  // }
+  //
+  // // If type still unknown or to verify wide gamut, check primaries
+  // if (!isWideGamut || profileType == 'Unknown') {
+  //   int rXYZ = 0x7258595A;
+  //   int gXYZ = 0x6758595A;
+  //   int bXYZ = 0x6258595A;
+  //   if (tags.containsKey(rXYZ) && tags.containsKey(gXYZ) && tags.containsKey(bXYZ)) {
+  //     double toFixedDouble(int val) {
+  //       return (val >> 16).toDouble() + (val & 0xFFFF) / 65536.0;
+  //     }
+  //
+  //     // Red
+  //     int ro = tags[rXYZ]!['offset']! + 8;
+  //     double rX = toFixedDouble(bd.getInt32(ro, Endian.big));
+  //     double rY = toFixedDouble(bd.getInt32(ro + 4, Endian.big));
+  //     double rZ = toFixedDouble(bd.getInt32(ro + 8, Endian.big));
+  //     double rSum = rX + rY + rZ;
+  //     double rx = rX / rSum;
+  //     double ry = rY / rSum;
+  //
+  //     // Green
+  //     int go = tags[gXYZ]!['offset']! + 8;
+  //     double gX = toFixedDouble(bd.getInt32(go, Endian.big));
+  //     double gY = toFixedDouble(bd.getInt32(go + 4, Endian.big));
+  //     double gZ = toFixedDouble(bd.getInt32(go + 8, Endian.big));
+  //     double gSum = gX + gY + gZ;
+  //     double gx = gX / gSum;
+  //     double gy = gY / gSum;
+  //
+  //     // Blue
+  //     int bo = tags[bXYZ]!['offset']! + 8;
+  //     double bX = toFixedDouble(bd.getInt32(bo, Endian.big));
+  //     double bY = toFixedDouble(bd.getInt32(bo + 4, Endian.big));
+  //     double bZ = toFixedDouble(bd.getInt32(bo + 8, Endian.big));
+  //     double bSum = bX + bY + bZ;
+  //     double bx = bX / bSum;
+  //     double by = bY / bSum;
+  //
+  //     // Compute area
+  //     double area = 0.5 * (rx * (gy - by) + gx * (by - ry) + bx * (ry - gy)).abs();
+  //
+  //     // sRGB area ≈ 0.112
+  //     if (area > 0.115) {
+  //       isWideGamut = true;
+  //     }
+  //
+  //     // Or heuristic
+  //     if (gy > 0.61 || rx > 0.65 || bx < 0.14 || by < 0.05) {
+  //       isWideGamut = true;
+  //     }
+  //
+  //     // Classify if unknown
+  //     if (profileType == 'Unknown') {
+  //       // Compare to known with tolerance
+  //       double tol = 0.01;
+  //       // sRGB
+  //       if ((rx - 0.64).abs() < tol && (ry - 0.33).abs() < tol &&
+  //           (gx - 0.30).abs() < tol && (gy - 0.60).abs() < tol &&
+  //           (bx - 0.15).abs() < tol && (by - 0.06).abs() < tol) {
+  //         profileType = 'sRGB';
+  //         isWideGamut = false;
+  //       } else if ((rx - 0.64).abs() < tol && (ry - 0.33).abs() < tol &&
+  //           (gx - 0.21).abs() < tol && (gy - 0.71).abs() < tol &&
+  //           (bx - 0.15).abs() < tol && (by - 0.06).abs() < tol) {
+  //         profileType = 'Adobe RGB';
+  //         isWideGamut = true;
+  //       } else if ((rx - 0.68).abs() < tol && (ry - 0.32).abs() < tol &&
+  //           (gx - 0.265).abs() < tol && (gy - 0.69).abs() < tol &&
+  //           (bx - 0.15).abs() < tol && (by - 0.06).abs() < tol) {
+  //         profileType = 'Display P3';
+  //         isWideGamut = true;
+  //       } else if ((rx - 0.708).abs() < tol && (ry - 0.292).abs() < tol &&
+  //           (gx - 0.17).abs() < tol && (gy - 0.797).abs() < tol &&
+  //           (bx - 0.131).abs() < tol && (by - 0.046).abs() < tol) {
+  //         profileType = 'Rec. 2020';
+  //         isWideGamut = true;
+  //       }
+  //     }
+  //   }
+  // }
+  //
+  return {
+    'hasICC': true,
+    'isWideGamut': isWideGamut,
+    'type': profileType,
+    'presentTags': presentTags,
+  };
 }
 
 List<double> parseXYZ(String s) {
   s = s.replaceAll('(', '').replaceAll(')', '').trim();
   return s.split(',').map((e) => double.parse(e.trim())).toList();
-}
-
-bool _closeEnough(List<double> a, List<double> b, [double tol = 0.1]) {
-  for (int i = 0; i < a.length; i++) {
-    if ((a[i] - b[i]).abs() > tol) return false;
-  }
-  return true;
 }

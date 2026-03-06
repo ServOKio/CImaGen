@@ -18,7 +18,7 @@ import 'package:palette_generator/palette_generator.dart';
 
 import '../Utils.dart';
 import '../main.dart';
-import '../modules/ICCProfiles.dart';
+import '../utils/ICCProfiles.dart';
 
 import 'dart:math' as math;
 import 'package:image/image.dart' as img;
@@ -147,7 +147,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
         rXYZ = parseXYZ(readTag(rXYZ));
         gXYZ = parseXYZ(readTag(gXYZ));
         bXYZ = parseXYZ(readTag(bXYZ));
-        gamutClass = detectGamut(rXYZ, gXYZ, bXYZ, im.specific?['iccTag1684370275'] != null ? readTag(im.specific?['iccTag1684370275']) : null);
+        //gamutClass = detectGamut(rXYZ, gXYZ, bXYZ, im.specific?['iccTag1684370275'] != null ? readTag(im.specific?['iccTag1684370275']) : null);
         print(gamutClass);
         rXYZ = null;
         gXYZ = null;

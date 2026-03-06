@@ -31,7 +31,7 @@ import '../components/Animations.dart';
 import '../components/ImageInfo.dart';
 import '../main.dart';
 import '../modules/CheckpointInfo.dart';
-import '../modules/ICCProfiles.dart';
+import '../utils/ICCProfiles.dart';
 import '../utils/DataModel.dart';
 
 class Home extends StatefulWidget {
