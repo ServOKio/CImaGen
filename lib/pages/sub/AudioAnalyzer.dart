@@ -12,7 +12,7 @@ class AudioAnalyzer extends StatefulWidget {
 }
 
 class _AudioAnalyzerState extends State<AudioAnalyzer> with SingleTickerProviderStateMixin {
-  final String _audioPath = 'W:/HXRIZXN - Saint.mp3';
+  final String _audioPath = 'W:/ZØMB - HOTLINE (SLOWED) (2).wav';
   double? _bpm;
   List<double> _sections = [];
   double _duration = 0.0;
@@ -64,7 +64,7 @@ class _AudioAnalyzerState extends State<AudioAnalyzer> with SingleTickerProvider
   }
 
   Future<void> _initializeSoloud() async {
-    await soloud.init(sampleRate: _sampleRate);
+    //await soloud.init(sampleRate: _sampleRate);
   }
 
   Future<void> _analyzeAndLoad() async {

@@ -41,7 +41,7 @@ class _ColorExtractState extends State<ColorExtract> {
 
     try {
       if (widget.imageMeta.fullImage == null) {
-        await widget.imageMeta.decodeToFull();
+        await widget.imageMeta.makeFullImage();
       }
 
       final bytes = widget.imageMeta.fullImage!;

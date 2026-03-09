@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cimagen/modules/SauceNAO.dart';
 import 'package:cimagen/pages/sub/BodySizeCalculation.dart';
+import 'package:cimagen/pages/sub/PixelArtRebuilder.dart';
 import 'package:cimagen/pages/sub/PromptAnalyzer.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
@@ -357,6 +358,11 @@ class _ImageViewState extends State<ImageView> with SingleTickerProviderStateMix
             label: const Text('View in ICC profile'),
             icon: const Icon(Icons.monitor),
             onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ICCPreview(widget.imageMeta))),
+          ),
+          MenuItem(
+            label: const Text('Pixel Art Rebuilder'),
+            icon: const Icon(Icons.grid_on_sharp),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => PixelArtRebuilder(widget.imageMeta))),
           ),
           if(prefs.getBool('debug') ?? false) MenuItem.submenu(
             label: const Text('Debug'),

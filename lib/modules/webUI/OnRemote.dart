@@ -59,18 +59,21 @@ class OnRemote extends ChangeNotifier implements AbMain{
       thumbnail: const Icon(Icons.error, color: Colors.redAccent),
       title: 'Initialization problem',
       description: '${error!.startsWith('TimeoutException') ? 'The host did not return the information within 10 seconds' : 'Unknown error'}\nError: $error',
-      content: Row(
-        children: [
-          ElevatedButton(
-              onPressed: () => init(offline: true),
-              child: const Text("Offline mode", style: TextStyle(fontSize: 12))
-          ),
-          Gap(7),
-          ElevatedButton(
-              onPressed: () => init(),
-              child: const Text("Try again", style: TextStyle(fontSize: 12))
-          )
-        ],
+      content: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            ElevatedButton(
+                onPressed: () => init(offline: true),
+                child: const Text("Offline mode", style: TextStyle(fontSize: 12))
+            ),
+            Gap(7),
+            ElevatedButton(
+                onPressed: () => init(),
+                child: const Text("Try again", style: TextStyle(fontSize: 12))
+            )
+          ],
+        ),
       ),
       sound: NtSound.error
     );
@@ -599,32 +602,35 @@ class OnRemote extends ChangeNotifier implements AbMain{
             description: 'Error: $e',
             content: Padding(
               padding: EdgeInsets.only(top: 7),
-              child: Row(
-                children: [
-                  ElevatedButton(
-                      style: ButtonStyle(
-                          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                      ),
-                      onPressed: (){
-                        notificationManager!.close(notID);
-                        init(offline: true);
-                      },
-                      child: const Text("Offline mode", style: TextStyle(fontSize: 12))
-                  ),
-                  Gap(14),
-                  ElevatedButton(
-                      style: ButtonStyle(
-                          foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-                          shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-                      ),
-                      onPressed: (){
-                        notificationManager!.close(notID);
-                        init();
-                      },
-                      child: const Text("Try again", style: TextStyle(fontSize: 12))
-                  ),
-                ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    ElevatedButton(
+                        style: ButtonStyle(
+                            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                            shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                        ),
+                        onPressed: (){
+                          notificationManager!.close(notID);
+                          init(offline: true);
+                        },
+                        child: const Text("Offline mode", style: TextStyle(fontSize: 12))
+                    ),
+                    Gap(14),
+                    ElevatedButton(
+                        style: ButtonStyle(
+                            foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+                            shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
+                        ),
+                        onPressed: (){
+                          notificationManager!.close(notID);
+                          init();
+                        },
+                        child: const Text("Try again", style: TextStyle(fontSize: 12))
+                    ),
+                  ],
+                )
               )
           ),
           sound: NtSound.error

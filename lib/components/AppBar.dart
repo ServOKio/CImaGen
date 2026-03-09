@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../constants.dart';
 import '../pages/Gallery.dart';
 import '../pages/sub/ImageView.dart';
 import '../utils/Extra.dart';
@@ -85,9 +86,10 @@ class _CustomAppBarState extends State<CAppBar>{
         builder: (BuildContext context, Widget? child){
           return Column(
             children: [
-              Container(
+              if(isWindowed) Container(
                   color: const Color(0xff0c0c0e),
-                  height: 32, width: MediaQuery.of(context).size.width,
+                  height: 32,
+                  width: MediaQuery.of(context).size.width,
                   child: Stack(
                     children: [
                       Positioned(

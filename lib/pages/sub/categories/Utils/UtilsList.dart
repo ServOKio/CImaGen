@@ -60,6 +60,13 @@ class UtilsList extends StatelessWidget {
             icon: Icons.audiotrack,
             onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AudioAnalyzer()))
         ),
+        Util(
+            title: 'Pixel Art Rebuilder',
+            description: 'Mesh overlay and pixel art restoration',
+            color: Color(0xff827eb9),
+            icon: Icons.grid_on_sharp,
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InkJetUnclog()))
+        ),
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
       itemBuilder: (ii) {
@@ -70,29 +77,21 @@ class UtilsList extends StatelessWidget {
               color: const Color(0xFF2d2f32),
               width: 2,
             ),
-            gradient: RadialGradient(
-              colors: [ii.item.color, Colors.black],
-              stops: const [0, 1],
-              center: Alignment.topCenter,
-              focalRadius: 2,
-            ),
-            boxShadow: const [
-              BoxShadow(color: Colors.black, spreadRadius: 3),
-            ],
+            color: Colors.black.withAlpha(120)
           ),
           child: Stack(
             children: [
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Icon(ii.item.icon, color: ii.item.color, size: 205),
-                    Icon(ii.item.icon, color: Colors.black, size: 200),
-                  ],
-                ),
-              ),
+              // Positioned(
+              //   bottom: 0,
+              //   right: 0,
+              //   child: Stack(
+              //     alignment: Alignment.bottomRight,
+              //     children: [
+              //       Icon(ii.item.icon, color: ii.item.color, size: 205),
+              //       Icon(ii.item.icon, color: Colors.black.withAlpha(120), size: 200),
+              //     ],
+              //   ),
+              // ),
               Positioned(
                 left: 0,
                 top: 0,
@@ -107,9 +106,9 @@ class UtilsList extends StatelessWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
                           color: ii.item.color.withOpacity(0.3),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black, spreadRadius: 3),
-                          ]
+                          // boxShadow: const [
+                          //   BoxShadow(color: Colors.black, spreadRadius: 3),
+                          // ]
                         ),
                         padding: const EdgeInsets.all(4),
                         child: Center(child: Icon(ii.item.icon, color: ii.item.color, size: 21),)
@@ -118,14 +117,20 @@ class UtilsList extends StatelessWidget {
                       Text(ii.item.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 21)),
                       ii.item.description != null ? Text(ii.item.description, style: const TextStyle(color: Colors.grey, fontSize: 14)) : const SizedBox.shrink(),
                       const Spacer(),
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed: ii.item.onClick != null ? () => ii.item.onClick() : null,
-                            child: Text('Open'),
-                          )
-                        ]
-                      )
+                      FilledButton.icon(
+                        onPressed:
+                        ii.item.onClick != null ? () => ii.item.onClick() : null,
+                        icon: const Icon(Icons.open_in_new, size: 18),
+                        label: const Text("Open"),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: ii.item.color,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

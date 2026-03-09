@@ -1680,7 +1680,7 @@ class ImageMeta {
     return ImageKey(type: re, parent: parentFolder, fileName: fileName, host: host);
   }
 
-  Future<void> decodeToFull() async {
+  Future<void> makeFullImage() async {
     if(fullImage != null) return;
     String? pa = fullPath ?? tempFilePath;
     if(pa != null){

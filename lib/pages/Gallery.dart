@@ -1565,7 +1565,7 @@ class PreviewImage extends StatelessWidget {
                   label: const Text('Extract colors'),
                   icon: const Icon(Icons.palette),
                   onSelected: (_) async {
-                    if(imageMeta.fullImage == null) await imageMeta.decodeToFull();
+                    if(imageMeta.fullImage == null) await imageMeta.makeFullImage();
                     final colors = await extractImagePalette(
                       imageMeta.fullImage!,
                       bgRemovalThreshold: 0.3,

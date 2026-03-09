@@ -8,15 +8,15 @@ import 'package:shimmer/shimmer.dart';
 
 class AnimatedText extends StatefulWidget {
   const AnimatedText(
-      this.text, {
-        super.key,
-        this.style,
-        this.textAlign,
-        this.duration = const Duration(milliseconds: 420),
-        this.curve = Curves.easeInOutCubicEmphasized,
-        this.slideDistance = 32.0,
-        this.useMonospaceDuringTransition = true,
-      });
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.duration = const Duration(milliseconds: 420),
+    this.curve = Curves.easeInOutCubicEmphasized,
+    this.slideDistance = 32.0,
+    this.useMonospaceDuringTransition = true,
+  });
 
   final String text;
   final TextStyle? style;
@@ -42,10 +42,7 @@ class _AnimatedTextState extends State<AnimatedText>
     _currentText = widget.text;
     _previousText = widget.text;
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
   }
 
   @override
@@ -73,10 +70,7 @@ class _AnimatedTextState extends State<AnimatedText>
     if (!widget.useMonospaceDuringTransition || !isTransitioning) {
       return base;
     }
-    return base.copyWith(
-      fontFamily: 'Roboto Mono'
-     
-    );
+    return base.copyWith(fontFamily: 'Roboto Mono');
   }
 
   @override
@@ -147,10 +141,19 @@ class _ShowUpState extends State<ShowUp> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    if(mounted){
-      _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
-      final curve = CurvedAnimation(curve: Curves.decelerate, parent: _animController);
-      _animOffset = Tween<Offset>(begin: const Offset(0.0, 0.35), end: Offset.zero).animate(curve);
+    if (mounted) {
+      _animController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500),
+      );
+      final curve = CurvedAnimation(
+        curve: Curves.decelerate,
+        parent: _animController,
+      );
+      _animOffset = Tween<Offset>(
+        begin: const Offset(0.0, 0.35),
+        end: Offset.zero,
+      ).animate(curve);
 
       if (widget.delay == null) {
         _animController.forward();
@@ -172,16 +175,16 @@ class _ShowUpState extends State<ShowUp> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _animController,
-      child: SlideTransition(
-        position: _animOffset,
-        child: widget.child,
-      ),
+      child: SlideTransition(position: _animOffset, child: widget.child),
     );
   }
+
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<Animation<Offset>>('_animOffset', _animOffset));
+    properties.add(
+      DiagnosticsProperty<Animation<Offset>>('_animOffset', _animOffset),
+    );
   }
 }
 
@@ -214,10 +217,8 @@ class _WavyDotsLoaderState extends State<WavyDotsLoader>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    )..repeat();
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat();
   }
 
   @override
@@ -269,7 +270,6 @@ class _WavyDotsPainter extends CustomPainter {
     final h = size.height;
     final midY = h / 2;
 
-   
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1.0;
@@ -282,11 +282,10 @@ class _WavyDotsPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
     }
 
-   
     const laneCount = 5;
-    const maxAmplitude = 28.0;     
-    const safeMargin = 12.0;       
-    const frequency = 1.35;        
+    const maxAmplitude = 28.0;
+    const safeMargin = 12.0;
+    const frequency = 1.35;
     const phaseOffsetPerLane = 0.55;
 
     final pathPaint = Paint()
@@ -301,26 +300,36 @@ class _WavyDotsPainter extends CustomPainter {
 
     for (int i = 0; i < laneCount; i++) {
       final t = i / (laneCount - 1).toDouble();
-      final laneAmplitude = maxAmplitude * (0.7 + 0.3 * (1 - (t - 0.5).abs() * 2));
+      final laneAmplitude =
+          maxAmplitude * (0.7 + 0.3 * (1 - (t - 0.5).abs() * 2));
       final yCenter = lerpDouble(h * 0.22, h * 0.78, t)!;
 
       final path = Path();
 
-     
       double x = 0;
-      double y = yCenter + math.sin(x * frequency * 0.02 + i * phaseOffsetPerLane) * laneAmplitude;
+      double y =
+          yCenter +
+          math.sin(x * frequency * 0.02 + i * phaseOffsetPerLane) *
+              laneAmplitude;
       path.moveTo(x, y.clamp(safeMargin, h - safeMargin));
 
-     
       const step = 6.0;
       while (x < w) {
         final nextX = (x + step).clamp(0, w);
-        final nextY = yCenter + math.sin(nextX * frequency * 0.02 + i * phaseOffsetPerLane) * laneAmplitude;
+        final nextY =
+            yCenter +
+            math.sin(nextX * frequency * 0.02 + i * phaseOffsetPerLane) *
+                laneAmplitude;
 
         final cpX = (x + nextX) / 2;
         final cpY = (y + nextY) / 2;
 
-        path.quadraticBezierTo(cpX, cpY.clamp(safeMargin, h - safeMargin), nextX.toDouble(), nextY.clamp(safeMargin, h - safeMargin));
+        path.quadraticBezierTo(
+          cpX,
+          cpY.clamp(safeMargin, h - safeMargin),
+          nextX.toDouble(),
+          nextY.clamp(safeMargin, h - safeMargin),
+        );
 
         x = nextX.toDouble();
         y = nextY;
@@ -328,12 +337,13 @@ class _WavyDotsPainter extends CustomPainter {
 
       canvas.drawPath(path, pathPaint);
 
-     
       final laneProgress = (progress + i * 0.14) % 1.0;
       final dotX = w * laneProgress;
-      final dotY = yCenter + math.sin(dotX * frequency * 0.02 + i * phaseOffsetPerLane) * laneAmplitude;
+      final dotY =
+          yCenter +
+          math.sin(dotX * frequency * 0.02 + i * phaseOffsetPerLane) *
+              laneAmplitude;
 
-     
       final clampedY = dotY.clamp(safeMargin + 4, h - safeMargin - 4);
       canvas.drawCircle(Offset(dotX, clampedY), 5.5, dotPaint);
     }
@@ -352,7 +362,7 @@ class FadingCurveLoader extends StatefulWidget {
     this.cycleDuration = const Duration(milliseconds: 3400),
     this.pathColor = const Color(0xFF2196F3),
     this.dotColor = Colors.white,
-    this.gridColor = Colors.grey
+    this.gridColor = Colors.grey,
   });
 
   final Duration cycleDuration;
@@ -406,7 +416,7 @@ class LaneState {
   LaneState.random(double height) {
     final r = math.Random();
     startY = 30 + r.nextDouble() * (height - 60);
-    endY   = 30 + r.nextDouble() * (height - 60);
+    endY = 30 + r.nextDouble() * (height - 60);
   }
 
   static LaneState createNew(double h) => LaneState.random(h);
@@ -445,11 +455,15 @@ class _FadingCurvePainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    if(gridColor != Colors.transparent){
-      final gridPaint = Paint()..color = gridColor..strokeWidth = 1.0;
+    if (gridColor != Colors.transparent) {
+      final gridPaint = Paint()
+        ..color = gridColor
+        ..strokeWidth = 1.0;
       const step = 20.0;
-      for (double x = 0; x <= w; x += step) canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
-      for (double y = 0; y <= h; y += step) canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
+      for (double x = 0; x <= w; x += step)
+        canvas.drawLine(Offset(x, 0), Offset(x, h), gridPaint);
+      for (double y = 0; y <= h; y += step)
+        canvas.drawLine(Offset(0, y), Offset(w, y), gridPaint);
     }
 
     final pathPaint = Paint()
@@ -457,7 +471,9 @@ class _FadingCurvePainter extends CustomPainter {
       ..strokeWidth = 3.2
       ..strokeCap = StrokeCap.round;
 
-    final dotPaint = Paint()..color = dotColor..style = PaintingStyle.fill;
+    final dotPaint = Paint()
+      ..color = dotColor
+      ..style = PaintingStyle.fill;
 
     const laneCount = 5;
     const marginY = 24.0;
@@ -485,21 +501,17 @@ class _FadingCurvePainter extends CustomPainter {
       final curr = _current[i];
       final targ = _target[i];
 
-     
       if (!inTransition) {
-       
         pathPaint.color = pathColor.withOpacity(1.0);
         canvas.drawPath(_createPath(w, curr.startY, curr.endY), pathPaint);
       } else {
         final t = _transProgress[i];
 
-       
         if (t < fadeOutShare) {
           pathPaint.color = pathColor.withOpacity(1.0 - t / fadeOutShare);
           canvas.drawPath(_createPath(w, curr.startY, curr.endY), pathPaint);
         }
 
-       
         if (t > fadeOutShare) {
           final appear = (t - fadeOutShare) / (1.0 - fadeOutShare);
           pathPaint.color = pathColor.withOpacity(appear);
@@ -511,8 +523,18 @@ class _FadingCurvePainter extends CustomPainter {
 
       if (!inTransition) {
         final x = _cubicBezier(dotT, 0, w * 0.25, w * 0.75, w);
-        final y = _cubicBezier(dotT, curr.startY, curr.startY, curr.endY, curr.endY);
-        canvas.drawCircle(Offset(x, y.clamp(marginY, h - marginY)), 6.0, dotPaint);
+        final y = _cubicBezier(
+          dotT,
+          curr.startY,
+          curr.startY,
+          curr.endY,
+          curr.endY,
+        );
+        canvas.drawCircle(
+          Offset(x, y.clamp(marginY, h - marginY)),
+          6.0,
+          dotPaint,
+        );
       }
     }
   }
@@ -526,7 +548,7 @@ class _FadingCurvePainter extends CustomPainter {
   double _cubicBezier(double t, double a, double b, double c, double d) {
     final u = 1 - t;
     final tt = t * t, uu = u * u;
-    return uu*u*a + 3*uu*t*b + 3*u*tt*c + tt*t*d;
+    return uu * u * a + 3 * uu * t * b + 3 * u * tt * c + tt * t * d;
   }
 
   @override
@@ -733,34 +755,39 @@ class _FadingCurvePainter extends CustomPainter {
 
 class CImaGenLinearProgressIndicator extends StatefulWidget {
   final double? value;
-  const CImaGenLinearProgressIndicator({
-    super.key,
-    this.value
-  });
+  const CImaGenLinearProgressIndicator({super.key, this.value});
 
   @override
-  State<CImaGenLinearProgressIndicator> createState() => _CImaGenLinearProgressIndicatorState();
+  State<CImaGenLinearProgressIndicator> createState() =>
+      _CImaGenLinearProgressIndicatorState();
 }
 
-class _CImaGenLinearProgressIndicatorState extends State<CImaGenLinearProgressIndicator> with SingleTickerProviderStateMixin {
+class _CImaGenLinearProgressIndicatorState
+    extends State<CImaGenLinearProgressIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        double? pro = widget.value != null ? widget.value! * constraints.maxWidth / 1 : null;
+        double? pro = widget.value != null
+            ? widget.value! * constraints.maxWidth / 1
+            : null;
         return Stack(
           children: [
             Container(
               height: 5,
               width: constraints.maxWidth,
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2.5),
-                  gradient: LinearGradient(colors: [
+                borderRadius: BorderRadius.circular(2.5),
+                gradient: LinearGradient(
+                  colors: [
                     Theme.of(context).colorScheme.primary.withAlpha(100),
                     Color(0xFFFFFFFF).withAlpha(50),
-                  ], stops: [0, 1])
+                  ],
+                  stops: [0, 1],
+                ),
               ),
             ),
             Container(
@@ -768,24 +795,164 @@ class _CImaGenLinearProgressIndicatorState extends State<CImaGenLinearProgressIn
               height: 5,
               width: pro,
               decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(2.5),
-                  gradient: LinearGradient(colors: [
-                    Theme.of(context).colorScheme.primaryContainer.withAlpha(120),
-                    Theme.of(context).colorScheme.primary
-                  ], stops: [0, 1])
+                borderRadius: BorderRadius.circular(2.5),
+                gradient: LinearGradient(
+                  colors: [
+                    Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withAlpha(120),
+                    Theme.of(context).colorScheme.primary,
+                  ],
+                  stops: [0, 1],
+                ),
               ),
               child: Shimmer.fromColors(
                 baseColor: Colors.transparent,
                 highlightColor: Colors.white.withAlpha(200),
-                child: Container(
-                  width: pro,
-                  color: Colors.white,
-                ),
+                child: Container(width: pro, color: Colors.white),
               ),
-            )
+            ),
           ],
         );
       },
     );
   }
+}
+
+class RotatingLinesTextAnimation extends StatefulWidget {
+  final String text;
+  final double fontSize; // Scales the lines
+  final Duration duration;
+
+  const RotatingLinesTextAnimation({
+    super.key,
+    this.text = 'COSMO',
+    this.fontSize = 50.0,
+    this.duration = const Duration(seconds: 3),
+  });
+
+  @override
+  State<RotatingLinesTextAnimation> createState() => _RotatingLinesTextAnimationState();
+}
+
+class _RotatingLinesTextAnimationState extends State<RotatingLinesTextAnimation> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration)..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: LinesTextPainter(
+        text: widget.text,
+        fontSize: widget.fontSize,
+        animation: _controller,
+      ),
+      size: Size(widget.fontSize * widget.text.length * 1.2, widget.fontSize * 1.5), // Approximate size
+    );
+  }
+}
+
+class LineSegment {
+  final Offset center;
+  final double length;
+  final double finalAngle; // In radians
+  final double initialAngle; // Starting rotation offset
+  final double startDelay; // For staggering (0-1)
+
+  LineSegment({
+    required this.center,
+    required this.length,
+    this.finalAngle = 0.0,
+    this.initialAngle = math.pi / 2, // 90 degrees
+    this.startDelay = 0.0,
+  });
+}
+
+class LinesTextPainter extends CustomPainter {
+  final String text;
+  final double fontSize;
+  final Animation<double> animation;
+
+  LinesTextPainter({required this.text, required this.fontSize, required this.animation}) : super(repaint: animation);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = fontSize / 20
+      ..style = PaintingStyle.stroke;
+
+    // Define line segments for each letter (positions scaled by fontSize, offset by letter index)
+    final List<List<LineSegment>> lettersLines = [
+      // C: Approximated as 3 lines (top horizontal, vertical, bottom horizontal)
+      [
+        LineSegment(center: Offset(fontSize * 0.3, fontSize * 0.25), length: fontSize * 0.5, finalAngle: 0, startDelay: 0.0),
+        LineSegment(center: Offset(fontSize * 0.3, fontSize * 0.75), length: fontSize * 0.5, finalAngle: 0, startDelay: 0.1),
+        LineSegment(center: Offset(fontSize * 0.1, fontSize * 0.5), length: fontSize * 0.8, finalAngle: math.pi / 2, startDelay: 0.05),
+      ],
+      // O: Approximated as diamond (4 lines)
+      [
+        LineSegment(center: Offset(fontSize * 1.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: math.pi / 4, startDelay: 0.2),
+        LineSegment(center: Offset(fontSize * 1.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: math.pi * 3 / 4, startDelay: 0.25),
+        LineSegment(center: Offset(fontSize * 1.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: -math.pi / 4, startDelay: 0.3),
+        LineSegment(center: Offset(fontSize * 1.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: -math.pi * 3 / 4, startDelay: 0.35),
+      ],
+      // S: Approximated as 3 horizontal lines staggered
+      [
+        LineSegment(center: Offset(fontSize * 2.7, fontSize * 0.25), length: fontSize * 0.5, finalAngle: 0, startDelay: 0.4),
+        LineSegment(center: Offset(fontSize * 2.7, fontSize * 0.5), length: fontSize * 0.5, finalAngle: 0, startDelay: 0.45),
+        LineSegment(center: Offset(fontSize * 2.7, fontSize * 0.75), length: fontSize * 0.5, finalAngle: 0, startDelay: 0.5),
+      ],
+      // M: 4 lines (two vertical, two slants)
+      [
+        LineSegment(center: Offset(fontSize * 3.7, fontSize * 0.5), length: fontSize, finalAngle: math.pi / 2, startDelay: 0.6),
+        LineSegment(center: Offset(fontSize * 4.3, fontSize * 0.5), length: fontSize, finalAngle: math.pi / 2, startDelay: 0.65),
+        LineSegment(center: Offset(fontSize * 3.9, fontSize * 0.4), length: fontSize * 0.5, finalAngle: math.pi / 6, startDelay: 0.7),
+        LineSegment(center: Offset(fontSize * 4.1, fontSize * 0.4), length: fontSize * 0.5, finalAngle: -math.pi / 6, startDelay: 0.75),
+      ],
+      // O: Same as first O
+      [
+        LineSegment(center: Offset(fontSize * 5.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: math.pi / 4, startDelay: 0.8),
+        LineSegment(center: Offset(fontSize * 5.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: math.pi * 3 / 4, startDelay: 0.85),
+        LineSegment(center: Offset(fontSize * 5.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: -math.pi / 4, startDelay: 0.9),
+        LineSegment(center: Offset(fontSize * 5.5, fontSize * 0.5), length: fontSize * 0.5, finalAngle: -math.pi * 3 / 4, startDelay: 0.95),
+      ],
+    ];
+
+    // Draw each line with animation
+    for (var letterLines in lettersLines) {
+      for (var line in letterLines) {
+        // Stagger based on delay
+        double progress = (animation.value - line.startDelay).clamp(0.0, 1.0) / (1.0 - line.startDelay);
+        if (progress <= 0) continue;
+
+        // Phase 1: Fade in (0-0.5 progress), Phase 2: Rotate (0.5-1)
+        double opacity = (progress * 2).clamp(0.0, 1.0); // Fade in first half
+        double angleProgress = ((progress - 0.5) * 2).clamp(0.0, 1.0); // Rotate second half
+        double currentAngle = line.initialAngle + (line.finalAngle - line.initialAngle) * angleProgress;
+
+        // Calculate rotated start and end
+        Offset direction = Offset(math.cos(currentAngle), math.sin(currentAngle)) * (line.length / 2);
+        Offset start = line.center - direction;
+        Offset end = line.center + direction;
+
+        paint.color = paint.color.withOpacity(opacity);
+        canvas.drawLine(start, end, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant LinesTextPainter oldDelegate) => true;
 }

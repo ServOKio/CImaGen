@@ -7,7 +7,6 @@ import 'BufferUtils.dart';
 import 'utf16.dart';
 
 import "dart:math" as math;
-import 'package:image/image.dart' as img;
 
 class ICCProfile {
   String version;
@@ -479,18 +478,37 @@ Map<String, dynamic> extract(List<int> inflated){
 }
 
 enum GamutClass {
+  unknown,
   narrowSrgb,
   displayP3,
   adobeRgb,
-  unknown
+  rec2020
 }
 
 String humanizeGamutClass(GamutClass gamutClass){
   return {
     GamutClass.narrowSrgb: 'Narrow sRGB',
     GamutClass.displayP3: 'DCI-P3',
-    GamutClass.adobeRgb: 'AdobeRGB'
+    GamutClass.adobeRgb: 'AdobeRGB',
+    GamutClass.rec2020: 'Rec. 2020'
   }[gamutClass] ?? 'Unknown';
+}
+
+ColorSpaceInfo? detectGamut(List<double> rXYZ, List<double> gXYZ, List<double> bXYZ, String? desc){
+  ColorSpaceInfo? colorSpaceInfo;
+  if (desc != null && desc.isNotEmpty) {
+    String lowerDesc = desc.toLowerCase();
+    if (lowerDesc.contains('srgb')) {
+      colorSpaceInfo = ColorSpaceInfo(isWideGamut: false, type: GamutClass.narrowSrgb);
+    } else if (lowerDesc.contains('adobe')) {
+      colorSpaceInfo = ColorSpaceInfo(isWideGamut: true, type: GamutClass.adobeRgb);
+    } else if (lowerDesc.contains('p3')) {
+      colorSpaceInfo = ColorSpaceInfo(isWideGamut: true, type: GamutClass.displayP3);
+    } else if (lowerDesc.contains('rec2020') || lowerDesc.contains('rec. 2020')) {
+      colorSpaceInfo = ColorSpaceInfo(isWideGamut: false, type: GamutClass.rec2020);
+    }
+  }
+  return colorSpaceInfo;
 }
 
 Map<String, dynamic> checkWideGamutImage(Uint8List imageBytes) {
@@ -729,6 +747,16 @@ Map<String, dynamic> checkWideGamutImage(Uint8List imageBytes) {
     'type': profileType,
     'presentTags': presentTags,
   };
+}
+
+class ColorSpaceInfo{
+  final bool isWideGamut;
+  final GamutClass type;
+
+  const ColorSpaceInfo({
+    required this.isWideGamut,
+    required this.type
+  });
 }
 
 List<double> parseXYZ(String s) {

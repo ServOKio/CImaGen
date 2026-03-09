@@ -39,3 +39,8 @@ windows/flutter/generated_plugin_registrant.h
 windows/flutter/generated_plugins.cmake
 lib/modules/saucenao/ResultData.g.dart
 lib/modules/saucenao/ResultHeader.g.dart
+.metadata
+wcg_image/example/windows/flutter/generated_plugin_registrant.cc
+wcg_image/example/windows/flutter/generated_plugin_registrant.h
+wcg_image/example/windows/flutter/generated_plugins.cmake
+/android/.kotlin

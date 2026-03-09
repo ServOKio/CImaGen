@@ -67,9 +67,11 @@ class SQLite{
       dbPath.path,
       version: dbVersion,
       onOpen: (db) async {
-        await db.execute('PRAGMA journal_mode = WAL;');
-        await db.execute('PRAGMA synchronous = NORMAL;');
-        await db.execute('PRAGMA cache_size = -20000;');
+        if(isDesktop){
+          await db.execute('PRAGMA journal_mode = WAL;');
+          await db.execute('PRAGMA synchronous = NORMAL;');
+          await db.execute('PRAGMA cache_size = -20000;');
+        }
         await db.execute('''
       CREATE TABLE IF NOT EXISTS images (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,7 +158,7 @@ class SQLite{
 
         await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
-          USING fts5(
+          USING fts4(
             keyup,
             positive,
             negative,
@@ -236,11 +238,10 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
 
         await db.execute("""
-          CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts5(
+          CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts4(
             tag_string,
             content='e621posts',
-            content_rowid='id',
-            tokenize="unicode61 tokenchars '_()-/.:'''"
+            tokenize=unicode61 "tokenchars=_()-/.:'"
           );
         """);
 

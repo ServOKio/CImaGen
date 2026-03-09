@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/pages/sub/ChangeColorUtil.dart';
 import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
@@ -100,6 +101,20 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
       try{
         ImageMeta? im = await parseImage(RenderEngine.unknown, file.path);
         if(im != null){
+          if(im.specific?['hasIccProfile'] != null){
+            dynamic rXYZ = im.specific?['iccTag1918392666'];
+            dynamic gXYZ = im.specific?['iccTag1733843290'];
+            dynamic bXYZ = im.specific?['iccTag1649957210'];
+            if(rXYZ != null && gXYZ != null && bXYZ != null){
+              rXYZ = parseXYZ(readTag(rXYZ));
+              gXYZ = parseXYZ(readTag(gXYZ));
+              bXYZ = parseXYZ(readTag(bXYZ));
+              ColorSpaceInfo? colorSpaceInfo = detectGamut(rXYZ, gXYZ, bXYZ, im.specific?['iccTag1684370275'] != null ? readTag(im.specific?['iccTag1684370275']) : null);
+              if(colorSpaceInfo != null && colorSpaceInfo.isWideGamut){
+                audioController.play(NtSound.you_are_an_idiot);
+              }
+            }
+          }
           if(mounted) pushToHistory(HistoryObject(id: getRandomID(), content: im));
         }
       } catch(e, s){
@@ -938,7 +953,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
           ),
           const Gap(8),
           Expanded(
-            child: categoryTop.last.widget ?? Center(
+            child: categoryTop.last.widget != null ? SingleChildScrollView(child: categoryTop.last.widget) : Center(
               child: Container(
                 constraints: BoxConstraints(
                   maxWidth: screenWidth <= breakpoint ? screenWidth * 70 / 100 : 500,

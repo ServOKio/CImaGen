@@ -254,7 +254,7 @@ class _ColorReplacementScreenState extends State<ColorReplacementScreen> {
   }
 
   Future<void> _loadImage() async {
-    if(widget.imageMeta.fullImage == null) await widget.imageMeta.decodeToFull();
+    if(widget.imageMeta.fullImage == null) await widget.imageMeta.makeFullImage();
     Uint8List result = widget.imageMeta.fullImage!;
 
     setState(() {

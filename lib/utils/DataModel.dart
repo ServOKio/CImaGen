@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/Utils.dart';
 import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
@@ -118,7 +117,7 @@ class ComparisonBlock {
     if (selected == null) return;
 
     if (selected.fullImage == null) {
-      await selected.decodeToFull();
+      await selected.makeFullImage();
     }
     final bytes = selected.fullImage!;
     if (bytes.isEmpty) return;
@@ -209,7 +208,7 @@ class ComparisonBlock {
     final ImageMeta toResize = resizeFirst ? firstSelected! : secondSelected!;
     final ImageSize targetSize = resizeFirst ? secondImageSize! : firstImageSize!;
 
-    if (toResize.fullImage == null) await toResize.decodeToFull();
+    if (toResize.fullImage == null) await toResize.makeFullImage();
     final decoded = img.decodeImage(toResize.fullImage!);
     if (decoded == null) return;
 

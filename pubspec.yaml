@@ -109,9 +109,12 @@ dependencies:
   image_background_remover: ^2.0.0
   lottie: ^3.3.2
   flutter_screenutil: ^5.9.3
-  flutter_soloud: ^3.4.10
   fftea: ^1.5.0+1
   flutter_expandable_fab: ^2.5.2
+  flutter_soloud:
+    git:
+      url: https://github.com/alnitak/flutter_soloud.git
+      ref: desktopDrop
   # rive: 0.11.11 - https://github.com/rive-app/rive-flutter/issues/285
 
 dev_dependencies:

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cimagen/components/SimpleWindowBar.dart';
 import 'package:cimagen/modules/NotificationManager.dart';
 import 'package:cimagen/pages/Timeline.dart';
@@ -57,7 +56,7 @@ import 'modules/DataManager.dart';
 GitHub? githubAPI;
 AppBarController? appBarController;
 NotificationManager? notificationManager;
-AudioController? audioController;
+late AudioController audioController;
 late SharedPreferences prefs;
 late ObjectboxDB objectbox;
 late SQLite sqLite;
@@ -83,13 +82,15 @@ Future<void> main() async {
   }
   runApp(Base());
 
-  doWhenWindowReady(() {
+  if(isWindowed) {
+    doWhenWindowReady(() {
     const initialSize = Size(1280, 968);
     appWindow.minSize = initialSize;
     //appWindow.size = initialSize;
     //appWindow.alignment = Alignment.center;
     appWindow.show();
   });
+  }
 }
 
 class Base extends StatelessWidget {
@@ -218,7 +219,8 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
   void initState() {
     super.initState();
     _pageViewController = PageController(initialPage: _currentPageIndex);
-    initMe();
+    githubAPI = GitHub();
+    initStorage();
   }
 
   Future<void> getSharedText() async {
@@ -261,8 +263,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
     }
   }
 
-  Future<void> initMe() async {
-    githubAPI = GitHub();
+  Future<void> initStorage() async {
     if(Platform.isAndroid){
       bool permissionStatus;
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -339,7 +340,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
             //     child: const Text("Try again", style: TextStyle(fontSize: 12))
             // )
           );
-          audioController!.play(NtSound.wrong);
+          audioController.play(NtSound.wrong);
           if (error is DatabaseCheckException) {
 
           } else {
@@ -653,10 +654,10 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
           ],
         ) : null,
       ) : Scaffold(
-        appBar: SimpleWindowBar(),
+        appBar: isWindowed ? SimpleWindowBar() : null,
         body: SafeArea(
           child: hasError ? Center(
-            child: Column(
+            child: Padding(padding: EdgeInsetsGeometry.all(7), child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Stack(
@@ -673,7 +674,7 @@ class _MyHomePageState extends State<Main> with TickerProviderStateMixin{
                   print(context.read<DataManager>().error);
                 }, child: Text('Retry'))
               ],
-            ),
+            )),
           ) : Center(
             child: Column(
               children: [

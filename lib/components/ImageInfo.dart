@@ -66,7 +66,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
       });
     } else {
       try{
-        await widget.data.decodeToFull();
+        await widget.data.makeFullImage();
         setState(() {
           readMe = widget.data.fullImage;
           paletteGenerator = genPalette();
@@ -116,7 +116,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
     String wUIV = '';
     String parentVersion = '';
     bool byImageLib = im.fileTypeExtension != 'png';
-    GamutClass? gamutClass;
+    ColorSpaceInfo? colorSpaceInfo;
 
     if(im.generationParams != null){
       gp = im.generationParams;
@@ -139,7 +139,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
     String? colorType = im.specific?['numChannels'] != null ? numChannelsToString(im.specific?['numChannels']) : im.specific?['colorType'] != null ? getColorType(im.specific?['colorType']) : null;
     NumberFormat f = NumberFormat("0.####");
 
-    if(im.specific?['hasIccProfile']){
+    if(im.specific?['hasIccProfile'] != null){
       dynamic rXYZ = im.specific?['iccTag1918392666'];
       dynamic gXYZ = im.specific?['iccTag1733843290'];
       dynamic bXYZ = im.specific?['iccTag1649957210'];
@@ -147,8 +147,7 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
         rXYZ = parseXYZ(readTag(rXYZ));
         gXYZ = parseXYZ(readTag(gXYZ));
         bXYZ = parseXYZ(readTag(bXYZ));
-        //gamutClass = detectGamut(rXYZ, gXYZ, bXYZ, im.specific?['iccTag1684370275'] != null ? readTag(im.specific?['iccTag1684370275']) : null);
-        print(gamutClass);
+        colorSpaceInfo = detectGamut(rXYZ, gXYZ, bXYZ, im.specific?['iccTag1684370275'] != null ? readTag(im.specific?['iccTag1684370275']) : null);
         rXYZ = null;
         gXYZ = null;
         bXYZ = null;
@@ -350,7 +349,10 @@ class _MyImageInfoState extends State<MyImageInfo> with TickerProviderStateMixin
                                     children: [
                                       // SelectableText(im.specific.toString()),
                                       // if()
-                                      if(gamutClass != null) InfoBox(one: 'Gamut Class', two: humanizeGamutClass(gamutClass), inner: true),
+                                      if(colorSpaceInfo != null) ...[
+                                        InfoBox(one: 'Gamut Class', two: humanizeGamutClass(colorSpaceInfo.type), inner: true),
+                                        InfoBox(one: 'Is Wide Gamut', two: colorSpaceInfo.isWideGamut ? 'Yes' : 'No', inner: true)
+                                      ],
                                       if(im.specific?['iccProfileName'] != null) InfoBox(one: 'Raw Profile Name', two: im.specific?['iccProfileName'], inner: true),
                                       if(im.specific?['iccCompressionMethod'] != null) InfoBox(one: 'Compression method', two: im.specific?['iccCompressionMethod'].toString(), inner: true),
                                       if(im.specific?['iccProfileSize'] != null) InfoBox(one: 'Profile size', two: im.specific?['iccProfileSize'].toString(), inner: true),
