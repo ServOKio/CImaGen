@@ -1,11 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gap/gap.dart';
-import 'package:photo_view/photo_view.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../Utils.dart';
@@ -83,8 +82,8 @@ Future<Uint8List?> _readImageFile(ImageMeta imageMeta) async {
 }
 
 class BodySizeCalculation extends StatefulWidget{
-  final ImageMeta? imageMeta;
-  const BodySizeCalculation({ super.key, this.imageMeta});
+  final ImageMeta imageMeta;
+  const BodySizeCalculation({ super.key, required this.imageMeta});
 
   @override
   _BodySizeCalculationState createState() => _BodySizeCalculationState();
@@ -92,6 +91,25 @@ class BodySizeCalculation extends StatefulWidget{
 
 class _BodySizeCalculationState extends State<BodySizeCalculation> {
   // Settings
+  String METADATA_KEY = 'X-BodySizePoints'; // custom key, avoid conflict with other tools
+  String CURRENT_VERSION = '1.0.0';          // bump when format changes
+
+  Map<String, dynamic> get pointsInfo => {
+    'version': CURRENT_VERSION,
+    'characterHeightCm': _ch,
+    'gender': gender.toString().split('.').last, // 'male', 'female', 'other'
+    'mainPoints': mainPoints.map((p) => {
+      'message': p.message,
+      'color': p.color.value,           // store as int (ARGB)
+      'offset': {'dx': p.offset.dx, 'dy': p.offset.dy},
+    }).toList(),
+    'penilePoints': penilePoints.map((p) => {
+      'message': p.message,
+      'color': p.color.value,
+      'offset': {'dx': p.offset.dx, 'dy': p.offset.dy},
+    }).toList(),
+    // You can add more later: timestamp, devicePixelRatio, etc.
+  };
 
   // Data
   Gender gender = Gender.male;
@@ -113,13 +131,12 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
 
   List<PointInfo> penilePoints = [
     ['Base of penis', Colors.redAccent],
-    ['Mid-shaft 1', Colors.orangeAccent],
-    ['Mid-shaft 2', Colors.yellowAccent],
+    ['Mid-shaft', Colors.orangeAccent],
     ['Tip of penis', Colors.blueAccent],
   ].mapIndexed((id, data) => PointInfo(
     message: data[0] as String,
     color: data[1] as Color,
-    offset: Offset(100 + id * 40, 100.0 + 30.0 * id), // slightly better initial spread
+    offset: Offset(100 + id * 40, 100.0 + 30.0 * id),
   )).toList();
 
   // Testicular volume
@@ -129,6 +146,8 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
   double _tvHigh = 7.3;
 
   bool _penileExpanded = false;
+  double _desiredLength = 0.0;
+  final TextEditingController _desiredLengthController = TextEditingController();
 
   final TransformationController _transformationController = TransformationController();
   final GlobalKey _key = GlobalKey();
@@ -160,8 +179,12 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
 
   @override
   void initState() {
-    _characterHeight.text = _ch.toString();
     super.initState();
+    _characterHeight.text = _ch.toString();
+    _desiredLengthController.text = _desiredLength.toString();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      loadMeta(); // try to restore on first build
+    });
   }
 
   @override
@@ -258,7 +281,6 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
       }
     }
 
-    // Add limb segments
     addSegment(5, 3, 'Right upper arm:', points: mainPoints);
     addSegment(3, 1, 'Right forearm:', points: mainPoints);
     addSegment(6, 4, 'Left upper arm:', points: mainPoints);
@@ -268,7 +290,6 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     addSegment(8, 10, 'Left thigh:', points: mainPoints);
     addSegment(10, 12, 'Left lower leg:', points: mainPoints);
 
-    // Torso and head
     List<Offset> visibleShoulders = [];
     if (isVisible(mainPoints[5].offset, imageWidth, imageHeight)) visibleShoulders.add(mainPoints[5].offset);
     if (isVisible(mainPoints[6].offset, imageWidth, imageHeight)) visibleShoulders.add(mainPoints[6].offset);
@@ -314,24 +335,20 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     }
 
     double penileLength = 0.0;
-    if (_penileExpanded) {
-      for (int i = 0; i < penilePoints.length - 1; i++) {
-        if (isVisible(penilePoints[i].offset, imageWidth, imageHeight) &&
-            isVisible(penilePoints[i + 1].offset, imageWidth, imageHeight)) {
-          double distPixel = (penilePoints[i].offset - penilePoints[i + 1].offset).distance;
-          penileLength += distPixel * cmPerPixel;
-        }
+    List<Offset> visiblePenilePoints = penilePoints.where((p) => isVisible(p.offset, imageWidth, imageHeight)).map((p) => p.offset).toList();
+    if (_penileExpanded && visiblePenilePoints.length >= 3) {
+      for (int i = 0; i < visiblePenilePoints.length - 1; i++) {
+        double distPixel = (visiblePenilePoints[i] - visiblePenilePoints[i + 1]).distance;
+        penileLength += distPixel * cmPerPixel;
       }
-      // Optional: one floating total label near middle point (index 1 or 2)
-      if (penilePoints.length >= 2 && penileLength > 0) {
-        int mid = penilePoints.length ~/ 2;
-        Offset labelPos = penilePoints[mid].offset;
-        averages.add(AverageInfo(
-          a: labelPos,
-          b: labelPos.translate(0, -50), // higher above to avoid overlap
-          message: '${penileLength.toStringAsFixed(1)} cm',
-        ));
-      }
+      // Label
+      int mid = visiblePenilePoints.length ~/ 2;
+      Offset labelPos = visiblePenilePoints[mid];
+      averages.add(AverageInfo(
+        a: labelPos,
+        b: labelPos.translate(0, -50),
+        message: '${penileLength.toStringAsFixed(1)} cm',
+      ));
     }
 
     return LayoutBuilder(
@@ -423,6 +440,14 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                       return children;
                     },
                   ),
+                if (_penileExpanded && visiblePenilePoints.length >= 3)
+                CustomPaint(
+                  painter: CurvePainter(
+                    points: visiblePenilePoints,
+                    desiredFraction: penileLength > 0 ? _desiredLength / penileLength : 0,
+                  ),
+                  size: Size(imageWidth, imageHeight),
+                ),
                 ...mainPoints.mapIndexed(
                       (id, pointInfo) {
                     if (!isVisible(pointInfo.offset, imageWidth, imageHeight)) {
@@ -437,34 +462,24 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                       ),
                     );
                     return Positioned(
-                      left: pointInfo.offset.dx,
-                      top: pointInfo.offset.dy,
-                      child: Draggable(
-                        feedback: Transform.scale(
-                          scale: _transformationController.value.getMaxScaleOnAxis(),
-                          child: c,
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: .3,
-                          child: c,
-                        ),
-                        onDragEnd: (detailsGlobalClicked) {
-                          final RenderBox? box = _key.currentContext?.findRenderObject() as RenderBox?;
-                          final Offset? position = box?.localToGlobal(Offset.zero);
-                          var scale = _transformationController.value.getMaxScaleOnAxis();
-                          Offset of = Offset(
-                            (detailsGlobalClicked.offset.dx - position!.dx),
-                            (detailsGlobalClicked.offset.dy - position.dy),
-                          );
-                          Offset add = Offset(
-                            of.dx / scale,
-                            of.dy / scale,
-                          );
-                          if (position != null) {
-                            setState(() => mainPoints[id].offset = add);
-                          }
+                      left: pointInfo.offset.dx - 15,
+                      top: pointInfo.offset.dy - 15,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanUpdate: (details) {
+                          setState(() {
+                            mainPoints[id].offset += details.delta / _transformationController.value.getMaxScaleOnAxis();
+                            mainPoints[id].offset = Offset(
+                              mainPoints[id].offset.dx.clamp(0.0, imageWidth),
+                              mainPoints[id].offset.dy.clamp(0.0, imageHeight),
+                            );
+                          });
                         },
-                        child: c,
+                        child: SizedBox(
+                          width: 30,
+                          height: 30,
+                          child: c,
+                        ),
                       ),
                     );
                   },
@@ -487,34 +502,24 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                         ),
                       );
                       return Positioned(
-                        left: pointInfo.offset.dx,
-                        top: pointInfo.offset.dy,
-                        child: Draggable(
-                          feedback: Transform.scale(
-                            scale: _transformationController.value.getMaxScaleOnAxis(),
-                            child: c,
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: .3,
-                            child: c,
-                          ),
-                          onDragEnd: (detailsGlobalClicked) {
-                            final RenderBox? box = _key.currentContext?.findRenderObject() as RenderBox?;
-                            final Offset? position = box?.localToGlobal(Offset.zero);
-                            var scale = _transformationController.value.getMaxScaleOnAxis();
-                            Offset of = Offset(
-                              (detailsGlobalClicked.offset.dx - position!.dx),
-                              (detailsGlobalClicked.offset.dy - position.dy),
-                            );
-                            Offset add = Offset(
-                              of.dx / scale,
-                              of.dy / scale,
-                            );
-                            if (position != null) {
-                              setState(() => penilePoints[id].offset = add);
-                            }
+                        left: pointInfo.offset.dx - 7.5,
+                        top: pointInfo.offset.dy - 7.5,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanUpdate: (details) {
+                            setState(() {
+                              penilePoints[id].offset += details.delta / _transformationController.value.getMaxScaleOnAxis();
+                              penilePoints[id].offset = Offset(
+                                penilePoints[id].offset.dx.clamp(0.0, imageWidth),
+                                penilePoints[id].offset.dy.clamp(0.0, imageHeight),
+                              );
+                            });
                           },
-                          child: c,
+                          child: SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: c,
+                          ),
                         ),
                       );
                     },
@@ -540,11 +545,121 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     );
   }
 
+  Future<void> saveMeta() async {
+    try {
+      if (widget.imageMeta!.fullImage == null) {
+        await widget.imageMeta!.makeFullImage();
+      }
+      Uint8List originalBytes = widget.imageMeta!.fullImage!;
+
+      img.Image? image = img.decodeImage(originalBytes);
+      if (image == null) {
+        debugPrint('Failed to decode image for metadata save');
+        return;
+      }
+
+      image.textData?.clear();
+
+      image.textData ??= {};
+      image.textData![METADATA_KEY] = jsonEncode(pointsInfo);
+
+      Uint8List newBytes = img.encodePng(image);
+
+      final file = File(widget.imageMeta!.fullPath!);
+      await file.writeAsBytes(newBytes);
+
+      debugPrint('Metadata saved successfully (version $CURRENT_VERSION)');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Point positions saved into image')),
+      );
+    } catch (e, st) {
+      debugPrint('Error saving metadata: $e\n$st');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save metadata: $e')),
+      );
+    }
+  }
+
+  Future<void> loadMeta() async {
+    try {
+      if (widget.imageMeta!.fullImage == null) {
+        await widget.imageMeta!.makeFullImage();
+      }
+      Uint8List bytes = widget.imageMeta!.fullImage!;
+
+      img.Image? image = img.decodeImage(bytes);
+      if (image == null) {
+        debugPrint('Failed to decode image for metadata load');
+        return;
+      }
+
+      final String? jsonStr = image.textData?[METADATA_KEY];
+      if (jsonStr == null || jsonStr.isEmpty) {
+        debugPrint('No metadata found in image');
+        return;
+      }
+
+      final Map<String, dynamic> data = jsonDecode(jsonStr);
+
+      final String version = data['version'] ?? 'unknown';
+      if (version != CURRENT_VERSION) {
+        debugPrint('Warning: metadata version mismatch ($version vs $CURRENT_VERSION)');
+      }
+
+      setState(() {
+        _ch = (data['characterHeightCm'] as num?)?.toDouble() ?? _ch;
+        _characterHeight.text = _ch.toStringAsFixed(1);
+
+        final genderStr = data['gender'] as String?;
+        if (genderStr != null) {
+          gender = Gender.values.firstWhere(
+                (g) => g.toString().split('.').last == genderStr,
+            orElse: () => Gender.male,
+          );
+        }
+
+        final mainList = data['mainPoints'] as List<dynamic>? ?? [];
+        if (mainList.length == mainPoints.length) {
+          for (int i = 0; i < mainList.length; i++) {
+            final p = mainList[i] as Map<String, dynamic>;
+            mainPoints[i].offset = Offset(
+              (p['offset']['dx'] as num).toDouble(),
+              (p['offset']['dy'] as num).toDouble(),
+            );
+          }
+        }
+
+        final penileList = data['penilePoints'] as List<dynamic>? ?? [];
+        if (penileList.length == penilePoints.length) {
+          for (int i = 0; i < penileList.length; i++) {
+            final p = penileList[i] as Map<String, dynamic>;
+            penilePoints[i].offset = Offset(
+              (p['offset']['dx'] as num).toDouble(),
+              (p['offset']['dy'] as num).toDouble(),
+            );
+          }
+        }
+      });
+
+      debugPrint('Metadata loaded (version $version)');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Point positions loaded from image')),
+      );
+    } catch (e, st) {
+      debugPrint('Error loading metadata: $e\n$st');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load metadata: $e')),
+      );
+    }
+  }
+
   Widget _buildMenu() {
     double _tvVolume = volume(_tvWide, _tvLong, _tvHigh);
     double _tvDSP = 0.024 * (_tvVolume * 2) - 1.26;
     double _tvTVolume = 0.5233 * _tvLong * _tvWide * _tvHigh;
     double _tvDSP2 = 2.21 * (_tvWide * 2) - 6.4;
+
+    double _tvVolumeAlt = _tvLong * _tvWide * _tvHigh * 0.71;
 
     double imageWidth = widget.imageMeta!.size!.width.toDouble();
     double imageHeight = widget.imageMeta!.size!.height.toDouble();
@@ -552,12 +667,11 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     double cmPerPixel = 0.0;
 
     double penileLength = 0.0;
-    if (_penileExpanded) {
-      for (int i = 0; i < penilePoints.length - 1; i++) {
-        if (isVisible(penilePoints[i].offset, imageWidth, imageHeight) && isVisible(penilePoints[i + 1].offset, imageWidth, imageHeight)) {
-          double distPixel = (penilePoints[i].offset - penilePoints[i + 1].offset).distance;
-          penileLength += distPixel * cmPerPixel;
-        }
+    List<Offset> visiblePenilePoints = penilePoints.where((p) => isVisible(p.offset, imageWidth, imageHeight)).map((p) => p.offset).toList();
+    if (_penileExpanded && visiblePenilePoints.length >= 3) {
+      for (int i = 0; i < visiblePenilePoints.length - 1; i++) {
+        double distPixel = (visiblePenilePoints[i] - visiblePenilePoints[i + 1]).distance;
+        penileLength += distPixel * cmPerPixel;
       }
     }
 
@@ -740,6 +854,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                         InfoBox(one: 'Long x Wide x High', two: '${_tvLong.toStringAsFixed(1)}x${_tvWide.toStringAsFixed(1)}x${_tvHigh.toStringAsFixed(1)}cm', withGap: false),
                         const Text('On volume'),
                         InfoBox(one: 'Vol per one (cm3)', two: '${_tvVolume.toStringAsFixed(3)}ml (both ${(_tvVolume * 2).toStringAsFixed(3)}ml)', withGap: false),
+                        InfoBox(one: 'Alt Vol (LWH*0.71)', two: '${_tvVolumeAlt.toStringAsFixed(3)}ml', withGap: false),
                         InfoBox(one: Tooltip(message: 'Daily Sperm Production', child: Text('N (million spz/j)', style: TextStyle(fontSize: 12, color: Colors.white70))), two: _tvDSP.toStringAsFixed(3), withGap: false),
                         InfoBox(one: 'Testicular volume', two: '${_tvTVolume.toStringAsFixed(3)}ml', withGap: false),
                         InfoBox(one: 'Daily Sperm Output (×109)', two: ((0.024 * _tvTVolume) - 0.76).toStringAsFixed(3), withGap: false),
@@ -748,6 +863,11 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                         const Text('On average width of the 2 testes'),
                         InfoBox(one: 'Width of both', two: '${(_tvWide * 2).toStringAsFixed(2)}cm', withGap: false),
                         InfoBox(one: Tooltip(message: 'Daily Sperm Production', child: Text('N (million spz/j)', style: TextStyle(fontSize: 12, color: Colors.white70))), two: _tvDSP2.toStringAsFixed(3), withGap: false),
+                        const Text('Additional info (humans)'),
+                        InfoBox(one: 'Refractory period', two: '15 min (young) to 20 hours (older)', withGap: false),
+                        InfoBox(one: 'Semen recovery after ejac', two: '24-48 hours for count/volume', withGap: false),
+                        InfoBox(one: 'Full sperm cycle', two: '64-74 days', withGap: false),
+                        InfoBox(one: 'High viscosity causes', two: 'Prostate issues, infection, dehydration', withGap: false),
                       ],
                     ),
                   ),
@@ -786,11 +906,41 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Desired length (cm)',
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.number,
+                      controller: _desiredLengthController,
+                      onChanged: (v) => setState(() {
+                        _desiredLength = double.tryParse(v) ?? 0.0;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (penileLength > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Slider(
+                        value: _desiredLength.clamp(0, penileLength),
+                        min: 0,
+                        max: penileLength,
+                        label: _desiredLength.toStringAsFixed(1),
+                        onChanged: (value) => setState(() {
+                          _desiredLength = value;
+                          _desiredLengthController.text = value.toStringAsFixed(1);
+                        }),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'Place 5 points along the visible length from base to tip',
+                      'Place 3 points along the visible length from base to tip. Note: This is a rough 2D approximation. Actual length may differ due to perspective, curvature, etc.',
                       style: TextStyle(color: Colors.white54, fontSize: 13),
                     ),
                   ),
@@ -817,6 +967,19 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                   InfoBox(one: 'Width x Height', two: widget.imageMeta!.size.toString(), withGap: false),
                 ],
               ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton(
+                  onPressed: saveMeta,
+                  child: const Text('Save points to image'),
+                ),
+                ElevatedButton(
+                  onPressed: loadMeta,
+                  child: const Text('Load points from image'),
+                ),
+              ],
             ),
           ],
         ),
@@ -910,4 +1073,55 @@ Offset averageOffset(Offset one, Offset two) {
     (one.dx + two.dx) / 2,
     (one.dy + two.dy) / 2,
   );
+}
+
+class CurvePainter extends CustomPainter {
+  final List<Offset> points;
+  final double desiredFraction;
+
+  CurvePainter({required this.points, required this.desiredFraction});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    path.moveTo(points[0].dx, points[0].dy);
+    path.quadraticBezierTo(
+      points[1].dx,
+      points[1].dy,
+      points[2].dx,
+      points[2].dy,
+    );
+    canvas.drawPath(path, paint);
+
+    if (desiredFraction > 0 && desiredFraction < 1) {
+      Offset markerPos = _getPointOnQuadraticBezier(desiredFraction, points[0], points[1], points[2]);
+
+      double t_tang = desiredFraction + 0.01;
+      if (t_tang > 1) t_tang = 1;
+      Offset nextPos = _getPointOnQuadraticBezier(t_tang, points[0], points[1], points[2]);
+      Offset tangent = nextPos - markerPos;
+
+      final perpVec = Offset(-tangent.dy, tangent.dx);
+      final perpLength = perpVec.distance;
+      final perp = perpLength > 0 ? perpVec * (20 / perpLength) : perpVec;
+
+      final markerPaint = Paint()
+        ..color = Colors.red
+        ..strokeWidth = 2;
+      canvas.drawLine(markerPos - perp, markerPos + perp, markerPaint);
+    }
+  }
+
+  Offset _getPointOnQuadraticBezier(double t, Offset p0, Offset p1, Offset p2) {
+    double u = 1 - t;
+    return p0 * (u * u) + p1 * (2 * u * t) + p2 * (t * t);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

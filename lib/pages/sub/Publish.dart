@@ -92,7 +92,7 @@ Social: @BadassFreakingHound
           ],
         ),
       );
-      audioController!.play(NtSound.open);
+      audioController.play(NtSound.open);
     });
   }
 
