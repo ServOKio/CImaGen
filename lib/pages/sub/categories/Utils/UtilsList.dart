@@ -7,6 +7,7 @@ import '../../../../main.dart';
 import '../../../Home.dart';
 import '../../AudioAnalyzer.dart';
 import '../../LottieJsonPreview.dart';
+import '../../PSDRecover.dart';
 
 class UtilsList extends StatelessWidget {
   final double breakpoint = 600.0;
@@ -66,6 +67,13 @@ class UtilsList extends StatelessWidget {
             color: Color(0xff827eb9),
             icon: Icons.grid_on_sharp,
             onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InkJetUnclog()))
+        ),
+        Util(
+            title: 'PSD recover',
+            description: 'If you have the final merged image and the source layers, we can try to restore it.',
+            color: Color(0xff5181da),
+            icon: Icons.layers,
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PSDRecover()))
         ),
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),
