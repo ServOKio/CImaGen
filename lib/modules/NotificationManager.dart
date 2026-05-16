@@ -68,7 +68,7 @@ class NotificationManager with ChangeNotifier {
 
   void _remove(int id) {
     _notifications.removeWhere((n) => n.id == id);
-    audioController.play(NtSound.okay);
+    //audioController.play(NtSound.okay);
     if (_notifications.isEmpty) {
       // Optional: SoLoud.instance.disposeAllSources(); for cleanup
     }

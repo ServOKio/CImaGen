@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi' as fii;
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
@@ -36,6 +37,7 @@ import 'package:cimagen/pages/Gallery.dart';
 import 'package:cimagen/pages/Home.dart';
 import 'package:cimagen/pages/Settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
@@ -63,6 +65,11 @@ late SQLite sqLite;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (Platform.isWindows) {
+    sqfliteFfiInit();
+  }
+
   await ScreenUtil.ensureScreenSize();
   try {
     await BackgroundRemover.instance.initializeOrt();

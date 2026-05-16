@@ -103,12 +103,17 @@ class OnLocal extends ChangeNotifier implements AbMain{
       String ei = p.join(_webui_root, _config['outdir_extras_samples']);
 
       _webuiPaths.addAll({
-        'outdir_img2img-grids': Directory(i2ig).existsSync() ? i2ig : _config['outdir_img2img_grids'],
-        'outdir_img2img-images': Directory(i2i).existsSync() ? i2i : _config['outdir_img2img_samples'],
-        'outdir_txt2img-grids': Directory(t2ig).existsSync() ? t2ig : _config['outdir_txt2img_grids'],
-        'outdir_txt2img-images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
+        'outdir_img2img_grids': Directory(i2ig).existsSync() ? i2ig : _config['outdir_img2img_grids'],
+        'outdir_img2img_images': Directory(i2i).existsSync() ? i2i : _config['outdir_img2img_samples'],
+        'outdir_txt2img_grids': Directory(t2ig).existsSync() ? t2ig : _config['outdir_txt2img_grids'],
+        'outdir_txt2img_images': Directory(t2i).existsSync() ? t2i : _config['outdir_txt2img_samples'],
         'outdir_extras_samples': Directory(ei).existsSync() ? ei : _config['outdir_extras_samples'],
       });
+
+      List<String> brokenKeys = [];
+      for(String k in _webuiPaths.keys){
+        if(!Directory(_webuiPaths[k]!).existsSync()) brokenKeys.add(k);
+      }
       _tabs = ['txt2img', 'img2img'];
       _internalTabs = [RenderEngine.txt2img, RenderEngine.img2img];
       sqLite.cleanUp(host);
@@ -116,21 +121,21 @@ class OnLocal extends ChangeNotifier implements AbMain{
       notificationManager!.show(
         thumbnail: const Icon(Icons.account_tree_outlined, color: Colors.blue),
         title: 'Welcome to Stable Diffusion',
-        description: 'Initialization was successful',
-        autoCloseDuration: Duration(seconds: 10),
+        description: 'Initialization was successful${brokenKeys.isNotEmpty ? ', but some paths are inaccessible:\n\n${brokenKeys.map((k) => _webuiPaths[k]!).join('\n')}\n\nAre you sure everything in "${'$webuiFolder/config.json'}" is correct?' : ''}',
+        autoCloseDuration: brokenKeys.isNotEmpty ? Duration(minutes: 5) : Duration(seconds: 10),
         sound: NtSound.info
       );
       notifyListeners();
 
-      if(_webuiPaths['outdir_txt2img-images'] != null) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img-images']!);
-      if(_webuiPaths['outdir_img2img-images'] != null) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img-images']!);
+      if(_webuiPaths['outdir_txt2img_images'] != null && !brokenKeys.contains('outdir_txt2img_images')) watchDir(RenderEngine.txt2img, _webuiPaths['outdir_txt2img_images']!);
+      if(_webuiPaths['outdir_img2img_images'] != null && !brokenKeys.contains('outdir_img2img_images')) watchDir(RenderEngine.img2img, _webuiPaths['outdir_img2img_images']!);
     }
   }
 
   Map<RenderEngine, String> ke = {
-    RenderEngine.txt2img: 'outdir_txt2img-images',
+    RenderEngine.txt2img: 'outdir_txt2img_images',
     RenderEngine.txt2imgGrid: 'outdir_txt2img_grids',
-    RenderEngine.img2img: 'outdir_img2img-images',
+    RenderEngine.img2img: 'outdir_img2img_images',
     RenderEngine.img2imgGrid: 'outdir_img2img_grids',
     RenderEngine.extra: 'outdir_extras_samples'
   };
@@ -243,8 +248,8 @@ class OnLocal extends ChangeNotifier implements AbMain{
     List<Folder> f = [];
     int ind = 0;
     Directory di = Directory([
-      _webuiPaths['outdir_txt2img-images'],
-      _webuiPaths['outdir_img2img-images']
+      _webuiPaths['outdir_txt2img_images'],
+      _webuiPaths['outdir_img2img_images']
     ][index]!);
     List<FileSystemEntity> fe = await dirContents(di);
 
@@ -294,7 +299,16 @@ class OnLocal extends ChangeNotifier implements AbMain{
     Stream<FileSystemEvent> te = tempFolder.watch(events: FileSystemEvent.all, recursive: true);
     watchList.add(te.listen((event) {
       if (event is FileSystemMoveEvent && !event.isDirectory && event.destination != null) {
-        sqLite.updateIfNado(event.destination!, host: null);
+        sqLite.updateIfNado(event.destination!, host: null).then((ImageMeta? im){
+          if(im != null){
+            notificationManager!.show(
+              title: '${im.fileName}',
+              content: Padding(padding: EdgeInsets.only(top: 7), child: Image.file(File(im.fullPath!))),
+              sound: NtSound.open,
+              autoCloseDuration: Duration(seconds: 5)
+            );
+          }
+        });
       }
     }));
   }
@@ -362,7 +376,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
   }
 
   Future<bool> _isDone(StreamController co) async{
-    while(getJobCountActive() >= 10){
+    while(getJobCountActive() >= 4){
       await Future.delayed(const Duration(seconds: 2));
     }
     return true;
@@ -407,6 +421,7 @@ class OnLocal extends ChangeNotifier implements AbMain{
         )
       );
     }
+    print('fsdf $jobID');
     _jobs[jobID] = job..run(
         onDone: (){
           _jobs.remove(jobID);

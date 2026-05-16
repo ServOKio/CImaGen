@@ -158,7 +158,7 @@ class SQLite{
 
         await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
-          USING fts4(
+          USING fts5(
             keyup,
             positive,
             negative,
@@ -238,10 +238,10 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
 
         await db.execute("""
-          CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts4(
+          CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts5(
             tag_string,
             content='e621posts',
-            tokenize=unicode61 "tokenchars=_()-/.:'"
+            tokenize="unicode61 tokenchars '_()-/.:'''"
           );
         """);
 
@@ -855,16 +855,16 @@ class SQLite{
   }
 
 
-  Future<void> updateIfNado(String path, {String? host}) async {
+  Future<ImageMeta?> updateIfNado(String path, {String? host}) async {
     path = normalizePath(path);
 
     final ext = p.extension(path).replaceFirst('.', '').toLowerCase();
-    if (!const {'png', 'jpg', 'jpeg', 'webp'}.contains(ext)) return;
+    if (!const {'png', 'jpg', 'jpeg', 'webp'}.contains(ext)) return null;
 
     final name = p.basename(path).toLowerCase();
     if (name.contains('mask') || name.contains('before')) {
       if (kDebugMode) print('skip $name');
-      return;
+      return null;
     }
 
     final pathHash = genPathHash(path);
@@ -874,8 +874,7 @@ class SQLite{
         '''
       SELECT 1
       FROM images
-      WHERE pathHash = ?
-        AND ${host == null ? 'host IS NULL' : 'host = ?'}
+      WHERE pathHash = ? AND ${host == null ? 'host IS NULL' : 'host = ?'}
       LIMIT 1
       ''',
         host == null ? [pathHash] : [pathHash, host],
@@ -884,11 +883,11 @@ class SQLite{
 
     if (exists) {
       // Optional: update timestamp / size if needed later
-      return;
+      return null;
     }
 
     final ImageMeta? im = await parseImage(RenderEngine.unknown, path);
-    if (im == null) return;
+    if (im == null) return null;
 
     updateImages(imageMeta: im).then((value){
       final ctx = kBaseNavigatorKey.currentContext!;
@@ -901,6 +900,7 @@ class SQLite{
         });
       }
     });
+    return im;
   }
 
   Future<List<String>> getFolderHashes(String folder, {String? host}) async {

@@ -5,6 +5,8 @@
 
 #include "flutter_window.h"
 #include "utils.h"
+#include <dxgi1_6.h>
+#include <d3d11_4.h>
 
 auto bdw = bitsdojo_window_configure(BDW_CUSTOM_FRAME | BDW_HIDE_ON_STARTUP);
 

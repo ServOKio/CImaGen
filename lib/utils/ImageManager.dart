@@ -220,23 +220,25 @@ class ParseJob {
 
   // path НОРМАЛИЗОВАНО
   Future<void> _parse(String? host) async {
-    // Host not work ONLY on local (not even SMB)
-    if(_cache.isEmpty){
+    if (_cache.isEmpty) {
       if (kDebugMode) {
         print('putAndGetJobID: _cache.isEmpty');
       }
       return _isDone();
     }
 
-    List<Future<void>> tasks = [];
-    for (dynamic raw in _cache.toList()) {
-      tasks.add(_processOne(raw));
+    final maxConcurrent = Platform.isAndroid || Platform.isIOS ? 4 : 8;
+
+    final List<dynamic> items = _cache.toList(); // safe copy
+
+    for (dynamic item in items) {
+      await _processOne(item, host); // wait for this batch only
     }
-    await Future.wait(tasks);
+
     _isDone();
   }
 
-  Future<void> _processOne(dynamic raw) async {
+  Future<void> _processOne(dynamic raw, String? host) async {
     Uint8List? thisThumbnail;
     if (_forceStop) {
       _doneTotal++;
@@ -275,7 +277,7 @@ class ParseJob {
           if (host != null) value.updateHost(host);
           _done.add(value);
           _controller.add(value);
-          thisThumbnail = value.thumbnail; // Assuming thumbnail is Uint8List?
+          thisThumbnail = value.thumbnail;
           if (filterByRe != null) {
             if (value.re == filterByRe) {
               await sqLite.updateImages(imageMeta: value);
@@ -303,7 +305,6 @@ class ParseJob {
       }
       _doneTotal++;
       if (_onProcess != null) _onProcess!(_cache.length, _doneTotal, thisThumbnail);
-      return;
     } else {
       // Если изображение в сети
       JobImageFile jf = raw as JobImageFile;
@@ -385,22 +386,25 @@ final listEqual = const ListEquality().equals;
 Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fileBytes, bool makeCachedImage = false, String? host}) async {
   bool debug = false;
 
+  if(debug) print(imagePath);
   GenerationParams? gp;
 
   // Read
   fileBytes ??= await compute(readAsBytesSync, imagePath);
   final File f = File(imagePath);
+  if(debug) print('readed');
 
   final String mine = lookupMimeType(imagePath, headerBytes: fileBytes) ?? 'unknown';
   String e = mine.split('/').last;
   var fileStat = await f.stat();
   DateTime? creationDate;
+  if(debug) print('mine $e');
 
   if(e == 'png') {
     String? error;
     bool hasChunkError = false;
     bool fixThis = false;
-
+    if(debug) print('fixThis ?');
     List<Map<String, dynamic>> chunks = [];
     try{
       chunks = await compute(png_extract.extractChunks, fileBytes!);
@@ -411,6 +415,8 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       // error = e.toString();
       // rethrow;
     }
+
+    if(debug) print('fixThis $fixThis');
 
     if(fixThis || chunks.where((e) => e["name"] == 'IHDR').toList(growable: false).isEmpty){
       Uint8List fixed = fixPng(fileBytes!);
@@ -803,6 +809,7 @@ Future<ImageMeta?> parseImage(RenderEngine re, String imagePath, {Uint8List? fil
       other: pngEx
     );
     i.generationParams = gp;
+    if(debug) print('makeImage');
     await i.makeImage(fileBytes: fileBytes, makeCacheImage: makeCachedImage);
     return i;
     // print(text);

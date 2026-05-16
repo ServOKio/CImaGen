@@ -14,6 +14,10 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
 
+  if (!EnableWideGamutSwapChain()) {
+    printf("Failed to create wide-gamut swap chain. Using default.");
+  }
+
   RECT frame = GetClientArea();
 
   // The size here must match the window dimensions to avoid unnecessary surface
