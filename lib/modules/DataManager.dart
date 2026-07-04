@@ -556,7 +556,7 @@ class DataManager with ChangeNotifier {
     String? warningMessage;
     if (ageDays > maxAgeDays) {
       warningMessage =
-      'The tags file is quite old ($ageDays days).\n'
+      'The posts file is quite old ($ageDays days).\n'
           'e621 updates the export roughly daily.\n'
           'Consider downloading a fresh one from https://e621.net/db_export/';
     }
@@ -578,9 +578,9 @@ class DataManager with ChangeNotifier {
         int notWarn = 0;
         notWarn = notificationManager!.show(
             thumbnail: const Icon(Icons.warning_amber, color: Colors.yellow, size: 32),
-            title: 'Outdated tags database',
+            title: 'Outdated posts database',
             description: warningMessage,
-            autoCloseDuration: const Duration(seconds: 12),
+            autoCloseDuration: const Duration(minutes: 1),
             content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
                 style: ButtonStyle(
                     foregroundColor: WidgetStateProperty.all<Color>(Colors.white),

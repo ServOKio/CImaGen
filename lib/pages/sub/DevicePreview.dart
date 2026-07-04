@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cimagen/main.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -58,7 +59,8 @@ class _DevicePreviewState extends State<DevicePreview> {
                   SamsungS20Plus(provider, size),
                   WatchFit(provider, size),
                   Qin(provider, size),
-                  SteamDesk(provider, size)
+                  SteamDesk(provider, size),
+                  SamsungSGH100(provider, size)
                 ],
               ),
             )
@@ -583,10 +585,10 @@ class _DevicePreviewState extends State<DevicePreview> {
                             ],
                           ),
                         ),
-                        Column(
+                        Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              margin: EdgeInsets.only(top: 4),
+                                margin: EdgeInsets.only(top: 4),
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
@@ -605,7 +607,7 @@ class _DevicePreviewState extends State<DevicePreview> {
                                 )
                             ))
                           ],
-                        )
+                        ))
                       ],
                     )
                 ),
@@ -678,6 +680,98 @@ class _DevicePreviewState extends State<DevicePreview> {
                   width: 30,
                   height: 3,
                   color: size != null ? size.width >= 1280 && size.height >= 800 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
+                )
+              ],
+            )
+          ],
+        )
+    );
+  }
+  
+  Widget SamsungSGH100(ImageProvider provider, ImageSize? size) {
+    return Container(
+        padding: EdgeInsets.all(18),
+        decoration: BoxDecoration(
+            border: Border.all(
+                color: Color(0xffd8d8d8)
+            )
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: 150,
+              child: AspectRatio(
+                aspectRatio: 58/147,
+                child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                        color: Color(0xffb4bbcb),
+                        borderRadius: BorderRadius.circular(25)
+                    ),
+                    padding: EdgeInsets.all(26),
+                    child: Column(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Color(0xFF696d79)
+                          ),
+                          width: 10,
+                          height: 15,
+                        ),
+                        Gap(25),
+                        Container(
+                          padding: EdgeInsets.only(
+                              top: 6,
+                              bottom: 8,
+                              left: 5,
+                              right: 5
+                          ),
+                          decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(9),
+                              color: Colors.black,
+                          ),
+                          child: Container(
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(7)
+                            ),
+                            child: AspectRatio(
+                              aspectRatio: 233/223,
+                              child: Column(
+                                children: [
+                                  Container(
+                                    color: Colors.white,
+                                    height: 9,
+                                  ),
+                                  AspectRatio(
+                                    aspectRatio: 4/3,
+                                    child: Image(
+                                      fit: BoxFit.cover,
+                                      image: provider,
+                                    ),
+                                  ),
+                                  Container(
+                                    color: Color(0xff3875ef),
+                                    height: 9,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      ],
+                    )
+                ),
+              ),
+            ),
+            Column(
+              children: [
+                Text('Samsung SGH-C100', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600, fontFamily: 'Montserrat', color: Color(0xff424242))),
+                Text('4/3 128x96', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w400, fontFamily: 'Montserrat', color: Color(0xff5b5b5b))),
+                Container(
+                  width: 30,
+                  height: 3,
+                  color: size != null ? size.width >= 128 && size.height >= 96 ? Colors.lightGreen : Colors.redAccent : Colors.grey,
                 )
               ],
             )

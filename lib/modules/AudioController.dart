@@ -22,7 +22,7 @@ class AudioController {
 
   Future<void> play(NtSound sound) async {
     if (_sounds[sound] == null) return;
-    await SoLoud.instance.play(_sounds[sound]!);
+    SoLoud.instance.play(_sounds[sound]!);
   }
 
   Future<void> dispose() async {

@@ -1827,3 +1827,9 @@ double getAspectRatio(img.Image image) {
 
   return aspectRatio;
 }
+
+String? humanizeError(dynamic obj){
+  if(obj.runtimeType == PathNotFoundException){
+    return 'File ${obj.path} not found';
+  }
+}

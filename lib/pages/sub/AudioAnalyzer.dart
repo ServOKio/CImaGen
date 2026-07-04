@@ -12,7 +12,7 @@ class AudioAnalyzer extends StatefulWidget {
 }
 
 class _AudioAnalyzerState extends State<AudioAnalyzer> with SingleTickerProviderStateMixin {
-  final String _audioPath = 'W:/ZØMB - HOTLINE (SLOWED) (2).wav';
+  final String _audioPath = 'W:/Noisecream - ピクセル・ラブ slowed + reverb version.mp3';
   double? _bpm;
   List<double> _sections = [];
   double _duration = 0.0;
@@ -141,7 +141,7 @@ class _AudioAnalyzerState extends State<AudioAnalyzer> with SingleTickerProvider
 
     if (!_isPlaying) {
       if (_handle == null) {
-        _handle = await soloud.play(_source!);
+        _handle = soloud.play(_source!);
       } else {
         soloud.setPause(_handle!, false);
       }
@@ -296,7 +296,7 @@ class _AudioAnalyzerState extends State<AudioAnalyzer> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Audio Analyzer + Beat Flash')),
+      appBar: AppBar(title: Text('Audio Analyzer + Beat Flash ($_audioPath)')),
       body: Column(
         children: [
           Padding(
@@ -369,7 +369,7 @@ class _AudioAnalyzerState extends State<AudioAnalyzer> with SingleTickerProvider
     if (_handle != null) soloud.stop(_handle!);
     if (_source != null) soloud.disposeSource(_source!);
     _stopPositionTimer();
-    soloud.deinit();
+    //soloud.deinit();
     super.dispose();
   }
 }

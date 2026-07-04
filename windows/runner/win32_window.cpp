@@ -286,3 +286,82 @@ void Win32Window::UpdateTheme(HWND const window) {
                           &enable_dark_mode, sizeof(enable_dark_mode));
   }
 }
+
+bool Win32Window::CreateD3D11SwapChain(HWND hwnd) {
+    CleanupD3D();
+
+    UINT creation_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+    #if defined(_DEBUG)
+    creation_flags |= D3D11_CREATE_DEVICE_DEBUG;
+    #endif
+
+    D3D_FEATURE_LEVEL feature_levels[] = {
+            D3D_FEATURE_LEVEL_11_1,
+            D3D_FEATURE_LEVEL_11_0,
+    };
+
+    HRESULT hr = D3D11CreateDevice(
+            nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creation_flags,
+            feature_levels, ARRAYSIZE(feature_levels), D3D11_SDK_VERSION,
+            &d3d_device_, nullptr, &d3d_context_);
+
+    if (FAILED(hr)) {
+        return false;
+    }
+
+    ComPtr<IDXGIDevice> dxgi_device;
+    hr = d3d_device_.As(&dxgi_device);
+    if (FAILED(hr)) return false;
+
+    ComPtr<IDXGIAdapter> dxgi_adapter;
+    hr = dxgi_device->GetAdapter(&dxgi_adapter);
+    if (FAILED(hr)) return false;
+
+    ComPtr<IDXGIFactory2> dxgi_factory;
+    hr = dxgi_adapter->GetParent(IID_PPV_ARGS(&dxgi_factory));
+    if (FAILED(hr)) return false;
+
+    // Get monitor info to check for HDR/WCG support (optional but recommended)
+    RECT client_rect;
+    GetClientRect(hwnd, &client_rect);
+
+    DXGI_SWAP_CHAIN_DESC1 swap_chain_desc = {};
+    swap_chain_desc.Width = client_rect.right - client_rect.left;
+    swap_chain_desc.Height = client_rect.bottom - client_rect.top;
+    swap_chain_desc.Format = DXGI_FORMAT_R10G10B10A2_UNORM;   // Good for DCI-P3 / HDR10
+    // swap_chain_desc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; // Alternative: scRGB
+    swap_chain_desc.SampleDesc.Count = 1;
+    swap_chain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swap_chain_desc.BufferCount = 2;
+    swap_chain_desc.Scaling = DXGI_SCALING_NONE;
+    swap_chain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+    swap_chain_desc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
+    swap_chain_desc.Flags = 0;  // Add DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING if you want variable refresh
+
+    hr = dxgi_factory->CreateSwapChainForHwnd(
+            d3d_device_.Get(), hwnd, &swap_chain_desc, nullptr, nullptr, &swap_chain_);
+
+    if (FAILED(hr)) return false;
+
+    // Set color space for DCI-P3 / BT.2020
+    ComPtr<IDXGISwapChain3> swap_chain3;
+    if (SUCCEEDED(swap_chain_.As(&swap_chain3))) {
+        // For DCI-P3 / HDR10 with R10G10B10A2_UNORM
+        swap_chain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+        // If you switch to R16G16B16A16_FLOAT later, use:
+        // swap_chain3->SetColorSpace1(DXGI_COLOR_SPACE_RGB_FULL_G10_NONE_P709);
+    }
+
+    return SUCCEEDED(hr);
+}
+
+void Win32Window::CleanupD3D() {
+    if (swap_chain_) swap_chain_.Reset();
+    if (d3d_context_) d3d_context_.Reset();
+    if (d3d_device_) d3d_device_.Reset();
+}
+
+bool Win32Window::EnableWideGamutSwapChain() {
+    if (!window_handle_) return false;
+    return CreateD3D11SwapChain(window_handle_);
+}

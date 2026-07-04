@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cimagen/modules/AudioController.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -42,10 +43,10 @@ class ConfigManager with ChangeNotifier {
     if(cacheTimer != null) cacheTimer!.cancel();
     String? customCacheDir = prefs.getString('custom_cache_dir');
     Directory tDir;
+    Directory appTempDir = await getTemporaryDirectory();
     if(customCacheDir != null){
       tDir = Directory(customCacheDir);
     } else {
-      Directory appTempDir = await getTemporaryDirectory();
       tDir = Directory(p.join(appTempDir.path, 'CImaGen', 'UCanDeleteMe'));
     }
 
@@ -58,14 +59,35 @@ class ConfigManager with ChangeNotifier {
 
     // Images cache
     customCacheDir = prefs.getString('custom_images_cache_dir');
+    bool createTemp = false;
     if(customCacheDir != null){
       tDir = Directory(customCacheDir);
-    } else {
-      Directory appTempDir = await getTemporaryDirectory();
-      tDir = Directory(p.join(appTempDir.path, 'CImaGen', 'ImagesBackup'));
+      if(!tDir.existsSync()){
+        try{
+          tDir.createSync(recursive: true);
+        } on PathNotFoundException catch(e){
+          // Can't create folder ?
+          createTemp = true;
+          int notID = notificationManager!.show(
+            thumbnail: const Icon(Icons.delete_forever_outlined, color: Colors.orange),
+            title: 'File System Error',
+            description: 'The system is unable to create the\n"${e.path}"\nfolder specified in the "Image cache folder" settings; therefore, the default folder will be used\n(${p.join(appTempDir.path, 'CImaGen', 'ImagesBackup')})',
+            sound: NtSound.roblox_death,
+            autoCloseDuration: Duration(minutes: 1)
+          );
+        }
+      }
     }
-    if(!tDir.existsSync()){
-      tDir.createSync(recursive: true);
+    if(createTemp){
+      tDir = Directory(p.join(appTempDir.path, 'CImaGen', 'ImagesBackup'));
+      if(!tDir.existsSync()){
+        try{
+          tDir.createSync(recursive: true);
+        } on PathNotFoundException catch(e){
+          // Can't create folder ?
+          createTemp = true;
+        }
+      }
     }
     _imagesCacheDir = tDir.path;
 

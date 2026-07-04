@@ -3,100 +3,85 @@
 
 #include <windows.h>
 
+// DirectX headers
+#include <dxgi1_6.h>
+#include <d3d11_4.h>
+
+// WRL for ComPtr - this must come after windows.h
+#include <wrl/client.h>
+
+// Standard library
 #include <functional>
 #include <memory>
 #include <string>
+
+using Microsoft::WRL::ComPtr;
 
 // A class abstraction for a high DPI-aware Win32 Window. Intended to be
 // inherited from by classes that wish to specialize with custom
 // rendering and input handling
 class Win32Window {
- public:
-  struct Point {
-    unsigned int x;
-    unsigned int y;
-    Point(unsigned int x, unsigned int y) : x(x), y(y) {}
-  };
+public:
+    struct Point {
+        unsigned int x;
+        unsigned int y;
+        Point(unsigned int x, unsigned int y) : x(x), y(y) {}
+    };
 
-  struct Size {
-    unsigned int width;
-    unsigned int height;
-    Size(unsigned int width, unsigned int height)
-        : width(width), height(height) {}
-  };
+    struct Size {
+        unsigned int width;
+        unsigned int height;
+        Size(unsigned int width, unsigned int height)
+                : width(width), height(height) {}
+    };
 
-  Win32Window();
-  virtual ~Win32Window();
+    Win32Window();
+    virtual ~Win32Window();
 
-  // Creates a win32 window with |title| that is positioned and sized using
-  // |origin| and |size|. New windows are created on the default monitor. Window
-  // sizes are specified to the OS in physical pixels, hence to ensure a
-  // consistent size this function will scale the inputted width and height as
-  // as appropriate for the default monitor. The window is invisible until
-  // |Show| is called. Returns true if the window was created successfully.
-  bool Create(const std::wstring& title, const Point& origin, const Size& size);
+    bool Create(const std::wstring& title, const Point& origin, const Size& size);
+    bool Show();
+    void Destroy();
+    void SetChildContent(HWND content);
+    HWND GetHandle();
+    void SetQuitOnClose(bool quit_on_close);
+    RECT GetClientArea();
 
-  // Show the current window. Returns true if the window was successfully shown.
-  bool Show();
+    // Wide gamut / HDR support
+    bool EnableWideGamutSwapChain();
+    IDXGISwapChain1* GetSwapChain() const { return swap_chain_.Get(); }
+    ID3D11Device* GetD3DDevice() const { return d3d_device_.Get(); }
 
-  // Release OS resources associated with window.
-  void Destroy();
+protected:
+    virtual LRESULT MessageHandler(HWND window,
+                                   UINT const message,
+                                   WPARAM const wparam,
+                                   LPARAM const lparam) noexcept;
 
-  // Inserts |content| into the window tree.
-  void SetChildContent(HWND content);
+    virtual bool OnCreate();
+    virtual void OnDestroy();
 
-  // Returns the backing Window handle to enable clients to set icon and other
-  // window properties. Returns nullptr if the window has been destroyed.
-  HWND GetHandle();
+private:
+    friend class WindowClassRegistrar;
 
-  // If true, closing this window will quit the application.
-  void SetQuitOnClose(bool quit_on_close);
+    static LRESULT CALLBACK WndProc(HWND const window,
+    UINT const message,
+            WPARAM const wparam,
+    LPARAM const lparam) noexcept;
 
-  // Return a RECT representing the bounds of the current client area.
-  RECT GetClientArea();
+    static Win32Window* GetThisFromHandle(HWND const window) noexcept;
+    static void UpdateTheme(HWND const window);
 
- protected:
-  // Processes and route salient window messages for mouse handling,
-  // size change and DPI. Delegates handling of these to member overloads that
-  // inheriting classes can handle.
-  virtual LRESULT MessageHandler(HWND window,
-                                 UINT const message,
-                                 WPARAM const wparam,
-                                 LPARAM const lparam) noexcept;
+    bool quit_on_close_ = false;
+    HWND window_handle_ = nullptr;
+    HWND child_content_ = nullptr;
 
-  // Called when CreateAndShow is called, allowing subclass window-related
-  // setup. Subclasses should return false if setup fails.
-  virtual bool OnCreate();
+    // DirectX resources
+    ComPtr<ID3D11Device> d3d_device_;
+    ComPtr<ID3D11DeviceContext> d3d_context_;
+    ComPtr<IDXGISwapChain1> swap_chain_;
 
-  // Called when Destroy is called.
-  virtual void OnDestroy();
-
- private:
-  friend class WindowClassRegistrar;
-
-  // OS callback called by message pump. Handles the WM_NCCREATE message which
-  // is passed when the non-client area is being created and enables automatic
-  // non-client DPI scaling so that the non-client area automatically
-  // responds to changes in DPI. All other messages are handled by
-  // MessageHandler.
-  static LRESULT CALLBACK WndProc(HWND const window,
-                                  UINT const message,
-                                  WPARAM const wparam,
-                                  LPARAM const lparam) noexcept;
-
-  // Retrieves a class instance pointer for |window|
-  static Win32Window* GetThisFromHandle(HWND const window) noexcept;
-
-  // Update the window frame's theme to match the system theme.
-  static void UpdateTheme(HWND const window);
-
-  bool quit_on_close_ = false;
-
-  // window handle for top level window.
-  HWND window_handle_ = nullptr;
-
-  // window handle for hosted content.
-  HWND child_content_ = nullptr;
+    bool CreateD3D11SwapChain(HWND hwnd);
+    void CleanupD3D();
 };
 
 #endif  // RUNNER_WIN32_WINDOW_H_
