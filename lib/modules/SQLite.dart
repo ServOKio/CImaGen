@@ -156,7 +156,8 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_gen_seed ON generation_params(seed)');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_gp_id ON generation_params(id)');
 
-        await db.execute('''
+        try{
+          await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
           USING fts4(
             keyup,
@@ -167,6 +168,19 @@ class SQLite{
             tokenize = 'unicode61'
           )
         ''');
+        } on DatabaseException catch(e){
+          await db.execute('''
+          CREATE VIRTUAL TABLE IF NOT EXISTS images_fts
+          USING fts5(
+            keyup,
+            positive,
+            negative,
+            other,
+            specific,
+            tokenize = 'unicode61'
+          )
+        ''');
+        }
 
         await db.execute('''
           CREATE TRIGGER IF NOT EXISTS images_after_insert AFTER INSERT ON generation_params
@@ -237,13 +251,24 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_parent_id ON e621posts(parent_id);');
         await db.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
 
-        await db.execute("""
+        try{
+          await db.execute("""
           CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts4(
             tag_string,
             content='e621posts',
             tokenize=unicode61 "tokenchars=_()-/.:'"
           );
         """);
+        } on DatabaseException catch(e){
+          await db.execute("""
+          CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts5(
+            tag_string,
+            content='e621posts',
+            content_rowid='id',
+            tokenize="unicode61 tokenchars '_()-'"
+          );
+        """);
+        }
 
         await db.execute('''
           CREATE TRIGGER IF NOT EXISTS e621posts_ai AFTER INSERT ON e621posts BEGIN
