@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi' as fii;
 import 'dart:io';
 
 import 'package:animated_size_and_fade/animated_size_and_fade.dart';
@@ -143,7 +142,7 @@ class Base extends StatelessWidget {
                         navigatorKey: kBaseNavigatorKey,
                         theme: ThemeData(
                           fontFamily: 'Poppins',
-                          colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.light),
+                          colorScheme: ColorScheme.fromSeed(seedColor: accent.accent, brightness: Brightness.dark),
                           useMaterial3: true,
                         ),
                         darkTheme: ThemeData(
