@@ -196,17 +196,16 @@ class _ImageViewState extends State<ImageView> with SingleTickerProviderStateMix
       appBar: DraggableAppBar(
         child: Row(
           children: [
+            Gap(7),
             IconButton(
                 padding: EdgeInsetsGeometry.all(0),
-                iconSize: 21,
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () => Navigator.pop(context)
             ),
             Gap(7),
-            Expanded(child: Obx(()=>Text('${widget.imageMeta.fileName} ${photoSender.value.toStringAsFixed(0)}%'))),
+            Expanded(child: Obx(()=>Text('${widget.imageMeta.fileName} ${photoSender.value.toStringAsFixed(0)}%', style: TextStyle(fontSize: 18)))),
             if(!widget.imageMeta.isLocal) IconButton(
                 padding: EdgeInsetsGeometry.all(0),
-                iconSize: 21,
                 icon: const Icon(Icons.download),
                 onPressed: () async {
                   dynamic appDownloadDir = await getDownloadsDirectory();
@@ -228,28 +227,24 @@ class _ImageViewState extends State<ImageView> with SingleTickerProviderStateMix
             ),
             IconButton(
               padding: EdgeInsetsGeometry.all(0),
-              iconSize: 21,
               icon: const Icon(Icons.devices_other),
                 tooltip: 'Device preview',
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DevicePreview(imageMeta: widget.imageMeta)))
             ),
             IconButton(
                 padding: EdgeInsetsGeometry.all(0),
-                iconSize: 21,
                 icon: const Icon(Icons.accessibility),
                 tooltip: 'Calculate body dimensions',
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BodySizeCalculation(imageMeta: widget.imageMeta)))
             ),
             IconButton(
                 padding: EdgeInsetsGeometry.all(0),
-                iconSize: 21,
                 icon: const Icon(Icons.share),
                 tooltip: 'Publish',
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Publish(imageMeta: widget.imageMeta)))
             ),
             IconButton(
                 padding: EdgeInsetsGeometry.all(0),
-                iconSize: 21,
                 tooltip: 'Display size',
                 icon: Icon(showOriginalSize ? Icons.width_full : Icons.fit_screen),
                 onPressed: (){

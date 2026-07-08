@@ -371,9 +371,9 @@ class DraggableAppBar extends StatelessWidget implements PreferredSizeWidget {
   const DraggableAppBar({super.key, required this.child});
   @override
   Widget build(BuildContext context) {
-    return WindowTitleBarBox(
+    return MoveWindow(
       child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: MoveWindow(child: Padding(padding: EdgeInsetsGeometry.all(3), child: child))),
             MinimizeWindowButton(),

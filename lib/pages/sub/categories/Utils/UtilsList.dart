@@ -1,3 +1,4 @@
+import 'package:cimagen/modules/pawchive/pawchiveUI.dart';
 import 'package:cimagen/pages/sub/InkJetUnclog.dart';
 import 'package:cimagen/pages/sub/categories/Utils/LoraMakerList.dart';
 import 'package:flutter/material.dart';
@@ -74,6 +75,13 @@ class UtilsList extends StatelessWidget {
             color: Color(0xff5181da),
             icon: Icons.layers,
             onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PSDRecover()))
+        ),
+        Util(
+            title: 'DotSearch search',
+            description: '-',
+            color: Color(0xff51b5da),
+            icon: Icons.scatter_plot,
+            onClick: () => Navigator.push(context, MaterialPageRoute(builder: (context) => DotSearch()))
         ),
       ],
       numberOfColumn: (MediaQuery.of(context).size.width / 500).round(),

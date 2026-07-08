@@ -19,6 +19,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../Utils.dart';
 import '../../components/Animations.dart';
+import '../../constants.dart';
 import '../../utils/DataModel.dart';
 import 'PromptAnalyzer.dart';
 
@@ -148,7 +149,7 @@ class _JointTaggerProjectState extends State<JointTaggerProject> with TickerProv
 
       //Join que
       http.Response resJoin = await http.Client().post(Uri.parse('https://$projectHost/gradio_api/queue/join'), headers: {
-        "User-Agent": context.read<DataManager>().userAgent,
+        "User-Agent": userAgent,
         "Accept": "*/*",
         "Accept-Language": "en,en-US;q=0.5",
         "Content-Type": "application/json"
@@ -179,7 +180,7 @@ class _JointTaggerProjectState extends State<JointTaggerProject> with TickerProv
 
         //Check if okay
         http.Response resJoinStatus = await http.Client().get(Uri.parse('https://$projectHost/gradio_api/queue/data?session_hash=$sessionHash'), headers: {
-          "User-Agent": context.read<DataManager>().userAgent,
+          "User-Agent": userAgent,
           "Accept": "*/*",
           "Accept-Language": "en,en-US;q=0.5",
           "Content-Type": "application/json"
@@ -191,7 +192,7 @@ class _JointTaggerProjectState extends State<JointTaggerProject> with TickerProv
 
           //Send quePizdets
           http.Response resStartProcess = await http.Client().post(Uri.parse('https://$projectHost/gradio_api/queue/join'), headers: {
-            "User-Agent": context.read<DataManager>().userAgent,
+            "User-Agent": userAgent,
             "Accept": "*/*",
             "Accept-Language": "en,en-US;q=0.5",
             "Content-Type": "application/json"

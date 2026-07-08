@@ -5,20 +5,20 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:cimagen/modules/AudioController.dart';
+import 'package:cimagen/modules/pawchive/pawchive.dart';
+import 'package:cimagen/modules/pawchive/pawchiveUI.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:gap/gap.dart';
 import 'package:intl/intl.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:fast_csv/fast_csv_ex.dart' as fast_csv_ex;
 import 'package:http/http.dart' as http;
-import 'package:fast_csv/csv_converter.dart';
 
 import '../Utils.dart';
+import '../constants.dart';
 import '../pages/sub/PromptAnalyzer.dart';
 import '../main.dart';
 
@@ -47,13 +47,14 @@ class DataManager with ChangeNotifier {
 
   String? latestE621Posts;
 
-  String userAgent = '';
+  late Pawchive pawchive;
 
   Future<void> init() async {
     await loadE621Tags();
     await loadE621Posts();
-    PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    userAgent = "CImaGen/${packageInfo.version} (platform; ${Platform.isAndroid ? 'android' : Platform.isWindows ? 'windows' : Platform.isIOS ? 'IOS' : Platform.isLinux ? 'linux' : Platform.isFuchsia ? 'fuchsia' : Platform.isMacOS ? 'MacOs' : 'Unknown'})";
+    pawchive = Pawchive();
+    pawchive.loadLeakedAndUsersPosts();
+    //await loadLeakedAndUsersPosts();
     loaded = true;
     notifyListeners();
   }
@@ -596,14 +597,14 @@ class DataManager with ChangeNotifier {
 
                   final newPath = await downloadLatestE621Posts(csvDir);
 
-                  notificationManager!.close(progressNotId);
+                  //notificationManager!.close(progressNotId);
 
                   if (newPath != null) {
                     latestFile = File(newPath);
                     latestDate = dateFormat.parse(
                       fileRegex.firstMatch(p.basename(newPath))!.group(1)!,
                     );
-                    await sqLite.updatePosts(latestFile!);
+                    //await sqLite.updatePosts(latestFile!);
                     notificationManager!.show(
                       thumbnail: const Icon(Icons.check_circle, color: Colors.green, size: 32),
                       title: 'Posts updated',
@@ -616,8 +617,31 @@ class DataManager with ChangeNotifier {
                       thumbnail: const Icon(Icons.warning_amber, color: Colors.orange, size: 32),
                       title: 'Update failed',
                       description: 'Could not download fresh posts.\nUsing existing file (may be outdated).',
-                      autoCloseDuration: const Duration(seconds: 10),
+                      autoCloseDuration: const Duration(seconds: 6),
                     );
+                    latestDate = dateFormat.parse(
+                      fileRegex.firstMatch(p.basename(latestFile!.path))!.group(1)!,
+                    );
+                    await sqLite.updatePosts(latestFile!, onProgress: (rowsCount, stage) {
+                      // This will automatically run on the main thread if updatePosts is
+                      // a standard async function. It updates the notification in real-time.
+                      notificationManager!.update(progressNotId, (o) {
+                        o.setDescription('Processed $rowsCount rows, stage: $stage');
+                        o.setContent(Container(
+                            margin: const EdgeInsets.only(top: 7),
+                            width: 100,
+                            child: const LinearProgressIndicator()
+                        ));
+                      });
+                    });
+                    notificationManager!.close(progressNotId);
+                    notificationManager!.show(
+                      thumbnail: const Icon(Icons.check_circle, color: Colors.green, size: 32),
+                      title: 'Posts loaded',
+                      description: 'Old posts loaded from e621',
+                      autoCloseDuration: const Duration(seconds: 6),
+                    );
+                    loadE621Posts();
                   }
                 },
                 child: const Text("Update", style: TextStyle(fontSize: 12))
@@ -632,135 +656,6 @@ class DataManager with ChangeNotifier {
           sound: NtSound.wrong
       );
     }
-    // Directory? dD;
-    // if(Platform.isAndroid){
-    //   dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
-    // } else if(Platform.isWindows){
-    //   dD = await getApplicationDocumentsDirectory();
-    // }
-    // if(dD == null){
-    //   int notID = 0;
-    //   notID = notificationManager!.show(
-    //     thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-    //     title: 'Documents folder not found',
-    //     description: 'It seems to be some kind of system error. Check the settings section and folder paths',
-    //     content: Padding(padding: EdgeInsets.only(top: 7), child: ElevatedButton(
-    //       style: ButtonStyle(
-    //           foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-    //           shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-    //       ),
-    //       onPressed: (){
-    //         notificationManager!.close(notID);
-    //         loadE621Tags();
-    //       },
-    //       child: const Text("Try again", style: TextStyle(fontSize: 12))
-    //     )),
-    //     sound: NtSound.wrong
-    //   );
-    //   return;
-    // }
-    // dynamic csvDir = Directory(p.join(dD.path, 'CImaGen', 'csv'));
-    // if (!csvDir.existsSync()) {
-    //   await csvDir.create(recursive: true);
-    // }
-    //
-    // List<FileSystemEntity> files = await dirContents(csvDir);
-    // File csvFile = File(p.join(dD.path, 'CImaGen', 'csv', 'posts.csv'));
-    //
-    // final fileRegex = RegExp(r'posts-(\d{4}-\d{2}-\d{2})\.csv$');
-    // final dateFormat = DateFormat('yyyy-MM-dd');
-    //
-    // final postsFiles = files
-    //     .whereType<File>()
-    //     .where((f) => fileRegex.hasMatch(p.basename(f.path)))
-    //     .toList();
-    //
-    // File? latestFile;
-    // DateTime? latestDate;
-    //
-    // for (final file in postsFiles) {
-    //   final match = fileRegex.firstMatch(p.basename(file.path));
-    //   if (match == null) continue;
-    //   final dateStr = match.group(1)!;
-    //   final date = dateFormat.parse(dateStr);
-    //
-    //   if (latestDate == null || date.isAfter(latestDate)) {
-    //     latestDate = date;
-    //     latestFile = file;
-    //   }
-    // }
-    //
-    //
-
-    // if (latestFile != null) {
-    //   latestE621Posts = latestFile.path;
-    // } else {
-    //   int notWarn = 0;
-    //   notWarn = notificationManager!.show(
-    //     thumbnail: const Icon(Icons.question_mark, color: Colors.orangeAccent, size: 32),
-    //     title: 'Posts not found',
-    //     description: 'Put the posts-YYYY-mm-dd.csv file in folder:\n   "${csvFile.parent.path}"\nYou can download tags, for example, from https://e621.net/db_export/',
-    //     content: Padding(padding: EdgeInsets.only(top: 7), child: Row(
-    //       children: [
-    //         ElevatedButton(
-    //             style: ButtonStyle(
-    //               foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-    //               shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-    //             ),
-    //             onPressed: () async {
-    //               notificationManager!.close(notWarn);
-    //               int progressNotId = notificationManager!.show(
-    //                 thumbnail: const Icon(Icons.downloading, color: Colors.blue, size: 32),
-    //                 title: 'Updating e621 posts',
-    //                 description: 'Downloading latest posts database...\nThis may take a few minute (or about hour idk)',
-    //               );
-    //
-    //               final newPath = await downloadLatestE621Posts(csvDir);
-    //
-    //               notificationManager!.close(progressNotId);
-    //
-    //               if (newPath != null) {
-    //                 latestFile = File(newPath);
-    //                 latestDate = dateFormat.parse(
-    //                   fileRegex.firstMatch(p.basename(newPath))!.group(1)!,
-    //                 );
-    //
-    //                 await sqLite.updatePosts(latestFile!);
-    //                 notificationManager!.show(
-    //                   thumbnail: const Icon(Icons.check_circle, color: Colors.green, size: 32),
-    //                   title: 'Posts updated',
-    //                   description: 'Latest posts loaded from e621.',
-    //                   autoCloseDuration: const Duration(seconds: 6),
-    //                 );
-    //                 //loadE621Posts();
-    //               } else {
-    //                 notificationManager!.show(
-    //                   thumbnail: const Icon(Icons.warning_amber, color: Colors.orange, size: 32),
-    //                   title: 'Update failed',
-    //                   description: 'Could not download fresh posts.\nUsing existing file (may be outdated).',
-    //                   autoCloseDuration: const Duration(seconds: 10),
-    //                 );
-    //               }
-    //             },
-    //             child: const Text("Try download", style: TextStyle(fontSize: 12))
-    //         ),
-    //         Gap(7),
-    //         ElevatedButton(
-    //             style: ButtonStyle(
-    //                 foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
-    //                 shape: WidgetStateProperty.all<RoundedRectangleBorder>(const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))))
-    //             ),
-    //             onPressed: (){
-    //               notificationManager!.close(notWarn);
-    //               init();
-    //             },
-    //             child: const Text("Try again", style: TextStyle(fontSize: 12))
-    //         )
-    //       ],
-    //     )),
-    //     sound: NtSound.wrong
-    //   );
-    // }
   }
 
   void increment() {

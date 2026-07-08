@@ -30,8 +30,11 @@ import 'dart:io' show Directory, File, Platform;
 import '../Utils.dart';
 import 'Objectbox.dart';
 
+typedef ProgressCallback = void Function(int processedRows, String stage);
+
 class SQLite{
   late Database database;
+  late Database dataTempDatabase;
   late Database constDatabase;
 
   bool use = false;
@@ -252,6 +255,8 @@ class SQLite{
         await db.execute('CREATE INDEX IF NOT EXISTS idx_rating ON e621posts(rating);');
 
         try{
+          await db.execute("CREATE VIRTUAL TABLE IF NOT EXISTS test_fts5 USING fts5(dummy);");
+          await db.execute("DROP TABLE IF EXISTS test_fts5;");
           await db.execute("""
           CREATE VIRTUAL TABLE IF NOT EXISTS post_tags_fts USING fts4(
             tag_string,
@@ -265,7 +270,7 @@ class SQLite{
             tag_string,
             content='e621posts',
             content_rowid='id',
-            tokenize="unicode61 tokenchars '_()-'"
+            tokenize="unicode61 tokenchars '_()-/.:'"
           );
         """);
         }
@@ -357,6 +362,21 @@ class SQLite{
             await db.execute('ALTER TABLE favorites ADD host VARCHAR(256)');
             break;
           default:
+        }
+      },
+      version: dbVersion,
+    );
+
+    // Data Temp Database
+    dbPath = File(p.join(dD.path, 'CImaGen', 'databases', 'data_temp_database${!BLYATPIZDETS ? '_debug${debug_index == 0 ? '' : '_$debug_index'}' : ''}.db'));
+    dataTempDatabase = await openDatabase(
+      dbPath.path,
+      onOpen: (db) async {
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if(oldVersion == 0) return;
+        if (kDebugMode) {
+          print('old: $oldVersion, new: $newVersion');
         }
       },
       version: dbVersion,
@@ -1533,7 +1553,76 @@ class SQLite{
   }
 
   // e621
-  Future<void> updatePosts(File csvFile) async {
+  // Future<void> updatePosts(File csvFile) async {
+  //   print('File exists: ${csvFile.existsSync()}');
+  //   print('File size: ${await csvFile.length()} bytes');
+  //
+  //   if (await csvFile.length() == 0) {
+  //     print('File is empty → nothing to process');
+  //     return;
+  //   }
+  //
+  //   await _dropIndexes(database);
+  //
+  //   const int batchSize = 5000;
+  //   const int commitEvery = 20;
+  //   List<List<dynamic>> pendingRows = [];
+  //   int rowCount = 0;
+  //
+  //   try {
+  //     final bytes = await csvFile.readAsBytes();
+  //     int startOffset = 0;
+  //     if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+  //       print('Detected UTF-8 BOM → skipping it');
+  //       startOffset = 3;
+  //     }
+  //
+  //     final inputStream = csvFile.openRead(startOffset);
+  //     final rowStream = inputStream
+  //         .transform(utf8.decoder)
+  //         .transform(const CsvToListConverter(
+  //           shouldParseNumbers: false,
+  //           eol: '\n',
+  //         )).handleError((error, stack) {
+  //           print('Stream error: $error');
+  //         });
+  //
+  //     await for (var row in rowStream) {
+  //       rowCount++;
+  //       if (rowCount <= 3) {
+  //         print('First few rows: $row');
+  //       }
+  //
+  //       pendingRows.add(row);
+  //
+  //       if (pendingRows.length >= batchSize * commitEvery) {
+  //         await _processLargeChunk(pendingRows);
+  //         pendingRows = [];
+  //         print('Processed large chunk (total rows: $rowCount)');
+  //       }
+  //     }
+  //     await database.execute("INSERT INTO post_tags_fts(post_tags_fts) VALUES('rebuild');");
+  //     print('Stream completed. Total rows read: $rowCount');
+  //
+  //     if (pendingRows.isNotEmpty) {
+  //       await _processLargeChunk(pendingRows);
+  //       print('Processed final chunk');
+  //     }
+  //
+  //     await _createIndexes(database);
+  //
+  //     print('Import finished successfully');
+  //   } catch (e, st) {
+  //     print('Fatal error during streaming: $e');
+  //     print(st);
+  //     rethrow;
+  //   }
+  // }
+
+  Future<void> updatePosts(
+      File csvFile, {
+        required ProgressCallback onProgress,
+      }) async {
     print('File exists: ${csvFile.existsSync()}');
     print('File size: ${await csvFile.length()} bytes');
 
@@ -1542,6 +1631,7 @@ class SQLite{
       return;
     }
 
+    onProgress(0, 'Dropping indexes...'); // <-- Progress update
     await _dropIndexes(database);
 
     const int batchSize = 5000;
@@ -1561,11 +1651,13 @@ class SQLite{
       final rowStream = inputStream
           .transform(utf8.decoder)
           .transform(const CsvToListConverter(
-            shouldParseNumbers: false,
-            eol: '\n',
-          )).handleError((error, stack) {
-            print('Stream error: $error');
-          });
+        shouldParseNumbers: false,
+        eol: '\n',
+      )).handleError((error, stack) {
+        print('Stream error: $error');
+      });
+
+      onProgress(0, 'Reading CSV...'); // <-- Progress update
 
       await for (var row in rowStream) {
         rowCount++;
@@ -1575,22 +1667,31 @@ class SQLite{
 
         pendingRows.add(row);
 
+        // Commit every 100,000 rows (5000 * 20)
         if (pendingRows.length >= batchSize * commitEvery) {
+          onProgress(rowCount, 'Inserting into database...'); // <-- Progress update
           await _processLargeChunk(pendingRows);
           pendingRows = [];
           print('Processed large chunk (total rows: $rowCount)');
         }
       }
-      await database.execute("INSERT INTO post_tags_fts(post_tags_fts) VALUES('rebuild');");
+
       print('Stream completed. Total rows read: $rowCount');
 
+      // FIX: Process remaining rows BEFORE rebuilding FTS
       if (pendingRows.isNotEmpty) {
+        onProgress(rowCount, 'Inserting final chunk...'); // <-- Progress update
         await _processLargeChunk(pendingRows);
         print('Processed final chunk');
       }
 
+      onProgress(rowCount, 'Rebuilding search index...'); // <-- Progress update
+      await database.execute("INSERT INTO post_tags_fts(post_tags_fts) VALUES('rebuild');");
+
+      onProgress(rowCount, 'Creating indexes...'); // <-- Progress update
       await _createIndexes(database);
 
+      onProgress(rowCount, 'Import finished'); // <-- Progress update
       print('Import finished successfully');
     } catch (e, st) {
       print('Fatal error during streaming: $e');

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:cimagen/modules/AudioController.dart';
+import 'package:cimagen/pages/sub/AvatarCrop.dart';
 import 'package:cimagen/pages/sub/ChangeColorUtil.dart';
 import 'package:cimagen/pages/sub/CharacterCard.dart';
 import 'package:cimagen/components/XYZBuilder.dart';
@@ -11,6 +12,7 @@ import 'package:cimagen/pages/sub/ImageView.dart';
 import 'package:cimagen/pages/sub/MiniWorld.dart';
 import 'package:cimagen/pages/sub/SafetensorsModelView.dart';
 import 'package:cimagen/pages/sub/categories/Main.dart';
+import 'package:cimagen/pages/sub/wallpaper_changer.dart';
 import 'package:cimagen/utils/ImageManager.dart';
 import 'package:collection/collection.dart';
 import 'package:dotted_border/dotted_border.dart';
@@ -773,7 +775,7 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: Container(
-              color: _isDragOver ? Colors.blue.withOpacity(0.4) : Theme.of(context).scaffoldBackgroundColor,
+              color: _isDragOver ? Theme.of(context).colorScheme.primary.withAlpha(100) : Theme.of(context).scaffoldBackgroundColor,
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -781,8 +783,8 @@ class _HomeState extends State<Home> with SingleTickerProviderStateMixin {
                     const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
                     const Gap(8),
                     I18nText('home.reader.mobile.selectFile', child: Text('', style: const TextStyle(fontWeight: FontWeight.w500)))
-                  ] :[
-                    const Icon(Icons.file_open_outlined, color: Color(0xFF0068ff), size: 36),
+                  ] : [
+                    Icon(Icons.file_open_outlined, color: Theme.of(context).colorScheme.primary, size: 36),
                     const Gap(8),
                     I18nText('home.reader.desktop.selectFile', child: Text('', style: const TextStyle(fontWeight: FontWeight.w500))),
                     I18nText('home.reader.desktop.or'),
@@ -1134,6 +1136,16 @@ class FileInfoPreview extends StatelessWidget{
             label: const Text('Color changer'),
             icon: const Icon(Icons.edit_rounded),
             onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => ColorReplacementScreen(imageMeta: im!))),
+          ),
+          MenuItem(
+            label: const Text('Crop'),
+            icon: const Icon(Icons.crop),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => AvatarCrop(imageMeta: im!))),
+          ),
+          MenuItem(
+            label: const Text('Set as wallpaper'),
+            icon: const Icon(Icons.monitor),
+            onSelected: (_) => Navigator.push(context, MaterialPageRoute(builder: (context) => WallpaperChanger(imageMeta: im!))),
           )
         ],
       ),

@@ -25,7 +25,7 @@ class _TestActivityState extends State<TestActivity> {
 
   bool loaded = false;
 
-  String path = 'K:\\pictures\\sd\\Арты\\00000-3570347650 copy.png';
+  String path = 'F:\\Проекты\\Hyena office\\00109 копия1123.png';
 
   @override
   void initState(){

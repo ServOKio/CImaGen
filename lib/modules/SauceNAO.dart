@@ -17,7 +17,6 @@ import 'package:provider/provider.dart';
 import '../../Utils.dart';
 import '../main.dart';
 import '../pages/Home.dart';
-import 'DataManager.dart';
 
 class SauceNAO extends StatefulWidget{
   final ImageMeta imageMeta;
