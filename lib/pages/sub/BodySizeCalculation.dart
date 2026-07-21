@@ -7,6 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
+// Added for Depth Map
+import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:external_path/external_path.dart';
+
 import '../../Utils.dart';
 
 import 'package:image/image.dart' as img;
@@ -33,16 +39,7 @@ Map<String, dynamic> sizes = {
       'wide': [3.2, 5],  // width
       'high': [3.54, 3.59],  // height
       'gram': [50, 51],
-      // crotalWidths: [9, 13],
-      // jets: [5, 7]
     }
-    // 5.7 × 5.5 × 4.5 cm
-    // 5.7 × 5.5 × 4.5 cm and 4.0 × 3.3 × 2.2 cm,
-
-    // Total sperm counts 283.5 × 106 and 1.26 × 106,
-
-    //50-51 g) and size (60-70 mm length and 40-50 mm width
-
   },
   'fox': {
     'name': 'Red fox',
@@ -51,12 +48,6 @@ Map<String, dynamic> sizes = {
       'wide': [1.259, 1.901],  // width
       'high': [1.188, 1.822],  // height
       'gram': [30.35, 52.80],
-      // We have assessed the allometric relationship between mass of testes and body mass using data from 133 mammalian species.
-      // The logarithmically transformed data were fitted by a regression (r2=0.86) that is described by the power function: Y=0.035 X0.72,
-      // where Y is mass of both testes in grams and X is body mass in grams
-
-      // crotalWidths: [9, 13],
-      // jets: [5, 7]
     }
   }
 };
@@ -93,6 +84,14 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
   // Settings
   String METADATA_KEY = 'X-BodySizePoints'; // custom key, avoid conflict with other tools
   String CURRENT_VERSION = '1.0.0';          // bump when format changes
+
+  // Depth Map State
+  Interpreter? _depthInterpreter;
+  List<List<double>>? _depthMap;
+  bool _isDepthLoaded = false;
+  bool _isDepthLoading = false;
+  Uint8List? _depthPreviewPng;
+  double _depthScaleK = 500.0; // Tunable scale factor for relative depth
 
   Map<String, dynamic> get pointsInfo => {
     'version': CURRENT_VERSION,
@@ -184,7 +183,127 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     _desiredLengthController.text = _desiredLength.toString();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       loadMeta(); // try to restore on first build
+      _initDepthModel(); // Load TFLite model on start
     });
+  }
+
+  @override
+  void dispose() {
+    _depthInterpreter?.close();
+    super.dispose();
+  }
+
+  // --- DEPTH MAP LOGIC ---
+  Future<void> _initDepthModel() async {
+    try {
+      Directory? dD;
+      if (Platform.isAndroid) {
+        dD = Directory(await ExternalPath.getExternalStoragePublicDirectory(ExternalPath.DIRECTORY_DOCUMENTS));
+      } else {
+        dD = await getApplicationDocumentsDirectory();
+      }
+
+      File floatModel = File(p.join(dD.path, 'CImaGen', 'tflite', 'midas-tflite-float', 'midas.tflite'));
+      File quantModel = File(p.join(dD.path, 'CImaGen', 'tflite', 'midas-tflite-w8a8', 'midas.tflite'));
+
+      File modelFile = floatModel.existsSync() ? floatModel : (quantModel.existsSync() ? quantModel : floatModel);
+
+      if (await modelFile.exists()) {
+        _depthInterpreter = await Interpreter.fromFile(modelFile);
+        _generateDepthMap();
+      } else {
+        debugPrint("Depth model not found at ${modelFile.path}");
+      }
+    } catch (e) {
+      debugPrint("Failed to load depth model: $e");
+    }
+  }
+
+  Future<void> _generateDepthMap() async {
+    if (_depthInterpreter == null || _isDepthLoading) return;
+    setState(() => _isDepthLoading = true);
+
+    try {
+      Uint8List? imageBytes = widget.imageMeta?.fullImage;
+      if (imageBytes == null && widget.imageMeta?.fullPath != null) {
+        imageBytes = await compute(readAsBytesSync, widget.imageMeta!.fullPath!);
+      }
+      if (imageBytes == null) return;
+
+      img.Image? orig = await compute(img.decodeImage, imageBytes);
+      if (orig == null) return;
+
+      int inputSize = 256; // MiDaS small standard
+      img.Image resized = img.copyResize(orig, width: inputSize, height: inputSize);
+
+      // Prepare input tensor
+      var input = List.generate(1, (i) => List.generate(inputSize, (y) => List.generate(inputSize, (x) {
+        var px = resized.getPixel(x, y);
+        return [px.r / 255.0, px.g / 255.0, px.b / 255.0];
+      })));
+
+      var output = List.generate(1, (i) => List.generate(inputSize, (y) => List.generate(inputSize, (x) => [0.0])));
+
+      _depthInterpreter!.run(input, output);
+
+      // Find min/max for normalization
+      double minVal = double.infinity;
+      double maxVal = -double.infinity;
+      for (int y = 0; y < inputSize; y++) {
+        for (int x = 0; x < inputSize; x++) {
+          double val = output[0][y][x][0];
+          if (val < minVal) minVal = val;
+          if (val > maxVal) maxVal = val;
+        }
+      }
+
+      // Generate 2D Depth Array and Preview Image
+      img.Image depthImg = img.Image(width: orig.width, height: orig.height);
+      _depthMap = List.generate(orig.height, (y) => List.generate(orig.width, (x) => 0.0));
+
+      for (int y = 0; y < orig.height; y++) {
+        for (int x = 0; x < orig.width; x++) {
+          int sx = (x / orig.width * inputSize).toInt().clamp(0, inputSize - 1);
+          int sy = (y / orig.height * inputSize).toInt().clamp(0, inputSize - 1);
+          double val = output[0][sy][sx][0];
+
+          // Normalize 0.0 to 1.0
+          double normalized = (val - minVal) / (maxVal - minVal);
+          _depthMap![y][x] = normalized;
+
+          int gray = (normalized * 255).toInt().clamp(0, 255);
+          depthImg.setPixelRgba(x, y, gray, gray, gray, 255);
+        }
+      }
+
+      setState(() {
+        _depthPreviewPng = img.encodePng(depthImg);
+        _isDepthLoaded = true;
+        _isDepthLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Error generating depth map: $e");
+      setState(() => _isDepthLoading = false);
+    }
+  }
+
+  double getRelativeDepth(Offset pixel) {
+    if (_depthMap == null) return 0.0;
+    int x = pixel.dx.toInt().clamp(0, _depthMap![0].length - 1);
+    int y = pixel.dy.toInt().clamp(0, _depthMap!.length - 1);
+    return _depthMap![y][x];
+  }
+
+  // True 3D distance in pixels
+  double calculate3DPixels(Offset p1, Offset p2) {
+    double d2D = (p1 - p2).distance;
+    if (!_isDepthLoaded) return d2D;
+
+    double z1 = getRelativeDepth(p1);
+    double z2 = getRelativeDepth(p2);
+    double deltaZ = (z1 - z2).abs() * _depthScaleK; // Multiply by user scale
+
+    return math.sqrt((d2D * d2D) + (deltaZ * deltaZ));
   }
 
   @override
@@ -225,48 +344,47 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     double imageWidth = widget.imageMeta!.size!.width.toDouble();
     double imageHeight = widget.imageMeta!.size!.height.toDouble();
 
-    double cmPerPixel = 0.0;
     double heightPixel = 0.0;
+    double cmPerPixel = 0.0;
     try {
-      bool headVisible = isVisible(mainPoints[0].offset, imageWidth, imageHeight);
-      double headY = mainPoints[0].offset.dy;
-      if (!headVisible) {
-        cmPerPixel = 0.0;
-      } else {
-        double fraction = 0.0;
-        double bottomY = headY;
-        List<double> ankleYs = [];
-        if (isVisible(mainPoints[11].offset, imageWidth, imageHeight)) ankleYs.add(mainPoints[11].offset.dy);
-        if (isVisible(mainPoints[12].offset, imageWidth, imageHeight)) ankleYs.add(mainPoints[12].offset.dy);
-        if (ankleYs.isNotEmpty) {
-          bottomY = ankleYs.reduce((a, b) => a + b) / ankleYs.length;
-          fraction = 1.0;
-        } else {
-          List<double> kneeYs = [];
-          if (isVisible(mainPoints[9].offset, imageWidth, imageHeight)) kneeYs.add(mainPoints[9].offset.dy);
-          if (isVisible(mainPoints[10].offset, imageWidth, imageHeight)) kneeYs.add(mainPoints[10].offset.dy);
-          if (kneeYs.isNotEmpty) {
-            bottomY = kneeYs.reduce((a, b) => a + b) / kneeYs.length;
-            fraction = 0.76;
-          } else {
-            List<double> hipYs = [];
-            if (isVisible(mainPoints[7].offset, imageWidth, imageHeight)) hipYs.add(mainPoints[7].offset.dy);
-            if (isVisible(mainPoints[8].offset, imageWidth, imageHeight)) hipYs.add(mainPoints[8].offset.dy);
-            if (hipYs.isNotEmpty) {
-              bottomY = hipYs.reduce((a, b) => a + b) / hipYs.length;
-              fraction = 0.52;
-            }
-          }
-        }
-        heightPixel = bottomY - headY;
-        if (heightPixel > 0 && fraction > 0) {
-          double measuredCm = _ch * fraction;
-          cmPerPixel = measuredCm / heightPixel;
-        }
-      }
-    } catch (e) {
+      bool isVis(int idx) => isVisible(mainPoints[idx].offset, imageWidth, imageHeight);
+      double totalBodyPathPixels3D = 0.0;
 
-    }
+      // 1. Head to Shoulders
+      if (isVis(0) && isVis(5) && isVis(6)) {
+        Offset midShoulder = averageOffset(mainPoints[5].offset, mainPoints[6].offset);
+        totalBodyPathPixels3D += calculate3DPixels(mainPoints[0].offset, midShoulder);
+      }
+
+      // 2. Shoulders to Hips (Torso)
+      if (isVis(5) && isVis(6) && isVis(7) && isVis(8)) {
+        Offset midShoulder = averageOffset(mainPoints[5].offset, mainPoints[6].offset);
+        Offset midHip = averageOffset(mainPoints[7].offset, mainPoints[8].offset);
+        totalBodyPathPixels3D += calculate3DPixels(midShoulder, midHip);
+      }
+
+      // 3. Legs (Hip -> Knee -> Ankle)
+      double rightLegPath = 0.0;
+      if (isVis(7) && isVis(9)) rightLegPath += calculate3DPixels(mainPoints[7].offset, mainPoints[9].offset);
+      if (isVis(9) && isVis(11)) rightLegPath += calculate3DPixels(mainPoints[9].offset, mainPoints[11].offset);
+
+      double leftLegPath = 0.0;
+      if (isVis(8) && isVis(10)) leftLegPath += calculate3DPixels(mainPoints[8].offset, mainPoints[10].offset);
+      if (isVis(10) && isVis(12)) leftLegPath += calculate3DPixels(mainPoints[10].offset, mainPoints[12].offset);
+
+      double legPath = 0.0;
+      if (rightLegPath > 0 && leftLegPath > 0) {
+        legPath = (rightLegPath + leftLegPath) / 2.0;
+      } else {
+        legPath = math.max(rightLegPath, leftLegPath);
+      }
+
+      totalBodyPathPixels3D += legPath;
+
+      if (totalBodyPathPixels3D > 0) {
+        cmPerPixel = _ch / totalBodyPathPixels3D;
+      }
+    } catch (e) {}
 
     List<AverageInfo> averages = [];
 
@@ -274,7 +392,8 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
       if (isVisible(points[idx1].offset, imageWidth, imageHeight) && isVisible(points[idx2].offset, imageWidth, imageHeight)) {
         Offset p1 = points[idx1].offset;
         Offset p2 = points[idx2].offset;
-        double distPixel = (p1 - p2).distance;
+        // Use 3D distance in pixels, then convert to cm
+        double distPixel = calculate3DPixels(p1, p2);
         double distCm = distPixel * cmPerPixel;
         String message = '$prefix ${distCm.toStringAsFixed(1)}cm';
         averages.add(AverageInfo(a: p1, b: p2, message: message));
@@ -301,9 +420,8 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
       }
       Offset avgShoulder = Offset(sumX / visibleShoulders.length, sumY / visibleShoulders.length);
 
-      // Head
       if (isVisible(mainPoints[0].offset, imageWidth, imageHeight)) {
-        double headPixel = avgShoulder.dy - mainPoints[0].offset.dy;
+        double headPixel = calculate3DPixels(mainPoints[0].offset, avgShoulder);
         double headCm = headPixel * cmPerPixel;
         averages.add(AverageInfo(
           a: mainPoints[0].offset,
@@ -312,7 +430,6 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
         ));
       }
 
-      // Torso
       List<Offset> visibleHips = [];
       if (isVisible(mainPoints[7].offset, imageWidth, imageHeight)) visibleHips.add(mainPoints[7].offset);
       if (isVisible(mainPoints[8].offset, imageWidth, imageHeight)) visibleHips.add(mainPoints[8].offset);
@@ -324,7 +441,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
           sumY += o.dy;
         }
         Offset avgHip = Offset(sumX / visibleHips.length, sumY / visibleHips.length);
-        double torsoPixel = avgHip.dy - avgShoulder.dy;
+        double torsoPixel = calculate3DPixels(avgShoulder, avgHip);
         double torsoCm = torsoPixel * cmPerPixel;
         averages.add(AverageInfo(
           a: avgShoulder,
@@ -338,10 +455,9 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     List<Offset> visiblePenilePoints = penilePoints.where((p) => isVisible(p.offset, imageWidth, imageHeight)).map((p) => p.offset).toList();
     if (_penileExpanded && visiblePenilePoints.length >= 3) {
       for (int i = 0; i < visiblePenilePoints.length - 1; i++) {
-        double distPixel = (visiblePenilePoints[i] - visiblePenilePoints[i + 1]).distance;
+        double distPixel = calculate3DPixels(visiblePenilePoints[i], visiblePenilePoints[i + 1]);
         penileLength += distPixel * cmPerPixel;
       }
-      // Label
       int mid = visiblePenilePoints.length ~/ 2;
       Offset labelPos = visiblePenilePoints[mid];
       averages.add(AverageInfo(
@@ -369,9 +485,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
           constrained: false,
           child: GestureDetector(
             key: _key,
-            onTapDown: (TapDownDetails event) {
-              //print(event.localPosition);
-            },
+            onTapDown: (TapDownDetails event) {},
             child: Stack(
               children: [
                 if (['png', 'jpeg', 'jpg', 'gif', 'webp', 'bmp'].contains(widget.imageMeta!.fileTypeExtension))
@@ -386,11 +500,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 60,
-                            ),
+                            const Icon(Icons.error_outline, color: Colors.red, size: 60),
                             Text('Error: $exception')
                           ],
                         ),
@@ -425,11 +535,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.red,
-                                size: 60,
-                              ),
+                              const Icon(Icons.error_outline, color: Colors.red, size: 60),
                               Text('Error: ${snapshot.error}')
                             ],
                           ),
@@ -441,13 +547,13 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                     },
                   ),
                 if (_penileExpanded && visiblePenilePoints.length >= 3)
-                CustomPaint(
-                  painter: CurvePainter(
-                    points: visiblePenilePoints,
-                    desiredFraction: penileLength > 0 ? _desiredLength / penileLength : 0,
+                  CustomPaint(
+                    painter: CurvePainter(
+                      points: visiblePenilePoints,
+                      desiredFraction: penileLength > 0 ? _desiredLength / penileLength : 0,
+                    ),
+                    size: Size(imageWidth, imageHeight),
                   ),
-                  size: Size(imageWidth, imageHeight),
-                ),
                 ...mainPoints.mapIndexed(
                       (id, pointInfo) {
                     if (!isVisible(pointInfo.offset, imageWidth, imageHeight)) {
@@ -665,12 +771,11 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
     double imageHeight = widget.imageMeta!.size!.height.toDouble();
 
     double cmPerPixel = 0.0;
-
     double penileLength = 0.0;
     List<Offset> visiblePenilePoints = penilePoints.where((p) => isVisible(p.offset, imageWidth, imageHeight)).map((p) => p.offset).toList();
     if (_penileExpanded && visiblePenilePoints.length >= 3) {
       for (int i = 0; i < visiblePenilePoints.length - 1; i++) {
-        double distPixel = (visiblePenilePoints[i] - visiblePenilePoints[i + 1]).distance;
+        double distPixel = calculate3DPixels(visiblePenilePoints[i], visiblePenilePoints[i + 1]);
         penileLength += distPixel * cmPerPixel;
       }
     }
@@ -713,6 +818,39 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
       child: SingleChildScrollView(
         child: Column(
           children: [
+            // --- ADDED DEPTH MAP UI ---
+            ExpansionTile(
+              initiallyExpanded: false,
+              tilePadding: EdgeInsets.zero,
+              title: Text('3D Depth Map (Perspective Fix)', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.w600, fontSize: 18)),
+              children: <Widget>[
+                const SizedBox(height: 7),
+                if (_isDepthLoading)
+                  const Center(child: CircularProgressIndicator())
+                else if (_depthPreviewPng != null)
+                  Container(
+                    decoration: BoxDecoration(border: Border.all(color: Colors.white24)),
+                    child: Image.memory(_depthPreviewPng!, height: 200, fit: BoxFit.contain),
+                  )
+                else
+                  const Text('No depth map loaded. Make sure midas.tflite is in the correct folder.', style: TextStyle(color: Colors.white54)),
+                const SizedBox(height: 10),
+                Text('Depth Scale (K): ${_depthScaleK.toStringAsFixed(0)}'),
+                Slider(
+                  value: _depthScaleK,
+                  min: 0,
+                  max: 2000,
+                  divisions: 200,
+                  label: _depthScaleK.toStringAsFixed(0),
+                  onChanged: (v) => setState(() => _depthScaleK = v),
+                ),
+                ElevatedButton(
+                  onPressed: _generateDepthMap,
+                  child: const Text('Regenerate Depth Map'),
+                ),
+                const SizedBox(height: 7),
+              ],
+            ),
             ExpansionTile(
               initiallyExpanded: true,
               tilePadding: EdgeInsets.zero,
@@ -940,7 +1078,7 @@ class _BodySizeCalculationState extends State<BodySizeCalculation> {
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'Place 3 points along the visible length from base to tip. Note: This is a rough 2D approximation. Actual length may differ due to perspective, curvature, etc.',
+                      'Place 3 points along the visible length from base to tip. Calculations use 3D depth map.',
                       style: TextStyle(color: Colors.white54, fontSize: 13),
                     ),
                   ),
