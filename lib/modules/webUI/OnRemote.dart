@@ -6,6 +6,7 @@ import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/modules/webUI/AbMain.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
@@ -1012,6 +1013,70 @@ class OnRemote extends ChangeNotifier implements AbMain{
             title: 'Error processing folder ${f.getter}',
             description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e',
             sound: NtSound.error
+          );
+          Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
+        }
+      }
+      if(notID != -1) notificationManager!.close(notID);
+      isIndexingAll = false;
+    });
+    return true;
+  }
+
+  @override
+  bool indexLast(int index, {int count = 3}) {
+    if(offlineMode){
+      notificationManager!.show(
+          thumbnail: const Icon(Icons.wifi_off, color: Colors.grey, size: 64),
+          title: 'Oops, problem...',
+          description: 'You are offline, so indexing is unavailable',
+          autoCloseDuration: Duration(seconds: 10)
+      );
+      return false;
+    }
+    int notID = notificationManager!.show(
+        thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+        title: 'Starting indexing',
+        description: 'Give us a few minutes, we will receive the folder data...'
+    );
+    getAllFolders(index).then((fo) async {
+      if(isIndexingAll) return false;
+      isIndexingAll = true;
+      fo = fo.whereIndexed((index, sh) => index > fo.length - 5).toList(growable: false);
+      notificationManager!.update(notID, (o){
+        o.setTitle('Indexing ${tabs[index]}');
+        o.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+        o.setContent(Container(
+          margin: const EdgeInsets.only(top: 10),
+          child: CImaGenLinearProgressIndicator(),
+        ));
+        o.setThumbnail(Shimmer.fromColors(
+          baseColor: Colors.lightBlueAccent,
+          highlightColor: Colors.blueAccent.withAlpha(76),
+          child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+        ));
+      });
+      int d = 0;
+      for(Folder f in fo){
+        try{
+          // То что уже есть, чтобы не трогать
+          List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
+          await indexFolder(f, hashes: ima, re: _internalTabs[index]);
+          if (kDebugMode) {
+            print('jobs co $getJobCountActive()');
+          }
+          await _isDone();
+          d++;
+          notificationManager!.update(notID, (o) => o.setContent(Container(
+            margin: const EdgeInsets.only(top: 10),
+            child: CImaGenLinearProgressIndicator(value: d * 1 / fo.length),
+          )));
+        } catch(e){
+          int notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+              title: 'Error processing folder ${f.getter}',
+              description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e',
+              sound: NtSound.error
           );
           Future.delayed(const Duration(milliseconds: 10000), () => notificationManager!.close(notID));
         }

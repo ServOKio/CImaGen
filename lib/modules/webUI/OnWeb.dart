@@ -303,6 +303,11 @@ class OnWeb extends ChangeNotifier implements AbMain{
   }
 
   @override
+  bool indexLast(int index, {int count = 3}){
+    throw Exception('Haha, not here');
+  }
+
+  @override
   Future<StreamController<ImageMeta>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async {
     Uri parse = Uri.parse(_remoteAddress);
     if (kDebugMode) {

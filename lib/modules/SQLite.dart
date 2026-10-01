@@ -39,7 +39,7 @@ class SQLite{
 
   bool use = false;
 
-  bool BLYATPIZDETS = !kDebugMode;
+  bool BLYATPIZDETS = !kDebugMode || true;
   int debug_index = 0;
 
   late final SqlBatchQueue sqlQueue;

@@ -51,6 +51,10 @@ abstract class AbMain extends ChangeNotifier{
     return false;
   }
 
+  bool indexLast(int index, {int count = 3}){
+    return false;
+  }
+
   Future<StreamController<ImageMeta>> indexFolder(Folder folder, {List<String>? hashes, RenderEngine? re}) async{
     // Read all files sizes and get hash
     late final StreamController<ImageMeta> controller;

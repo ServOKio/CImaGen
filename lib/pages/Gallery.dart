@@ -225,6 +225,10 @@ class _GalleryState extends State<Gallery> with TickerProviderStateMixin, Automa
               onTap: () => context.read<ImageManager>().getter.indexAll(_tabController!.index),
             ),
             PopupMenuItem<int>(
+              child: Text('Index last 5 ${_tabs[_tabController!.index]}'),
+              onTap: () => context.read<ImageManager>().getter.indexLast(_tabController!.index, count: 5),
+            ),
+            PopupMenuItem<int>(
               child: const Text('Find incorrectly located files'),
               onTap: (){
 

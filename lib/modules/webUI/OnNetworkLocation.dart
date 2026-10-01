@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -330,6 +331,56 @@ class OnNetworkLocation extends ChangeNotifier implements AbMain {
     getFolders(index).then((fo) async {
       if(isIndexingAll) return false;
       isIndexingAll = true;
+      notificationManager!.update(notID, (o){
+        o.setTitle('Indexing ${_tabs[index]}');
+        o.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+        o.setContent(Container(
+          margin: const EdgeInsets.only(top: 7),
+          width: 100,
+          child: const LinearProgressIndicator(),
+        ));
+        o.setThumbnail(Shimmer.fromColors(
+          baseColor: Colors.lightBlueAccent,
+          highlightColor: Colors.blueAccent.withOpacity(0.3),
+          child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+        ));
+      });
+      int d = 0;
+      for(var f in fo){
+        List<ImageMeta> ima = await getFolderFiles(index, f.name);
+        StreamController co = await indexFolder(f, hashes: ima.map((e) => e.pathHash).toList(growable: false));
+        await _isDone(co);
+        d++;
+        notificationManager!.update(notID, (o) => o.setContent(Container(
+            margin: const EdgeInsets.only(top: 7),
+            width: 100,
+            child: LinearProgressIndicator(value: (d * 100 / fo.length) / 100)
+        )));
+      }
+      if(notID != -1) notificationManager!.close(notID);
+      isIndexingAll = false;
+    }).catchError((err) {
+      notificationManager!.update(notID, (o){
+        o.setTitle('Error');
+        o.setDescription('Error: $err');
+        o.setContent(const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      });
+      return true;
+    });
+    return true;
+  }
+
+  @override
+  bool indexLast(int index, {int count = 3}) {
+    int notID = notificationManager!.show(
+        thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+        title: 'Starting indexing',
+        description: 'Give us a few seconds...'
+    );
+    getFolders(index).then((fo) async {
+      if(isIndexingAll) return false;
+      isIndexingAll = true;
+      fo = fo.whereIndexed((index, sh) => index > fo.length - 5).toList(growable: false);
       notificationManager!.update(notID, (o){
         o.setTitle('Indexing ${_tabs[index]}');
         o.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');

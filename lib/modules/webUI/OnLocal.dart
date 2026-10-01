@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:cimagen/main.dart';
 import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/utils/ImageManager.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -359,6 +360,65 @@ class OnLocal extends ChangeNotifier implements AbMain{
             description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e',
             autoCloseDuration: const Duration(milliseconds: 10000),
             sound: NtSound.error
+          );
+        }
+      }
+      if(notID != -1) notificationManager!.close(notID);
+      isIndexingAll = false;
+    }).catchError((err) {
+      notificationManager!.update(notID, (o){
+        o.setTitle('Error');
+        o.setDescription('Error: $err');
+        o.setContent(const Icon(Icons.error, color: Colors.redAccent, size: 64));
+      });
+      return true;
+    });
+    return true;
+  }
+
+  @override
+  bool indexLast(int index, {int count = 3}) {
+    int notID = notificationManager!.show(
+        thumbnail: const Icon(Icons.access_time_filled_outlined, color: Colors.lightBlueAccent, size: 64),
+        title: 'Starting indexing',
+        description: 'Give us a few seconds...'
+    );
+    getAllFolders(index).then((fo) async {
+      if(isIndexingAll) return false;
+      isIndexingAll = true;
+      fo = fo.whereIndexed((index, sh) => index > fo.length - 5).toList(growable: false);
+      notificationManager!.update(notID, (obj) {
+        obj.setTitle('Indexing ${tabs[index]}');
+        obj.setDescription('We are processing ${fo.length} folders,\nmeantime, you can have some tea');
+        obj.setContent(Container(
+          margin: const EdgeInsets.only(top: 10),
+          child: CImaGenLinearProgressIndicator(),
+        ));
+        obj.setThumbnail(Shimmer.fromColors(
+          baseColor: Colors.lightBlueAccent,
+          highlightColor: Colors.blueAccent.withOpacity(0.3),
+          child: const Icon(Icons.image_search_outlined, color: Colors.white, size: 64),
+        ));
+      });
+      int d = 0;
+      for(var f in fo){
+        try{
+          // То что уже есть, чтобы не трогать
+          List<String> ima = await getFolderHashes(normalizePath(f.getter), host: null);
+          StreamController co = await indexFolder(f, hashes: ima, re: _internalTabs[index]);
+          bool cont = await _isDone(co);
+          d++;
+          notificationManager!.update(notID, (o) => o.setContent(Container(
+            margin: const EdgeInsets.only(top: 10),
+            child: CImaGenLinearProgressIndicator(value: d * 1 / fo.length),
+          )));
+        } catch(e){
+          int notID = notificationManager!.show(
+              thumbnail: const Icon(Icons.error, color: Colors.redAccent),
+              title: 'Error processing folder ${f.getter}',
+              description: '${e.toString().startsWith('Invalid argument') ? 'Some internal error ?' : 'Unknown error'}\nError: $e',
+              autoCloseDuration: const Duration(milliseconds: 10000),
+              sound: NtSound.error
           );
         }
       }

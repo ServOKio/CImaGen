@@ -6,7 +6,6 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:cimagen/modules/AudioController.dart';
 import 'package:cimagen/modules/pawchive/pawchive.dart';
-import 'package:cimagen/modules/pawchive/pawchiveUI.dart';
 import 'package:external_path/external_path.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -261,8 +260,8 @@ class DataManager with ChangeNotifier {
     for (int offset = 0; offset < 3; offset++) {
       final targetDate = DateTime.now().subtract(Duration(days: offset));
       final dateStr = dateFormat.format(targetDate);
-      final fileName = 'tags-$dateStr.csv.gz';
-      final downloadUrl = 'https://e621.net/db_export/$fileName';
+      final fileName = 'tags.csv.gz';
+      final downloadUrl = 'https://static1.e621.net/data/db_export/$fileName';
 
       try {
         final request = http.Request('GET', Uri.parse(downloadUrl));
@@ -329,8 +328,8 @@ class DataManager with ChangeNotifier {
     for (int offset = 0; offset < 3; offset++) {
       final targetDate = DateTime.now().subtract(Duration(days: offset));
       final dateStr = dateFormat.format(targetDate);
-      final fileName = 'posts-$dateStr.csv.gz';
-      final downloadUrl = 'https://e621.net/db_export/$fileName';
+      final fileName = 'posts.csv.gz';
+      final downloadUrl = 'https://static1.e621.net/data/db_export/$fileName';
 
       try {
         final request = http.Request('GET', Uri.parse(downloadUrl));
